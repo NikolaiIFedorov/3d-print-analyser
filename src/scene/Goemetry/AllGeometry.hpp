@@ -1,0 +1,6 @@
+#include "Point.hpp"
+#include "Edge.hpp"
+#include "Curve.hpp"
+#include "Face.hpp"
+#include "Solid.hpp"
+#include "Geometry.hpp"

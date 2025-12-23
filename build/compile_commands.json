@@ -1,0 +1,98 @@
+[
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -g -arch arm64 -o CMakeFiles/glad.dir/include/glad/src/glad.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/src/glad.c",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/src/glad.c",
+  "output": "CMakeFiles/glad.dir/include/glad/src/glad.c.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/SceneRenderer.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/SceneRenderer.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Patch/patch.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Patch/patch.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o"
+},
+{
+  "directory": "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+  "command": "/usr/bin/clang++  -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry -isystem /opt/homebrew/include -g -std=c++2b -arch arm64 -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp",
+  "file": "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp",
+  "output": "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o"
+}
+]

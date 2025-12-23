@@ -1,0 +1,4 @@
+/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles/glad.dir
+/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles/CAD_OpenGL.dir
+/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles/edit_cache.dir
+/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles/rebuild_cache.dir
