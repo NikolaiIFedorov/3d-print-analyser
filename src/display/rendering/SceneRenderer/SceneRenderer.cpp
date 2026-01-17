@@ -15,7 +15,7 @@ void SceneRenderer::UpdateFromRenderBuffer(const Scene &scene)
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
 
-        wireframe.Generate(scene, renderBuffer, vertices, indices, viewPort);
+        wireframe.Generate(renderBuffer, vertices, indices);
         renderer.UploadLineMesh(vertices, indices);
     }
 
@@ -24,7 +24,7 @@ void SceneRenderer::UpdateFromRenderBuffer(const Scene &scene)
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
 
-        patch.Generate(scene, renderBuffer, vertices, indices, viewPort);
+        patch.Generate(renderBuffer, vertices, indices, viewPort);
 
         renderer.UploadTriangleMesh(vertices, indices);
     }
@@ -65,7 +65,7 @@ void SceneRenderer::Shutdown()
     renderer.Shutdown();
 }
 
-void SceneRenderer::AddForm(uint32_t id)
+void SceneRenderer::AddForm(FormPtr form)
 {
-    renderBuffer.AddForm(id);
+    renderBuffer.AddForm(form);
 }

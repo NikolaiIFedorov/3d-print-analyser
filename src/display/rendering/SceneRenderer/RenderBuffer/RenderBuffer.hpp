@@ -1,17 +1,18 @@
 #pragma once
 
 #include <vector>
-#include <cstdint>
+#include <variant>
+#include "Geometry/AllGeometry.hpp"
 
 struct RenderBuffer
 {
 public:
     void Clear();
-    void AddForm(uint32_t id);
-    void RemoveForm(uint32_t id);
+    void AddForm(FormPtr form);
+    void RemoveForm(FormPtr form);
 
-    const std::vector<uint32_t> &GetForms() const { return forms; }
+    const std::vector<FormPtr> &GetForms() const { return forms; }
 
 private:
-    std::vector<uint32_t> forms;
+    std::vector<FormPtr> forms;
 };

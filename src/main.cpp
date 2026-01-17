@@ -2,6 +2,7 @@
 
 #include "scene.hpp"
 #include "display/display.hpp"
+#include "map"
 
 Scene scene;
 
@@ -169,11 +170,10 @@ bool Init()
     return true;
 }
 
-RunType type = WINDOW;
+RunType type = TEST;
 
 int main()
 {
-    LOG_START
     if (type == TEST)
     {
     }
@@ -187,17 +187,17 @@ int main()
         if (!Init())
             return -1;
 
-        uint32_t p1 = scene.CreatePoint({1.0f, 0.0f, 0.0f});
-        uint32_t p2 = scene.CreatePoint({1.0f, 1.0f, 0.0f});
-        uint32_t p3 = scene.CreatePoint({0.0f, 1.0f, 0.0f});
-        uint32_t p4 = scene.CreatePoint({0.0f, 0.0f, 0.0f});
+        Point *p1 = scene.CreatePoint({1.0f, 0.0f, 0.0f});
+        Point *p2 = scene.CreatePoint({1.0f, 1.0f, 0.0f});
+        Point *p3 = scene.CreatePoint({0.0f, 1.0f, 0.0f});
+        Point *p4 = scene.CreatePoint({0.0f, 0.0f, 0.0f});
 
-        uint32_t e1 = scene.CreateLineEdge(p1, p2);
-        uint32_t e2 = scene.CreateLineEdge(p2, p3);
-        uint32_t e3 = scene.CreateLineEdge(p3, p4);
-        uint32_t e4 = scene.CreateLineEdge(p4, p1);
+        Edge *e1 = scene.CreateEdge(p1, p2);
+        Edge *e2 = scene.CreateEdge(p2, p3);
+        Edge *e3 = scene.CreateEdge(p3, p4);
+        Edge *e4 = scene.CreateEdge(p4, p1);
 
-        uint32_t f1 = scene.CreatePlanarFace({{e1, e2, e3, e4}});
+        Face *f1 = scene.CreateFace({{e1, e2, e3, e4}});
 
         display.AddForm(f1);
 

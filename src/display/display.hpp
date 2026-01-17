@@ -16,8 +16,8 @@ public:
     SceneRenderer *GetRenderer() { return &renderer; }
 
     void Render(const Scene &scene);
-    void AddForm(uint32_t id);
-    void AddForm(const std::vector<uint32_t> &ids);
+    void AddForm(FormPtr form);
+    void AddForm(const std::vector<FormPtr> &forms);
     void UpdateBuffer(const Scene &scene);
 
     void SetAspectRatio(uint16_t width, uint16_t height);

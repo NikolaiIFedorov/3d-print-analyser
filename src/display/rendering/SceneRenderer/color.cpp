@@ -1,8 +1,8 @@
 #include "color.hpp"
 
-glm::vec3 Color::GetFace(uint32_t id, const Scene &scene)
+glm::vec3 Color::GetFace(const Face* face)
 {
-    Flaw flaw = Analysis::GetFlaw(id, scene);
+    Flaw flaw = Analysis::GetFlaw(face);
     if (flaw == Flaw::OVERHANG)
     {
         return glm::vec3(FACE + FORM_STEP, FACE, FACE);

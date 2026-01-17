@@ -30,20 +30,24 @@ static glm::dvec2 ProjectPointToPlane(const glm::dvec3 &point3D,
         glm::dot(relativePos, vAxis));
 }
 
-void Patch::Generate(const Scene &scene, const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
+void Patch::Generate(const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
 {
-    for (uint32_t id : buffer.GetForms())
+    for (FormPtr form : buffer.GetForms())
     {
-        Type type = Id::GetType(id);
-        switch (type)
+        switch (form.index())
         {
-        case Type::FACE:
-            AddFace(scene, id, vertices, indices);
+        case 3:
+        {
+            const Face *face = std::get<3>(form);
+            AddFace(face, vertices, indices);
             break;
-
-        case Type::SOLID:
-            AddSolid(scene, id, vertices, indices);
+        }
+        case 4:
+        {
+            const Solid *solid = std::get<4>(form);
+            AddSolid(solid, vertices, indices);
             break;
+        }
 
         default:
             break;
@@ -51,14 +55,10 @@ void Patch::Generate(const Scene &scene, const RenderBuffer &buffer, std::vector
     }
 }
 
-void Patch::AddFace(const Scene &scene, uint32_t faceId,
+void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
                     std::vector<uint32_t> &indices) const
 {
-    const Face *face = scene.GetFace(faceId);
-    if (face == nullptr || face->loops.empty())
-        return;
-
     glm::dvec3 faceNormal;
     if (face->IsPlanar())
     {
@@ -84,16 +84,10 @@ void Patch::AddFace(const Scene &scene, uint32_t faceId,
     for (const auto &edgeLoop : face->loops)
     {
         std::vector<glm::dvec3> loopPositions;
-        for (const auto &edgeId : edgeLoop)
+        for (const auto &edge : edgeLoop)
         {
-            const Edge *edge = scene.GetEdge(edgeId);
-            if (edge == nullptr)
-                continue;
-
-            const Point *p0 = scene.GetPoint(edge->startPointId);
-            const Point *p1 = scene.GetPoint(edge->endPointId);
-            if (p0 == nullptr || p1 == nullptr)
-                continue;
+            const Point *p0 = edge->startPoint;
+            const Point *p1 = edge->endPoint;
 
             if (!originSet)
             {
@@ -101,13 +95,13 @@ void Patch::AddFace(const Scene &scene, uint32_t faceId,
                 originSet = true;
             }
 
-            if (edge->curveId == 0)
+            if (edge->curve == nullptr)
             {
                 loopPositions.push_back(p0->position);
             }
             else
             {
-                const Curve *curve = scene.GetCurve(edge->curveId);
+                const Curve *curve = edge->curve;
 
                 std::vector<glm::dvec3> tessellatedPoints = TessellateCurveToPoints(curve, p0->position, p1->position, 16);
 
@@ -137,7 +131,7 @@ void Patch::AddFace(const Scene &scene, uint32_t faceId,
 
     if (triangleIndices.empty())
     {
-        LOG_WARN("Earcut produced no indices for face: " + Log::NumToStr(faceId));
+        LOG_WARN("Earcut produced no indices for face");
         return;
     }
 
@@ -149,7 +143,7 @@ void Patch::AddFace(const Scene &scene, uint32_t faceId,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            v.color = Color::GetFace(faceId, scene);
+            v.color = Color::GetFace();
 
             vertices.push_back(v);
         }
@@ -161,19 +155,13 @@ void Patch::AddFace(const Scene &scene, uint32_t faceId,
     }
 }
 
-void Patch::AddSolid(const Scene &scene, uint32_t id,
+void Patch::AddSolid(const Solid *solid,
                      std::vector<Vertex> &vertices,
                      std::vector<uint32_t> &indices) const
 {
-    const Solid *solid = scene.GetSolid(id);
-    if (solid == nullptr)
+    for (const Face *face : solid->faces)
     {
-        return;
-    }
-
-    for (uint32_t faceId : solid->faceIds)
-    {
-        AddFace(scene, faceId, vertices, indices);
+        AddFace(face, vertices, indices);
     }
 }
 

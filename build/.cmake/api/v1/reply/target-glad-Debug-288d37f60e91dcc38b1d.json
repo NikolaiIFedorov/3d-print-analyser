@@ -39,6 +39,12 @@
 			{
 				"command" : 2,
 				"file" : 0,
+				"line" : 26,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
 				"line" : 29,
 				"parent" : 0
 			},
@@ -72,10 +78,14 @@
 				},
 				{
 					"backtrace" : 3,
-					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include"
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2"
 				},
 				{
 					"backtrace" : 4,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include"
+				},
+				{
+					"backtrace" : 5,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include"
 				}
 			],

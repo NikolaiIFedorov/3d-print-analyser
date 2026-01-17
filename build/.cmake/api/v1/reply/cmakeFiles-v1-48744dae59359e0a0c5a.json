@@ -261,18 +261,6 @@
 		{
 			"isExternal" : true,
 			"path" : "/opt/homebrew/lib/cmake/glfw3/glfw3Targets-release.cmake"
-		},
-		{
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/glm/glmConfigVersion.cmake"
-		},
-		{
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/glm/glmConfig.cmake"
-		},
-		{
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/glm/glmConfig-release.cmake"
 		}
 	],
 	"kind" : "cmakeFiles",

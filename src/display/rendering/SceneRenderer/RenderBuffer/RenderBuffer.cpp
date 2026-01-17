@@ -6,14 +6,14 @@ void RenderBuffer::Clear()
     forms.clear();
 }
 
-void RenderBuffer::AddForm(uint32_t id)
+void RenderBuffer::AddForm(FormPtr form)
 {
-    forms.push_back(id);
+    forms.push_back(form);
 }
 
-void RenderBuffer::RemoveForm(uint32_t id)
+void RenderBuffer::RemoveForm(FormPtr form)
 {
-    auto it = std::find(forms.begin(), forms.end(), id);
+    auto it = std::find(forms.begin(), forms.end(), form);
 
     if (it == forms.end())
     {

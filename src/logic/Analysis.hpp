@@ -37,29 +37,28 @@ public:
         double minZ, maxZ;
     };
 
-    static SliceResult SliceModel(const Scene &scene,
+    /*static SliceResult SliceModel(const Scene &scene,
                                   uint32_t solidId,
-                                  double layerHeight = 0.2);
+                                  double layerHeight = 0.2);*/
 
-    static Flaw GetFlaw(uint32_t faceId, const Scene &scene);
+    static Flaw GetFlaw(const Face *face);
 
-    static void SetCriticalAngle(float angle) { criticalAngle = angle; }
-    static float GetCriticalAngle() { return criticalAngle; }
+    static void SetCriticalAngle(float angle) { /*criticalAngle = angle*/ ; }
+    static float GetCriticalAngle() { return /*criticalAngle*/ 5; }
 
 private:
-    static float criticalAngle;
+    // static float criticalAngle;
 
-    static glm::dvec3 CalculateFaceNormal(const Face *face, const Scene &scene);
+    static glm::dvec3 CalculateFaceNormal(const Face *face);
     static float CalculateOverhangAngle(const glm::dvec3 &normal);
 
     static std::vector<glm::dvec2> SliceFaceAtZ(const Face *face,
-                                                const Scene &scene,
                                                 double z);
 
     static std::optional<glm::dvec2> IntersectEdgeWithPlane(const Edge *edge,
-                                                            const Scene &scene,
+
                                                             double z);
 
-    static void CalculateBounds(const Scene &scene, uint32_t solidId,
-                                double &minZ, double &maxZ);
+    /*static void CalculateBounds(const Scene &scene, uint32_t solidId,
+                                double &minZ, double &maxZ);*/
 };

@@ -12,7 +12,7 @@
 #include "shaders/Vertex.hpp"
 #include "shaders/OpenGLShader.hpp"
 
-#include "Goemetry/Geometry.hpp"
+#include "Geometry/Geometry.hpp"
 
 #include "source_location"
 

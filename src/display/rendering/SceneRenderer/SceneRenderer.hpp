@@ -12,7 +12,6 @@
 #include "Patch/patch.hpp"
 
 #include "scene/scene.hpp"
-#include "scene/Id.hpp"
 
 #include "mapbox/earcut.hpp"
 
@@ -41,7 +40,7 @@ public:
 
     void Shutdown();
 
-    void AddForm(uint32_t id);
+    void AddForm(FormPtr form);
 
     RenderBuffer renderBuffer;
 

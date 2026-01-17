@@ -39,7 +39,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 106,
+				"line" : 104,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 26,
 				"parent" : 0
 			},
 			{
@@ -76,10 +82,6 @@
 		{
 			"backtrace" : 2,
 			"id" : "glfw::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "glm::glm::@6890427a1f51a3e7e1df"
 		}
 	],
 	"compileGroups" : 
@@ -95,55 +97,59 @@
 			[
 				{
 					"backtrace" : 4,
-					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include"
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2"
 				},
 				{
 					"backtrace" : 5,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include"
+				},
+				{
+					"backtrace" : 6,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/include/earcut.hpp-2.2.4/include/mapbox"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer"
 				},
 				{
-					"backtrace" : 6,
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene"
 				},
 				{
-					"backtrace" : 6,
-					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry"
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry"
 				},
 				{
 					"backtrace" : 2,
@@ -215,11 +221,6 @@
 				"role" : "libraries"
 			},
 			{
-				"backtrace" : 2,
-				"fragment" : "/opt/homebrew/lib/libglm.dylib",
-				"role" : "libraries"
-			},
-			{
 				"backtrace" : 3,
 				"fragment" : "-framework OpenGL",
 				"role" : "libraries"
@@ -251,10 +252,6 @@
 		{
 			"backtrace" : 2,
 			"id" : "glfw::@6890427a1f51a3e7e1df"
-		},
-		{
-			"backtrace" : 2,
-			"id" : "glm::glm::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 3,
@@ -387,7 +384,7 @@
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
-			"path" : "src/scene/Goemetry/Curve.cpp",
+			"path" : "src/scene/Geometry/Curve.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{

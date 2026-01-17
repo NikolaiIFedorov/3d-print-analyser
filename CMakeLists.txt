@@ -22,8 +22,8 @@ target_include_directories(glad PUBLIC include/glad/include)
 # Find GLFW
 find_package(glfw3 REQUIRED)
 
-# Find GLM
-find_package(glm REQUIRED)
+# GLM (header-only from local directory)
+include_directories(include/glm-1.0.2)
 
 # TinyNURBS (header-only)
 include_directories(include/tinynurbs/include)
@@ -48,7 +48,7 @@ set(SOURCES
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/scene/scene.cpp
-    src/scene/Goemetry/Curve.cpp
+    src/scene/Geometry/Curve.cpp
     src/logic/Analysis.cpp
 
 )
@@ -68,7 +68,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/scene/scene.cpp
-    src/scene/Goemetry/Curve.cpp
+    src/scene/Geometry/Curve.cpp
     src/logic/Analysis.cpp
 )
 
@@ -89,7 +89,7 @@ target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/src/display/rendering/OpenGL
     ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
     ${CMAKE_SOURCE_DIR}/src/scene
-    ${CMAKE_SOURCE_DIR}/src/scene/Goemetry
+    ${CMAKE_SOURCE_DIR}/src/scene/Geometry
 
 )
 
@@ -97,8 +97,6 @@ target_include_directories(CAD_OpenGL PRIVATE
 target_link_libraries(CAD_OpenGL
     glad
     glfw
-    glm::glm
-
 )
 
 # Mac-specific

@@ -1,19 +1,13 @@
 #include "Analysis.hpp"
 
-Flaw Analysis::GetFlaw(uint32_t id, const Scene &scene)
+Flaw Analysis::GetFlaw(const Face *face)
 {
     Flaw flaw = Flaw::OVERHANG;
-    const Face *face = scene.GetFace(id);
-    if (face == nullptr)
-    {
-        LOG_VOID("Face not found: " + Log::NumToStr(id));
-        return Flaw::LOGIC_ERROR;
-    }
 
-    glm::dvec3 normal = CalculateFaceNormal(face, scene);
+    glm::dvec3 normal = CalculateFaceNormal(face);
     float angle = CalculateOverhangAngle(normal);
 
-    if (angle > criticalAngle)
+    if (angle /*> criticalAngle*/)
     {
         return Flaw::OVERHANG;
     }
@@ -21,7 +15,7 @@ Flaw Analysis::GetFlaw(uint32_t id, const Scene &scene)
     return Flaw::NONE;
 }
 
-glm::dvec3 Analysis::CalculateFaceNormal(const Face *face, const Scene &scene)
+glm::dvec3 Analysis::CalculateFaceNormal(const Face *face)
 {
     return face->GetPlanar().normal;
 }
@@ -39,17 +33,13 @@ float Analysis::CalculateOverhangAngle(const glm::dvec3 &normal)
 }
 
 std::optional<glm::dvec2> Analysis::IntersectEdgeWithPlane(const Edge *edge,
-                                                           const Scene &scene,
                                                            double z)
 {
     if (edge == nullptr)
         return std::nullopt;
 
-    const Point *p0 = scene.GetPoint(edge->startPointId);
-    const Point *p1 = scene.GetPoint(edge->endPointId);
-
-    if (p0 == nullptr || p1 == nullptr)
-        return std::nullopt;
+    const Point *p0 = edge->startPoint;
+    const Point *p1 = edge->endPoint;
 
     glm::dvec3 start = p0->position;
     glm::dvec3 end = p1->position;
@@ -77,7 +67,6 @@ std::optional<glm::dvec2> Analysis::IntersectEdgeWithPlane(const Edge *edge,
 }
 
 std::vector<glm::dvec2> Analysis::SliceFaceAtZ(const Face *face,
-                                               const Scene &scene,
                                                double z)
 {
     if (face == nullptr)
@@ -85,17 +74,14 @@ std::vector<glm::dvec2> Analysis::SliceFaceAtZ(const Face *face,
 
     std::vector<glm::dvec2> intersectionPoints;
 
-    const auto &outerLoop = face->GetOuterLoop(); // TODO: Add support for holes
+    const auto &outerLoop = face->loops[0]; // TODO: Add support for holes
 
-    for (uint32_t edgeId : outerLoop)
+    for (const Edge *edge : outerLoop)
     {
-        const Edge *edge = scene.GetEdge(edgeId);
-        auto intersection = IntersectEdgeWithPlane(edge, scene, z);
+        auto intersection = IntersectEdgeWithPlane(edge, z);
 
         if (intersection.has_value())
-        {
             intersectionPoints.push_back(intersection.value());
-        }
     }
 
     return intersectionPoints;

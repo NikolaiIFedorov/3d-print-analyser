@@ -430,29 +430,29 @@ src/main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/main.cpp.s
 .PHONY : src/main.cpp.s
 
-src/scene/Goemetry/Curve.o: src/scene/Goemetry/Curve.cpp.o
-.PHONY : src/scene/Goemetry/Curve.o
+src/scene/Geometry/Curve.o: src/scene/Geometry/Curve.cpp.o
+.PHONY : src/scene/Geometry/Curve.o
 
 # target to build an object file
-src/scene/Goemetry/Curve.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o
-.PHONY : src/scene/Goemetry/Curve.cpp.o
+src/scene/Geometry/Curve.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o
+.PHONY : src/scene/Geometry/Curve.cpp.o
 
-src/scene/Goemetry/Curve.i: src/scene/Goemetry/Curve.cpp.i
-.PHONY : src/scene/Goemetry/Curve.i
+src/scene/Geometry/Curve.i: src/scene/Geometry/Curve.cpp.i
+.PHONY : src/scene/Geometry/Curve.i
 
 # target to preprocess a source file
-src/scene/Goemetry/Curve.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.i
-.PHONY : src/scene/Goemetry/Curve.cpp.i
+src/scene/Geometry/Curve.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.i
+.PHONY : src/scene/Geometry/Curve.cpp.i
 
-src/scene/Goemetry/Curve.s: src/scene/Goemetry/Curve.cpp.s
-.PHONY : src/scene/Goemetry/Curve.s
+src/scene/Geometry/Curve.s: src/scene/Geometry/Curve.cpp.s
+.PHONY : src/scene/Geometry/Curve.s
 
 # target to generate assembly for a file
-src/scene/Goemetry/Curve.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.s
-.PHONY : src/scene/Goemetry/Curve.cpp.s
+src/scene/Geometry/Curve.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s
+.PHONY : src/scene/Geometry/Curve.cpp.s
 
 src/scene/scene.o: src/scene/scene.cpp.o
 .PHONY : src/scene/scene.o
@@ -572,9 +572,9 @@ help:
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
-	@echo "... src/scene/Goemetry/Curve.o"
-	@echo "... src/scene/Goemetry/Curve.i"
-	@echo "... src/scene/Goemetry/Curve.s"
+	@echo "... src/scene/Geometry/Curve.o"
+	@echo "... src/scene/Geometry/Curve.i"
+	@echo "... src/scene/Geometry/Curve.s"
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"

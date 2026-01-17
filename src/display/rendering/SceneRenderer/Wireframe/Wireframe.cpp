@@ -1,77 +1,66 @@
 #include "Wireframe.hpp"
 
-void Wireframe::Generate(const Scene &scene, const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
+void Wireframe::Generate(const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
 {
-    for (uint32_t id : buffer.GetForms())
+    for (FormPtr form : buffer.GetForms())
     {
-        Type type = Id::GetType(id);
-        switch (type)
+        switch (form.index())
         {
-        case Type::POINT:
-            AddPoint(scene, id, vertices, indices);
+        case 0:
+        {
+            const Point *point = std::get<Point *>(form);
+            AddPoint(point, vertices, indices);
             break;
-
-        case Type::EDGE:
-            AddEdge(scene, id, vertices, indices);
+        }
+        case 1:
+        {
+            const Edge *edge = std::get<Edge *>(form);
+            AddEdge(edge, vertices, indices);
             break;
-
-        case Type::FACE:
-            AddFace(scene, id, vertices, indices);
+        }
+        case 3:
+        {
+            const Face *face = std::get<Face *>(form);
+            AddFace(face, vertices, indices);
             break;
+        }
 
-        case Type::SOLID:
-            AddSolid(scene, id, vertices, indices);
+        case 4:
+        {
+            const Solid *solid = std::get<Solid *>(form);
+            AddSolid(solid, vertices, indices);
             break;
-
+        }
         default:
             break;
         }
     }
 }
 
-void Wireframe::AddPoint(const Scene &scene, uint32_t id,
+void Wireframe::AddPoint(const Point *point,
                          std::vector<Vertex> &vertices,
                          std::vector<uint32_t> &indices) const
 {
     // TODO: Add point
 }
 
-void Wireframe::AddEdge(const Scene &scene, uint32_t id,
+void Wireframe::AddEdge(const Edge *edge,
                         std::vector<Vertex> &vertices,
                         std::vector<uint32_t> &indices) const
 {
-    const Edge *edge = scene.GetEdge(id);
-    if (edge == nullptr)
-    {
-        return;
-    }
 
-    if (edge->curveId == 0)
-    {
-        AddStraightEdge(scene, edge, vertices, indices);
-    }
+    if (edge->curve == nullptr)
+        AddLineEdge(edge, vertices, indices);
     else
-    {
-        AddCurvedEdge(scene, edge, vertices, indices);
-    }
+        AddCurvedEdge(edge, vertices, indices);
 }
 
-void Wireframe::AddStraightEdge(const Scene &scene, const Edge *edge,
-                                std::vector<Vertex> &vertices,
-                                std::vector<uint32_t> &indices) const
+void Wireframe::AddLineEdge(const Edge *edge,
+                            std::vector<Vertex> &vertices,
+                            std::vector<uint32_t> &indices) const
 {
-    if (edge == nullptr)
-    {
-        return;
-    }
-
-    const Point *p0 = scene.GetPoint(edge->startPointId);
-    const Point *p1 = scene.GetPoint(edge->endPointId);
-
-    if (p0 == nullptr || p1 == nullptr)
-    {
-        return;
-    }
+    const Point *p0 = edge->startPoint;
+    const Point *p1 = edge->endPoint;
 
     uint32_t baseIndex = vertices.size();
 
@@ -89,48 +78,38 @@ void Wireframe::AddStraightEdge(const Scene &scene, const Edge *edge,
     indices.push_back(baseIndex + 1);
 }
 
-void Wireframe::AddCurvedEdge(const Scene &scene, const Edge *edge,
+void Wireframe::AddCurvedEdge(const Edge *edge,
                               std::vector<Vertex> &vertices,
                               std::vector<uint32_t> &indices) const
 {
-    const Curve *curve = scene.GetCurve(edge->curveId);
-    if (curve == nullptr)
+    const Point *p0 = edge->startPoint;
+    if (p0 == nullptr)
         return;
 
-    const Point *p0 = scene.GetPoint(edge->startPointId);
-    const Point *p1 = scene.GetPoint(edge->endPointId);
-
-    if (p0 == nullptr || p1 == nullptr)
-    {
+    const Point *p1 = edge->endPoint;
+    if (p1 == nullptr)
         return;
-    }
 
-    TessellateCurve(curve, p0->position, p1->position, vertices, indices);
+    TessellateCurve(edge->curve, p0->position, p1->position, vertices, indices);
 }
 
-void Wireframe::AddFace(const Scene &scene, uint32_t id,
+void Wireframe::AddFace(const Face *face,
                         std::vector<Vertex> &vertices,
                         std::vector<uint32_t> &indices) const
 {
-    const Face *face = scene.GetFace(id);
     for (auto hole : face->loops)
     {
-        for (auto edgeId : hole)
-        {
-            AddEdge(scene, edgeId, vertices, indices);
-        }
+        for (auto edge : hole)
+            AddEdge(edge, vertices, indices);
     }
 }
 
-void Wireframe::AddSolid(const Scene &scene, uint32_t id,
+void Wireframe::AddSolid(const Solid *solid,
                          std::vector<Vertex> &vertices,
                          std::vector<uint32_t> &indices) const
 {
-    const Solid *solid = scene.GetSolid(id);
-    for (auto faceId : solid->faceIds)
-    {
-        AddFace(scene, faceId, vertices, indices);
-    }
+    for (auto face : solid->faces)
+        AddFace(face, vertices, indices);
 }
 
 void Wireframe::TessellateCurve(const Curve *curve,

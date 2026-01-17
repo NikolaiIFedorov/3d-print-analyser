@@ -18,5 +18,5 @@ struct Color
     static glm::vec3 GetEdge() { return glm::vec3(EDGE, EDGE, EDGE); }
     static glm::vec3 GetPoint() { return glm::vec3(POINT, POINT, POINT); }
     static glm::vec3 GetFace() { return glm::vec3(FACE, FACE, FACE); }
-    static glm::vec3 GetFace(uint32_t id, const Scene &scene);
+    static glm::vec3 GetFace(const Face* face);
 };

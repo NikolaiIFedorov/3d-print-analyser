@@ -17,20 +17,6 @@
 					"jsonFile" : "target-glfw-Debug-1de7eb03cfa7009a22b5.json",
 					"name" : "glfw",
 					"projectIndex" : 0
-				},
-				{
-					"directoryIndex" : 0,
-					"id" : "glm::glm::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-glm__glm-Debug-9586ecae1da25c4e3072.json",
-					"name" : "glm::glm",
-					"projectIndex" : 0
-				},
-				{
-					"directoryIndex" : 0,
-					"id" : "glm::glm-header-only::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-glm__glm-header-only-Debug-586215d56d838d8840d4.json",
-					"name" : "glm::glm-header-only",
-					"projectIndex" : 0
 				}
 			],
 			"directories" : 
@@ -39,9 +25,7 @@
 					"abstractTargetIndexes" : 
 					[
 						0,
-						1,
-						2,
-						3
+						1
 					],
 					"build" : ".",
 					"jsonFile" : "directory-.-Debug-9ad1a58d4644cf6543fa.json",
@@ -65,9 +49,7 @@
 					"abstractTargetIndexes" : 
 					[
 						0,
-						1,
-						2,
-						3
+						1
 					],
 					"directoryIndexes" : 
 					[
@@ -86,14 +68,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "CAD_OpenGL::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-CAD_OpenGL-Debug-ae02bb18e77c5a632d5d.json",
+					"jsonFile" : "target-CAD_OpenGL-Debug-dacf56948b2621f6ba7d.json",
 					"name" : "CAD_OpenGL",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "glad::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-glad-Debug-7ad564ec18f89c1c4da9.json",
+					"jsonFile" : "target-glad-Debug-288d37f60e91dcc38b1d.json",
 					"name" : "glad",
 					"projectIndex" : 0
 				}

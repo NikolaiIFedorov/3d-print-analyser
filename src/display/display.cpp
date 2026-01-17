@@ -48,16 +48,16 @@ GLFWwindow *Display::GetWindow(int16_t width, int16_t height, const char *title)
     return w;
 }
 
-void Display::AddForm(uint32_t id)
+void Display::AddForm(FormPtr form)
 {
-    renderer.AddForm(id);
+    renderer.AddForm(form);
 }
 
-void Display::AddForm(const std::vector<uint32_t> &ids)
+void Display::AddForm(const std::vector<FormPtr> &forms)
 {
-    for (uint32_t id : ids)
+    for (FormPtr form : forms)
     {
-        renderer.AddForm(id);
+        renderer.AddForm(form);
     }
 }
 

@@ -19,7 +19,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"
-  "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.cpp" "CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.cpp" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o.d"

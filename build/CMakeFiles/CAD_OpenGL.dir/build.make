@@ -254,19 +254,19 @@ CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp -o CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
 
-CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
-CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp
-CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_14) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp
 
-CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.i"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp > CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.i
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp > CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.i
 
-CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.s"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.cpp -o CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.s
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp -o CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp
@@ -297,7 +297,7 @@ CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o" \
-"CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o"
 
 # External object files for target CAD_OpenGL
@@ -316,12 +316,11 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o
-CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/Goemetry/Curve.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/build.make
 CAD_OpenGL: libglad.a
 CAD_OpenGL: /opt/homebrew/lib/libglfw.3.4.dylib
-CAD_OpenGL: /opt/homebrew/lib/libglm.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)

@@ -537,6 +537,10 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/private_constructor_tag.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cstdlib \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cstddef \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_scalar.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_null_pointer.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/in_place.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/unordered_set \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_permutation.h \
@@ -556,14 +560,10 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/erase_if_container.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/ranges_iterator_traits.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__node_handle \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_scalar.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_null_pointer.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/in_place.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/AllGeometry.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Point.hpp \
-  /opt/homebrew/include/glm/glm.hpp \
-  /opt/homebrew/include/glm/detail/_fixes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Point.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/glm.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/_fixes.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cmath \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/hypot.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/abs.h \
@@ -584,12 +584,12 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/modulo.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/remainder.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/trigonometric_functions.h \
-  /opt/homebrew/include/glm/detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/setup.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cassert \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/assert.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_assert.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_static_assert.h \
-  /opt/homebrew/include/glm/detail/../simd/platform.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/../simd/platform.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/type_traits \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/add_cv_quals.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/aligned_union.h \
@@ -612,35 +612,35 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/float.h \
   /Library/Developer/CommandLineTools/usr/lib/clang/17/include/float.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/float.h \
-  /opt/homebrew/include/glm/fwd.hpp \
-  /opt/homebrew/include/glm/detail/qualifier.hpp \
-  /opt/homebrew/include/glm/vec2.hpp \
-  /opt/homebrew/include/glm/./ext/vector_bool2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/qualifier.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec2.inl \
-  /opt/homebrew/include/glm/./ext/../detail/./compute_vector_relational.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/./setup.hpp \
-  /opt/homebrew/include/glm/./ext/vector_bool2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float2.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double2.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int2.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int2_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_int2.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/scalar_int_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/../detail/setup.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint2.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint2_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_uint2.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/scalar_uint_sized.hpp \
-  /opt/homebrew/include/glm/vec3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_bool3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec3.inl \
-  /opt/homebrew/include/glm/./ext/../detail/compute_vector_relational.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/compute_vector_decl.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/fwd.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec2.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/./compute_vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/./setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int2_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_int2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/scalar_int_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint2_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_uint2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/scalar_uint_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec3.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/compute_vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/compute_vector_decl.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/functional \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binary_negate.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/bind.h \
@@ -667,178 +667,167 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/perfect_forward.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/bind_back.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/bind_front.h \
-  /opt/homebrew/include/glm/./ext/../detail/_vectorize.hpp \
-  /opt/homebrew/include/glm/./ext/vector_bool3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int3_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_int3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint3.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint3_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_uint3.hpp \
-  /opt/homebrew/include/glm/vec4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_bool4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_vec4.inl \
-  /opt/homebrew/include/glm/./ext/vector_bool4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_float4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_double4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/setup.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_int4_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_int4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint4.hpp \
-  /opt/homebrew/include/glm/./ext/vector_uint4_sized.hpp \
-  /opt/homebrew/include/glm/./ext/../ext/vector_uint4.hpp \
-  /opt/homebrew/include/glm/mat2x2.hpp \
-  /opt/homebrew/include/glm/./ext/matrix_double2x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_mat2x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/type_mat2x2.inl \
-  /opt/homebrew/include/glm/./ext/../detail/../matrix.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../detail/qualifier.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../detail/setup.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../vec2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../vec3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../vec4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat2x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat2x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double2x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat2x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_vec2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_vec3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat2x3.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double2x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float2x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float2x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat2x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double2x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat2x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_vec4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat2x4.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double2x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float2x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float2x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat3x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x2.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat3x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x3.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../matrix.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../common.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/qualifier.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/_fixes.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/func_common.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../vector_relational.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/qualifier.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/setup.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/func_vector_relational.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/compute_common.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/setup.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/type_vec1.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/type_vec1.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/./compute_vector_relational.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/type_vec2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/type_vec3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/type_vec4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/_vectorize.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat3x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat3x4.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double3x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float3x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat4x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x2.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat2x2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat4x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x3.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x3_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../mat4x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/type_mat4x4.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../geometric.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/func_geometric.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../exponential.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec1.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec2.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec3.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/func_exponential.inl \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/../vector_relational.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../detail/_vectorize.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/../detail/../detail/../common.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_double4x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x4.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/.././ext/matrix_float4x4_precision.hpp \
-  /opt/homebrew/include/glm/./ext/../detail/../detail/func_matrix.inl \
-  /opt/homebrew/include/glm/./ext/../detail/../detail/../geometric.hpp \
-  /opt/homebrew/include/glm/./ext/matrix_double2x2_precision.hpp \
-  /opt/homebrew/include/glm/./ext/matrix_float2x2.hpp \
-  /opt/homebrew/include/glm/./ext/matrix_float2x2_precision.hpp \
-  /opt/homebrew/include/glm/mat2x3.hpp \
-  /opt/homebrew/include/glm/mat2x4.hpp \
-  /opt/homebrew/include/glm/mat3x2.hpp \
-  /opt/homebrew/include/glm/mat3x3.hpp \
-  /opt/homebrew/include/glm/mat3x4.hpp \
-  /opt/homebrew/include/glm/mat4x2.hpp \
-  /opt/homebrew/include/glm/mat4x3.hpp \
-  /opt/homebrew/include/glm/mat4x4.hpp \
-  /opt/homebrew/include/glm/trigonometric.hpp \
-  /opt/homebrew/include/glm/detail/func_trigonometric.inl \
-  /opt/homebrew/include/glm/detail/_vectorize.hpp \
-  /opt/homebrew/include/glm/exponential.hpp \
-  /opt/homebrew/include/glm/common.hpp \
-  /opt/homebrew/include/glm/packing.hpp \
-  /opt/homebrew/include/glm/detail/func_packing.inl \
-  /opt/homebrew/include/glm/detail/../common.hpp \
-  /opt/homebrew/include/glm/detail/type_half.hpp \
-  /opt/homebrew/include/glm/detail/type_half.inl \
-  /opt/homebrew/include/glm/geometric.hpp \
-  /opt/homebrew/include/glm/matrix.hpp \
-  /opt/homebrew/include/glm/vector_relational.hpp \
-  /opt/homebrew/include/glm/integer.hpp \
-  /opt/homebrew/include/glm/detail/func_integer.inl \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Edge.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Curve.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/_vectorize.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int3_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_int3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint3_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_uint3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_vec4.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_bool4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_float4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_double4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_int4_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_int4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/vector_uint4_sized.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../ext/vector_uint4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/matrix_double2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_mat2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/type_mat2x2.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../matrix.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat2x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double2x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat2x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat2x3.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double2x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float2x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float2x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat2x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double2x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat2x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat2x4.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double2x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float2x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float2x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat3x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x2.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x3.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../matrix.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/_fixes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/func_common.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/func_vector_relational.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/compute_common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/type_vec1.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/type_vec1.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/./compute_vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/type_vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/_vectorize.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat3x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat3x4.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double3x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float3x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat4x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x2.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat4x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x3.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x3_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../mat4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/type_mat4x4.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/func_geometric.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec1.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/func_exponential.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/../vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../detail/_vectorize.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/../detail/../detail/../common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_double4x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/.././ext/matrix_float4x4_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../detail/func_matrix.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/../detail/../detail/../geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/matrix_double2x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/matrix_float2x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/./ext/matrix_float2x2_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat2x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat2x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat3x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat3x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x2.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/trigonometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/func_trigonometric.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/_vectorize.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/packing.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/func_packing.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/../common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/type_half.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/type_half.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/matrix.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/integer.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/func_integer.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/forward_like.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Geometry.hpp \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/align.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/out_ptr.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/raw_storage_iterator.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/temporary_buffer.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_temporary_buffer.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/assume_aligned.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/ranges_uninitialized_algorithms.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/uses_allocator_construction.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/basis.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/array2.h \
@@ -872,6 +861,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/includes.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/inplace_merge.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/destruct_n.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/unique_temporary_buffer.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_heap.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_heap_until.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_partitioned.h \
@@ -1127,61 +1117,15 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/recursive_directory_iterator.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/u8path.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Face.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Goemetry/Solid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Id.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ostream \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/print.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/format \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/container_adaptor.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/range_default_formatter.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/range_formatter.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_context.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_arg_store.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_args.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/queue.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/deque.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/stack.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/ref_view.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/escaped_output_table.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_functions.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_char.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/write_escaped.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_floating_point.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__charconv/chars_format.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/to_underlying.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__charconv/to_chars_floating_point.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_integer.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_pointer.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_string.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_tuple.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/print \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/throw_system_error.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/unistd.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/calendar.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/day.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/exception.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/hh_mm_ss.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/literals.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/local_info.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/month.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/month_weekday.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/weekday.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/monthday.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/sys_info.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year_month.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year_month_day.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year_month_weekday.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/formatter.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/concepts.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/utc_clock.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/zoned_time.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/ostream.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/align.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/inout_ptr.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/out_ptr.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/raw_storage_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/temporary_buffer.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/assume_aligned.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/ranges_uninitialized_algorithms.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/uses_allocator_construction.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp
