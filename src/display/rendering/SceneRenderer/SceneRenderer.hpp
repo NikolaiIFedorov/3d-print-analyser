@@ -15,13 +15,6 @@
 
 #include "mapbox/earcut.hpp"
 
-enum class RenderMode
-{
-    WIREFRAME,
-    SOLID,
-    WIREFRAME_ON_SOLID
-};
-
 class SceneRenderer
 {
 public:
@@ -29,8 +22,6 @@ public:
     Patch patch;
 
     SceneRenderer(GLFWwindow *window);
-
-    void SetRenderMode(RenderMode mode);
 
     void UpdateFromRenderBuffer(const Scene &scene);
 
@@ -47,5 +38,4 @@ public:
 private:
     OpenGLRenderer renderer;
     GLFWwindow *window = nullptr;
-    RenderMode currentMode = RenderMode::WIREFRAME_ON_SOLID;
 };

@@ -3,59 +3,60 @@
 
 Point *Scene::CreatePoint(const glm::dvec3 &position)
 {
-    points.emplace_back();
-
-    Point &point = points.back();
-    point.position = position;
+    points.emplace_back(position);
 
     LOG_VOID("Created point");
 
-    return &point;
+    return &points.back();
 }
 
-Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint, Curve *curve)
+Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint)
 {
-    edges.emplace_back();
+    if (startPoint == nullptr)
+    {
+        LOG_WARN("Start point is null");
+        return nullptr;
+    }
+    else if (endPoint == nullptr)
+    {
+        LOG_WARN("End point is null");
+        return nullptr;
+    }
+
+    edges.emplace_back(startPoint, endPoint);
 
     Edge &edge = edges.back();
-
-    edge.startPoint = startPoint;
     startPoint->dependencies.insert(&edge);
-
-    edge.endPoint = endPoint;
     endPoint->dependencies.insert(&edge);
-
-    edge.curve = curve;
-    curve->dependencies.insert(&edge);
 
     LOG_VOID("Created line edge");
 
     return &edge;
 }
 
+Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint, Curve *curve)
+{
+    Edge *edge = CreateEdge(startPoint, endPoint);
+
+    edge->curve = curve;
+    curve->dependencies.insert(edge);
+
+    LOG_VOID("Created line edge");
+
+    return edge;
+}
+
 Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint, const std::vector<Point *> &bridgePoints)
 {
-    edges.emplace_back();
+    Edge *edge = CreateEdge(startPoint, endPoint);
 
-    Edge &edge = edges.back();
-    edge.startPoint = startPoint;
-    startPoint->dependencies.insert(&edge);
-
-    edge.endPoint = endPoint;
-    endPoint->dependencies.insert(&edge);
-
-    edge.bridgePoints = bridgePoints;
+    edge->bridgePoints = bridgePoints;
     for (Point *point : bridgePoints)
-    {
-        if (point)
-        {
-            point->dependencies.insert(&edge);
-        }
-    }
+        point->dependencies.insert(edge);
 
     LOG_VOID("Created poly line edge");
 
-    return &edge;
+    return edge;
 }
 
 Curve *Scene::CreateCurve(glm::dvec3 centerPosition, double radius)
@@ -64,68 +65,34 @@ Curve *Scene::CreateCurve(glm::dvec3 centerPosition, double radius)
     arc.center = centerPosition;
     arc.radius = radius;
 
-    curves.emplace_back();
-
-    Curve &curve = curves.back();
-    curve.data.operator=(arc);
-    curve.type = CurveType::ARC;
+    curves.push_back(std::make_unique<ArcCurve>(arc));
 
     LOG_VOID("Created arc curve");
 
-    return &curve;
+    return curves.back().get();
 }
 
 Curve *Scene::CreateCurve(const tinynurbs::RationalCurve3d &nurbs)
 {
-    curves.emplace_back();
-
-    Curve &curve = curves.back();
-    curve.data = std::make_unique<tinynurbs::RationalCurve3d>(nurbs);
-    curve.type = CurveType::NURBS;
+    curves.push_back(std::make_unique<NurbsCurve>(
+        std::make_unique<tinynurbs::RationalCurve3d>(nurbs)));
 
     LOG_VOID("Created nurbs curve");
 
-    return &curve;
+    return curves.back().get();
 }
 
 Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &loops)
 {
-    faces.emplace_back();
+    faces.emplace_back(loops);
 
     Face &face = faces.back();
-    face.loops = loops;
 
-    if (!loops.empty() && loops[0].size() >= 3)
+    // Register this face with all edges (now stored as OrientedEdge)
+    for (const auto &loop : face.loops)
     {
-        const auto &outerLoop = loops[0];
-        const Edge *e0 = outerLoop[0];
-        const Edge *e1 = outerLoop[1];
-        const Edge *e2 = outerLoop[2];
-
-        if (e0 && e1 && e2)
-        {
-            const Point *p0 = e0->startPoint;
-            const Point *p1 = e0->endPoint;
-            const Point *p2 = e1->endPoint;
-
-            if (p0 && p1 && p2)
-            {
-                glm::dvec3 v1 = p1->position - p0->position;
-                glm::dvec3 v2 = p2->position - p0->position;
-                glm::dvec3 normal = glm::normalize(glm::cross(v1, v2));
-
-                double d = glm::dot(normal, p0->position);
-
-                face.GetPlanar().normal = normal;
-                face.GetPlanar().d = d;
-            }
-        }
-    }
-
-    for (std::vector<Edge *> loop : loops)
-    {
-        for (Edge *edge : loop)
-            edge->dependencies.insert(&face);
+        for (const auto &orientedEdge : loop)
+            orientedEdge.edge->dependencies.insert(&face);
     }
 
     LOG_VOID("Created planar face");
@@ -135,16 +102,17 @@ Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &loops)
 
 Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, const tinynurbs::RationalSurface3d &nurbs)
 {
-    faces.emplace_back();
+    faces.emplace_back(edgeLoops, std::make_unique<NurbsSurface>(
+                                      std::make_unique<tinynurbs::RationalSurface3d>(nurbs)));
 
     Face &face = faces.back();
-    face.loops = edgeLoops;
-    face.surface = std::make_unique<tinynurbs::RationalSurface3d>(nurbs);
 
-    for (std::vector<Edge *> loop : edgeLoops)
+    // Register this face with all edges (now stored as OrientedEdge)
+    for (const auto &loop : face.loops)
     {
-        for (Edge *edge : loop)
-            edge->dependencies.insert(&face);
+        for (const auto &orientedEdge : loop)
+            if (orientedEdge.edge != nullptr)
+                orientedEdge.edge->dependencies.insert(&face);
     }
 
     LOG_VOID("Created nurbs face");
@@ -160,7 +128,7 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
 
     solid.faces = faces;
     for (Face *face : faces)
-        face->dependencies.insert(&solid);
+        face->dependency = &solid;
 
     LOG_VOID("Created solid");
 

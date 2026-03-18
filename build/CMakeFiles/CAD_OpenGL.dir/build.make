@@ -268,19 +268,75 @@ CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp -o CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s
 
-CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
-CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp
-CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp
 
-CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.i"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.i
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp > CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.i
 
-CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.s"
-	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.s
+CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp -o CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s
 
 # Object files for target CAD_OpenGL
 CAD_OpenGL_OBJECTS = \
@@ -298,7 +354,11 @@ CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" \
-"CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o"
+"CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o"
 
 # External object files for target CAD_OpenGL
 CAD_OpenGL_EXTERNAL_OBJECTS =
@@ -317,12 +377,16 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o
-CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/build.make
 CAD_OpenGL: libglad.a
 CAD_OpenGL: /opt/homebrew/lib/libglfw.3.4.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Linking CXX executable CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders
 

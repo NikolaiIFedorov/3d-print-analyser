@@ -25,9 +25,3 @@ struct PlanarData
     glm::dvec3 normal;
     double d;
 };
-
-enum class CurveType
-{
-    ARC,
-    NURBS
-};

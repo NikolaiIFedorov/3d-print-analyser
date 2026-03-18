@@ -3,6 +3,7 @@
 #include "Point.hpp"
 #include "Edge.hpp"
 #include "Curve.hpp"
+#include "Surface.hpp"
 #include "Face.hpp"
 #include "Solid.hpp"
 

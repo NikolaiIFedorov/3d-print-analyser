@@ -49,7 +49,11 @@ set(SOURCES
     src/display/display.cpp
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
-    src/logic/Analysis.cpp
+    src/scene/Geometry/Face.cpp
+    src/logic/Analysis/Analysis.cpp
+    src/logic/Analysis/Overhang/Overhang.cpp
+    src/logic/Analysis/ThinSection/ThinSection.cpp
+    src/logic/Analysis/utils/Slice.cpp
 
 )
 
@@ -69,7 +73,12 @@ add_executable(CAD_OpenGL
     src/display/display.cpp
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
-    src/logic/Analysis.cpp
+    src/scene/Geometry/Face.cpp
+    src/logic/Analysis/Analysis.cpp
+    src/logic/Analysis/Overhang/Overhang.cpp
+    src/logic/Analysis/ThinSection/ThinSection.cpp
+    src/logic/Analysis/utils/Slice.cpp
+
 )
 
 add_custom_command(TARGET CAD_OpenGL POST_BUILD

@@ -4,24 +4,30 @@
 struct Solid;
 
 #include <vector>
+#include "Edge.hpp"
 struct Edge;
 
-#include "Geometry.hpp"
+#include "OrientedEdge.hpp"
 
-struct Face
+#include "Surface.hpp"
+
+#include "Point.hpp"
+struct Point;
+
+class Face
 {
-    std::unordered_set<Solid *> dependencies;
+public:
+    Solid *dependency;
 
-    std::vector<std::vector<Edge *>> loops;
+    std::vector<std::vector<OrientedEdge>> loops;
+    std::unique_ptr<Surface> surface;
 
-    std::variant<PlanarData, std::unique_ptr<tinynurbs::RationalSurface3d>> surface;
+    Face(std::vector<std::vector<Edge *>> edgePtrs);
+    Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<NurbsSurface> nurbs);
 
-    bool IsPlanar() const { return std::holds_alternative<PlanarData>(surface); }
-    const PlanarData &GetPlanar() const { return std::get<PlanarData>(surface); }
-    PlanarData &GetPlanar() { return std::get<PlanarData>(surface); }
+    const Surface &GetSurface() const { return *surface; }
 
-    bool IsNurbs() const { return std::holds_alternative<std::unique_ptr<tinynurbs::RationalSurface3d>>(surface); }
-    const tinynurbs::RationalSurface3d &GetNurbs() const { return *std::get<std::unique_ptr<tinynurbs::RationalSurface3d>>(surface); }
-
-    Face() : surface(PlanarData{glm::dvec3(0, 0, 1), 0.0}) {}
+private:
+    void OrientEdgeLoops(const std::vector<std::vector<Edge *>> &edgePtrs);
+    PlanarData CalculatePlanarData();
 };

@@ -119,6 +119,8 @@ std::string Log::GetPath(const std::source_location &loc, Level level, const std
 std::string Log::GetModifier(std::string &msg, Level level)
 {
     std::string modifier;
+    std::string cleanMsg;
+    CleanString(msg);
     if (lastMsg != msg)
     {
         modifier = "";
@@ -139,9 +141,7 @@ std::string Log::ProcessMsg(const std::string &msg, bool returnLog)
     if (!returnLog)
         return msg;
 
-    std::string underLine = "\033[4m";
-
-    return underLine + msg + "\033[0m";
+    return msg + "\033[0m";
 }
 
 std::string Log::GetSpacer(const std::source_location &loc, bool returnLog)
@@ -188,9 +188,8 @@ std::string Log::GetTime(double duration)
 std::string Log::GetId()
 {
     idLog++;
-    std::string start = "[";
-    std::string end = "]";
-    return start + NumToStr(idLog) + end;
+    std::string modifiers = "\033[90m -| ";
+    return modifiers + NumToStr(idLog, false) + "\033[0m";
 }
 
 std::string Log::GetOutput(const std::string &msg, Level level, const std::source_location &loc, double duration, bool returnLog)
@@ -403,11 +402,16 @@ bool Log::Erase(std::string &str, std::string start, char end)
 
 uint16_t Log::StringSize(std::string str)
 {
+    CleanString(str);
+    return str.size();
+}
+
+void Log::CleanString(std::string &str)
+{
     std::string ascii = "\033[";
     while (true)
     {
         if (!Erase(str, ascii, 'm'))
             break;
     }
-    return str.size();
 }

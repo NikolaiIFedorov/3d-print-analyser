@@ -754,6 +754,63 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../geometric.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../trigonometric.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../matrix.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../gtc/constants.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../gtc/matrix_transform.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/vector_relational.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/type_float.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../ext/quaternion_geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../ext/../geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../ext/../exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../ext/../ext/vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../ext/quaternion_geometric.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_common.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_float.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/type_quat.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../detail/type_mat3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../detail/type_mat4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/quaternion_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/../vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/quaternion_relational.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../gtc/constants.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../gtc/matrix_transform.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/type_quat.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../trigonometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/quaternion_common.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/../detail/../ext/quaternion_geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_float_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_double.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_double_precision.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_geometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_trigonometric.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/scalar_constants.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_trigonometric.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_transform.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../ext/quaternion_transform.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/type_mat3x3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/type_mat4x4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/type_vec3.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/type_vec4.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../exponential.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/setup.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../detail/qualifier.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.inl \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../vector_relational.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/../common.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/adjacent_find.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/all_of.h \

@@ -4,6 +4,7 @@
 
 #include "RenderBuffer/RenderBuffer.hpp"
 #include "color.hpp"
+#include "Analysis/Analysis.hpp"
 
 class Wireframe
 {
@@ -26,6 +27,14 @@ private:
     void AddCurvedEdge(const Edge *edge,
                        std::vector<Vertex> &vertices,
                        std::vector<uint32_t> &indices) const;
+
+    void AddLayers(const std::vector<Layer> &layers,
+                   std::vector<Vertex> &vertices,
+                   std::vector<uint32_t> &indices) const;
+
+    void AddLayer(const Layer &layer,
+                  std::vector<Vertex> &vertices,
+                  std::vector<uint32_t> &indices) const;
 
     void AddFace(const Face *face,
                  std::vector<Vertex> &vertices,

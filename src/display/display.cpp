@@ -36,13 +36,17 @@ GLFWwindow *Display::GetWindow(int16_t width, int16_t height, const char *title)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
+    glfwWindowHint(GLFW_DEPTH_BITS, 24);
 
     windowWidth = width;
     windowHeight = height;
 
     GLFWwindow *w = glfwCreateWindow(windowWidth, windowHeight, title, nullptr, nullptr);
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(w);
     glfwSwapInterval(1);
 
     return w;
@@ -85,7 +89,7 @@ void Display::UpdateBuffer(const Scene &scene)
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 {
     glViewport(0, 0, width, height);
-    camera.aspectRatio = width / height;
+    camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
 }
 
 void Display::Zoom(float offsetY, const glm::vec3 &posCursotr)

@@ -59,17 +59,7 @@ void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
                     std::vector<uint32_t> &indices) const
 {
-    glm::dvec3 faceNormal;
-    if (face->IsPlanar())
-    {
-        faceNormal = face->GetPlanar().normal;
-    }
-    else
-    {
-        Log::Warn("NURBS face projection not yet implemented");
-        faceNormal = glm::dvec3(0, 0, 1);
-    }
-    Log::Debug("Face normal: " + Log::DVec3ToStr(faceNormal));
+    glm::dvec3 faceNormal = face->GetSurface().GetNormal();
 
     glm::dvec3 uAxis, vAxis;
     CreatePlaneCoordinateSystem(faceNormal, uAxis, vAxis);
@@ -84,30 +74,37 @@ void Patch::AddFace(const Face *face,
     for (const auto &edgeLoop : face->loops)
     {
         std::vector<glm::dvec3> loopPositions;
-        for (const auto &edge : edgeLoop)
-        {
-            const Point *p0 = edge->startPoint;
-            const Point *p1 = edge->endPoint;
 
+        for (const auto &orientedEdge : edgeLoop)
+        {
+            // Edges are already oriented correctly by Face constructor
+            const Point *p0 = orientedEdge.GetStart();
+            const Point *p1 = orientedEdge.GetEnd();
+
+            // Set projection origin from first point
             if (!originSet)
             {
                 projectionOrigin = p0->position;
                 originSet = true;
             }
 
-            if (edge->curve == nullptr)
+            if (orientedEdge.edge->curve == nullptr)
             {
                 loopPositions.push_back(p0->position);
             }
             else
             {
-                const Curve *curve = edge->curve;
+                const Curve *curve = orientedEdge.edge->curve;
 
-                std::vector<glm::dvec3> tessellatedPoints = TessellateCurveToPoints(curve, p0->position, p1->position, 16);
+                std::vector<glm::dvec3> tessellatedPoints = TessellateCurveToPoints(
+                    curve,
+                    orientedEdge.GetStartPosition(),
+                    orientedEdge.GetEndPosition(),
+                    16);
 
-                for (size_t i = 0; i < tessellatedPoints.size() - 1; i++)
+                for (size_t j = 0; j < tessellatedPoints.size() - 1; j++)
                 {
-                    loopPositions.push_back(tessellatedPoints[i]);
+                    loopPositions.push_back(tessellatedPoints[j]);
                 }
             }
         }
@@ -118,7 +115,6 @@ void Patch::AddFace(const Face *face,
         for (const glm::dvec3 &pos : loopPositions)
         {
             glm::dvec2 pos2D = ProjectPointToPlane(pos, projectionOrigin, uAxis, vAxis);
-            LOG_DEBU("Projected Point: " + Log::DVec3ToStr(pos) + " to 2D: (" + Log::NumToStr(pos2D.x) + ", " + Log::NumToStr(pos2D.y) + ")");
             loop2D.push_back({pos2D.x, pos2D.y});
         }
         polygon.push_back(loop2D);
@@ -143,7 +139,7 @@ void Patch::AddFace(const Face *face,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            v.color = Color::GetFace();
+            v.color = Color::GetFace(face);
 
             vertices.push_back(v);
         }

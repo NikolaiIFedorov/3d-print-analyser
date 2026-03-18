@@ -775,6 +775,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/no_destroy.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cstdlib \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/deque \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/deque.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/unordered_set \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/is_transparent.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__hash_table \
@@ -1018,8 +1020,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/func_integer.inl \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/basis.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/array2.h \
@@ -1133,11 +1133,16 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/u8path.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream \
@@ -1152,7 +1157,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_arg_store.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_args.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/queue.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/deque.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/stack.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/ref_view.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/escaped_output_table.h \

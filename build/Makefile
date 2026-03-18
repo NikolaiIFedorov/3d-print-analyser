@@ -382,29 +382,101 @@ src/display/rendering/SceneRenderer/color.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/color.cpp.s
 
-src/logic/Analysis.o: src/logic/Analysis.cpp.o
-.PHONY : src/logic/Analysis.o
+src/logic/Analysis/Analysis.o: src/logic/Analysis/Analysis.cpp.o
+.PHONY : src/logic/Analysis/Analysis.o
 
 # target to build an object file
-src/logic/Analysis.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.o
-.PHONY : src/logic/Analysis.cpp.o
+src/logic/Analysis/Analysis.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o
+.PHONY : src/logic/Analysis/Analysis.cpp.o
 
-src/logic/Analysis.i: src/logic/Analysis.cpp.i
-.PHONY : src/logic/Analysis.i
+src/logic/Analysis/Analysis.i: src/logic/Analysis/Analysis.cpp.i
+.PHONY : src/logic/Analysis/Analysis.i
 
 # target to preprocess a source file
-src/logic/Analysis.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.i
-.PHONY : src/logic/Analysis.cpp.i
+src/logic/Analysis/Analysis.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.i
+.PHONY : src/logic/Analysis/Analysis.cpp.i
 
-src/logic/Analysis.s: src/logic/Analysis.cpp.s
-.PHONY : src/logic/Analysis.s
+src/logic/Analysis/Analysis.s: src/logic/Analysis/Analysis.cpp.s
+.PHONY : src/logic/Analysis/Analysis.s
 
 # target to generate assembly for a file
-src/logic/Analysis.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis.cpp.s
-.PHONY : src/logic/Analysis.cpp.s
+src/logic/Analysis/Analysis.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s
+.PHONY : src/logic/Analysis/Analysis.cpp.s
+
+src/logic/Analysis/Overhang/Overhang.o: src/logic/Analysis/Overhang/Overhang.cpp.o
+.PHONY : src/logic/Analysis/Overhang/Overhang.o
+
+# target to build an object file
+src/logic/Analysis/Overhang/Overhang.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o
+.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.o
+
+src/logic/Analysis/Overhang/Overhang.i: src/logic/Analysis/Overhang/Overhang.cpp.i
+.PHONY : src/logic/Analysis/Overhang/Overhang.i
+
+# target to preprocess a source file
+src/logic/Analysis/Overhang/Overhang.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.i
+.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.i
+
+src/logic/Analysis/Overhang/Overhang.s: src/logic/Analysis/Overhang/Overhang.cpp.s
+.PHONY : src/logic/Analysis/Overhang/Overhang.s
+
+# target to generate assembly for a file
+src/logic/Analysis/Overhang/Overhang.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s
+.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.s
+
+src/logic/Analysis/ThinSection/ThinSection.o: src/logic/Analysis/ThinSection/ThinSection.cpp.o
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.o
+
+# target to build an object file
+src/logic/Analysis/ThinSection/ThinSection.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.o
+
+src/logic/Analysis/ThinSection/ThinSection.i: src/logic/Analysis/ThinSection/ThinSection.cpp.i
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.i
+
+# target to preprocess a source file
+src/logic/Analysis/ThinSection/ThinSection.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.i
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.i
+
+src/logic/Analysis/ThinSection/ThinSection.s: src/logic/Analysis/ThinSection/ThinSection.cpp.s
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.s
+
+# target to generate assembly for a file
+src/logic/Analysis/ThinSection/ThinSection.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.s
+.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.s
+
+src/logic/Analysis/utils/Slice.o: src/logic/Analysis/utils/Slice.cpp.o
+.PHONY : src/logic/Analysis/utils/Slice.o
+
+# target to build an object file
+src/logic/Analysis/utils/Slice.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
+.PHONY : src/logic/Analysis/utils/Slice.cpp.o
+
+src/logic/Analysis/utils/Slice.i: src/logic/Analysis/utils/Slice.cpp.i
+.PHONY : src/logic/Analysis/utils/Slice.i
+
+# target to preprocess a source file
+src/logic/Analysis/utils/Slice.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.i
+.PHONY : src/logic/Analysis/utils/Slice.cpp.i
+
+src/logic/Analysis/utils/Slice.s: src/logic/Analysis/utils/Slice.cpp.s
+.PHONY : src/logic/Analysis/utils/Slice.s
+
+# target to generate assembly for a file
+src/logic/Analysis/utils/Slice.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s
+.PHONY : src/logic/Analysis/utils/Slice.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -453,6 +525,30 @@ src/scene/Geometry/Curve.s: src/scene/Geometry/Curve.cpp.s
 src/scene/Geometry/Curve.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s
 .PHONY : src/scene/Geometry/Curve.cpp.s
+
+src/scene/Geometry/Face.o: src/scene/Geometry/Face.cpp.o
+.PHONY : src/scene/Geometry/Face.o
+
+# target to build an object file
+src/scene/Geometry/Face.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o
+.PHONY : src/scene/Geometry/Face.cpp.o
+
+src/scene/Geometry/Face.i: src/scene/Geometry/Face.cpp.i
+.PHONY : src/scene/Geometry/Face.i
+
+# target to preprocess a source file
+src/scene/Geometry/Face.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.i
+.PHONY : src/scene/Geometry/Face.cpp.i
+
+src/scene/Geometry/Face.s: src/scene/Geometry/Face.cpp.s
+.PHONY : src/scene/Geometry/Face.s
+
+# target to generate assembly for a file
+src/scene/Geometry/Face.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s
+.PHONY : src/scene/Geometry/Face.cpp.s
 
 src/scene/scene.o: src/scene/scene.cpp.o
 .PHONY : src/scene/scene.o
@@ -566,15 +662,27 @@ help:
 	@echo "... src/display/rendering/SceneRenderer/color.o"
 	@echo "... src/display/rendering/SceneRenderer/color.i"
 	@echo "... src/display/rendering/SceneRenderer/color.s"
-	@echo "... src/logic/Analysis.o"
-	@echo "... src/logic/Analysis.i"
-	@echo "... src/logic/Analysis.s"
+	@echo "... src/logic/Analysis/Analysis.o"
+	@echo "... src/logic/Analysis/Analysis.i"
+	@echo "... src/logic/Analysis/Analysis.s"
+	@echo "... src/logic/Analysis/Overhang/Overhang.o"
+	@echo "... src/logic/Analysis/Overhang/Overhang.i"
+	@echo "... src/logic/Analysis/Overhang/Overhang.s"
+	@echo "... src/logic/Analysis/ThinSection/ThinSection.o"
+	@echo "... src/logic/Analysis/ThinSection/ThinSection.i"
+	@echo "... src/logic/Analysis/ThinSection/ThinSection.s"
+	@echo "... src/logic/Analysis/utils/Slice.o"
+	@echo "... src/logic/Analysis/utils/Slice.i"
+	@echo "... src/logic/Analysis/utils/Slice.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
 	@echo "... src/scene/Geometry/Curve.o"
 	@echo "... src/scene/Geometry/Curve.i"
 	@echo "... src/scene/Geometry/Curve.s"
+	@echo "... src/scene/Geometry/Face.o"
+	@echo "... src/scene/Geometry/Face.i"
+	@echo "... src/scene/Geometry/Face.s"
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"

@@ -3,7 +3,7 @@
 #include <unordered_set>
 struct Edge;
 
-#include <variant>
+#include <memory>
 #include <tinynurbs/tinynurbs.h>
 #include "Geometry.hpp"
 
@@ -12,19 +12,25 @@ struct Edge;
 struct Curve
 {
     std::unordered_set<Edge *> dependencies;
-    CurveType type;
 
-    std::variant<ArcData, std::unique_ptr<tinynurbs::RationalCurve3d>> data;
+    virtual ~Curve() = default;
+    virtual glm::dvec3 Evaluate(double t, const glm::dvec3 &edgeStart, const glm::dvec3 &edgeEnd) const = 0;
+};
 
-    const ArcData &GetArc() const { return std::get<ArcData>(data); }
-    bool IsArc() const { return std::holds_alternative<ArcData>(data); }
+struct ArcCurve : Curve
+{
+    ArcData arc;
 
-    const tinynurbs::RationalCurve3d &GetNurbs() const { return *std::get<std::unique_ptr<tinynurbs::RationalCurve3d>>(data); }
-    bool IsNurbs() const { return std::holds_alternative<std::unique_ptr<tinynurbs::RationalCurve3d>>(data); }
+    ArcCurve(const ArcData &arcData) : arc(arcData) {}
 
-    glm::dvec3 Evaluate(double t, const glm::dvec3 &edgeStart, const glm::dvec3 &edgeEnd) const;
+    glm::dvec3 Evaluate(double t, const glm::dvec3 &edgeStart, const glm::dvec3 &edgeEnd) const override;
+};
 
-private:
-    glm::dvec3 EvaluateArc(double t, const glm::dvec3 &start, const glm::dvec3 &end) const;
-    glm::dvec3 EvaluateNURBS(double t) const;
+struct NurbsCurve : Curve
+{
+    std::unique_ptr<tinynurbs::RationalCurve3d> nurbs;
+
+    NurbsCurve(std::unique_ptr<tinynurbs::RationalCurve3d> nurbsData) : nurbs(std::move(nurbsData)) {}
+
+    glm::dvec3 Evaluate(double t, const glm::dvec3 &edgeStart, const glm::dvec3 &edgeEnd) const override;
 };

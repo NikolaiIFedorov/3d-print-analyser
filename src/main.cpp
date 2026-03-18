@@ -3,6 +3,9 @@
 #include "scene.hpp"
 #include "display/display.hpp"
 #include "map"
+#include "Analysis/Analysis.hpp"
+#include "Analysis/Overhang/Overhang.hpp"
+#include "Analysis/ThinSection/ThinSection.hpp"
 
 Scene scene;
 
@@ -69,7 +72,7 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
     glm::mat4 viewProj = proj * view;
     glm::mat4 invViewProj = glm::inverse(viewProj);
 
-    glm::vec4 nearPoint = invViewProj * glm::vec4(ndcX, ndcY, -1.0f, 1.0f);
+    glm::vec4 nearPoint = invViewProj * glm::vec4(ndcX, ndcY, 0.0f, 1.0f);
     nearPoint /= nearPoint.w;
 
     return glm::vec3(nearPoint);
@@ -120,21 +123,32 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
 
+    LOG_DEBU("Scroll input: xoffset = " + Log::NumToStr(xoffset) +
+             ", yoffset = " + Log::NumToStr(yoffset));
+
+    double y = yoffset;
+    double x = xoffset;
+
+    if (std::abs(yoffset) <= std::abs(xoffset) * 2)
+        y = 0;
+    else if (std::abs(xoffset) <= std::abs(yoffset) * 2)
+        x = 0;
+
     glm::vec3 cursorPos = ProjectScreenToWorld(
         input.lastX, input.lastY, width, height, display.GetCamera());
 
     if (input.shiftPressed)
     {
-        display.Zoom(yoffset, cursorPos);
+        display.Zoom(y, cursorPos);
     }
     if (input.altPressed)
     {
-        display.Orbit(xoffset, yoffset);
+        display.Orbit(x, y);
     }
 
     if (!input.shiftPressed && !input.altPressed)
     {
-        display.Pan(xoffset, yoffset);
+        display.Pan(x, y);
     }
 
     Process(false, true, false, false);
@@ -162,6 +176,9 @@ bool Init()
         return LOG_FALSE("Window is null");
     }
 
+    Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>());
+
     glfwSetCursorPosCallback(window, cursorPositionCallback);
     glfwSetScrollCallback(window, scrollCallback);
     glfwSetKeyCallback(window, keyPressCallback);
@@ -170,7 +187,7 @@ bool Init()
     return true;
 }
 
-RunType type = TEST;
+RunType type = WINDOW;
 
 int main()
 {
@@ -187,19 +204,33 @@ int main()
         if (!Init())
             return -1;
 
-        Point *p1 = scene.CreatePoint({1.0f, 0.0f, 0.0f});
-        Point *p2 = scene.CreatePoint({1.0f, 1.0f, 0.0f});
-        Point *p3 = scene.CreatePoint({0.0f, 1.0f, 0.0f});
-        Point *p4 = scene.CreatePoint({0.0f, 0.0f, 0.0f});
+        Point *bp1 = scene.CreatePoint(glm::vec3(0, 0, 0));
+        Point *bp2 = scene.CreatePoint(glm::vec3(0, 10, 0));
+        Point *bp3 = scene.CreatePoint(glm::vec3(10, 10, 0));
+        Point *bp4 = scene.CreatePoint(glm::vec3(10, 0, 0));
 
-        Edge *e1 = scene.CreateEdge(p1, p2);
-        Edge *e2 = scene.CreateEdge(p2, p3);
-        Edge *e3 = scene.CreateEdge(p3, p4);
-        Edge *e4 = scene.CreateEdge(p4, p1);
+        Edge *be1 = scene.CreateEdge(bp1, bp2);
+        Edge *be2 = scene.CreateEdge(bp2, bp3);
+        Edge *be3 = scene.CreateEdge(bp3, bp4);
+        Edge *be4 = scene.CreateEdge(bp4, bp1);
 
-        Face *f1 = scene.CreateFace({{e1, e2, e3, e4}});
+        Face *bf = scene.CreateFace({{be1, be2, be3, be4}});
 
-        display.AddForm(f1);
+        Point *ep = scene.CreatePoint(glm::vec3(0, 0, 10));
+
+        Edge *e1 = scene.CreateEdge(bp1, ep);
+        Edge *e2 = scene.CreateEdge(bp2, ep);
+        Edge *e3 = scene.CreateEdge(bp3, ep);
+        Edge *e4 = scene.CreateEdge(bp4, ep);
+
+        Face *ef1 = scene.CreateFace({{be1, e2, e1}});
+        Face *ef2 = scene.CreateFace({{be2, e3, e2}});
+        Face *ef3 = scene.CreateFace({{be3, e4, e3}});
+        Face *ef4 = scene.CreateFace({{be4, e1, e4}});
+
+        Solid *s = scene.CreateSolid({bf, ef1, ef2, ef3, ef4});
+
+        display.AddForm(s);
 
         Process(true, true, true, false);
 
@@ -209,6 +240,7 @@ int main()
             glfwPollEvents();
             Process(false, false, false, false);
         }
+
         Shutdown();
     }
     LOG_END

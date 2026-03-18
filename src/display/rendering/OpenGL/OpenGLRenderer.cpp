@@ -32,6 +32,7 @@ bool OpenGLRenderer::Initialize(GLFWwindow *windowHandle)
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
+    glClearDepth(1.0);
 
     glDisable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -48,6 +49,10 @@ bool OpenGLRenderer::Initialize(GLFWwindow *windowHandle)
     LOG_DESC("OpenGL Version: " + std::string((const char *)glGetString(GL_VERSION)));
     LOG_DESC("GLSL Version: " + std::string((const char *)glGetString(GL_SHADING_LANGUAGE_VERSION)));
     LOG_DESC("Renderer: " + std::string((const char *)glGetString(GL_RENDERER)));
+
+    GLint depthBits;
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
+    LOG_DESC("Depth buffer bits: " + std::to_string(depthBits));
 
     LOG_VOID("Initialized renderer");
 
@@ -216,11 +221,22 @@ void OpenGLRenderer::DrawTriangles()
 
     shader.SetMat4("uModel", modelMatrix);
 
+    // Force depth state
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+
+    // Push triangles slightly back so edges render on top
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.0f, 1.0f);
+
     glBindVertexArray(triangleVAO);
 
     glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
     GetGLError();
 }
 
@@ -231,18 +247,16 @@ void OpenGLRenderer::DrawLines()
 
     shader.Use();
     shader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
-    shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetMat4("uModel", modelMatrix);
 
-    GetGLError();
-
-    glDisable(GL_DEPTH_TEST);
-    glLineWidth(10.0f);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
 
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    glEnable(GL_DEPTH_TEST);
     GetGLError();
 }
 

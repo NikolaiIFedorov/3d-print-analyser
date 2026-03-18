@@ -86,9 +86,10 @@ private:
 
     static uint16_t StringSize(std::string str);
     static bool Erase(std::string &str, std::string start, char end);
+    static void CleanString(std::string &msg);
 };
 
-#define LOG_DEBU(msg) Log::Debug(msg);
+#define LOG_DEBU(msg, ...) Log::Debug(msg);
 #define LOG_ERROR(msg) Log::Error(msg);
 #define LOG_WARN(msg) Log::Warn(msg);
 #define LOG_DESC(msg) Log::Description(msg);

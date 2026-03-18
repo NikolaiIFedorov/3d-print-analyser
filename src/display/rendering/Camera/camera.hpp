@@ -3,6 +3,7 @@
 #include "GLFW/glfw3.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <cmath>
 
@@ -29,8 +30,7 @@ public:
 
     glm::vec3 target;
     float distance;
-    float azimuth;
-    float elevation;
+    glm::quat orientation;
 
     float orthoSize;
     float aspectRatio;

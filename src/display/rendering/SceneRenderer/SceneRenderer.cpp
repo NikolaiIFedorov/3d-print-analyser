@@ -10,24 +10,17 @@ void SceneRenderer::UpdateFromRenderBuffer(const Scene &scene)
     GLint viewPort[4];
     glGetIntegerv(GL_VIEWPORT, viewPort);
 
-    if (currentMode == RenderMode::WIREFRAME || currentMode == RenderMode::WIREFRAME_ON_SOLID)
-    {
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
 
-        wireframe.Generate(renderBuffer, vertices, indices);
-        renderer.UploadLineMesh(vertices, indices);
-    }
+    wireframe.Generate(renderBuffer, vertices, indices);
+    renderer.UploadLineMesh(vertices, indices);
 
-    if (currentMode == RenderMode::SOLID || currentMode == RenderMode::WIREFRAME_ON_SOLID)
-    {
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
+    vertices.clear();
+    indices.clear();
 
-        patch.Generate(renderBuffer, vertices, indices, viewPort);
-
-        renderer.UploadTriangleMesh(vertices, indices);
-    }
+    patch.Generate(renderBuffer, vertices, indices, viewPort);
+    renderer.UploadTriangleMesh(vertices, indices);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)
@@ -41,23 +34,12 @@ void SceneRenderer::Render()
 {
     renderer.BeginFrame();
     renderer.Clear(Color::GetBase());
-    if (currentMode == RenderMode::WIREFRAME ||
-        currentMode == RenderMode::WIREFRAME_ON_SOLID)
-    {
-        renderer.DrawLines();
-    }
 
-    if (currentMode == RenderMode::SOLID ||
-        currentMode == RenderMode::WIREFRAME_ON_SOLID)
-    {
-        renderer.DrawTriangles();
-    }
+    renderer.DrawTriangles();
+
+    renderer.DrawLines();
+
     renderer.EndFrame();
-}
-
-void SceneRenderer::SetRenderMode(RenderMode mode)
-{
-    currentMode = mode;
 }
 
 void SceneRenderer::Shutdown()
