@@ -1,7 +1,7 @@
 #pragma once
 
 #include "glad/glad.h"
-#include "GLFW/glfw3.h"
+#include "SDL3/SDL.h"
 
 #include "rendering/OpenGL/OpenGLRenderer.hpp"
 #include "rendering/Camera/camera.hpp"
@@ -21,7 +21,9 @@ public:
     Wireframe wireframe;
     Patch patch;
 
-    SceneRenderer(GLFWwindow *window);
+    SceneRenderer() {};
+
+    SceneRenderer(SDL_Window *window) : renderer(window) {};
 
     void UpdateFromRenderBuffer(const Scene &scene);
 
@@ -37,5 +39,5 @@ public:
 
 private:
     OpenGLRenderer renderer;
-    GLFWwindow *window = nullptr;
+    SDL_Window *window = nullptr;
 };

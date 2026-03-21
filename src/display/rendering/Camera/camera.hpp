@@ -10,13 +10,14 @@
 class Camera
 {
 public:
+    Camera() {};
     Camera(uint16_t width, uint16_t height);
 
     glm::mat4 GetViewMatrix() const;
     glm::mat4 GetProjectionMatrix() const;
 
     void Orbit(const float deltaX, const float deltaY);
-    void Pan(const float deltaX, const float deltaY);
+    void Pan(const float deltaX, const float deltaY, bool scroll = true);
     void Zoom(const float delta, const glm::vec3 &targetPoint);
 
     void FrameBounds(const glm::vec3 &min, const glm::vec3 &max);

@@ -53,12 +53,14 @@ void Camera::Orbit(float deltaX, float deltaY)
     orientation = glm::normalize(yawRotation * pitchRotation * orientation);
 }
 
-void Camera::Pan(float deltaX, float deltaY)
+void Camera::Pan(float deltaX, float deltaY, bool scroll)
 {
     glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
     float sensitivity = orthoSize * 0.01f;
+    if (!scroll)
+        sensitivity = orthoSize * 0.0025f;
 
     target -= right * (deltaX * sensitivity);
     target += up * (deltaY * sensitivity);

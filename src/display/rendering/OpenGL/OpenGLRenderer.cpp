@@ -8,26 +8,65 @@ OpenGLRenderer::~OpenGLRenderer()
     Shutdown();
 }
 
-OpenGLRenderer::OpenGLRenderer(GLFWwindow *window)
+OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
+    : window(other.window),
+      glContext(other.glContext),
+      triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO), triangleIBO(other.triangleIBO), triangleIndexCount(other.triangleIndexCount),
+      lineVAO(other.lineVAO), lineVBO(other.lineVBO), lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
+      shader(std::move(other.shader))
 {
-    Initialize(window);
+    other.window = nullptr;
+    other.glContext = nullptr;
+    other.triangleVAO = other.triangleVBO = other.triangleIBO = 0;
+    other.lineVAO = other.lineVBO = other.lineIBO = 0;
+    other.triangleIndexCount = other.lineIndexCount = 0;
 }
 
-bool OpenGLRenderer::Initialize(GLFWwindow *windowHandle)
+OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
+{
+    if (this != &other)
+    {
+        Shutdown();
+        window = other.window;
+        glContext = other.glContext;
+        triangleVAO = other.triangleVAO;
+        triangleVBO = other.triangleVBO;
+        triangleIBO = other.triangleIBO;
+        triangleIndexCount = other.triangleIndexCount;
+        lineVAO = other.lineVAO;
+        lineVBO = other.lineVBO;
+        lineIBO = other.lineIBO;
+        lineIndexCount = other.lineIndexCount;
+        viewMatrix = other.viewMatrix;
+        projectionMatrix = other.projectionMatrix;
+        modelMatrix = other.modelMatrix;
+        shader = std::move(other.shader);
+        other.window = nullptr;
+        other.glContext = nullptr;
+        other.triangleVAO = other.triangleVBO = other.triangleIBO = 0;
+        other.lineVAO = other.lineVBO = other.lineIBO = 0;
+        other.triangleIndexCount = other.lineIndexCount = 0;
+    }
+    return *this;
+}
+
+OpenGLRenderer::OpenGLRenderer(SDL_Window *windowHandle)
 {
     if (windowHandle == nullptr)
     {
-        return LOG_FALSE("WindowHandle is null");
+        LOG_FALSE("WindowHandle is null");
+        return;
     }
 
     window = windowHandle;
 
-    glfwMakeContextCurrent(windowHandle);
-
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    glContext = SDL_GL_GetCurrentContext();
+    SDL_GL_MakeCurrent(windowHandle, glContext);
+    if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress))
     {
         GetGLError();
-        return false;
+        return;
     }
 
     glEnable(GL_DEPTH_TEST);
@@ -40,7 +79,8 @@ bool OpenGLRenderer::Initialize(GLFWwindow *windowHandle)
 
     if (!InitializeShaders())
     {
-        return false;
+        LOG_FALSE("Failed to initialize shaders");
+        return;
     }
 
     glGenVertexArrays(1, &triangleVAO);
@@ -57,7 +97,6 @@ bool OpenGLRenderer::Initialize(GLFWwindow *windowHandle)
     LOG_VOID("Initialized renderer");
 
     GetGLError();
-    return true;
 }
 
 bool OpenGLRenderer::InitializeShaders()
@@ -91,7 +130,7 @@ void OpenGLRenderer::BeginFrame()
 
 void OpenGLRenderer::EndFrame()
 {
-    glfwSwapBuffers(window);
+    SDL_GL_SwapWindow(window);
     GetGLError();
     LOG_VOID("Rendering frame with: #indices = " + Log::NumToStr(triangleIndexCount));
 }

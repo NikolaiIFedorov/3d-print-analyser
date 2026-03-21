@@ -25,6 +25,20 @@ public:
     OpenGLShader() = default;
     ~OpenGLShader();
 
+    OpenGLShader(const OpenGLShader &) = delete;
+    OpenGLShader &operator=(const OpenGLShader &) = delete;
+    OpenGLShader(OpenGLShader &&other) noexcept : programID(other.programID) { other.programID = 0; }
+    OpenGLShader &operator=(OpenGLShader &&other) noexcept
+    {
+        if (this != &other)
+        {
+            Delete();
+            programID = other.programID;
+            other.programID = 0;
+        }
+        return *this;
+    }
+
     bool LoadFromFiles(const std::string &vertexPath,
                        const std::string &fragmentPath);
     void Use();

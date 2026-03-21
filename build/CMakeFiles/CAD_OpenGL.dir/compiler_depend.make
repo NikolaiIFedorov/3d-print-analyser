@@ -5,7 +5,9 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityMacros.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityVersions.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/___wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__xlocale.h \
@@ -1342,9 +1344,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/shaders/Vertex.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
@@ -1358,7 +1358,67 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp \
-  /opt/homebrew/include/GLFW/glfw3.h
+  /opt/homebrew/include/GLFW/glfw3.h \
+  /opt/homebrew/include/SDL3/SDL.h \
+  /opt/homebrew/include/SDL3/SDL_assert.h \
+  /opt/homebrew/include/SDL3/SDL_asyncio.h \
+  /opt/homebrew/include/SDL3/SDL_atomic.h \
+  /opt/homebrew/include/SDL3/SDL_audio.h \
+  /opt/homebrew/include/SDL3/SDL_begin_code.h \
+  /opt/homebrew/include/SDL3/SDL_bits.h \
+  /opt/homebrew/include/SDL3/SDL_blendmode.h \
+  /opt/homebrew/include/SDL3/SDL_camera.h \
+  /opt/homebrew/include/SDL3/SDL_clipboard.h \
+  /opt/homebrew/include/SDL3/SDL_close_code.h \
+  /opt/homebrew/include/SDL3/SDL_cpuinfo.h \
+  /opt/homebrew/include/SDL3/SDL_dialog.h \
+  /opt/homebrew/include/SDL3/SDL_dlopennote.h \
+  /opt/homebrew/include/SDL3/SDL_endian.h \
+  /opt/homebrew/include/SDL3/SDL_error.h \
+  /opt/homebrew/include/SDL3/SDL_events.h \
+  /opt/homebrew/include/SDL3/SDL_filesystem.h \
+  /opt/homebrew/include/SDL3/SDL_gamepad.h \
+  /opt/homebrew/include/SDL3/SDL_gpu.h \
+  /opt/homebrew/include/SDL3/SDL_guid.h \
+  /opt/homebrew/include/SDL3/SDL_haptic.h \
+  /opt/homebrew/include/SDL3/SDL_hidapi.h \
+  /opt/homebrew/include/SDL3/SDL_hints.h \
+  /opt/homebrew/include/SDL3/SDL_init.h \
+  /opt/homebrew/include/SDL3/SDL_iostream.h \
+  /opt/homebrew/include/SDL3/SDL_joystick.h \
+  /opt/homebrew/include/SDL3/SDL_keyboard.h \
+  /opt/homebrew/include/SDL3/SDL_keycode.h \
+  /opt/homebrew/include/SDL3/SDL_loadso.h \
+  /opt/homebrew/include/SDL3/SDL_locale.h \
+  /opt/homebrew/include/SDL3/SDL_log.h \
+  /opt/homebrew/include/SDL3/SDL_messagebox.h \
+  /opt/homebrew/include/SDL3/SDL_metal.h \
+  /opt/homebrew/include/SDL3/SDL_misc.h \
+  /opt/homebrew/include/SDL3/SDL_mouse.h \
+  /opt/homebrew/include/SDL3/SDL_mutex.h \
+  /opt/homebrew/include/SDL3/SDL_oldnames.h \
+  /opt/homebrew/include/SDL3/SDL_pen.h \
+  /opt/homebrew/include/SDL3/SDL_pixels.h \
+  /opt/homebrew/include/SDL3/SDL_platform.h \
+  /opt/homebrew/include/SDL3/SDL_platform_defines.h \
+  /opt/homebrew/include/SDL3/SDL_power.h \
+  /opt/homebrew/include/SDL3/SDL_process.h \
+  /opt/homebrew/include/SDL3/SDL_properties.h \
+  /opt/homebrew/include/SDL3/SDL_rect.h \
+  /opt/homebrew/include/SDL3/SDL_render.h \
+  /opt/homebrew/include/SDL3/SDL_scancode.h \
+  /opt/homebrew/include/SDL3/SDL_sensor.h \
+  /opt/homebrew/include/SDL3/SDL_stdinc.h \
+  /opt/homebrew/include/SDL3/SDL_storage.h \
+  /opt/homebrew/include/SDL3/SDL_surface.h \
+  /opt/homebrew/include/SDL3/SDL_system.h \
+  /opt/homebrew/include/SDL3/SDL_thread.h \
+  /opt/homebrew/include/SDL3/SDL_time.h \
+  /opt/homebrew/include/SDL3/SDL_timer.h \
+  /opt/homebrew/include/SDL3/SDL_touch.h \
+  /opt/homebrew/include/SDL3/SDL_tray.h \
+  /opt/homebrew/include/SDL3/SDL_version.h \
+  /opt/homebrew/include/SDL3/SDL_video.h
 
 CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.cpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers/OpenGLAvailability.h \
@@ -2571,7 +2631,9 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o: /Us
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityMacros.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityVersions.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/___wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__xlocale.h \
@@ -3860,7 +3922,66 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o: /Us
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/shaders/Vertex.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
-  /opt/homebrew/include/GLFW/glfw3.h
+  /opt/homebrew/include/SDL3/SDL.h \
+  /opt/homebrew/include/SDL3/SDL_assert.h \
+  /opt/homebrew/include/SDL3/SDL_asyncio.h \
+  /opt/homebrew/include/SDL3/SDL_atomic.h \
+  /opt/homebrew/include/SDL3/SDL_audio.h \
+  /opt/homebrew/include/SDL3/SDL_begin_code.h \
+  /opt/homebrew/include/SDL3/SDL_bits.h \
+  /opt/homebrew/include/SDL3/SDL_blendmode.h \
+  /opt/homebrew/include/SDL3/SDL_camera.h \
+  /opt/homebrew/include/SDL3/SDL_clipboard.h \
+  /opt/homebrew/include/SDL3/SDL_close_code.h \
+  /opt/homebrew/include/SDL3/SDL_cpuinfo.h \
+  /opt/homebrew/include/SDL3/SDL_dialog.h \
+  /opt/homebrew/include/SDL3/SDL_dlopennote.h \
+  /opt/homebrew/include/SDL3/SDL_endian.h \
+  /opt/homebrew/include/SDL3/SDL_error.h \
+  /opt/homebrew/include/SDL3/SDL_events.h \
+  /opt/homebrew/include/SDL3/SDL_filesystem.h \
+  /opt/homebrew/include/SDL3/SDL_gamepad.h \
+  /opt/homebrew/include/SDL3/SDL_gpu.h \
+  /opt/homebrew/include/SDL3/SDL_guid.h \
+  /opt/homebrew/include/SDL3/SDL_haptic.h \
+  /opt/homebrew/include/SDL3/SDL_hidapi.h \
+  /opt/homebrew/include/SDL3/SDL_hints.h \
+  /opt/homebrew/include/SDL3/SDL_init.h \
+  /opt/homebrew/include/SDL3/SDL_iostream.h \
+  /opt/homebrew/include/SDL3/SDL_joystick.h \
+  /opt/homebrew/include/SDL3/SDL_keyboard.h \
+  /opt/homebrew/include/SDL3/SDL_keycode.h \
+  /opt/homebrew/include/SDL3/SDL_loadso.h \
+  /opt/homebrew/include/SDL3/SDL_locale.h \
+  /opt/homebrew/include/SDL3/SDL_log.h \
+  /opt/homebrew/include/SDL3/SDL_messagebox.h \
+  /opt/homebrew/include/SDL3/SDL_metal.h \
+  /opt/homebrew/include/SDL3/SDL_misc.h \
+  /opt/homebrew/include/SDL3/SDL_mouse.h \
+  /opt/homebrew/include/SDL3/SDL_mutex.h \
+  /opt/homebrew/include/SDL3/SDL_oldnames.h \
+  /opt/homebrew/include/SDL3/SDL_pen.h \
+  /opt/homebrew/include/SDL3/SDL_pixels.h \
+  /opt/homebrew/include/SDL3/SDL_platform.h \
+  /opt/homebrew/include/SDL3/SDL_platform_defines.h \
+  /opt/homebrew/include/SDL3/SDL_power.h \
+  /opt/homebrew/include/SDL3/SDL_process.h \
+  /opt/homebrew/include/SDL3/SDL_properties.h \
+  /opt/homebrew/include/SDL3/SDL_rect.h \
+  /opt/homebrew/include/SDL3/SDL_render.h \
+  /opt/homebrew/include/SDL3/SDL_scancode.h \
+  /opt/homebrew/include/SDL3/SDL_sensor.h \
+  /opt/homebrew/include/SDL3/SDL_stdinc.h \
+  /opt/homebrew/include/SDL3/SDL_storage.h \
+  /opt/homebrew/include/SDL3/SDL_surface.h \
+  /opt/homebrew/include/SDL3/SDL_system.h \
+  /opt/homebrew/include/SDL3/SDL_thread.h \
+  /opt/homebrew/include/SDL3/SDL_time.h \
+  /opt/homebrew/include/SDL3/SDL_timer.h \
+  /opt/homebrew/include/SDL3/SDL_touch.h \
+  /opt/homebrew/include/SDL3/SDL_tray.h \
+  /opt/homebrew/include/SDL3/SDL_version.h \
+  /opt/homebrew/include/SDL3/SDL_video.h
 
 CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
@@ -6136,6 +6257,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
@@ -7339,7 +7461,9 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityMacros.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityVersions.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/___wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__xlocale.h \
@@ -8641,6 +8765,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/shaders/Vertex.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
@@ -8652,7 +8777,67 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
-  /opt/homebrew/include/GLFW/glfw3.h
+  /opt/homebrew/include/GLFW/glfw3.h \
+  /opt/homebrew/include/SDL3/SDL.h \
+  /opt/homebrew/include/SDL3/SDL_assert.h \
+  /opt/homebrew/include/SDL3/SDL_asyncio.h \
+  /opt/homebrew/include/SDL3/SDL_atomic.h \
+  /opt/homebrew/include/SDL3/SDL_audio.h \
+  /opt/homebrew/include/SDL3/SDL_begin_code.h \
+  /opt/homebrew/include/SDL3/SDL_bits.h \
+  /opt/homebrew/include/SDL3/SDL_blendmode.h \
+  /opt/homebrew/include/SDL3/SDL_camera.h \
+  /opt/homebrew/include/SDL3/SDL_clipboard.h \
+  /opt/homebrew/include/SDL3/SDL_close_code.h \
+  /opt/homebrew/include/SDL3/SDL_cpuinfo.h \
+  /opt/homebrew/include/SDL3/SDL_dialog.h \
+  /opt/homebrew/include/SDL3/SDL_dlopennote.h \
+  /opt/homebrew/include/SDL3/SDL_endian.h \
+  /opt/homebrew/include/SDL3/SDL_error.h \
+  /opt/homebrew/include/SDL3/SDL_events.h \
+  /opt/homebrew/include/SDL3/SDL_filesystem.h \
+  /opt/homebrew/include/SDL3/SDL_gamepad.h \
+  /opt/homebrew/include/SDL3/SDL_gpu.h \
+  /opt/homebrew/include/SDL3/SDL_guid.h \
+  /opt/homebrew/include/SDL3/SDL_haptic.h \
+  /opt/homebrew/include/SDL3/SDL_hidapi.h \
+  /opt/homebrew/include/SDL3/SDL_hints.h \
+  /opt/homebrew/include/SDL3/SDL_init.h \
+  /opt/homebrew/include/SDL3/SDL_iostream.h \
+  /opt/homebrew/include/SDL3/SDL_joystick.h \
+  /opt/homebrew/include/SDL3/SDL_keyboard.h \
+  /opt/homebrew/include/SDL3/SDL_keycode.h \
+  /opt/homebrew/include/SDL3/SDL_loadso.h \
+  /opt/homebrew/include/SDL3/SDL_locale.h \
+  /opt/homebrew/include/SDL3/SDL_log.h \
+  /opt/homebrew/include/SDL3/SDL_messagebox.h \
+  /opt/homebrew/include/SDL3/SDL_metal.h \
+  /opt/homebrew/include/SDL3/SDL_misc.h \
+  /opt/homebrew/include/SDL3/SDL_mouse.h \
+  /opt/homebrew/include/SDL3/SDL_mutex.h \
+  /opt/homebrew/include/SDL3/SDL_oldnames.h \
+  /opt/homebrew/include/SDL3/SDL_pen.h \
+  /opt/homebrew/include/SDL3/SDL_pixels.h \
+  /opt/homebrew/include/SDL3/SDL_platform.h \
+  /opt/homebrew/include/SDL3/SDL_platform_defines.h \
+  /opt/homebrew/include/SDL3/SDL_power.h \
+  /opt/homebrew/include/SDL3/SDL_process.h \
+  /opt/homebrew/include/SDL3/SDL_properties.h \
+  /opt/homebrew/include/SDL3/SDL_rect.h \
+  /opt/homebrew/include/SDL3/SDL_render.h \
+  /opt/homebrew/include/SDL3/SDL_scancode.h \
+  /opt/homebrew/include/SDL3/SDL_sensor.h \
+  /opt/homebrew/include/SDL3/SDL_stdinc.h \
+  /opt/homebrew/include/SDL3/SDL_storage.h \
+  /opt/homebrew/include/SDL3/SDL_surface.h \
+  /opt/homebrew/include/SDL3/SDL_system.h \
+  /opt/homebrew/include/SDL3/SDL_thread.h \
+  /opt/homebrew/include/SDL3/SDL_time.h \
+  /opt/homebrew/include/SDL3/SDL_timer.h \
+  /opt/homebrew/include/SDL3/SDL_touch.h \
+  /opt/homebrew/include/SDL3/SDL_tray.h \
+  /opt/homebrew/include/SDL3/SDL_version.h \
+  /opt/homebrew/include/SDL3/SDL_video.h
 
 CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
@@ -9781,6 +9966,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wirefram
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
@@ -10917,9 +11103,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o: /User
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
@@ -12055,8 +12239,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o: /Users/nikolnotai/D
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
@@ -12853,6 +13036,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: /Users/nik
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cwchar \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cwctype \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/deque \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/errno.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/filesystem \
@@ -13244,6 +13428,8 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: /Users/nik
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
@@ -13254,6 +13440,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o: /Users/nik
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Point.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp \
@@ -14380,7 +14567,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o: /Use
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
@@ -14793,7 +14980,6 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: /Users/nikolnota
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/bit_reference.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/byte.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/complex.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/deque.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/format.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/fstream.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/functional.h \
@@ -15131,7 +15317,6 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: /Users/nikolnota
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cwchar \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cwctype \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/deque \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/errno.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/filesystem \
@@ -15517,9 +15702,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: /Users/nikolnota
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
@@ -15529,14 +15712,15 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o: /Users/nikolnota
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Point.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp
 
 CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternal.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityMacros.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityVersions.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/___wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__wctype.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/__xlocale.h \
@@ -16841,6 +17025,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/shaders/Vertex.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
@@ -16857,7 +17042,67 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp \
-  /opt/homebrew/include/GLFW/glfw3.h
+  /opt/homebrew/include/GLFW/glfw3.h \
+  /opt/homebrew/include/SDL3/SDL.h \
+  /opt/homebrew/include/SDL3/SDL_assert.h \
+  /opt/homebrew/include/SDL3/SDL_asyncio.h \
+  /opt/homebrew/include/SDL3/SDL_atomic.h \
+  /opt/homebrew/include/SDL3/SDL_audio.h \
+  /opt/homebrew/include/SDL3/SDL_begin_code.h \
+  /opt/homebrew/include/SDL3/SDL_bits.h \
+  /opt/homebrew/include/SDL3/SDL_blendmode.h \
+  /opt/homebrew/include/SDL3/SDL_camera.h \
+  /opt/homebrew/include/SDL3/SDL_clipboard.h \
+  /opt/homebrew/include/SDL3/SDL_close_code.h \
+  /opt/homebrew/include/SDL3/SDL_cpuinfo.h \
+  /opt/homebrew/include/SDL3/SDL_dialog.h \
+  /opt/homebrew/include/SDL3/SDL_dlopennote.h \
+  /opt/homebrew/include/SDL3/SDL_endian.h \
+  /opt/homebrew/include/SDL3/SDL_error.h \
+  /opt/homebrew/include/SDL3/SDL_events.h \
+  /opt/homebrew/include/SDL3/SDL_filesystem.h \
+  /opt/homebrew/include/SDL3/SDL_gamepad.h \
+  /opt/homebrew/include/SDL3/SDL_gpu.h \
+  /opt/homebrew/include/SDL3/SDL_guid.h \
+  /opt/homebrew/include/SDL3/SDL_haptic.h \
+  /opt/homebrew/include/SDL3/SDL_hidapi.h \
+  /opt/homebrew/include/SDL3/SDL_hints.h \
+  /opt/homebrew/include/SDL3/SDL_init.h \
+  /opt/homebrew/include/SDL3/SDL_iostream.h \
+  /opt/homebrew/include/SDL3/SDL_joystick.h \
+  /opt/homebrew/include/SDL3/SDL_keyboard.h \
+  /opt/homebrew/include/SDL3/SDL_keycode.h \
+  /opt/homebrew/include/SDL3/SDL_loadso.h \
+  /opt/homebrew/include/SDL3/SDL_locale.h \
+  /opt/homebrew/include/SDL3/SDL_log.h \
+  /opt/homebrew/include/SDL3/SDL_messagebox.h \
+  /opt/homebrew/include/SDL3/SDL_metal.h \
+  /opt/homebrew/include/SDL3/SDL_misc.h \
+  /opt/homebrew/include/SDL3/SDL_mouse.h \
+  /opt/homebrew/include/SDL3/SDL_mutex.h \
+  /opt/homebrew/include/SDL3/SDL_oldnames.h \
+  /opt/homebrew/include/SDL3/SDL_pen.h \
+  /opt/homebrew/include/SDL3/SDL_pixels.h \
+  /opt/homebrew/include/SDL3/SDL_platform.h \
+  /opt/homebrew/include/SDL3/SDL_platform_defines.h \
+  /opt/homebrew/include/SDL3/SDL_power.h \
+  /opt/homebrew/include/SDL3/SDL_process.h \
+  /opt/homebrew/include/SDL3/SDL_properties.h \
+  /opt/homebrew/include/SDL3/SDL_rect.h \
+  /opt/homebrew/include/SDL3/SDL_render.h \
+  /opt/homebrew/include/SDL3/SDL_scancode.h \
+  /opt/homebrew/include/SDL3/SDL_sensor.h \
+  /opt/homebrew/include/SDL3/SDL_stdinc.h \
+  /opt/homebrew/include/SDL3/SDL_storage.h \
+  /opt/homebrew/include/SDL3/SDL_surface.h \
+  /opt/homebrew/include/SDL3/SDL_system.h \
+  /opt/homebrew/include/SDL3/SDL_thread.h \
+  /opt/homebrew/include/SDL3/SDL_time.h \
+  /opt/homebrew/include/SDL3/SDL_timer.h \
+  /opt/homebrew/include/SDL3/SDL_touch.h \
+  /opt/homebrew/include/SDL3/SDL_tray.h \
+  /opt/homebrew/include/SDL3/SDL_version.h \
+  /opt/homebrew/include/SDL3/SDL_video.h
 
 CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/Availability.h \
@@ -22082,7 +22327,7 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp:
 
-/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp:
+/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.cpp:
 
@@ -22095,6 +22340,68 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers/gltypes.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/OpenGL.framework/Headers/OpenGLAvailability.h:
+
+/opt/homebrew/include/SDL3/SDL_version.h:
+
+/opt/homebrew/include/SDL3/SDL_tray.h:
+
+/opt/homebrew/include/SDL3/SDL_timer.h:
+
+/opt/homebrew/include/SDL3/SDL_thread.h:
+
+/opt/homebrew/include/SDL3/SDL_system.h:
+
+/opt/homebrew/include/SDL3/SDL_stdinc.h:
+
+/opt/homebrew/include/SDL3/SDL_sensor.h:
+
+/opt/homebrew/include/SDL3/SDL_scancode.h:
+
+/opt/homebrew/include/SDL3/SDL_properties.h:
+
+/opt/homebrew/include/SDL3/SDL_platform_defines.h:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp:
+
+/opt/homebrew/include/SDL3/SDL_platform.h:
+
+/opt/homebrew/include/SDL3/SDL_messagebox.h:
+
+/opt/homebrew/include/SDL3/SDL_locale.h:
+
+/opt/homebrew/include/SDL3/SDL_loadso.h:
+
+/opt/homebrew/include/SDL3/SDL_keyboard.h:
+
+/opt/homebrew/include/SDL3/SDL_iostream.h:
+
+/opt/homebrew/include/SDL3/SDL_init.h:
+
+/opt/homebrew/include/SDL3/SDL_hints.h:
+
+/opt/homebrew/include/SDL3/SDL_hidapi.h:
+
+/opt/homebrew/include/SDL3/SDL_gpu.h:
+
+/opt/homebrew/include/SDL3/SDL_filesystem.h:
+
+/opt/homebrew/include/SDL3/SDL_error.h:
+
+/opt/homebrew/include/SDL3/SDL_endian.h:
+
+/opt/homebrew/include/SDL3/SDL_dlopennote.h:
+
+/opt/homebrew/include/SDL3/SDL_close_code.h:
+
+/opt/homebrew/include/SDL3/SDL_blendmode.h:
+
+/opt/homebrew/include/SDL3/SDL_bits.h:
+
+/opt/homebrew/include/SDL3/SDL_atomic.h:
+
+/opt/homebrew/include/SDL3/SDL_assert.h:
+
+/opt/homebrew/include/SDL3/SDL.h:
 
 /opt/homebrew/include/GLFW/glfw3.h:
 
@@ -22111,8 +22418,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp:
-
-/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp:
 
@@ -22146,6 +22451,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.hpp:
 
+/opt/homebrew/include/SDL3/SDL_log.h:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_float1_precision.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_float1.hpp:
@@ -22165,6 +22472,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/quaternion_common.inl:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_relational.hpp:
+
+/opt/homebrew/include/SDL3/SDL_misc.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/quaternion_relational.hpp:
 
@@ -22260,6 +22569,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_float4x2.hpp:
 
+/opt/homebrew/include/SDL3/SDL_camera.h:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_float2_precision.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_float3x4_precision.hpp:
@@ -22269,6 +22580,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_float3x2_precision.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_float3x2.hpp:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_float2x4_precision.hpp:
 
@@ -22291,6 +22604,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_double2x4_precision.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_double2x3_precision.hpp:
+
+/opt/homebrew/include/SDL3/SDL_keycode.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_double2x3.hpp:
 
@@ -22374,6 +22689,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/wctype.h:
 
+/opt/homebrew/include/SDL3/SDL_gamepad.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/time.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/syslimits.h:
@@ -22381,6 +22698,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/stdio.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/qos.h:
+
+/opt/homebrew/include/SDL3/SDL_haptic.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/errno.h:
 
@@ -22413,6 +22732,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_timespec.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_size_t.h:
+
+/opt/homebrew/include/SDL3/SDL_time.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_sigset_t.h:
 
@@ -22512,6 +22833,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/errno.h:
 
+/opt/homebrew/include/SDL3/SDL_guid.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/ctype.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/version:
@@ -22598,10 +22921,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cctype:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cassert:
-
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm:
@@ -22680,6 +22999,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_swappable.h:
 
+/opt/homebrew/include/SDL3/SDL_joystick.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/invoke.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_signed_integer.h:
@@ -22687,6 +23008,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_same.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_referenceable.h:
+
+/opt/homebrew/include/SDL3/SDL_asyncio.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/once_flag.h:
 
@@ -22753,14 +23076,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_allocator.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/invoke.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_heap.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_wctype.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/extended_grapheme_cluster_table.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/integral_constant.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_min.h:
 
@@ -22848,6 +23163,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__tuple/tuple_like_no_subrange.h:
 
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/TargetConditionals.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__tuple/tuple_indices.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/forward.h:
@@ -22934,6 +23251,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__stop_token/atomic_unique_lock.h:
 
+/opt/homebrew/include/SDL3/SDL_render.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__split_buffer:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/find_first_of.h:
@@ -22946,9 +23265,9 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/size.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_nl_item.h:
-
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/any_of.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_nl_item.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/next_permutation.h:
 
@@ -23027,6 +23346,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/machine/limits.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/mutex.h:
+
+/opt/homebrew/include/SDL3/SDL_rect.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory_resource/polymorphic_allocator.h:
 
@@ -23108,6 +23429,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/hyperbolic_functions.h:
 
+/opt/homebrew/include/SDL3/SDL_pixels.h:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/scalar_constants.hpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/pair.h:
@@ -23121,12 +23444,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/prev_permutation.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/static_bounded_iter.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__node_handle:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/type_identity.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/sortable.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/lexicographical_compare.h:
 
@@ -23151,6 +23468,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/move_sentinel.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/add_pointer.h:
+
+/opt/homebrew/include/SDL3/SDL_clipboard.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_move.h:
 
@@ -23204,6 +23523,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/tuple.h:
 
+/opt/homebrew/include/SDL3/SDL_begin_code.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/simd_utils.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/subrange.h:
@@ -23247,6 +23568,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/totally_ordered.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/fstream.h:
+
+/opt/homebrew/include/SDL3/SDL_power.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/complex.h:
 
@@ -23316,6 +23639,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/indic_conjunct_break_table.h:
 
+/opt/homebrew/include/SDL3/SDL_storage.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_tuple.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_integral.h:
@@ -23340,6 +23665,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/formatter_char.h:
 
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityMacros.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/swap_allocator.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_double3x4.hpp:
@@ -23348,9 +23675,25 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_string.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_sorted_until.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/xlocale/_ctype.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_error.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/min.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_context.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/integral_constant.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_heap.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_wctype.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/extended_grapheme_cluster_table.h:
+
+/opt/homebrew/include/SDL3/SDL_mutex.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/duration.h:
 
@@ -23566,6 +23909,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/function.h:
 
+/opt/homebrew/include/SDL3/SDL_oldnames.h:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/vec1.hpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/unwrap_iter.h:
@@ -23579,6 +23924,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_binary_search.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/utc_clock.h:
+
+/opt/homebrew/include/SDL3/SDL_surface.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/forward_like.h:
 
@@ -23595,6 +23942,10 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/usr/lib/clang/17/include/float.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/steady_clock.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cassert:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/statically_widen.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/swap.h:
 
@@ -23617,12 +23968,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/day.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_uint64_t.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/exchange.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/type_traits:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_timespec.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_uint4_sized.hpp:
 
@@ -23700,6 +24045,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/remove_volatile.h:
 
+/opt/homebrew/include/SDL3/SDL_cpuinfo.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/uses_allocator_construction.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/check_memory_order.h:
@@ -23759,6 +24106,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/swap_ranges.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/stable_partition.h:
+
+/opt/homebrew/include/SDL3/SDL_process.h:
 
 /Library/Developer/CommandLineTools/usr/lib/clang/17/include/__stdarg_va_list.h:
 
@@ -23844,6 +24193,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/assert.h:
 
+/opt/homebrew/include/SDL3/SDL_mouse.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__compare/partial_order.h:
@@ -23899,6 +24250,18 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/remove_extent.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_search.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/boolean_testable.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_sample.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/type_identity.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__node_handle:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/swappable.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_reverse.h:
 
@@ -24022,6 +24385,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year_month_weekday.h:
 
+/opt/homebrew/include/SDL3/SDL_audio.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/pointer_traits.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/traits.h:
@@ -24049,20 +24414,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/remove_copy_if.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_generate.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/pstl.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/unique_lock.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/partition.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_fundamental.h:
-
-/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp:
-
-/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/type_mat2x3.inl:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_for_each.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_fold.h:
 
@@ -24132,6 +24483,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_clamp.h:
 
+/opt/homebrew/include/SDL3/SDL_pen.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/common_reference_with.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/make_unsigned.h:
@@ -24172,6 +24525,20 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/partition_copy.h:
 
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_fundamental.h:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/type_mat2x3.inl:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_for_each.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/pstl.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/unique_lock.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/partition.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cerrno:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/partial_sort_copy.h:
@@ -24198,6 +24565,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/width_estimation_table.h:
 
+/opt/homebrew/include/SDL3/SDL_metal.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/nth_element.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/half_positive.h:
@@ -24209,12 +24578,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__compare/ordering.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/allocator.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_context.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/min.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_suseconds_t.h:
 
@@ -24258,10 +24621,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/minmax_element.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/boolean_testable.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_sample.h:
-
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__compare/weak_order.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_specialization.h:
@@ -24292,13 +24651,11 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__memory/allocator_traits.h:
 
+/opt/homebrew/include/SDL3/SDL_video.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_sorted.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/iterator_operations.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_callable.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/iter_swap.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_u_int8_t.h:
 
@@ -24307,6 +24664,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_generate_n.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_locale_posix2008.h:
+
+/opt/homebrew/include/SDL3/SDL_dialog.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_wint_t.h:
 
@@ -24320,13 +24679,13 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/minmax.h:
 
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__assert:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/evaluate.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__charconv/to_chars_floating_point.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/generate_n.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__assert:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/AllGeometry.hpp:
 
@@ -24347,6 +24706,10 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_heap_until.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/includes.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_callable.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/iter_swap.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/for_each_n.h:
 
@@ -24404,10 +24767,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/none_of.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/xlocale/_ctype.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h:
-
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/copy_move_common.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/alloca.h:
@@ -24430,6 +24789,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/copy_backward.h:
 
+/opt/homebrew/include/SDL3/SDL_touch.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/fma.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cstdlib:
@@ -24439,6 +24800,18 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x2.hpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/adjacent_find.h:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_int4_sized.hpp:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_float2.hpp:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_uintptr_t.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_none_of.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__format/format_error.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/is_sorted_until.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__new/global_new_delete.h:
 
@@ -24512,10 +24885,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_find_if_not.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/year.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/swappable.h:
-
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/matrix_double2x2_precision.hpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_replace.h:
@@ -24527,6 +24896,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/sort.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/AvailabilityInternalLegacy.h:
+
+/opt/homebrew/include/SDL3/SDL_events.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__condition_variable/condition_variable.h:
 
@@ -24548,17 +24919,13 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_ctermid.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_unsigned.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_ends_with.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/weak_result_type.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binary_negate.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_set_union.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__compare/synth_three_way.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_bounds.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_int8_t.h:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/in_out_out_result.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/sortable.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_assert.h:
 
@@ -24566,18 +24933,22 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/in_in_result.h:
 
-/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_int4_sized.hpp:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/exchange.h:
 
-/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/ext/vector_float2.hpp:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/type_traits:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_uintptr_t.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_timespec.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_none_of.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_int8_t.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_ends_with.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/in_out_out_result.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/binary_negate.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_unsigned.h:
 
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__compare/synth_three_way.h:
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__functional/weak_result_type.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_set_union.h:
+
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_bounds.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_entry.h:

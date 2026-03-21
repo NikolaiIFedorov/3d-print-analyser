@@ -208,59 +208,36 @@
 		},
 		{
 			"isExternal" : true,
-			"path" : "/opt/homebrew/lib/cmake/glfw3/glfw3ConfigVersion.cmake"
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3ConfigVersion.cmake"
 		},
 		{
 			"isExternal" : true,
-			"path" : "/opt/homebrew/lib/cmake/glfw3/glfw3Config.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/CMakeFindDependencyMacro.cmake"
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3Config.cmake"
 		},
 		{
 			"isCMake" : true,
 			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/FindThreads.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/CheckLibraryExists.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/CheckIncludeFile.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/CheckCSourceCompiles.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/Internal/CheckSourceCompiles.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/FindPackageHandleStandardArgs.cmake"
-		},
-		{
-			"isCMake" : true,
-			"isExternal" : true,
-			"path" : "/opt/homebrew/share/cmake/Modules/FindPackageMessage.cmake"
+			"path" : "/opt/homebrew/share/cmake/Modules/FeatureSummary.cmake"
 		},
 		{
 			"isExternal" : true,
-			"path" : "/opt/homebrew/lib/cmake/glfw3/glfw3Targets.cmake"
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3headersTargets.cmake"
 		},
 		{
 			"isExternal" : true,
-			"path" : "/opt/homebrew/lib/cmake/glfw3/glfw3Targets-release.cmake"
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3sharedTargets.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3sharedTargets-release.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3testTargets.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "/opt/homebrew/lib/cmake/SDL3/SDL3testTargets-release.cmake"
 		}
 	],
 	"kind" : "cmakeFiles",

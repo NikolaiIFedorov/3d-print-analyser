@@ -1,4 +1,5 @@
 #include <iostream>
+#include <optional>
 
 #include "scene.hpp"
 #include "display/display.hpp"
@@ -8,9 +9,8 @@
 #include "Analysis/ThinSection/ThinSection.hpp"
 
 Scene scene;
-
-Display display(1280, 860, "CAD");
-GLFWwindow *window = display.GetWindow();
+SDL_Window *window = nullptr;
+std::optional<Display> display;
 
 enum class RunType
 {
@@ -25,6 +25,8 @@ struct Inputs
     double lastY = 0;
     bool shiftPressed = false;
     bool altPressed = false;
+    bool rightPressed = false;
+    bool middlePressed = false;
     bool scrolling = false;
 };
 
@@ -41,7 +43,7 @@ void Process(bool renderUpdate, bool cameraUpdate, bool sceneUpdate, bool logic)
     bool active = false;
     if (cameraUpdate)
     {
-        display.UpdateCamera();
+        display->UpdateCamera();
         forceRender = true;
         active = true;
     }
@@ -49,9 +51,9 @@ void Process(bool renderUpdate, bool cameraUpdate, bool sceneUpdate, bool logic)
     if (renderUpdate || forceRender)
     {
         if (sceneUpdate)
-            display.UpdateBuffer(scene);
+            display->UpdateBuffer(scene);
 
-        display.Render(scene);
+        display->Render(scene);
         forceRender = false;
         active = true;
     }
@@ -78,98 +80,124 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
     return glm::vec3(nearPoint);
 }
 
-void keyPressCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+void HandleEvents(bool &running)
 {
-    if (action == GLFW_REPEAT)
-        return;
-
-    if (action == GLFW_PRESS)
+    SDL_Event event;
+    while (SDL_PollEvent(&event))
     {
-        if (key == GLFW_KEY_LEFT_SHIFT)
+        switch (event.type)
         {
-            input.shiftPressed = true;
-        }
-        if (key == GLFW_KEY_LEFT_ALT)
-            input.altPressed = true;
-    }
-    else if (action == GLFW_RELEASE)
-    {
-        if (key == GLFW_KEY_LEFT_SHIFT)
+        case SDL_EVENT_QUIT:
+            running = false;
+            break;
+
+        case SDL_EVENT_KEY_DOWN:
+            if (event.key.repeat)
+                break;
+            if (event.key.key == SDLK_LSHIFT)
+                input.shiftPressed = true;
+            if (event.key.key == SDLK_LALT)
+                input.altPressed = true;
+            break;
+
+        case SDL_EVENT_KEY_UP:
+            if (event.key.key == SDLK_LSHIFT)
+            {
+                input.shiftPressed = false;
+                input.scrolling = false;
+            }
+            if (event.key.key == SDLK_LALT)
+            {
+                input.altPressed = false;
+                input.scrolling = false;
+            }
+            break;
+
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
         {
-            input.shiftPressed = false;
-            input.scrolling = false;
+            bool pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
+            if (event.button.button == SDL_BUTTON_RIGHT)
+                input.rightPressed = pressed;
+            if (event.button.button == SDL_BUTTON_MIDDLE)
+                input.middlePressed = pressed;
+            break;
         }
-        if (key == GLFW_KEY_LEFT_ALT)
+
+        case SDL_EVENT_MOUSE_MOTION:
         {
-            input.altPressed = false;
-            input.scrolling = false;
+            float deltaX = event.motion.xrel;
+            float deltaY = event.motion.yrel;
+            input.lastX = event.motion.x;
+            input.lastY = event.motion.y;
+
+            if (input.rightPressed)
+            {
+                display->Pan(deltaX, deltaY, false);
+                Process(false, true, false, false);
+            }
+            if (input.middlePressed)
+            {
+                display->Orbit(deltaX, deltaY);
+                Process(false, true, false, false);
+            }
+            break;
         }
-    }
-    Process(false, false, false, false);
-}
 
-void cursorPositionCallback(GLFWwindow *window, double xpos, double ypos)
-{
-    double deltaX = xpos - input.lastX;
-    double deltaY = ypos - input.lastY;
+        case SDL_EVENT_MOUSE_WHEEL:
+        {
+            float x = event.wheel.x;
+            float y = event.wheel.y;
 
-    input.lastX = xpos;
-    input.lastY = ypos;
-    Process(false, false, false, false);
-}
+            if (input.shiftPressed)
+            {
+                int width, height;
+                SDL_GetWindowSizeInPixels(window, &width, &height);
 
-void scrollCallback(GLFWwindow *window, double xoffset, double yoffset)
-{
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+                glm::vec3 cursorPos = ProjectScreenToWorld(
+                    input.lastX, input.lastY, width, height, display->GetCamera());
 
-    LOG_DEBU("Scroll input: xoffset = " + Log::NumToStr(xoffset) +
-             ", yoffset = " + Log::NumToStr(yoffset));
+                display->Zoom(y, cursorPos);
+            }
+            else if (input.altPressed)
+            {
+                display->Orbit(x, y);
+            }
+            else
+            {
+                display->Pan(x, y);
+            }
 
-    double y = yoffset;
-    double x = xoffset;
+            Process(false, true, false, false);
+            break;
+        }
 
-    if (std::abs(yoffset) <= std::abs(xoffset) * 2)
-        y = 0;
-    else if (std::abs(xoffset) <= std::abs(yoffset) * 2)
-        x = 0;
-
-    glm::vec3 cursorPos = ProjectScreenToWorld(
-        input.lastX, input.lastY, width, height, display.GetCamera());
-
-    if (input.shiftPressed)
-    {
-        display.Zoom(y, cursorPos);
-    }
-    if (input.altPressed)
-    {
-        display.Orbit(x, y);
-    }
-
-    if (!input.shiftPressed && !input.altPressed)
-    {
-        display.Pan(x, y);
-    }
-
-    Process(false, true, false, false);
-}
-
-void windowResizeCallback(GLFWwindow *window, int width, int height)
-{
-    if (height > 0)
-    {
-        display.SetAspectRatio(width, height);
-        Process(false, true, false, false);
+        case SDL_EVENT_WINDOW_RESIZED:
+        {
+            int width = event.window.data1;
+            int height = event.window.data2;
+            if (height > 0)
+            {
+                display->SetAspectRatio(width, height);
+                Process(false, true, false, false);
+            }
+            break;
+        }
+        }
     }
 }
 
 void Shutdown()
 {
-    display.Shutdown();
+    if (display)
+        display->Shutdown();
 }
 
 bool Init()
 {
+    display.emplace(1280, 720, "CAD OpenGL");
+
+    window = display->GetWindow();
     if (window == nullptr)
     {
         Shutdown();
@@ -178,11 +206,6 @@ bool Init()
 
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
     Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>());
-
-    glfwSetCursorPosCallback(window, cursorPositionCallback);
-    glfwSetScrollCallback(window, scrollCallback);
-    glfwSetKeyCallback(window, keyPressCallback);
-    glfwSetFramebufferSizeCallback(window, windowResizeCallback);
 
     return true;
 }
@@ -230,14 +253,15 @@ int main()
 
         Solid *s = scene.CreateSolid({bf, ef1, ef2, ef3, ef4});
 
-        display.AddForm(s);
+        display->AddForm(s);
 
         Process(true, true, true, false);
 
         LOG_FILTER_BACK(true);
-        while (!glfwWindowShouldClose(window))
+        bool running = true;
+        while (running)
         {
-            glfwPollEvents();
+            HandleEvents(running);
             Process(false, false, false, false);
         }
 

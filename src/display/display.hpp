@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <SDL3/SDL.h>
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
@@ -12,7 +12,7 @@ public:
     Display(int16_t width, int16_t height, const char *title);
     void Shutdown();
 
-    GLFWwindow *GetWindow() { return window; }
+    SDL_Window *GetWindow() { return window; }
     SceneRenderer *GetRenderer() { return &renderer; }
 
     void Render(const Scene &scene);
@@ -25,18 +25,21 @@ public:
     void UpdateCamera();
     Camera GetCamera() { return camera; }
     void Zoom(const float offsetY, const glm::vec3 &posCursotr);
-    void Orbit(const float offsetX, const float offsetY);
-    void Pan(const float offsetX, const float offsetY);
+    void Orbit(float offsetX, float offsetY);
+    void Pan(float offsetX, float offsetY, bool scroll = true);
 
 private:
     int16_t windowWidth;
     int16_t windowHeight;
-    GLFWwindow *GetWindow(int16_t width, int16_t height, const char *title);
-    GLFWwindow *window = nullptr;
+    SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
+    SDL_Window *window = nullptr;
+    SDL_GLContext glContext = nullptr;
 
     uint8_t fps;
 
     SceneRenderer renderer;
 
     Camera camera;
+
+    void snapInput(float &x, float &y);
 };

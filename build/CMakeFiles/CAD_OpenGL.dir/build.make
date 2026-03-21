@@ -384,7 +384,7 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/build.make
 CAD_OpenGL: libglad.a
-CAD_OpenGL: /opt/homebrew/lib/libglfw.3.4.dylib
+CAD_OpenGL: /opt/homebrew/lib/libSDL3.0.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)

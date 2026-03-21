@@ -25,6 +25,7 @@ Flaw Analysis::FlawFace(const Face *face) const
         if (result.has_value())
             return result.value();
     }
+
     return Flaw::NONE;
 }
 

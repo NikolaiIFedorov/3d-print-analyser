@@ -1266,6 +1266,18 @@
 			"value" : "[TRUE][v()]"
 		},
 		{
+			"name" : "SDL3_DIR",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "The directory containing a CMake configuration file for SDL3."
+				}
+			],
+			"type" : "PATH",
+			"value" : "/opt/homebrew/lib/cmake/SDL3"
+		},
+		{
 			"name" : "glfw3_DIR",
 			"properties" : 
 			[

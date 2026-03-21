@@ -1,10 +1,6 @@
 #include "SceneRenderer.hpp"
 #include "utils/log.hpp"
 
-SceneRenderer::SceneRenderer(GLFWwindow *w) : renderer(w)
-{
-}
-
 void SceneRenderer::UpdateFromRenderBuffer(const Scene &scene)
 {
     GLint viewPort[4];

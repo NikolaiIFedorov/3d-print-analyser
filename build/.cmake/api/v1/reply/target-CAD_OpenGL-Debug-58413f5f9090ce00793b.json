@@ -81,7 +81,7 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "glfw::@6890427a1f51a3e7e1df"
+			"id" : "SDL3::SDL3-shared::@6890427a1f51a3e7e1df"
 		}
 	],
 	"compileGroups" : 
@@ -153,7 +153,6 @@
 				},
 				{
 					"backtrace" : 2,
-					"isSystem" : true,
 					"path" : "/opt/homebrew/include"
 				}
 			],
@@ -221,27 +220,12 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "/opt/homebrew/lib/libglfw.3.4.dylib",
+				"fragment" : "/opt/homebrew/lib/libSDL3.0.dylib",
 				"role" : "libraries"
 			},
 			{
 				"backtrace" : 3,
 				"fragment" : "-framework OpenGL",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 3,
-				"fragment" : "-framework Cocoa",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 3,
-				"fragment" : "-framework IOKit",
-				"role" : "libraries"
-			},
-			{
-				"backtrace" : 3,
-				"fragment" : "-framework CoreVideo",
 				"role" : "libraries"
 			}
 		],
@@ -255,23 +239,11 @@
 		},
 		{
 			"backtrace" : 2,
-			"id" : "glfw::@6890427a1f51a3e7e1df"
+			"id" : "SDL3::SDL3-shared::@6890427a1f51a3e7e1df"
 		},
 		{
 			"backtrace" : 3,
 			"fragment" : "-framework OpenGL"
-		},
-		{
-			"backtrace" : 3,
-			"fragment" : "-framework Cocoa"
-		},
-		{
-			"backtrace" : 3,
-			"fragment" : "-framework IOKit"
-		},
-		{
-			"backtrace" : 3,
-			"fragment" : "-framework CoreVideo"
 		}
 	],
 	"name" : "CAD_OpenGL",

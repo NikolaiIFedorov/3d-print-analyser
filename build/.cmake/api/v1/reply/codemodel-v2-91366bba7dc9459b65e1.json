@@ -6,16 +6,23 @@
 			[
 				{
 					"directoryIndex" : 0,
-					"id" : "Threads::Threads::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-Threads__Threads-Debug-b6a6d19b7ac902afeeb1.json",
-					"name" : "Threads::Threads",
+					"id" : "SDL3::Headers::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__Headers-Debug-759edeb3f97344303f70.json",
+					"name" : "SDL3::Headers",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
-					"id" : "glfw::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-glfw-Debug-1de7eb03cfa7009a22b5.json",
-					"name" : "glfw",
+					"id" : "SDL3::SDL3-shared::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__SDL3-shared-Debug-9a6088343f2cc34ceab7.json",
+					"name" : "SDL3::SDL3-shared",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "SDL3::SDL3_test::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__SDL3_test-Debug-b5e997f282d555ccf33a.json",
+					"name" : "SDL3::SDL3_test",
 					"projectIndex" : 0
 				}
 			],
@@ -25,7 +32,8 @@
 					"abstractTargetIndexes" : 
 					[
 						0,
-						1
+						1,
+						2
 					],
 					"build" : ".",
 					"jsonFile" : "directory-.-Debug-9ad1a58d4644cf6543fa.json",
@@ -49,7 +57,8 @@
 					"abstractTargetIndexes" : 
 					[
 						0,
-						1
+						1,
+						2
 					],
 					"directoryIndexes" : 
 					[
@@ -68,7 +77,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "CAD_OpenGL::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-CAD_OpenGL-Debug-e74f6fdb2963a1a5f21d.json",
+					"jsonFile" : "target-CAD_OpenGL-Debug-58413f5f9090ce00793b.json",
 					"name" : "CAD_OpenGL",
 					"projectIndex" : 0
 				},

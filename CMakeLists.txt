@@ -19,8 +19,8 @@ message(STATUS "========================================")
 add_library(glad include/glad/src/glad.c)
 target_include_directories(glad PUBLIC include/glad/include)
 
-# Find GLFW
-find_package(glfw3 REQUIRED)
+# Find SDL3
+find_package(SDL3 REQUIRED)
 
 # GLM (header-only from local directory)
 include_directories(include/glm-1.0.2)
@@ -105,15 +105,12 @@ target_include_directories(CAD_OpenGL PRIVATE
 
 target_link_libraries(CAD_OpenGL
     glad
-    glfw
+    SDL3::SDL3
 )
 
 # Mac-specific
 if(APPLE)
     target_link_libraries(CAD_OpenGL
         "-framework OpenGL"
-        "-framework Cocoa"
-        "-framework IOKit"
-        "-framework CoreVideo"
     )
 endif()

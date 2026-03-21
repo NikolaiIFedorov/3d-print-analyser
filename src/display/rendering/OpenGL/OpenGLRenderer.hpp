@@ -1,7 +1,7 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <SDL3/SDL.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -19,7 +19,8 @@
 class OpenGLRenderer
 {
 private:
-    GLFWwindow *window = nullptr;
+    SDL_Window *window = nullptr;
+    SDL_GLContext glContext = nullptr;
 
     GLuint triangleVAO = 0;
     GLuint triangleVBO = 0;
@@ -41,10 +42,16 @@ private:
 public:
     OpenGLShader shader;
 
-    OpenGLRenderer(GLFWwindow *window);
+    OpenGLRenderer() {};
+    OpenGLRenderer(SDL_Window *window);
     ~OpenGLRenderer();
 
-    bool Initialize(GLFWwindow *glfwWindow);
+    OpenGLRenderer(const OpenGLRenderer &) = delete;
+    OpenGLRenderer &operator=(const OpenGLRenderer &) = delete;
+    OpenGLRenderer(OpenGLRenderer &&other) noexcept;
+    OpenGLRenderer &operator=(OpenGLRenderer &&other) noexcept;
+
+    bool Initialize(SDL_Window *sdlWindow);
     void Shutdown();
 
     void BeginFrame();
