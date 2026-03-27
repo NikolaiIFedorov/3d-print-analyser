@@ -13,10 +13,10 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Patch/patch.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o.d"
-  "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/SceneRenderer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.cpp" "CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/ThinSection/ThinSection.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o.d"
@@ -25,7 +25,6 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o.d"
-  "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/clock.cpp" "CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.cpp" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o.d"
   )
 

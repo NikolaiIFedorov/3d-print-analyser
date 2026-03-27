@@ -36,17 +36,16 @@ include_directories(include/earcut.hpp-2.2.4/include/)
 set(SOURCES
     src/main.cpp
     src/utils/log.cpp
-    src/utils/clock.cpp                        
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
-    src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp
     src/display/rendering/SceneRenderer/Patch/patch.cpp
     src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
     src/display/rendering/SceneRenderer/color.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
+    src/input/Input.cpp
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
     src/scene/Geometry/Face.cpp
@@ -60,17 +59,16 @@ set(SOURCES
 add_executable(CAD_OpenGL
     src/main.cpp
     src/utils/log.cpp  
-    src/utils/clock.cpp                        
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
-    src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp
     src/display/rendering/SceneRenderer/Patch/patch.cpp
     src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
     src/display/rendering/SceneRenderer/color.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
+    src/input/Input.cpp
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
     src/scene/Geometry/Face.cpp

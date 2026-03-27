@@ -30,35 +30,22 @@ static glm::dvec2 ProjectPointToPlane(const glm::dvec3 &point3D,
         glm::dot(relativePos, vAxis));
 }
 
-void Patch::Generate(const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
+void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
 {
-    for (FormPtr form : buffer.GetForms())
-    {
-        switch (form.index())
-        {
-        case 3:
-        {
-            const Face *face = std::get<3>(form);
-            AddFace(face, vertices, indices);
-            break;
-        }
-        case 4:
-        {
-            const Solid *solid = std::get<4>(form);
-            AddSolid(solid, vertices, indices);
-            break;
-        }
+    for (const Solid &solid : scene->solids)
+        AddSolid(&solid, vertices, indices);
 
-        default:
-            break;
-        }
-    }
+    for (const Face &face : scene->faces)
+        AddFace(&face, vertices, indices, false);
 }
 
 void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
-                    std::vector<uint32_t> &indices) const
+                    std::vector<uint32_t> &indices, bool isSolid) const
 {
+    if (face->dependency != nullptr && !isSolid)
+        return;
+
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
 
     glm::dvec3 uAxis, vAxis;
@@ -157,7 +144,7 @@ void Patch::AddSolid(const Solid *solid,
 {
     for (const Face *face : solid->faces)
     {
-        AddFace(face, vertices, indices);
+        AddFace(face, vertices, indices, true);
     }
 }
 

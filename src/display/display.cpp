@@ -1,31 +1,16 @@
 #include "display.hpp"
 
-#include <thread>
-
-Display::Display(int16_t width, int16_t height, const char *title) : window(InitWindow(width, height, title)), renderer(GetWindow()), camera(width, height)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), camera(width, height), scene(scene)
 {
-    SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
-    if (displayID == 0)
-    {
-        LOG_VOID("Display is null");
-        return;
-    }
-
-    const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(displayID);
-    if (mode == nullptr)
-    {
-        LOG_VOID("Mode is null");
-        return;
-    }
-
-    fps = static_cast<uint8_t>(mode->refresh_rate);
-    LOG_DESC("Monitor FPS: " + Log::NumToStr(fps));
-
     LOG_VOID("Initialized display");
 }
 
 SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title)
 {
+    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
+    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
         LOG_FALSE("Failed to initialize SDL: " + std::string(SDL_GetError()));
@@ -60,19 +45,6 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
     return w;
 }
 
-void Display::AddForm(FormPtr form)
-{
-    renderer.AddForm(form);
-}
-
-void Display::AddForm(const std::vector<FormPtr> &forms)
-{
-    for (FormPtr form : forms)
-    {
-        renderer.AddForm(form);
-    }
-}
-
 void Display::Shutdown()
 {
     renderer.Shutdown();
@@ -85,35 +57,59 @@ void Display::Shutdown()
 
 void Display::UpdateCamera()
 {
-    renderer.SetCamera(camera);
+    cameraDirty = true;
 }
 
-void Display::Render(const Scene &scene)
+void Display::Render()
 {
     renderer.Render();
 }
 
-void Display::UpdateBuffer(const Scene &scene)
+void Display::UpdateScene()
 {
-    renderer.UpdateFromRenderBuffer(scene);
+    sceneDirty = true;
+}
+
+void Display::Frame()
+{
+    if (!cameraDirty && !sceneDirty)
+        return;
+
+    if (cameraDirty)
+    {
+        renderer.SetCamera(camera);
+        cameraDirty = false;
+    }
+
+    if (sceneDirty)
+    {
+        renderer.UpdateScene(scene);
+        sceneDirty = false;
+    }
+
+    Render();
 }
 
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 {
     glViewport(0, 0, width, height);
     camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+
+    UpdateCamera();
 }
 
 void Display::Zoom(const float offsetY, const glm::vec3 &posCursotr)
 {
     camera.Zoom(offsetY, posCursotr);
+
+    UpdateCamera();
 }
 
 void Display::snapInput(float &x, float &y)
 {
-    if (std::abs(x) <= std::abs(y) * 2)
+    if (std::abs(x) <= std::abs(y) * 0.5f)
         x = 0;
-    else if (std::abs(y) <= std::abs(x) * 2)
+    else if (std::abs(y) <= std::abs(x) * 0.5f)
         y = 0;
 }
 
@@ -121,10 +117,20 @@ void Display::Orbit(float offsetY, float offsetX)
 {
     snapInput(offsetX, offsetY);
     camera.Orbit(offsetY, offsetX);
+
+    UpdateCamera();
+}
+
+void Display::Roll(float delta)
+{
+    camera.Roll(delta);
+    UpdateCamera();
 }
 
 void Display::Pan(float offsetX, float offsetY, bool scroll)
 {
     snapInput(offsetX, offsetY);
     camera.Pan(offsetX, offsetY, scroll);
+
+    UpdateCamera();
 }

@@ -51,10 +51,8 @@ public:
     OpenGLRenderer(OpenGLRenderer &&other) noexcept;
     OpenGLRenderer &operator=(OpenGLRenderer &&other) noexcept;
 
-    bool Initialize(SDL_Window *sdlWindow);
     void Shutdown();
 
-    void BeginFrame();
     void EndFrame();
     void Clear(const glm::vec3 &color = glm::vec3(0.2f, 0.2f, 0.2f));
 

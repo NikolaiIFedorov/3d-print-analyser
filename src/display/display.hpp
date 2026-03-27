@@ -9,16 +9,15 @@
 class Display
 {
 public:
-    Display(int16_t width, int16_t height, const char *title);
+    Display(int16_t width, int16_t height, const char *title, Scene *scene);
     void Shutdown();
 
     SDL_Window *GetWindow() { return window; }
     SceneRenderer *GetRenderer() { return &renderer; }
 
-    void Render(const Scene &scene);
-    void AddForm(FormPtr form);
-    void AddForm(const std::vector<FormPtr> &forms);
-    void UpdateBuffer(const Scene &scene);
+    void Render();
+    void UpdateScene();
+    void Frame();
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 
@@ -26,6 +25,7 @@ public:
     Camera GetCamera() { return camera; }
     void Zoom(const float offsetY, const glm::vec3 &posCursotr);
     void Orbit(float offsetX, float offsetY);
+    void Roll(float delta);
     void Pan(float offsetX, float offsetY, bool scroll = true);
 
 private:
@@ -35,11 +35,13 @@ private:
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
 
-    uint8_t fps;
-
     SceneRenderer renderer;
+    Scene *scene = nullptr;
 
     Camera camera;
+
+    bool cameraDirty = true;
+    bool sceneDirty = true;
 
     void snapInput(float &x, float &y);
 };

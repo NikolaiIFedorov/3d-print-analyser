@@ -1,53 +1,34 @@
 #include "Wireframe.hpp"
+#include "utils/utils.hpp"
 
-void Wireframe::Generate(const RenderBuffer &buffer, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
+void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
 {
-    for (FormPtr form : buffer.GetForms())
-    {
-        switch (form.index())
-        {
-        case 0:
-        {
-            const Point *point = std::get<Point *>(form);
-            AddPoint(point, vertices, indices);
-            break;
-        }
-        case 1:
-        {
-            const Edge *edge = std::get<Edge *>(form);
-            AddEdge(edge, vertices, indices);
-            break;
-        }
-        case 3:
-        {
-            const Face *face = std::get<Face *>(form);
-            AddFace(face, vertices, indices);
-            break;
-        }
+    for (const Solid &solid : scene->solids)
+        AddSolid(&solid, vertices, indices);
 
-        case 4:
-        {
-            const Solid *solid = std::get<Solid *>(form);
-            AddSolid(solid, vertices, indices);
-            break;
-        }
-        default:
-            break;
-        }
-    }
+    for (const Face &face : scene->faces)
+        AddFace(&face, vertices, indices, false);
+
+    for (const Edge &edge : scene->edges)
+        AddEdge(&edge, vertices, indices, false);
+
+    for (const Point &point : scene->points)
+        AddPoint(&point, vertices, indices, false);
 }
 
 void Wireframe::AddPoint(const Point *point,
                          std::vector<Vertex> &vertices,
-                         std::vector<uint32_t> &indices) const
+                         std::vector<uint32_t> &indices, bool isEdge) const
 {
     // TODO: Add point
 }
 
 void Wireframe::AddEdge(const Edge *edge,
                         std::vector<Vertex> &vertices,
-                        std::vector<uint32_t> &indices) const
+                        std::vector<uint32_t> &indices, bool isFace) const
 {
+    if (!edge->dependencies.empty() && !isFace)
+        return;
 
     if (edge->curve == nullptr)
         AddLineEdge(edge, vertices, indices);
@@ -130,12 +111,15 @@ void Wireframe::AddCurvedEdge(const Edge *edge,
 
 void Wireframe::AddFace(const Face *face,
                         std::vector<Vertex> &vertices,
-                        std::vector<uint32_t> &indices) const
+                        std::vector<uint32_t> &indices, bool isSolid) const
 {
+    if (face->dependency != nullptr && !isSolid)
+        return;
+
     for (const auto &loop : face->loops)
     {
         for (const auto &orientedEdge : loop)
-            AddEdge(orientedEdge.edge, vertices, indices);
+            AddEdge(orientedEdge.edge, vertices, indices, true);
     }
 }
 
@@ -144,7 +128,7 @@ void Wireframe::AddSolid(const Solid *solid,
                          std::vector<uint32_t> &indices) const
 {
     for (auto face : solid->faces)
-        AddFace(face, vertices, indices);
+        AddFace(face, vertices, indices, true);
 
     AddLayers(Analysis::Instance().FlawSolid(solid), vertices, indices);
 }

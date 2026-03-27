@@ -1,9 +1,11 @@
 #include <iostream>
 #include <optional>
+#include "map"
 
 #include "scene.hpp"
 #include "display/display.hpp"
-#include "map"
+#include "input/Input.hpp"
+
 #include "Analysis/Analysis.hpp"
 #include "Analysis/Overhang/Overhang.hpp"
 #include "Analysis/ThinSection/ThinSection.hpp"
@@ -11,6 +13,7 @@
 Scene scene;
 SDL_Window *window = nullptr;
 std::optional<Display> display;
+std::optional<Input> input;
 
 enum class RunType
 {
@@ -19,48 +22,9 @@ enum class RunType
     WINDOW
 };
 
-struct Inputs
-{
-    double lastX = 0;
-    double lastY = 0;
-    bool shiftPressed = false;
-    bool altPressed = false;
-    bool rightPressed = false;
-    bool middlePressed = false;
-    bool scrolling = false;
-};
-
-Inputs input;
-
 const RunType TEST = RunType::TEST;
 const RunType TERMINAL = RunType::TERMINAL;
 const RunType WINDOW = RunType::WINDOW;
-
-bool forceRender = false;
-
-void Process(bool renderUpdate, bool cameraUpdate, bool sceneUpdate, bool logic)
-{
-    bool active = false;
-    if (cameraUpdate)
-    {
-        display->UpdateCamera();
-        forceRender = true;
-        active = true;
-    }
-
-    if (renderUpdate || forceRender)
-    {
-        if (sceneUpdate)
-            display->UpdateBuffer(scene);
-
-        display->Render(scene);
-        forceRender = false;
-        active = true;
-    }
-
-    if (active)
-        LOG_BACK("Process loop ended");
-}
 
 glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
                                int screenWidth, int screenHeight,
@@ -80,113 +44,6 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
     return glm::vec3(nearPoint);
 }
 
-void HandleEvents(bool &running)
-{
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        switch (event.type)
-        {
-        case SDL_EVENT_QUIT:
-            running = false;
-            break;
-
-        case SDL_EVENT_KEY_DOWN:
-            if (event.key.repeat)
-                break;
-            if (event.key.key == SDLK_LSHIFT)
-                input.shiftPressed = true;
-            if (event.key.key == SDLK_LALT)
-                input.altPressed = true;
-            break;
-
-        case SDL_EVENT_KEY_UP:
-            if (event.key.key == SDLK_LSHIFT)
-            {
-                input.shiftPressed = false;
-                input.scrolling = false;
-            }
-            if (event.key.key == SDLK_LALT)
-            {
-                input.altPressed = false;
-                input.scrolling = false;
-            }
-            break;
-
-        case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        case SDL_EVENT_MOUSE_BUTTON_UP:
-        {
-            bool pressed = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN);
-            if (event.button.button == SDL_BUTTON_RIGHT)
-                input.rightPressed = pressed;
-            if (event.button.button == SDL_BUTTON_MIDDLE)
-                input.middlePressed = pressed;
-            break;
-        }
-
-        case SDL_EVENT_MOUSE_MOTION:
-        {
-            float deltaX = event.motion.xrel;
-            float deltaY = event.motion.yrel;
-            input.lastX = event.motion.x;
-            input.lastY = event.motion.y;
-
-            if (input.rightPressed)
-            {
-                display->Pan(deltaX, deltaY, false);
-                Process(false, true, false, false);
-            }
-            if (input.middlePressed)
-            {
-                display->Orbit(deltaX, deltaY);
-                Process(false, true, false, false);
-            }
-            break;
-        }
-
-        case SDL_EVENT_MOUSE_WHEEL:
-        {
-            float x = event.wheel.x;
-            float y = event.wheel.y;
-
-            if (input.shiftPressed)
-            {
-                int width, height;
-                SDL_GetWindowSizeInPixels(window, &width, &height);
-
-                glm::vec3 cursorPos = ProjectScreenToWorld(
-                    input.lastX, input.lastY, width, height, display->GetCamera());
-
-                display->Zoom(y, cursorPos);
-            }
-            else if (input.altPressed)
-            {
-                display->Orbit(x, y);
-            }
-            else
-            {
-                display->Pan(x, y);
-            }
-
-            Process(false, true, false, false);
-            break;
-        }
-
-        case SDL_EVENT_WINDOW_RESIZED:
-        {
-            int width = event.window.data1;
-            int height = event.window.data2;
-            if (height > 0)
-            {
-                display->SetAspectRatio(width, height);
-                Process(false, true, false, false);
-            }
-            break;
-        }
-        }
-    }
-}
-
 void Shutdown()
 {
     if (display)
@@ -195,8 +52,8 @@ void Shutdown()
 
 bool Init()
 {
-    display.emplace(1280, 720, "CAD OpenGL");
-
+    display.emplace(1280, 720, "CAD OpenGL", &scene);
+    input.emplace(&display.value());
     window = display->GetWindow();
     if (window == nullptr)
     {
@@ -253,16 +110,13 @@ int main()
 
         Solid *s = scene.CreateSolid({bf, ef1, ef2, ef3, ef4});
 
-        display->AddForm(s);
-
-        Process(true, true, true, false);
+        display->UpdateScene();
 
         LOG_FILTER_BACK(true);
-        bool running = true;
-        while (running)
+        display->Frame();
+        while (input->HandleEvents())
         {
-            HandleEvents(running);
-            Process(false, false, false, false);
+            display->Frame();
         }
 
         Shutdown();

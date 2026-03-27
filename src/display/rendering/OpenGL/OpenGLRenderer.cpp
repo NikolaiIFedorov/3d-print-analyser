@@ -124,14 +124,12 @@ void OpenGLRenderer::Shutdown()
         glDeleteBuffers(1, &lineIBO);
 }
 
-void OpenGLRenderer::BeginFrame()
-{
-}
-
 void OpenGLRenderer::EndFrame()
 {
     SDL_GL_SwapWindow(window);
+
     GetGLError();
+
     LOG_VOID("Rendering frame with: #indices = " + Log::NumToStr(triangleIndexCount));
 }
 

@@ -110,7 +110,7 @@ std::string Log::GetPath(const std::source_location &loc, Level level, const std
     std::string spacer;
     int msgSize = StringSize(msg);
     int pathSize = StringSize(path);
-    for (int i = 0; i < 150 - msgSize - spacerMsg.size() - pathSize; i++)
+    for (int i = 0; i < 100 - msgSize - spacerMsg.size() - pathSize; i++)
         spacer.push_back(' ');
 
     return spacer + "\033[90m" + path + "\033[0m";

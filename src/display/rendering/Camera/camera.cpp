@@ -41,16 +41,25 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    float sensitivity = 0.01f;
+    float angle = std::sqrt(deltaX * deltaX + deltaY * deltaY);
+    if (angle < 1e-6f)
+        return;
 
+    // Rotation axis is perpendicular to the drag direction in screen space
     glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
-    glm::quat yawRotation = glm::angleAxis(-deltaX * sensitivity, up);
+    glm::vec3 axis = glm::normalize(right * -deltaY + up * deltaX);
 
-    glm::quat pitchRotation = glm::angleAxis(-deltaY * sensitivity, right);
+    glm::quat rotation = glm::angleAxis(-angle, axis);
+    orientation = glm::normalize(rotation * orientation);
+}
 
-    orientation = glm::normalize(yawRotation * pitchRotation * orientation);
+void Camera::Roll(float delta)
+{
+    glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::quat rotation = glm::angleAxis(delta, forward);
+    orientation = glm::normalize(rotation * orientation);
 }
 
 void Camera::Pan(float deltaX, float deltaY, bool scroll)
@@ -58,9 +67,7 @@ void Camera::Pan(float deltaX, float deltaY, bool scroll)
     glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
-    float sensitivity = orthoSize * 0.01f;
-    if (!scroll)
-        sensitivity = orthoSize * 0.0025f;
+    float sensitivity = orthoSize;
 
     target -= right * (deltaX * sensitivity);
     target += up * (deltaY * sensitivity);
@@ -70,8 +77,7 @@ void Camera::Zoom(float delta, const glm::vec3 &targetPoint)
 {
     float oldOrthoSize = orthoSize;
 
-    float sensitivity = 0.1f;
-    float zoomFactor = 1.0f - delta * sensitivity;
+    float zoomFactor = 1.0f - delta;
 
     orthoSize *= zoomFactor;
     orthoSize = std::clamp(orthoSize, 0.001f, 10000.0f);

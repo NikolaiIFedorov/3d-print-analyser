@@ -286,30 +286,6 @@ src/display/rendering/SceneRenderer/Patch/patch.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/Patch/patch.cpp.s
 
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.o: src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.o
-
-# target to build an object file
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.o
-
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.i: src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.i
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.i
-
-# target to preprocess a source file
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.i
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.i
-
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.s: src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.s
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.s
-
-# target to generate assembly for a file
-src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.s
-.PHONY : src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.cpp.s
-
 src/display/rendering/SceneRenderer/SceneRenderer.o: src/display/rendering/SceneRenderer/SceneRenderer.cpp.o
 .PHONY : src/display/rendering/SceneRenderer/SceneRenderer.o
 
@@ -381,6 +357,30 @@ src/display/rendering/SceneRenderer/color.s: src/display/rendering/SceneRenderer
 src/display/rendering/SceneRenderer/color.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/color.cpp.s
+
+src/input/Input.o: src/input/Input.cpp.o
+.PHONY : src/input/Input.o
+
+# target to build an object file
+src/input/Input.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o
+.PHONY : src/input/Input.cpp.o
+
+src/input/Input.i: src/input/Input.cpp.i
+.PHONY : src/input/Input.i
+
+# target to preprocess a source file
+src/input/Input.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.i
+.PHONY : src/input/Input.cpp.i
+
+src/input/Input.s: src/input/Input.cpp.s
+.PHONY : src/input/Input.s
+
+# target to generate assembly for a file
+src/input/Input.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.s
+.PHONY : src/input/Input.cpp.s
 
 src/logic/Analysis/Analysis.o: src/logic/Analysis/Analysis.cpp.o
 .PHONY : src/logic/Analysis/Analysis.o
@@ -574,30 +574,6 @@ src/scene/scene.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
 .PHONY : src/scene/scene.cpp.s
 
-src/utils/clock.o: src/utils/clock.cpp.o
-.PHONY : src/utils/clock.o
-
-# target to build an object file
-src/utils/clock.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.o
-.PHONY : src/utils/clock.cpp.o
-
-src/utils/clock.i: src/utils/clock.cpp.i
-.PHONY : src/utils/clock.i
-
-# target to preprocess a source file
-src/utils/clock.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.i
-.PHONY : src/utils/clock.cpp.i
-
-src/utils/clock.s: src/utils/clock.cpp.s
-.PHONY : src/utils/clock.s
-
-# target to generate assembly for a file
-src/utils/clock.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/clock.cpp.s
-.PHONY : src/utils/clock.cpp.s
-
 src/utils/log.o: src/utils/log.cpp.o
 .PHONY : src/utils/log.o
 
@@ -650,9 +626,6 @@ help:
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.o"
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.i"
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.s"
-	@echo "... src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.o"
-	@echo "... src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.i"
-	@echo "... src/display/rendering/SceneRenderer/RenderBuffer/RenderBuffer.s"
 	@echo "... src/display/rendering/SceneRenderer/SceneRenderer.o"
 	@echo "... src/display/rendering/SceneRenderer/SceneRenderer.i"
 	@echo "... src/display/rendering/SceneRenderer/SceneRenderer.s"
@@ -662,6 +635,9 @@ help:
 	@echo "... src/display/rendering/SceneRenderer/color.o"
 	@echo "... src/display/rendering/SceneRenderer/color.i"
 	@echo "... src/display/rendering/SceneRenderer/color.s"
+	@echo "... src/input/Input.o"
+	@echo "... src/input/Input.i"
+	@echo "... src/input/Input.s"
 	@echo "... src/logic/Analysis/Analysis.o"
 	@echo "... src/logic/Analysis/Analysis.i"
 	@echo "... src/logic/Analysis/Analysis.s"
@@ -686,9 +662,6 @@ help:
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"
-	@echo "... src/utils/clock.o"
-	@echo "... src/utils/clock.i"
-	@echo "... src/utils/clock.s"
 	@echo "... src/utils/log.o"
 	@echo "... src/utils/log.i"
 	@echo "... src/utils/log.s"

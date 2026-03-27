@@ -17,6 +17,7 @@ public:
     glm::mat4 GetProjectionMatrix() const;
 
     void Orbit(const float deltaX, const float deltaY);
+    void Roll(const float delta);
     void Pan(const float deltaX, const float deltaY, bool scroll = true);
     void Zoom(const float delta, const glm::vec3 &targetPoint);
 

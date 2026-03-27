@@ -7,7 +7,6 @@
 #include "rendering/Camera/camera.hpp"
 #include "rendering/SceneRenderer/color.hpp"
 
-#include "RenderBuffer/RenderBuffer.hpp"
 #include "Wireframe/Wireframe.hpp"
 #include "Patch/patch.hpp"
 
@@ -25,17 +24,13 @@ public:
 
     SceneRenderer(SDL_Window *window) : renderer(window) {};
 
-    void UpdateFromRenderBuffer(const Scene &scene);
+    void UpdateScene(Scene *scene);
 
     void SetCamera(Camera &camera);
 
     void Render();
 
     void Shutdown();
-
-    void AddForm(FormPtr form);
-
-    RenderBuffer renderBuffer;
 
 private:
     OpenGLRenderer renderer;
