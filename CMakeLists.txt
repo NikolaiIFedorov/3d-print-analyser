@@ -52,6 +52,9 @@ set(SOURCES
     src/logic/Analysis/Analysis.cpp
     src/logic/Analysis/Overhang/Overhang.cpp
     src/logic/Analysis/ThinSection/ThinSection.cpp
+    src/logic/Analysis/SharpCorner/SharpCorner.cpp
+    src/logic/Analysis/Bridging/Bridging.cpp
+    src/logic/Analysis/SmallFeature/SmallFeature.cpp
     src/logic/Analysis/utils/Slice.cpp
 
 )
@@ -75,6 +78,9 @@ add_executable(CAD_OpenGL
     src/logic/Analysis/Analysis.cpp
     src/logic/Analysis/Overhang/Overhang.cpp
     src/logic/Analysis/ThinSection/ThinSection.cpp
+    src/logic/Analysis/SharpCorner/SharpCorner.cpp
+    src/logic/Analysis/Bridging/Bridging.cpp
+    src/logic/Analysis/SmallFeature/SmallFeature.cpp
     src/logic/Analysis/utils/Slice.cpp
 
 )

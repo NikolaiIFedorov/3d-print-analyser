@@ -59,6 +59,7 @@ void Input::TrackPadGestures()
     }
     else if (activeTouches.size() == 2)
     {
+        LOG_DEBU("Two finger");
         Touch p1 = activeTouches.begin()->second;
         Touch p2 = std::next(activeTouches.begin())->second;
         Touch c = {(p1.dx + p2.dx) / 2.0f, (p1.dy + p2.dy) / 2.0f};
@@ -127,9 +128,9 @@ bool Input::HandleEvents()
         }
         case SDL_EVENT_MOUSE_WHEEL:
         {
-            if (std::abs(event.wheel.x) > 0)
+            if (std::abs(event.wheel.x) > 0 && activeTouches.empty())
                 display->Roll(event.wheel.x * 0.05f);
-            if (std::abs(event.wheel.y) > 0)
+            if (std::abs(event.wheel.y) > 0 && activeTouches.empty())
                 display->Zoom(event.wheel.y * 0.05f, glm::vec3(0, 0, 0));
             break;
         }

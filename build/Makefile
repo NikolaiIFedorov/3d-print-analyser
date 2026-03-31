@@ -406,6 +406,30 @@ src/logic/Analysis/Analysis.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s
 .PHONY : src/logic/Analysis/Analysis.cpp.s
 
+src/logic/Analysis/Bridging/Bridging.o: src/logic/Analysis/Bridging/Bridging.cpp.o
+.PHONY : src/logic/Analysis/Bridging/Bridging.o
+
+# target to build an object file
+src/logic/Analysis/Bridging/Bridging.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.o
+.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.o
+
+src/logic/Analysis/Bridging/Bridging.i: src/logic/Analysis/Bridging/Bridging.cpp.i
+.PHONY : src/logic/Analysis/Bridging/Bridging.i
+
+# target to preprocess a source file
+src/logic/Analysis/Bridging/Bridging.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.i
+.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.i
+
+src/logic/Analysis/Bridging/Bridging.s: src/logic/Analysis/Bridging/Bridging.cpp.s
+.PHONY : src/logic/Analysis/Bridging/Bridging.s
+
+# target to generate assembly for a file
+src/logic/Analysis/Bridging/Bridging.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.s
+.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.s
+
 src/logic/Analysis/Overhang/Overhang.o: src/logic/Analysis/Overhang/Overhang.cpp.o
 .PHONY : src/logic/Analysis/Overhang/Overhang.o
 
@@ -429,6 +453,54 @@ src/logic/Analysis/Overhang/Overhang.s: src/logic/Analysis/Overhang/Overhang.cpp
 src/logic/Analysis/Overhang/Overhang.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s
 .PHONY : src/logic/Analysis/Overhang/Overhang.cpp.s
+
+src/logic/Analysis/SharpCorner/SharpCorner.o: src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.o
+
+# target to build an object file
+src/logic/Analysis/SharpCorner/SharpCorner.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
+
+src/logic/Analysis/SharpCorner/SharpCorner.i: src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.i
+
+# target to preprocess a source file
+src/logic/Analysis/SharpCorner/SharpCorner.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
+
+src/logic/Analysis/SharpCorner/SharpCorner.s: src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.s
+
+# target to generate assembly for a file
+src/logic/Analysis/SharpCorner/SharpCorner.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
+.PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
+
+src/logic/Analysis/SmallFeature/SmallFeature.o: src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.o
+
+# target to build an object file
+src/logic/Analysis/SmallFeature/SmallFeature.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
+
+src/logic/Analysis/SmallFeature/SmallFeature.i: src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.i
+
+# target to preprocess a source file
+src/logic/Analysis/SmallFeature/SmallFeature.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
+
+src/logic/Analysis/SmallFeature/SmallFeature.s: src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.s
+
+# target to generate assembly for a file
+src/logic/Analysis/SmallFeature/SmallFeature.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
+.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
 
 src/logic/Analysis/ThinSection/ThinSection.o: src/logic/Analysis/ThinSection/ThinSection.cpp.o
 .PHONY : src/logic/Analysis/ThinSection/ThinSection.o
@@ -641,9 +713,18 @@ help:
 	@echo "... src/logic/Analysis/Analysis.o"
 	@echo "... src/logic/Analysis/Analysis.i"
 	@echo "... src/logic/Analysis/Analysis.s"
+	@echo "... src/logic/Analysis/Bridging/Bridging.o"
+	@echo "... src/logic/Analysis/Bridging/Bridging.i"
+	@echo "... src/logic/Analysis/Bridging/Bridging.s"
 	@echo "... src/logic/Analysis/Overhang/Overhang.o"
 	@echo "... src/logic/Analysis/Overhang/Overhang.i"
 	@echo "... src/logic/Analysis/Overhang/Overhang.s"
+	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.o"
+	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.i"
+	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.s"
+	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.o"
+	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.i"
+	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.s"
 	@echo "... src/logic/Analysis/ThinSection/ThinSection.o"
 	@echo "... src/logic/Analysis/ThinSection/ThinSection.i"
 	@echo "... src/logic/Analysis/ThinSection/ThinSection.s"

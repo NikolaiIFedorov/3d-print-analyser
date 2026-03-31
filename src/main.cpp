@@ -9,6 +9,9 @@
 #include "Analysis/Analysis.hpp"
 #include "Analysis/Overhang/Overhang.hpp"
 #include "Analysis/ThinSection/ThinSection.hpp"
+#include "Analysis/SharpCorner/SharpCorner.hpp"
+#include "Analysis/Bridging/Bridging.hpp"
+#include "Analysis/SmallFeature/SmallFeature.hpp"
 
 Scene scene;
 SDL_Window *window = nullptr;
@@ -63,6 +66,9 @@ bool Init()
 
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
     Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>());
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SharpCorner>());
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<Bridging>());
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>());
 
     return true;
 }

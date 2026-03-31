@@ -7,6 +7,9 @@ enum class Flaw
 {
     OVERHANG,
     THIN_SECTION,
+    SHARP_CORNER,
+    BRIDGING,
+    SMALL_FEATURE,
     NONE,
 };
 
