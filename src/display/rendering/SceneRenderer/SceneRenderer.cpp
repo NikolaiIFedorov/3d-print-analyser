@@ -1,5 +1,3 @@
-#include <thread>
-
 #include "SceneRenderer.hpp"
 #include "utils/log.hpp"
 

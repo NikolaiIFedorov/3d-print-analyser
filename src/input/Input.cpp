@@ -23,71 +23,113 @@ Input::GestureType Input::classifyTwoFinger()
     auto at1 = activeTouches.begin();
     auto at2 = std::next(at1);
 
-    auto acc1_it = touchAccum.find(at1->first);
-    auto acc2_it = touchAccum.find(at2->first);
+    auto h1_it = touchHistory.find(at1->first);
+    auto h2_it = touchHistory.find(at2->first);
 
-    if (acc1_it == touchAccum.end() || acc2_it == touchAccum.end())
+    if (h1_it == touchHistory.end() || h2_it == touchHistory.end())
         return GestureType::None;
 
-    TouchAccum &a1 = acc1_it->second;
-    TouchAccum &a2 = acc2_it->second;
+    auto &h1 = h1_it->second;
+    auto &h2 = h2_it->second;
 
-    float dot = a1.dx * a2.dx + a1.dy * a2.dy;
+    if (h1.size() < WINDOW_SIZE || h2.size() < WINDOW_SIZE)
+        return GestureType::None;
+
+    float sum1dx = 0, sum1dy = 0, sum2dx = 0, sum2dy = 0;
+    for (int i = static_cast<int>(h1.size()) - WINDOW_SIZE; i < static_cast<int>(h1.size()); i++)
+    {
+        sum1dx += h1[i].dx;
+        sum1dy += h1[i].dy;
+    }
+    for (int i = static_cast<int>(h2.size()) - WINDOW_SIZE; i < static_cast<int>(h2.size()); i++)
+    {
+        sum2dx += h2[i].dx;
+        sum2dy += h2[i].dy;
+    }
+
+    float mag1 = std::sqrt(sum1dx * sum1dx + sum1dy * sum1dy);
+    float mag2 = std::sqrt(sum2dx * sum2dx + sum2dy * sum2dy);
+
+    float maxMag = std::max(mag1, mag2);
+    float minMag = std::min(mag1, mag2);
+
+    if (maxMag < 1e-6f)
+        return GestureType::None;
+
+    float ratio = minMag / maxMag;
+
+    if (ratio < ORBIT_RATIO_THRESHOLD)
+        return GestureType::Orbit;
+
+    float dot = sum1dx * sum2dx + sum1dy * sum2dy;
     return (dot >= 0) ? GestureType::Pan : GestureType::Zoom;
 }
 
 void Input::resetGestureState()
 {
     currentGesture = GestureType::None;
-    touchAccum.clear();
+    gestureLocked = false;
+    orbitFingerID = 0;
+    touchHistory.clear();
     gestureFrames = 0;
 }
 
 void Input::trackpadGestures()
 {
-    if (activeTouches.size() >= 3)
-    {
-        float maxMag = 0;
-        float orbitDx = 0, orbitDy = 0;
-        for (auto &[id, touch] : activeTouches)
-        {
-            float mag = touch.dx * touch.dx + touch.dy * touch.dy;
-            if (mag > maxMag)
-            {
-                maxMag = mag;
-                orbitDx = touch.dx;
-                orbitDy = touch.dy;
-            }
-        }
-        currentGesture = GestureType::Orbit;
-        display->Orbit(orbitDx, orbitDy);
-    }
-    else if (activeTouches.size() == 2)
+    SDL_Keymod mod = SDL_GetModState();
+    if ((mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT))
+        return;
+
+    if (activeTouches.size() == 2)
     {
         Touch p1 = activeTouches.begin()->second;
         Touch p2 = std::next(activeTouches.begin())->second;
         Touch c = {(p1.dx + p2.dx) / 2.0f, (p1.dy + p2.dy) / 2.0f};
 
-        if (currentGesture == GestureType::Orbit)
+        if (!gestureLocked)
         {
-            resetGestureState();
+            gestureFrames++;
+            GestureType detected = classifyTwoFinger();
+            if (detected != GestureType::None)
+                currentGesture = detected;
+            if (gestureFrames >= LOCK_FRAMES && currentGesture != GestureType::None)
+                gestureLocked = true;
         }
 
         if (currentGesture == GestureType::None)
-        {
-            gestureFrames++;
-            if (gestureFrames < CLASSIFY_FRAMES)
-                return;
-            currentGesture = classifyTwoFinger();
-            if (currentGesture == GestureType::None)
-                return;
-        }
+            return;
 
         switch (currentGesture)
         {
         case GestureType::Pan:
-            display->Pan(c.dx, c.dy, false);
+            display->Pan(c.dx, c.dy, true);
             break;
+        case GestureType::Orbit:
+        {
+            if (orbitFingerID == 0)
+            {
+                // Determine which finger is moving based on history
+                auto it1 = activeTouches.begin();
+                auto it2 = std::next(it1);
+                auto h1 = touchHistory.find(it1->first);
+                auto h2 = touchHistory.find(it2->first);
+                float hm1 = 0, hm2 = 0;
+                if (h1 != touchHistory.end())
+                    for (auto &s : h1->second)
+                        hm1 += std::sqrt(s.dx * s.dx + s.dy * s.dy);
+                if (h2 != touchHistory.end())
+                    for (auto &s : h2->second)
+                        hm2 += std::sqrt(s.dx * s.dx + s.dy * s.dy);
+                orbitFingerID = (hm1 > hm2) ? it1->first : it2->first;
+            }
+            auto movingIt = activeTouches.find(orbitFingerID);
+            if (movingIt != activeTouches.end())
+            {
+                Touch &moving = movingIt->second;
+                display->Orbit(moving.dx, -moving.dy);
+            }
+            break;
+        }
         case GestureType::Zoom:
         {
             float d1 = std::sqrt(p1.dx * p1.dx + p1.dy * p1.dy);
@@ -114,11 +156,35 @@ void Input::mouseGestures(const SDL_Event &event)
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_WHEEL:
-        if (std::abs(event.wheel.x) > 0 && activeTouches.empty())
-            display->Roll(event.wheel.x * 0.05f);
-        if (std::abs(event.wheel.y) > 0 && activeTouches.empty())
-            display->Zoom(event.wheel.y * 0.05f, glm::vec3(0, 0, 0));
+    {
+        SDL_Keymod mod = SDL_GetModState();
+        float x = event.wheel.x;
+        float y = event.wheel.y;
+        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT);
+        bool trackpadActive = activeTouches.size() >= 2;
+        if (hasModifier || !trackpadActive)
+        {
+            if (mod & SDL_KMOD_ALT)
+            {
+                float val = (y != 0.0f) ? y : x;
+                display->Orbit(val * 0.05f, 0.0f);
+            }
+            else if (mod & SDL_KMOD_SHIFT)
+            {
+                // macOS swaps scroll axes when Shift is held
+                float val = (y != 0.0f) ? y : x;
+                display->Zoom(val * 0.05f, glm::vec3(0, 0, 0));
+            }
+            else
+            {
+                if (x != 0.0f)
+                    display->Roll(x * 0.05f);
+                if (y != 0.0f)
+                    display->Zoom(y * 0.05f, glm::vec3(0, 0, 0));
+            }
+        }
         break;
+    }
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (event.button.button == SDL_BUTTON_RIGHT)
             rightMouseDown = true;
@@ -171,26 +237,36 @@ bool Input::handleEvents()
             break;
         case SDL_EVENT_FINGER_DOWN:
             activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            touchAccum[event.tfinger.fingerID] = {0, 0};
+            touchHistory[event.tfinger.fingerID].clear();
             if (activeTouches.size() >= 2 && currentGesture != GestureType::Orbit)
             {
                 currentGesture = GestureType::None;
                 gestureFrames = 0;
-                for (auto &[id, acc] : touchAccum)
-                    acc = {0, 0};
+                for (auto &[id, hist] : touchHistory)
+                    hist.clear();
             }
             break;
         case SDL_EVENT_FINGER_UP:
             activeTouches.erase(event.tfinger.fingerID);
-            touchAccum.erase(event.tfinger.fingerID);
+            touchHistory.erase(event.tfinger.fingerID);
             if (activeTouches.size() < 2)
                 resetGestureState();
             break;
         case SDL_EVENT_FINGER_MOTION:
         {
             activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            touchAccum[event.tfinger.fingerID].dx += event.tfinger.dx;
-            touchAccum[event.tfinger.fingerID].dy += event.tfinger.dy;
+            float fdx = event.tfinger.dx;
+            float fdy = event.tfinger.dy;
+            float fmag = std::sqrt(fdx * fdx + fdy * fdy);
+            if (fmag < TOUCH_DEADZONE)
+            {
+                fdx = 0.0f;
+                fdy = 0.0f;
+            }
+            auto &hist = touchHistory[event.tfinger.fingerID];
+            hist.push_back({fdx, fdy});
+            if (hist.size() > WINDOW_SIZE)
+                hist.pop_front();
             trackpadGestures();
             break;
         }

@@ -1,8 +1,6 @@
 #include "OpenGLRenderer.hpp"
 #include "utils/log.hpp"
 
-glm::mat4 test;
-
 OpenGLRenderer::~OpenGLRenderer()
 {
     Shutdown();
@@ -254,7 +252,6 @@ void OpenGLRenderer::DrawTriangles()
     glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
     glm::mat4 viewProj = projectionMatrix * viewMatrix;
     shader.SetMat4("uViewProjection", viewProj);
-    test = viewProj;
 
     shader.SetMat4("uModel", modelMatrix);
 

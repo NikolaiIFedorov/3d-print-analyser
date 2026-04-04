@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <deque>
 #include <unordered_map>
 
 #include <SDL3/SDL.h>
@@ -32,17 +33,22 @@ private:
         Orbit
     };
     GestureType currentGesture = GestureType::None;
+    bool gestureLocked = false;
+    SDL_FingerID orbitFingerID = 0;
 
     struct TouchAccum
     {
         float dx = 0, dy = 0;
     };
-    std::unordered_map<SDL_FingerID, TouchAccum> touchAccum;
+    std::unordered_map<SDL_FingerID, std::deque<TouchAccum>> touchHistory;
     int gestureFrames = 0;
     bool rightMouseDown = false;
     bool middleMouseDown = false;
     static constexpr float MOUSE_SENSITIVITY = 0.005f;
-    static constexpr int CLASSIFY_FRAMES = 10;
+    static constexpr int LOCK_FRAMES = 10;
+    static constexpr int WINDOW_SIZE = 8;
+    static constexpr float ORBIT_RATIO_THRESHOLD = 0.3f;
+    static constexpr float TOUCH_DEADZONE = 0.0005f;
 
     static Touch signTouch(const Touch &touch);
     GestureType classifyTwoFinger();
