@@ -13,6 +13,12 @@ enum class Flaw
     NONE,
 };
 
+struct ZBounds
+{
+    double zMin;
+    double zMax;
+};
+
 struct Segment
 {
     glm::dvec3 a;

@@ -31,10 +31,12 @@ Flaw Analysis::FlawFace(const Face *face) const
 
 std::vector<Layer> Analysis::FlawSolid(const Solid *solid) const
 {
+    ZBounds bounds = Slice::GetZBounds(solid);
+
     std::vector<Layer> allLayers;
     for (const auto &analysis : solidAnalyses)
     {
-        auto layers = analysis->Analyze(solid);
+        auto layers = analysis->Analyze(solid, bounds);
         allLayers.insert(allLayers.end(), layers.begin(), layers.end());
     }
     return allLayers;

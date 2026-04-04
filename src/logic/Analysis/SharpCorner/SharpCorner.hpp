@@ -12,7 +12,7 @@ public:
     SharpCorner(double angleThresholdDegrees = 40.0)
         : cosThreshold(std::cos(glm::radians(angleThresholdDegrees))) {}
 
-    std::vector<Layer> Analyze(const Solid *solid) const override;
+    std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
 
 private:
     double cosThreshold;

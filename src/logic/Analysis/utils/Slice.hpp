@@ -15,4 +15,6 @@ public:
     static std::vector<Layer> Range(const Solid *solid, double zMin, double zMax, double layerHeight);
 
     static double MinWidth(const std::vector<Segment> &segments);
+
+    static ZBounds GetZBounds(const Solid *solid);
 };

@@ -2,7 +2,7 @@
 
 #include <unordered_set>
 
-std::vector<Layer> SharpCorner::Analyze(const Solid *solid) const
+std::vector<Layer> SharpCorner::Analyze(const Solid *solid, [[maybe_unused]] std::optional<ZBounds> bounds) const
 {
     std::vector<Layer> layers;
 

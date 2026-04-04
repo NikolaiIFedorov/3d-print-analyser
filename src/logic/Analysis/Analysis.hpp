@@ -19,7 +19,7 @@ class ISolidAnalysis
 {
 public:
     virtual ~ISolidAnalysis() = default;
-    virtual std::vector<Layer> Analyze(const Solid *solid) const = 0;
+    virtual std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const = 0;
 };
 
 class Analysis

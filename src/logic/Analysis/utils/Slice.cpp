@@ -2,6 +2,29 @@
 #include "scene/Geometry/AllGeometry.hpp"
 #include <limits>
 
+ZBounds Slice::GetZBounds(const Solid *solid)
+{
+    double zMin = std::numeric_limits<double>::max();
+    double zMax = std::numeric_limits<double>::lowest();
+
+    for (const Face *face : solid->faces)
+    {
+        for (const auto &loop : face->loops)
+        {
+            for (const auto &orientedEdge : loop)
+            {
+                const Edge *edge = orientedEdge.edge;
+                zMin = std::min(zMin, edge->startPoint->position.z);
+                zMax = std::max(zMax, edge->startPoint->position.z);
+                zMin = std::min(zMin, edge->endPoint->position.z);
+                zMax = std::max(zMax, edge->endPoint->position.z);
+            }
+        }
+    }
+
+    return {zMin, zMax};
+}
+
 // Shortest distance from point p to the line segment (a, b) in XY
 static double PointToSegmentDist(const glm::dvec3 &p, const glm::dvec3 &a, const glm::dvec3 &b)
 {

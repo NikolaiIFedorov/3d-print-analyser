@@ -10,7 +10,7 @@ public:
     Bridging(double layerHeight = 0.2, double minBridgeLength = 2.0)
         : layerHeight(layerHeight), minBridgeLength(minBridgeLength) {}
 
-    std::vector<Layer> Analyze(const Solid *solid) const override;
+    std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
 
 private:
     double layerHeight;

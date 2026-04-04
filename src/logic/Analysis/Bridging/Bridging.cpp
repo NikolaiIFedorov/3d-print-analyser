@@ -1,7 +1,6 @@
 #include "Bridging.hpp"
 #include "logic/Analysis/utils/Slice.hpp"
 
-#include <limits>
 #include <cmath>
 
 // Check if a point (in XY) lies inside the polygon formed by segments below
@@ -24,27 +23,11 @@ static bool PointInsideContour(const glm::dvec2 &p, const std::vector<Segment> &
     return (crossings % 2) == 1;
 }
 
-std::vector<Layer> Bridging::Analyze(const Solid *solid) const
+std::vector<Layer> Bridging::Analyze(const Solid *solid, std::optional<ZBounds> bounds) const
 {
     std::vector<Layer> bridgeLayers;
 
-    double zMin = std::numeric_limits<double>::max();
-    double zMax = std::numeric_limits<double>::lowest();
-
-    for (const Face *face : solid->faces)
-    {
-        for (const auto &loop : face->loops)
-        {
-            for (const auto &orientedEdge : loop)
-            {
-                const Edge *edge = orientedEdge.edge;
-                zMin = std::min(zMin, edge->startPoint->position.z);
-                zMax = std::max(zMax, edge->startPoint->position.z);
-                zMin = std::min(zMin, edge->endPoint->position.z);
-                zMax = std::max(zMax, edge->endPoint->position.z);
-            }
-        }
-    }
+    auto [zMin, zMax] = bounds.value_or(Slice::GetZBounds(solid));
 
     if (zMax - zMin < layerHeight * 2)
         return bridgeLayers;
