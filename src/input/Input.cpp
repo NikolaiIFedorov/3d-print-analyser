@@ -1,6 +1,12 @@
 #include "Input.hpp"
 
-Input::Touch Input::signTouch(Touch &touch)
+Input::Input(Display *display)
+    : display(display)
+{
+    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
+}
+
+Input::Touch Input::signTouch(const Touch &touch)
 {
     float dx = (touch.dx < 0) ? -1.0f : (touch.dx > 0) ? 1.0f
                                                        : 0.0f;
@@ -37,11 +43,10 @@ void Input::resetGestureState()
     gestureFrames = 0;
 }
 
-void Input::TrackPadGestures()
+void Input::trackpadGestures()
 {
     if (activeTouches.size() >= 3)
     {
-        // 3+ fingers = orbit, use only the finger with the largest delta
         float maxMag = 0;
         float orbitDx = 0, orbitDy = 0;
         for (auto &[id, touch] : activeTouches)
@@ -59,14 +64,12 @@ void Input::TrackPadGestures()
     }
     else if (activeTouches.size() == 2)
     {
-        LOG_DEBU("Two finger");
         Touch p1 = activeTouches.begin()->second;
         Touch p2 = std::next(activeTouches.begin())->second;
         Touch c = {(p1.dx + p2.dx) / 2.0f, (p1.dy + p2.dy) / 2.0f};
 
         if (currentGesture == GestureType::Orbit)
         {
-            // Transitioning down from 3 fingers, reset for 2-finger gesture
             resetGestureState();
         }
 
@@ -106,10 +109,44 @@ void Input::TrackPadGestures()
     }
 }
 
-bool Input::HandleEvents()
+void Input::mouseGestures(const SDL_Event &event)
+{
+    switch (event.type)
+    {
+    case SDL_EVENT_MOUSE_WHEEL:
+        if (std::abs(event.wheel.x) > 0 && activeTouches.empty())
+            display->Roll(event.wheel.x * 0.05f);
+        if (std::abs(event.wheel.y) > 0 && activeTouches.empty())
+            display->Zoom(event.wheel.y * 0.05f, glm::vec3(0, 0, 0));
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (event.button.button == SDL_BUTTON_RIGHT)
+            rightMouseDown = true;
+        else if (event.button.button == SDL_BUTTON_MIDDLE)
+            middleMouseDown = true;
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        if (event.button.button == SDL_BUTTON_RIGHT)
+            rightMouseDown = false;
+        else if (event.button.button == SDL_BUTTON_MIDDLE)
+            middleMouseDown = false;
+        break;
+    case SDL_EVENT_MOUSE_MOTION:
+        if (middleMouseDown)
+            display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
+                           -event.motion.yrel * MOUSE_SENSITIVITY);
+        else if (rightMouseDown)
+            display->Pan(event.motion.xrel * MOUSE_SENSITIVITY,
+                         event.motion.yrel * MOUSE_SENSITIVITY, false);
+        break;
+    default:
+        break;
+    }
+}
+
+bool Input::handleEvents()
 {
     SDL_Event event;
-    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
     while (SDL_PollEvent(&event))
     {
         switch (event.type)
@@ -127,43 +164,16 @@ bool Input::HandleEvents()
             break;
         }
         case SDL_EVENT_MOUSE_WHEEL:
-        {
-            if (std::abs(event.wheel.x) > 0 && activeTouches.empty())
-                display->Roll(event.wheel.x * 0.05f);
-            if (std::abs(event.wheel.y) > 0 && activeTouches.empty())
-                display->Zoom(event.wheel.y * 0.05f, glm::vec3(0, 0, 0));
-            break;
-        }
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            if (event.button.button == SDL_BUTTON_RIGHT)
-                rightMouseDown = true;
-            else if (event.button.button == SDL_BUTTON_MIDDLE)
-                middleMouseDown = true;
-            break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
-            if (event.button.button == SDL_BUTTON_RIGHT)
-                rightMouseDown = false;
-            else if (event.button.button == SDL_BUTTON_MIDDLE)
-                middleMouseDown = false;
-            break;
         case SDL_EVENT_MOUSE_MOTION:
-            if (middleMouseDown)
-            {
-                display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
-                               -event.motion.yrel * MOUSE_SENSITIVITY);
-            }
-            else if (rightMouseDown)
-            {
-                display->Pan(event.motion.xrel * MOUSE_SENSITIVITY,
-                             event.motion.yrel * MOUSE_SENSITIVITY, false);
-            }
+            mouseGestures(event);
             break;
         case SDL_EVENT_FINGER_DOWN:
             activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
             touchAccum[event.tfinger.fingerID] = {0, 0};
             if (activeTouches.size() >= 2 && currentGesture != GestureType::Orbit)
             {
-                // New finger arrived, reset classification
                 currentGesture = GestureType::None;
                 gestureFrames = 0;
                 for (auto &[id, acc] : touchAccum)
@@ -181,7 +191,7 @@ bool Input::HandleEvents()
             activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
             touchAccum[event.tfinger.fingerID].dx += event.tfinger.dx;
             touchAccum[event.tfinger.fingerID].dy += event.tfinger.dy;
-            TrackPadGestures();
+            trackpadGestures();
             break;
         }
         case SDL_EVENT_FINGER_CANCELED:

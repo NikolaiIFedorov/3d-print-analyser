@@ -27,19 +27,19 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 62,
+				"line" : 33,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 110,
+				"line" : 80,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 117,
+				"line" : 87,
 				"parent" : 0
 			},
 			{
@@ -63,7 +63,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 94,
+				"line" : 64,
 				"parent" : 0
 			}
 		]
@@ -113,7 +113,7 @@
 				},
 				{
 					"backtrace" : 7,
-					"path" : "/include/earcut.hpp-2.2.4/include/mapbox"
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox"
 				},
 				{
 					"backtrace" : 7,

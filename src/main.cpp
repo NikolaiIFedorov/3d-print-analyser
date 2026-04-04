@@ -120,7 +120,7 @@ int main()
 
         LOG_FILTER_BACK(true);
         display->Frame();
-        while (input->HandleEvents())
+        while (input->handleEvents())
         {
             display->Frame();
         }

@@ -30,35 +30,6 @@ include_directories(include/tinynurbs/include)
 
 include_directories(include/earcut.hpp-2.2.4/include/)
 
-
-
-# Source files
-set(SOURCES
-    src/main.cpp
-    src/utils/log.cpp
-    src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
-    src/display/rendering/OpenGL/OpenGLRenderer.cpp
-    src/display/rendering/SceneRenderer/SceneRenderer.cpp
-    src/display/rendering/SceneRenderer/Patch/patch.cpp
-    src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
-    src/display/rendering/SceneRenderer/color.cpp
-    src/display/rendering/Camera/camera.cpp
-    src/display/rendering/Camera/camera.cpp
-    src/display/display.cpp
-    src/input/Input.cpp
-    src/scene/scene.cpp
-    src/scene/Geometry/Curve.cpp
-    src/scene/Geometry/Face.cpp
-    src/logic/Analysis/Analysis.cpp
-    src/logic/Analysis/Overhang/Overhang.cpp
-    src/logic/Analysis/ThinSection/ThinSection.cpp
-    src/logic/Analysis/SharpCorner/SharpCorner.cpp
-    src/logic/Analysis/Bridging/Bridging.cpp
-    src/logic/Analysis/SmallFeature/SmallFeature.cpp
-    src/logic/Analysis/utils/Slice.cpp
-
-)
-
 add_executable(CAD_OpenGL
     src/main.cpp
     src/utils/log.cpp  
@@ -68,7 +39,6 @@ add_executable(CAD_OpenGL
     src/display/rendering/SceneRenderer/Patch/patch.cpp
     src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
     src/display/rendering/SceneRenderer/color.cpp
-    src/display/rendering/Camera/camera.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/input/Input.cpp
@@ -93,7 +63,7 @@ add_custom_command(TARGET CAD_OpenGL POST_BUILD
 
 target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/include/glad/include
-    ${DMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
+    ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/logic
     ${CMAKE_SOURCE_DIR}/src/display

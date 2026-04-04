@@ -91,3 +91,19 @@ Guidelines for writing code in this project.
 - Use fixed-width types (`int32_t`, `uint32_t`) when binary layout matters (file formats, GPU buffers).
 - Use `size_t` for container sizes and loop indices tied to container sizes.
 - Do not assume `sizeof(long)` or pointer size — they differ between platforms.
+
+---
+
+## Consistency
+
+- When a pattern or approach is established for one piece of functionality, related code should follow the same approach.
+- Deviations are acceptable when justified by a concrete reason (e.g., performance), not by convenience.
+
+---
+
+## Naming
+
+- Prefer concise names, qualified just enough to disambiguate within the surrounding context.
+- Place the qualifying part at the beginning of the name (e.g., `patchIndices`, `wireframeIndices`, `surfaceNormals`).
+- Avoid redundant context — if a variable lives inside a `Wireframe` class, name it `indices` rather than `wireframeIndices`.
+- Use camelCase for variables and functions, PascalCase for types and classes.
