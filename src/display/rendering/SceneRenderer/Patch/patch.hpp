@@ -4,7 +4,7 @@
 
 #include "scene.hpp"
 
-#include "color.hpp"
+#include "rendering/color.hpp"
 
 class Patch
 {

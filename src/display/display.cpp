@@ -1,7 +1,9 @@
 #include "display.hpp"
+#include "rendering/color.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
 {
+    InitUI();
     LOG_VOID("Initialized display");
 }
 
@@ -47,6 +49,7 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
 
 void Display::Shutdown()
 {
+    uiRenderer.Shutdown();
     renderer.Shutdown();
     if (glContext)
         SDL_GL_DestroyContext(glContext);
@@ -63,6 +66,8 @@ void Display::UpdateCamera()
 void Display::Render()
 {
     renderer.Render();
+    uiRenderer.Render();
+    SDL_GL_SwapWindow(window);
 }
 
 void Display::UpdateScene()
@@ -94,6 +99,7 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 {
     glViewport(0, 0, width, height);
     camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+    uiRenderer.SetScreenSize(width, height);
 
     UpdateCamera();
 }
@@ -133,4 +139,26 @@ void Display::Pan(float offsetX, float offsetY, bool scroll)
     camera.Pan(offsetX, offsetY, scroll);
 
     UpdateCamera();
+}
+
+bool Display::HitTestUI(float pixelX, float pixelY) const
+{
+    return uiRenderer.HitTest(pixelX, pixelY);
+}
+
+void Display::InitUI()
+{
+    float sidebarWidth = 160.0f;
+    float topBarHeight = 40.0f;
+    float sectionGap = 8.0f;
+    float sectionX = sidebarWidth + sectionGap;
+
+    // Left sidebar — Tools (depth 1 from base)
+    uiRenderer.AddPanel({0, 0, sidebarWidth, static_cast<float>(windowHeight),
+                         Color::GetUI(1), "sidebar", true, false, true});
+
+    // Top bar — File management (depth 1 from base)
+    uiRenderer.AddPanel({sectionX, 0,
+                         static_cast<float>(windowWidth) - sectionX, topBarHeight,
+                         Color::GetUI(1), "topbar", true, true, false});
 }

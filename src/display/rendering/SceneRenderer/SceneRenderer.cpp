@@ -34,8 +34,6 @@ void SceneRenderer::Render()
 
     renderer.DrawTriangles();
     renderer.DrawLines();
-
-    renderer.EndFrame();
 }
 
 void SceneRenderer::Shutdown()

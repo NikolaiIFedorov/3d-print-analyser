@@ -1,4 +1,4 @@
-#include "color.hpp"
+#include "rendering/color.hpp"
 
 glm::vec3 Color::GetFace(const Face *face)
 {

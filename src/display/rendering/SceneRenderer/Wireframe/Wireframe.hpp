@@ -2,7 +2,7 @@
 
 #include "Geometry/AllGeometry.hpp"
 
-#include "color.hpp"
+#include "rendering/color.hpp"
 #include "Analysis/Analysis.hpp"
 
 class Wireframe

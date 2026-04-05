@@ -5,7 +5,7 @@
 
 #include "rendering/OpenGL/OpenGLRenderer.hpp"
 #include "rendering/Camera/camera.hpp"
-#include "rendering/SceneRenderer/color.hpp"
+#include "rendering/color.hpp"
 
 #include "Wireframe/Wireframe.hpp"
 #include "Patch/patch.hpp"

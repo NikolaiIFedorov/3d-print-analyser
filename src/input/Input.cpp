@@ -187,9 +187,15 @@ void Input::mouseGestures(const SDL_Event &event)
     }
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (event.button.button == SDL_BUTTON_RIGHT)
-            rightMouseDown = true;
+        {
+            if (!display->HitTestUI(event.button.x, event.button.y))
+                rightMouseDown = true;
+        }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
-            middleMouseDown = true;
+        {
+            if (!display->HitTestUI(event.button.x, event.button.y))
+                middleMouseDown = true;
+        }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         if (event.button.button == SDL_BUTTON_RIGHT)

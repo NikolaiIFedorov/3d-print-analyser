@@ -334,29 +334,53 @@ src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 
-src/display/rendering/SceneRenderer/color.o: src/display/rendering/SceneRenderer/color.cpp.o
-.PHONY : src/display/rendering/SceneRenderer/color.o
+src/display/rendering/UIRenderer/UIRenderer.o: src/display/rendering/UIRenderer/UIRenderer.cpp.o
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.o
 
 # target to build an object file
-src/display/rendering/SceneRenderer/color.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.o
-.PHONY : src/display/rendering/SceneRenderer/color.cpp.o
+src/display/rendering/UIRenderer/UIRenderer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.cpp.o
 
-src/display/rendering/SceneRenderer/color.i: src/display/rendering/SceneRenderer/color.cpp.i
-.PHONY : src/display/rendering/SceneRenderer/color.i
+src/display/rendering/UIRenderer/UIRenderer.i: src/display/rendering/UIRenderer/UIRenderer.cpp.i
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.i
 
 # target to preprocess a source file
-src/display/rendering/SceneRenderer/color.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.i
-.PHONY : src/display/rendering/SceneRenderer/color.cpp.i
+src/display/rendering/UIRenderer/UIRenderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.i
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.cpp.i
 
-src/display/rendering/SceneRenderer/color.s: src/display/rendering/SceneRenderer/color.cpp.s
-.PHONY : src/display/rendering/SceneRenderer/color.s
+src/display/rendering/UIRenderer/UIRenderer.s: src/display/rendering/UIRenderer/UIRenderer.cpp.s
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.s
 
 # target to generate assembly for a file
-src/display/rendering/SceneRenderer/color.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/color.cpp.s
-.PHONY : src/display/rendering/SceneRenderer/color.cpp.s
+src/display/rendering/UIRenderer/UIRenderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.s
+.PHONY : src/display/rendering/UIRenderer/UIRenderer.cpp.s
+
+src/display/rendering/color.o: src/display/rendering/color.cpp.o
+.PHONY : src/display/rendering/color.o
+
+# target to build an object file
+src/display/rendering/color.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.o
+.PHONY : src/display/rendering/color.cpp.o
+
+src/display/rendering/color.i: src/display/rendering/color.cpp.i
+.PHONY : src/display/rendering/color.i
+
+# target to preprocess a source file
+src/display/rendering/color.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.i
+.PHONY : src/display/rendering/color.cpp.i
+
+src/display/rendering/color.s: src/display/rendering/color.cpp.s
+.PHONY : src/display/rendering/color.s
+
+# target to generate assembly for a file
+src/display/rendering/color.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.s
+.PHONY : src/display/rendering/color.cpp.s
 
 src/input/Input.o: src/input/Input.cpp.o
 .PHONY : src/input/Input.o
@@ -704,9 +728,12 @@ help:
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.o"
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.i"
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.s"
-	@echo "... src/display/rendering/SceneRenderer/color.o"
-	@echo "... src/display/rendering/SceneRenderer/color.i"
-	@echo "... src/display/rendering/SceneRenderer/color.s"
+	@echo "... src/display/rendering/UIRenderer/UIRenderer.o"
+	@echo "... src/display/rendering/UIRenderer/UIRenderer.i"
+	@echo "... src/display/rendering/UIRenderer/UIRenderer.s"
+	@echo "... src/display/rendering/color.o"
+	@echo "... src/display/rendering/color.i"
+	@echo "... src/display/rendering/color.s"
 	@echo "... src/input/Input.o"
 	@echo "... src/input/Input.i"
 	@echo "... src/input/Input.s"

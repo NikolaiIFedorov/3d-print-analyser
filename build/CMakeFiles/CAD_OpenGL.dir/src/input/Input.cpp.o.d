@@ -1361,7 +1361,7 @@ CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/util.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/color.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/unordered_set \
@@ -1380,4 +1380,6 @@ CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/utility \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/rel_ops.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/as_const.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp

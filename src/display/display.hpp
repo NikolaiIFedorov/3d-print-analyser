@@ -5,6 +5,7 @@
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
+#include "rendering/UIRenderer/UIRenderer.hpp"
 
 class Display
 {
@@ -14,10 +15,13 @@ public:
 
     SDL_Window *GetWindow() { return window; }
     SceneRenderer *GetRenderer() { return &renderer; }
+    UIRenderer *GetUIRenderer() { return &uiRenderer; }
 
     void Render();
     void UpdateScene();
     void Frame();
+
+    bool HitTestUI(float pixelX, float pixelY) const;
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 
@@ -36,6 +40,7 @@ private:
     SDL_GLContext glContext = nullptr;
 
     SceneRenderer renderer;
+    UIRenderer uiRenderer;
     Scene *scene = nullptr;
 
     Camera camera;
@@ -44,4 +49,5 @@ private:
     bool sceneDirty = true;
 
     void snapInput(float &x, float &y);
+    void InitUI();
 };
