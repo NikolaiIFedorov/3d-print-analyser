@@ -15,7 +15,7 @@ static const float POINT = EDGE + FORM_STEP;
 struct Color
 {
     static glm::vec3 GetBase() { return glm::vec3(BASE, BASE, BASE); }
-    static glm::vec4 GetUI(int depth, float alpha = 0.9f)
+    static glm::vec4 GetUI(int depth, float alpha = 1.0f)
     {
         float v = BASE + FORM_STEP * depth;
         return glm::vec4(v, v, v, alpha);

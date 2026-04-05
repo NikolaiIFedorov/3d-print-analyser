@@ -1,5 +1,6 @@
 #include "UIRenderer.hpp"
 #include "utils/log.hpp"
+#include <cmath>
 
 UIRenderer::UIRenderer(SDL_Window *window)
 {
@@ -29,6 +30,7 @@ UIRenderer::UIRenderer(UIRenderer &&other) noexcept
       indexCount(other.indexCount),
       screenWidth(other.screenWidth), screenHeight(other.screenHeight),
       projection(other.projection),
+      grid(other.grid),
       panels(std::move(other.panels)),
       dirty(other.dirty)
 {
@@ -49,6 +51,7 @@ UIRenderer &UIRenderer::operator=(UIRenderer &&other) noexcept
         screenWidth = other.screenWidth;
         screenHeight = other.screenHeight;
         projection = other.projection;
+        grid = other.grid;
         panels = std::move(other.panels);
         dirty = other.dirty;
         other.vao = other.vbo = other.ibo = 0;
@@ -70,12 +73,16 @@ void UIRenderer::SetScreenSize(int width, int height)
                             static_cast<float>(height), 0.0f,
                             -1.0f, 1.0f);
 
+    grid.Update(width, height);
+
+    ResolveAnchors();
+
     for (auto &panel : panels)
     {
         if (panel.anchorRight)
-            panel.width = static_cast<float>(width) - panel.x;
+            panel.colSpan = static_cast<float>(grid.columns) - grid.MARGIN - panel.col;
         if (panel.anchorBottom)
-            panel.height = static_cast<float>(height) - panel.y;
+            panel.rowSpan = static_cast<float>(grid.rows) - grid.MARGIN - panel.row;
     }
 
     dirty = true;
@@ -97,8 +104,57 @@ Panel *UIRenderer::GetPanel(const std::string &id)
     return nullptr;
 }
 
+void UIRenderer::ResolveAnchors()
+{
+    // Single linear pass — panels can only reference panels added before them
+    for (auto &panel : panels)
+    {
+        auto resolve = [&](const PanelAnchor &anchor) -> float
+        {
+            if (anchor.panelId.empty())
+                return anchor.offset;
+
+            for (const auto &other : panels)
+            {
+                if (&other == &panel)
+                    break; // only look at panels defined before this one
+                if (other.id != anchor.panelId)
+                    continue;
+
+                switch (anchor.edge)
+                {
+                case PanelAnchor::Left:
+                    return other.col + anchor.offset;
+                case PanelAnchor::Right:
+                    return other.col + other.colSpan + anchor.offset;
+                case PanelAnchor::Top:
+                    return other.row + anchor.offset;
+                case PanelAnchor::Bottom:
+                    return other.row + other.rowSpan + anchor.offset;
+                }
+            }
+            return anchor.offset; // fallback if panel not found
+        };
+
+        if (panel.colAnchor)
+            panel.col = resolve(*panel.colAnchor);
+        if (panel.rowAnchor)
+            panel.row = resolve(*panel.rowAnchor);
+    }
+}
+
 void UIRenderer::BuildMesh()
 {
+    ResolveAnchors();
+
+    for (auto &panel : panels)
+    {
+        if (panel.anchorRight)
+            panel.colSpan = static_cast<float>(grid.columns) - grid.MARGIN - panel.col;
+        if (panel.anchorBottom)
+            panel.rowSpan = static_cast<float>(grid.rows) - grid.MARGIN - panel.row;
+    }
+
     std::vector<UIVertex> vertices;
     std::vector<uint32_t> indices;
 
@@ -108,24 +164,87 @@ void UIRenderer::BuildMesh()
         if (!panel.visible)
             continue;
 
-        float x0 = panel.x;
-        float y0 = panel.y;
-        float x1 = panel.x + panel.width;
-        float y1 = panel.y + panel.height;
+        float x0 = grid.ToPixels(panel.col);
+        float y0 = grid.ToPixels(panel.row);
+        float x1 = grid.ToPixels(panel.col + panel.colSpan);
+        float y1 = grid.ToPixels(panel.row + panel.rowSpan);
+        float r = grid.ToPixels(panel.borderRadius);
 
-        vertices.push_back({{x0, y0}, panel.color});
-        vertices.push_back({{x1, y0}, panel.color});
-        vertices.push_back({{x1, y1}, panel.color});
-        vertices.push_back({{x0, y1}, panel.color});
+        // Clamp radius to half the smaller dimension
+        float maxR = std::min((x1 - x0), (y1 - y0)) * 0.5f;
+        if (r > maxR)
+            r = maxR;
 
-        indices.push_back(vertexOffset + 0);
-        indices.push_back(vertexOffset + 1);
-        indices.push_back(vertexOffset + 2);
-        indices.push_back(vertexOffset + 0);
-        indices.push_back(vertexOffset + 2);
-        indices.push_back(vertexOffset + 3);
+        if (r <= 0.0f)
+        {
+            // Simple quad (no rounding)
+            vertices.push_back({{x0, y0}, panel.color});
+            vertices.push_back({{x1, y0}, panel.color});
+            vertices.push_back({{x1, y1}, panel.color});
+            vertices.push_back({{x0, y1}, panel.color});
 
-        vertexOffset += 4;
+            indices.push_back(vertexOffset + 0);
+            indices.push_back(vertexOffset + 1);
+            indices.push_back(vertexOffset + 2);
+            indices.push_back(vertexOffset + 0);
+            indices.push_back(vertexOffset + 2);
+            indices.push_back(vertexOffset + 3);
+
+            vertexOffset += 4;
+        }
+        else
+        {
+            // Rounded rectangle: center vertex + perimeter vertices
+            constexpr int SEGMENTS = 8; // segments per corner quarter-circle
+
+            float cx = (x0 + x1) * 0.5f;
+            float cy = (y0 + y1) * 0.5f;
+
+            // Center vertex
+            vertices.push_back({{cx, cy}, panel.color});
+            uint32_t centerIdx = vertexOffset;
+            vertexOffset++;
+
+            // 4 corners: top-left, top-right, bottom-right, bottom-left
+            // Each corner center and start/end angles
+            struct Corner
+            {
+                float cx, cy;
+                float startAngle;
+            };
+            Corner corners[4] = {
+                {x0 + r, y0 + r, static_cast<float>(M_PI)},        // top-left
+                {x1 - r, y0 + r, static_cast<float>(M_PI) * 1.5f}, // top-right
+                {x1 - r, y1 - r, 0.0f},                            // bottom-right
+                {x0 + r, y1 - r, static_cast<float>(M_PI) * 0.5f}, // bottom-left
+            };
+
+            // Generate perimeter vertices: for each corner, SEGMENTS+1 points
+            uint32_t perimStart = vertexOffset;
+            for (int c = 0; c < 4; c++)
+            {
+                for (int s = 0; s <= SEGMENTS; s++)
+                {
+                    float angle = corners[c].startAngle +
+                                  (static_cast<float>(M_PI) * 0.5f) *
+                                      (static_cast<float>(s) / static_cast<float>(SEGMENTS));
+                    float px = corners[c].cx + r * std::cos(angle);
+                    float py = corners[c].cy + r * std::sin(angle);
+                    vertices.push_back({{px, py}, panel.color});
+                    vertexOffset++;
+                }
+            }
+
+            // Fan triangles from center to consecutive perimeter vertices
+            uint32_t totalPerim = 4 * (SEGMENTS + 1);
+            for (uint32_t i = 0; i < totalPerim; i++)
+            {
+                uint32_t next = (i + 1) % totalPerim;
+                indices.push_back(centerIdx);
+                indices.push_back(perimStart + i);
+                indices.push_back(perimStart + next);
+            }
+        }
     }
 
     indexCount = static_cast<uint32_t>(indices.size());
@@ -193,13 +312,19 @@ void UIRenderer::Render()
 
 bool UIRenderer::HitTest(float pixelX, float pixelY) const
 {
+    if (grid.cellSize <= 0.0f)
+        return false;
+
+    float cellX = pixelX / grid.cellSize;
+    float cellY = pixelY / grid.cellSize;
+
     for (const auto &panel : panels)
     {
         if (!panel.visible)
             continue;
 
-        if (pixelX >= panel.x && pixelX <= panel.x + panel.width &&
-            pixelY >= panel.y && pixelY <= panel.y + panel.height)
+        if (cellX >= panel.col && cellX <= panel.col + panel.colSpan &&
+            cellY >= panel.row && cellY <= panel.row + panel.rowSpan)
         {
             return true;
         }

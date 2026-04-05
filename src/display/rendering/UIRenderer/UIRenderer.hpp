@@ -10,6 +10,7 @@
 
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
 #include "Panel.hpp"
+#include "UIGrid.hpp"
 
 struct UIVertex
 {
@@ -36,6 +37,7 @@ public:
 
     void AddPanel(const Panel &panel);
     Panel *GetPanel(const std::string &id);
+    const UIGrid &GetGrid() const { return grid; }
 
 private:
     OpenGLShader shader;
@@ -48,9 +50,11 @@ private:
     int screenHeight = 0;
     glm::mat4 projection = glm::mat4(1.0f);
 
+    UIGrid grid;
     std::vector<Panel> panels;
     bool dirty = true;
 
     bool InitializeShaders();
+    void ResolveAnchors();
     void BuildMesh();
 };

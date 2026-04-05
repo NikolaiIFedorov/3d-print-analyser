@@ -148,17 +148,32 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
 
 void Display::InitUI()
 {
-    float sidebarWidth = 160.0f;
-    float topBarHeight = 40.0f;
-    float sectionGap = 8.0f;
-    float sectionX = sidebarWidth + sectionGap;
+    float sidebarCols = 10.0f; // sidebar width in cells
+    float topBarRows = 2.5f;   // top bar height in cells
+    float gapCols = 0.5f;      // gap between sidebar and top bar
+
+    const auto &grid = uiRenderer.GetGrid();
 
     // Left sidebar — Tools (depth 1 from base)
-    uiRenderer.AddPanel({0, 0, sidebarWidth, static_cast<float>(windowHeight),
-                         Color::GetUI(1), "sidebar", true, false, true});
+    Panel sidebar;
+    sidebar.col = UIGrid::MARGIN;
+    sidebar.row = UIGrid::MARGIN;
+    sidebar.colSpan = sidebarCols;
+    sidebar.rowSpan = static_cast<float>(grid.rows);
+    sidebar.color = Color::GetUI(1);
+    sidebar.id = "sidebar";
+    sidebar.anchorBottom = true;
+    uiRenderer.AddPanel(sidebar);
 
-    // Top bar — File management (depth 1 from base)
-    uiRenderer.AddPanel({sectionX, 0,
-                         static_cast<float>(windowWidth) - sectionX, topBarHeight,
-                         Color::GetUI(1), "topbar", true, true, false});
+    // Top bar — anchored to sidebar's right edge (depth 1 from base)
+    Panel topbar;
+    topbar.col = 0;
+    topbar.row = UIGrid::MARGIN;
+    topbar.colAnchor = PanelAnchor{"sidebar", PanelAnchor::Right, gapCols};
+    topbar.colSpan = static_cast<float>(grid.columns);
+    topbar.rowSpan = topBarRows;
+    topbar.color = Color::GetUI(1);
+    topbar.id = "topbar";
+    topbar.anchorRight = true;
+    uiRenderer.AddPanel(topbar);
 }
