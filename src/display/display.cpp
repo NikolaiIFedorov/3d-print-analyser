@@ -146,34 +146,54 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
     return uiRenderer.HitTest(pixelX, pixelY);
 }
 
+bool Display::HandleClick(float pixelX, float pixelY)
+{
+    return uiRenderer.HandleClick(pixelX, pixelY);
+}
+
 void Display::InitUI()
 {
-    float sidebarCols = 10.0f; // sidebar width in cells
-    float topBarRows = 2.5f;   // top bar height in cells
-    float gapCols = 0.5f;      // gap between sidebar and top bar
+    float toolsWidth = 2.0f;  // sidebar width in cells
+    float sceneWidth = 10.0f; // sidebar width in cells
+    float filesWidth = 2.5f;  // top bar height in cells
 
     const auto &grid = uiRenderer.GetGrid();
 
-    // Left sidebar — Tools (depth 1 from base)
-    Panel sidebar;
-    sidebar.col = UIGrid::MARGIN;
-    sidebar.row = UIGrid::MARGIN;
-    sidebar.colSpan = sidebarCols;
-    sidebar.rowSpan = static_cast<float>(grid.rows);
-    sidebar.color = Color::GetUI(1);
-    sidebar.id = "sidebar";
-    sidebar.anchorBottom = true;
-    uiRenderer.AddPanel(sidebar);
+    Panel analysisDef;
+    analysisDef.id = "analysis";
+    analysisDef.color = Color::GetUI(1);
+    analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    analysisDef.width = toolsWidth + UIGrid::GAP + sceneWidth;
+    analysisDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+    analysisDef.height = filesWidth;
+    Panel &analysis = uiRenderer.AddPanel(analysisDef);
+    uiRenderer.AddButton(analysis, []()
+                         { LOG_DESC("Analysis button clicked"); });
 
-    // Top bar — anchored to sidebar's right edge (depth 1 from base)
-    Panel topbar;
-    topbar.col = 0;
-    topbar.row = UIGrid::MARGIN;
-    topbar.colAnchor = PanelAnchor{"sidebar", PanelAnchor::Right, gapCols};
-    topbar.colSpan = static_cast<float>(grid.columns);
-    topbar.rowSpan = topBarRows;
-    topbar.color = Color::GetUI(1);
-    topbar.id = "topbar";
-    topbar.anchorRight = true;
-    uiRenderer.AddPanel(topbar);
+    Panel toolsDef;
+    toolsDef.id = "tools";
+    toolsDef.color = Color::GetUI(1);
+    toolsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    toolsDef.width = toolsWidth;
+    toolsDef.topAnchor = PanelAnchor{&analysis, PanelAnchor::Bottom};
+    toolsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+    Panel &tools = uiRenderer.AddPanel(toolsDef);
+
+    Panel sceneDef;
+    sceneDef.id = "scene";
+    sceneDef.color = Color::GetUI(1);
+    sceneDef.leftAnchor = PanelAnchor{&tools, PanelAnchor::Right};
+    sceneDef.width = sceneWidth;
+    sceneDef.topAnchor = PanelAnchor{&analysis, PanelAnchor::Bottom};
+    sceneDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+    Panel &scene = uiRenderer.AddPanel(sceneDef);
+
+    Panel filesDef;
+    filesDef.id = "files";
+    filesDef.color = Color::GetUI(1);
+    filesDef.leftAnchor = PanelAnchor{&scene, PanelAnchor::Right};
+    filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
+    filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+    filesDef.height = filesWidth;
+    uiRenderer.AddPanel(filesDef);
 }

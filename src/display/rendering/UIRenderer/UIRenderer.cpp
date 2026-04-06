@@ -77,21 +77,14 @@ void UIRenderer::SetScreenSize(int width, int height)
 
     ResolveAnchors();
 
-    for (auto &panel : panels)
-    {
-        if (panel.anchorRight)
-            panel.colSpan = static_cast<float>(grid.columns) - grid.MARGIN - panel.col;
-        if (panel.anchorBottom)
-            panel.rowSpan = static_cast<float>(grid.rows) - grid.MARGIN - panel.row;
-    }
-
     dirty = true;
 }
 
-void UIRenderer::AddPanel(const Panel &panel)
+Panel &UIRenderer::AddPanel(const Panel &panel)
 {
     panels.push_back(panel);
     dirty = true;
+    return panels.back();
 }
 
 Panel *UIRenderer::GetPanel(const std::string &id)
@@ -104,56 +97,132 @@ Panel *UIRenderer::GetPanel(const std::string &id)
     return nullptr;
 }
 
+Panel &UIRenderer::AddButton(const Panel &panel, std::function<void()> onClick)
+{
+    panels.push_back(panel);
+    buttons.push_back({panel.id, std::move(onClick)});
+    dirty = true;
+    return panels.back();
+}
+
+bool UIRenderer::HandleClick(float pixelX, float pixelY)
+{
+    if (grid.cellSize <= 0.0f)
+        return false;
+
+    float cellX = pixelX / grid.cellSize;
+    float cellY = pixelY / grid.cellSize;
+
+    for (auto it = buttons.rbegin(); it != buttons.rend(); ++it)
+    {
+        const Panel *p = GetPanel(it->panelId);
+        if (!p || !p->visible)
+            continue;
+
+        if (cellX >= p->col && cellX <= p->col + p->colSpan &&
+            cellY >= p->row && cellY <= p->row + p->rowSpan)
+        {
+            if (it->onClick)
+                it->onClick();
+            return true;
+        }
+    }
+    return false;
+}
+
 void UIRenderer::ResolveAnchors()
 {
+    // Resolve an anchor to a cell coordinate.
+    // Gap is applied automatically: screen edges push inward, panel edges push outward.
+    auto resolveEdge = [&](const PanelAnchor &anchor) -> float
+    {
+        const float gap = UIGrid::GAP;
+
+        if (!anchor.panel)
+        {
+            // Screen-relative: inset by gap
+            switch (anchor.edge)
+            {
+            case PanelAnchor::Right:
+                return static_cast<float>(grid.columns) - gap;
+            case PanelAnchor::Bottom:
+                return static_cast<float>(grid.rows) - gap;
+            default: // Left, Top
+                return gap;
+            }
+        }
+
+        const Panel &other = *anchor.panel;
+        switch (anchor.edge)
+        {
+        case PanelAnchor::Left:
+            return other.col - gap;
+        case PanelAnchor::Right:
+            return other.col + other.colSpan + gap;
+        case PanelAnchor::Top:
+            return other.row - gap;
+        case PanelAnchor::Bottom:
+            return other.row + other.rowSpan + gap;
+        }
+        return 0.0f;
+    };
+
     // Single linear pass — panels can only reference panels added before them
     for (auto &panel : panels)
     {
-        auto resolve = [&](const PanelAnchor &anchor) -> float
+        // --- Horizontal axis ---
+        std::optional<float> left, right, w;
+        if (panel.leftAnchor)
+            left = resolveEdge(*panel.leftAnchor);
+        if (panel.rightAnchor)
+            right = resolveEdge(*panel.rightAnchor);
+        w = panel.width;
+
+        if (left && right)
         {
-            if (anchor.panelId.empty())
-                return anchor.offset;
+            panel.col = *left;
+            panel.colSpan = *right - *left;
+        }
+        else if (left && w)
+        {
+            panel.col = *left;
+            panel.colSpan = *w;
+        }
+        else if (right && w)
+        {
+            panel.col = *right - *w;
+            panel.colSpan = *w;
+        }
 
-            for (const auto &other : panels)
-            {
-                if (&other == &panel)
-                    break; // only look at panels defined before this one
-                if (other.id != anchor.panelId)
-                    continue;
+        // --- Vertical axis ---
+        std::optional<float> top, bottom, h;
+        if (panel.topAnchor)
+            top = resolveEdge(*panel.topAnchor);
+        if (panel.bottomAnchor)
+            bottom = resolveEdge(*panel.bottomAnchor);
+        h = panel.height;
 
-                switch (anchor.edge)
-                {
-                case PanelAnchor::Left:
-                    return other.col + anchor.offset;
-                case PanelAnchor::Right:
-                    return other.col + other.colSpan + anchor.offset;
-                case PanelAnchor::Top:
-                    return other.row + anchor.offset;
-                case PanelAnchor::Bottom:
-                    return other.row + other.rowSpan + anchor.offset;
-                }
-            }
-            return anchor.offset; // fallback if panel not found
-        };
-
-        if (panel.colAnchor)
-            panel.col = resolve(*panel.colAnchor);
-        if (panel.rowAnchor)
-            panel.row = resolve(*panel.rowAnchor);
+        if (top && bottom)
+        {
+            panel.row = *top;
+            panel.rowSpan = *bottom - *top;
+        }
+        else if (top && h)
+        {
+            panel.row = *top;
+            panel.rowSpan = *h;
+        }
+        else if (bottom && h)
+        {
+            panel.row = *bottom - *h;
+            panel.rowSpan = *h;
+        }
     }
 }
 
 void UIRenderer::BuildMesh()
 {
     ResolveAnchors();
-
-    for (auto &panel : panels)
-    {
-        if (panel.anchorRight)
-            panel.colSpan = static_cast<float>(grid.columns) - grid.MARGIN - panel.col;
-        if (panel.anchorBottom)
-            panel.rowSpan = static_cast<float>(grid.rows) - grid.MARGIN - panel.row;
-    }
 
     std::vector<UIVertex> vertices;
     std::vector<uint32_t> indices;

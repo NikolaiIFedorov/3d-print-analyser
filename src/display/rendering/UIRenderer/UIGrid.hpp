@@ -5,7 +5,7 @@
 struct UIGrid
 {
     static constexpr int COLUMNS = 80;
-    static constexpr float MARGIN = 1.0f; // edge margin in cells
+    static constexpr float GAP = 0.5f; // universal spacing in cells
 
     float cellSize = 0.0f;
     int columns = COLUMNS;

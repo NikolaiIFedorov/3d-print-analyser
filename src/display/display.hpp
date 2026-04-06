@@ -22,6 +22,7 @@ public:
     void Frame();
 
     bool HitTestUI(float pixelX, float pixelY) const;
+    bool HandleClick(float pixelX, float pixelY);
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 

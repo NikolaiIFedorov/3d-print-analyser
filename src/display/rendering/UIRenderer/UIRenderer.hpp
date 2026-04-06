@@ -6,9 +6,11 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <deque>
 #include <vector>
 
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
+#include "Button.hpp"
 #include "Panel.hpp"
 #include "UIGrid.hpp"
 
@@ -35,8 +37,10 @@ public:
     bool HitTest(float pixelX, float pixelY) const;
     void Shutdown();
 
-    void AddPanel(const Panel &panel);
+    Panel &AddPanel(const Panel &panel);
+    Panel &AddButton(const Panel &panel, std::function<void()> onClick);
     Panel *GetPanel(const std::string &id);
+    bool HandleClick(float pixelX, float pixelY);
     const UIGrid &GetGrid() const { return grid; }
 
 private:
@@ -51,7 +55,8 @@ private:
     glm::mat4 projection = glm::mat4(1.0f);
 
     UIGrid grid;
-    std::vector<Panel> panels;
+    std::deque<Panel> panels;
+    std::vector<Button> buttons;
     bool dirty = true;
 
     bool InitializeShaders();
