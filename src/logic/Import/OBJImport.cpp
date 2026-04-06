@@ -69,22 +69,25 @@ bool OBJImport::Import(const std::string &filePath, Scene *scene)
             if (vertexIndices.size() < 3)
                 continue;
 
-            // Fan triangulation for n-gon faces
-            Point *p0 = points[vertexIndices[0]];
-            for (size_t i = 1; i + 1 < vertexIndices.size(); ++i)
+            // Create edge loop around the full polygon
+            std::vector<Edge *> edgeLoop;
+            bool valid = true;
+            for (size_t i = 0; i < vertexIndices.size(); ++i)
             {
-                Point *p1 = points[vertexIndices[i]];
-                Point *p2 = points[vertexIndices[i + 1]];
+                Point *p0 = points[vertexIndices[i]];
+                Point *p1 = points[vertexIndices[(i + 1) % vertexIndices.size()]];
 
-                if (p0 == p1 || p1 == p2 || p0 == p2)
-                    continue;
+                if (p0 == p1)
+                {
+                    valid = false;
+                    break;
+                }
 
-                Edge *e1 = scene->CreateEdge(p0, p1);
-                Edge *e2 = scene->CreateEdge(p1, p2);
-                Edge *e3 = scene->CreateEdge(p2, p0);
-
-                faces.push_back(scene->CreateFace({{e1, e2, e3}}));
+                edgeLoop.push_back(scene->CreateEdge(p0, p1));
             }
+
+            if (valid && edgeLoop.size() >= 3)
+                faces.push_back(scene->CreateFace({edgeLoop}));
         }
     }
 
