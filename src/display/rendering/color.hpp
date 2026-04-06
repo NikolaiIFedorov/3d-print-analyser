@@ -5,11 +5,12 @@
 #include "logic/Analysis/AnalysisTypes.hpp"
 
 static const float BASE = 0.1;
-static const float FORM_STEP = 0.1f;
+static const float UI_BASE = BASE / 2.0f;
+static const float STEP = 0.1f;
 
-static const float FACE = BASE + FORM_STEP;
-static const float EDGE = FACE + FORM_STEP;
-static const float POINT = EDGE + FORM_STEP;
+static const float FACE = BASE + STEP;
+static const float EDGE = FACE + STEP;
+static const float POINT = EDGE + STEP;
 
 static const glm::vec3 FACE_DEFAULT = glm::vec3(FACE, FACE, FACE);
 static const glm::vec3 EDGE_DEFAULT = glm::vec3(EDGE, EDGE, EDGE);
@@ -20,7 +21,7 @@ struct Color
     static glm::vec3 GetBase() { return glm::vec3(BASE, BASE, BASE); }
     static glm::vec4 GetUI(int depth, float alpha = 1.0f)
     {
-        float v = BASE + FORM_STEP * depth;
+        float v = UI_BASE + STEP * depth;
         return glm::vec4(v, v, v, alpha);
     }
     static glm::vec3 GetEdge()

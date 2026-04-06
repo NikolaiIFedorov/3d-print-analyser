@@ -64,7 +64,7 @@ bool Init()
         return LOG_FALSE("Window is null");
     }
 
-    Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<Overhang>());
     Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>());
     Analysis::Instance().AddSolidAnalysis(std::make_unique<SharpCorner>());
     Analysis::Instance().AddSolidAnalysis(std::make_unique<Bridging>());
