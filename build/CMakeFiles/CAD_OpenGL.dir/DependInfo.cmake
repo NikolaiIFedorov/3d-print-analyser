@@ -9,6 +9,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.o.d"

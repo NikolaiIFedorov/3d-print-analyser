@@ -5,6 +5,7 @@
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
+#include "rendering/AnalysisRenderer/AnalysisRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
 
 class Display
@@ -41,11 +42,13 @@ private:
     SDL_GLContext glContext = nullptr;
 
     SceneRenderer renderer;
+    AnalysisRenderer analysisRenderer;
     UIRenderer uiRenderer;
     Scene *scene = nullptr;
 
     Camera camera;
 
+    bool analysisEnabled = false;
     bool cameraDirty = true;
     bool sceneDirty = true;
 

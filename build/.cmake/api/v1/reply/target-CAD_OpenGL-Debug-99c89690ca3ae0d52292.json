@@ -33,13 +33,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 88,
+				"line" : 96,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 95,
+				"line" : 103,
 				"parent" : 0
 			},
 			{
@@ -63,7 +63,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 71,
+				"line" : 78,
 				"parent" : 0
 			}
 		]
@@ -145,6 +145,10 @@
 				},
 				{
 					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer"
+				},
+				{
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer"
 				},
 				{
@@ -192,7 +196,8 @@
 				18,
 				19,
 				20,
-				21
+				21,
+				22
 			]
 		}
 	],
@@ -287,7 +292,8 @@
 				18,
 				19,
 				20,
-				21
+				21,
+				22
 			]
 		}
 	],
@@ -345,6 +351,12 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/display/rendering/UIRenderer/UIRenderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{

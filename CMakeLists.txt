@@ -40,6 +40,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
     src/display/rendering/color.cpp
     src/display/rendering/UIRenderer/UIRenderer.cpp
+    src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/input/Input.cpp
@@ -68,6 +69,12 @@ add_custom_command(TARGET CAD_OpenGL POST_BUILD
         ${CMAKE_BINARY_DIR}/shaders
 )
 
+add_custom_command(TARGET CAD_OpenGL POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer/shaders
+        ${CMAKE_BINARY_DIR}/shaders
+)
+
 target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/include/glad/include
     ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
@@ -78,6 +85,7 @@ target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/src/display/rendering/Camera
     ${CMAKE_SOURCE_DIR}/src/display/rendering/OpenGL
     ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
+    ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer
     ${CMAKE_SOURCE_DIR}/src/display/rendering/UIRenderer
     ${CMAKE_SOURCE_DIR}/src/scene
     ${CMAKE_SOURCE_DIR}/src/scene/Geometry

@@ -1,10 +1,10 @@
 #include "Wireframe.hpp"
 #include "utils/utils.hpp"
 
-void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
+void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices);
+        AddSolid(&solid, vertices, indices, results);
 
     for (const Face &face : scene->faces)
         AddFace(&face, vertices, indices, false);
@@ -125,12 +125,17 @@ void Wireframe::AddFace(const Face *face,
 
 void Wireframe::AddSolid(const Solid *solid,
                          std::vector<Vertex> &vertices,
-                         std::vector<uint32_t> &indices) const
+                         std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (auto face : solid->faces)
         AddFace(face, vertices, indices, true);
 
-    AddLayers(Analysis::Instance().FlawSolid(solid), vertices, indices);
+    if (results)
+    {
+        auto it = results->solidLayers.find(solid);
+        if (it != results->solidLayers.end())
+            AddLayers(it->second, vertices, indices);
+    }
 }
 
 void Wireframe::TessellateCurve(const Curve *curve,

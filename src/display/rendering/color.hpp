@@ -2,8 +2,7 @@
 
 #include <cstdint>
 #include "glm/glm.hpp"
-#include "logic/Analysis/Analysis.hpp"
-#include "scene/scene.hpp"
+#include "logic/Analysis/AnalysisTypes.hpp"
 
 static const float BASE = 0.1;
 static const float FORM_STEP = 0.1f;
@@ -24,5 +23,5 @@ struct Color
     static glm::vec3 GetEdge(Flaw flaw);
     static glm::vec3 GetPoint() { return glm::vec3(POINT, POINT, POINT); }
     static glm::vec3 GetFace() { return glm::vec3(FACE, FACE, FACE); }
-    static glm::vec3 GetFace(const Face *face);
+    static glm::vec3 GetFace(Flaw flaw);
 };

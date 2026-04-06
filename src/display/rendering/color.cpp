@@ -1,8 +1,7 @@
 #include "rendering/color.hpp"
 
-glm::vec3 Color::GetFace(const Face *face)
+glm::vec3 Color::GetFace(Flaw flaw)
 {
-    Flaw flaw = Analysis::Instance().FlawFace(face);
     switch (flaw)
     {
     case Flaw::OVERHANG:

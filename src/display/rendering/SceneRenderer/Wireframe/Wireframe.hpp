@@ -3,12 +3,12 @@
 #include "Geometry/AllGeometry.hpp"
 
 #include "rendering/color.hpp"
-#include "Analysis/Analysis.hpp"
+#include "scene/scene.hpp"
 
 class Wireframe
 {
 public:
-    void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const;
+    void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const;
 
 private:
     void AddPoint(const Point *point,
@@ -40,7 +40,7 @@ private:
                  std::vector<uint32_t> &indices, bool isSolid) const;
     void AddSolid(const Solid *solid,
                   std::vector<Vertex> &vertices,
-                  std::vector<uint32_t> &indices) const;
+                  std::vector<uint32_t> &indices, const AnalysisResults *results) const;
 
     void TessellateCurve(const Curve *curve,
                          const glm::dvec3 &start,

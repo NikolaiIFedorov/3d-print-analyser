@@ -9,16 +9,16 @@
 class Patch
 {
 public:
-    void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const;
+    void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4], const AnalysisResults *results) const;
 
 private:
     void AddFace(const Face *face,
                  std::vector<Vertex> &vertices,
-                 std::vector<uint32_t> &indices, bool isSolid) const;
+                 std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results) const;
 
     void AddSolid(const Solid *solid,
                   std::vector<Vertex> &vertices,
-                  std::vector<uint32_t> &indices) const;
+                  std::vector<uint32_t> &indices, const AnalysisResults *results) const;
 
     std::vector<glm::dvec3> TessellateCurveToPoints(
         const Curve *curve,

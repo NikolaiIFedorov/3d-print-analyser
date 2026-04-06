@@ -1,7 +1,8 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
+#include "logic/Analysis/Analysis.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
 {
     InitUI();
     LOG_VOID("Initialized display");
@@ -50,6 +51,7 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
 void Display::Shutdown()
 {
     uiRenderer.Shutdown();
+    analysisRenderer.Shutdown();
     renderer.Shutdown();
     if (glContext)
         SDL_GL_DestroyContext(glContext);
@@ -66,6 +68,7 @@ void Display::UpdateCamera()
 void Display::Render()
 {
     renderer.Render();
+    analysisRenderer.Render();
     uiRenderer.Render();
     SDL_GL_SwapWindow(window);
 }
@@ -83,12 +86,22 @@ void Display::Frame()
     if (cameraDirty)
     {
         renderer.SetCamera(camera);
+        analysisRenderer.SetCamera(camera);
         cameraDirty = false;
     }
 
     if (sceneDirty)
     {
         renderer.UpdateScene(scene);
+        if (analysisEnabled)
+        {
+            auto results = Analysis::Instance().AnalyzeScene(scene);
+            analysisRenderer.Update(scene, results);
+        }
+        else
+        {
+            analysisRenderer.Clear();
+        }
         sceneDirty = false;
     }
 
@@ -167,8 +180,10 @@ void Display::InitUI()
     analysisDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     analysisDef.height = filesWidth;
     Panel &analysis = uiRenderer.AddPanel(analysisDef);
-    uiRenderer.AddButton(analysis, []()
-                         { LOG_DESC("Analysis button clicked"); });
+    uiRenderer.AddButton(analysis, [this]()
+                         {
+                             analysisEnabled = !analysisEnabled;
+                             UpdateScene(); });
 
     Panel toolsDef;
     toolsDef.id = "tools";

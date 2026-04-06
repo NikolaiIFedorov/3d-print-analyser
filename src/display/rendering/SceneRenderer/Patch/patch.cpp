@@ -30,18 +30,18 @@ static glm::dvec2 ProjectPointToPlane(const glm::dvec3 &point3D,
         glm::dot(relativePos, vAxis));
 }
 
-void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4]) const
+void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4], const AnalysisResults *results) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices);
+        AddSolid(&solid, vertices, indices, results);
 
     for (const Face &face : scene->faces)
-        AddFace(&face, vertices, indices, false);
+        AddFace(&face, vertices, indices, false, results);
 }
 
 void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
-                    std::vector<uint32_t> &indices, bool isSolid) const
+                    std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results) const
 {
     if (face->dependency != nullptr && !isSolid)
         return;
@@ -126,7 +126,14 @@ void Patch::AddFace(const Face *face,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            v.color = Color::GetFace(face);
+            Flaw flaw = Flaw::NONE;
+            if (results)
+            {
+                auto it = results->faceFlaws.find(face);
+                if (it != results->faceFlaws.end())
+                    flaw = it->second;
+            }
+            v.color = Color::GetFace(flaw);
 
             vertices.push_back(v);
         }
@@ -140,11 +147,11 @@ void Patch::AddFace(const Face *face,
 
 void Patch::AddSolid(const Solid *solid,
                      std::vector<Vertex> &vertices,
-                     std::vector<uint32_t> &indices) const
+                     std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (const Face *face : solid->faces)
     {
-        AddFace(face, vertices, indices, true);
+        AddFace(face, vertices, indices, true, results);
     }
 }
 

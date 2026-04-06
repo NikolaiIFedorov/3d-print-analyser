@@ -41,3 +41,21 @@ std::vector<Layer> Analysis::FlawSolid(const Solid *solid) const
     }
     return allLayers;
 }
+
+AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
+{
+    AnalysisResults results;
+
+    for (const Solid &solid : scene->solids)
+    {
+        for (const Face *face : solid.faces)
+            results.faceFlaws[face] = FlawFace(face);
+
+        results.solidLayers[&solid] = FlawSolid(&solid);
+    }
+
+    for (const Face &face : scene->faces)
+        results.faceFlaws[&face] = FlawFace(&face);
+
+    return results;
+}

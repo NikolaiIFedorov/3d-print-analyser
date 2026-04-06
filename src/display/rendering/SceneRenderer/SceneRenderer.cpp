@@ -9,13 +9,13 @@ void SceneRenderer::UpdateScene(Scene *scene)
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
-    wireframe.Generate(scene, vertices, indices);
+    wireframe.Generate(scene, vertices, indices, nullptr);
     renderer.UploadLineMesh(vertices, indices);
 
     vertices.clear();
     indices.clear();
 
-    patch.Generate(scene, vertices, indices, viewPort);
+    patch.Generate(scene, vertices, indices, viewPort, nullptr);
     renderer.UploadTriangleMesh(vertices, indices);
 }
 

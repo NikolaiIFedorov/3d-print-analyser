@@ -33,6 +33,8 @@ public:
     Flaw FlawFace(const Face *face) const;
     std::vector<Layer> FlawSolid(const Solid *solid) const;
 
+    AnalysisResults AnalyzeScene(const Scene *scene) const;
+
 private:
     std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;
     std::vector<std::unique_ptr<ISolidAnalysis>> solidAnalyses;
