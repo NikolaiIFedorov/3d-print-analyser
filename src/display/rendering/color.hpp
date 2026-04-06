@@ -11,6 +11,10 @@ static const float FACE = BASE + FORM_STEP;
 static const float EDGE = FACE + FORM_STEP;
 static const float POINT = EDGE + FORM_STEP;
 
+static const glm::vec3 FACE_DEFAULT = glm::vec3(FACE, FACE, FACE);
+static const glm::vec3 EDGE_DEFAULT = glm::vec3(EDGE, EDGE, EDGE);
+static const glm::vec3 POINT_DEFAULT = glm::vec3(POINT, POINT, POINT);
+
 struct Color
 {
     static glm::vec3 GetBase() { return glm::vec3(BASE, BASE, BASE); }
@@ -19,9 +23,19 @@ struct Color
         float v = BASE + FORM_STEP * depth;
         return glm::vec4(v, v, v, alpha);
     }
-    static glm::vec3 GetEdge() { return glm::vec3(EDGE, EDGE, EDGE); }
-    static glm::vec3 GetEdge(Flaw flaw);
-    static glm::vec3 GetPoint() { return glm::vec3(POINT, POINT, POINT); }
-    static glm::vec3 GetFace() { return glm::vec3(FACE, FACE, FACE); }
-    static glm::vec3 GetFace(Flaw flaw);
+    static glm::vec3 GetEdge()
+    {
+        return EDGE_DEFAULT;
+    }
+    static glm::vec3 GetPoint()
+    {
+        return POINT_DEFAULT;
+    }
+    static glm::vec3 GetFace()
+    {
+        return FACE_DEFAULT;
+    }
+
+    static glm::vec4 GetFaceOverlay(Flaw flaw);
+    static glm::vec4 GetLayerOverlay(Flaw flaw);
 };

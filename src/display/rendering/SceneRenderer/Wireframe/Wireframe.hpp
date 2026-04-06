@@ -27,14 +27,6 @@ private:
                        std::vector<Vertex> &vertices,
                        std::vector<uint32_t> &indices) const;
 
-    void AddLayers(const std::vector<Layer> &layers,
-                   std::vector<Vertex> &vertices,
-                   std::vector<uint32_t> &indices) const;
-
-    void AddLayer(const Layer &layer,
-                  std::vector<Vertex> &vertices,
-                  std::vector<uint32_t> &indices) const;
-
     void AddFace(const Face *face,
                  std::vector<Vertex> &vertices,
                  std::vector<uint32_t> &indices, bool isSolid) const;

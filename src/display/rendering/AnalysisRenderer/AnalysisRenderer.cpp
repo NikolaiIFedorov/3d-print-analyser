@@ -206,7 +206,7 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
     {
         if (flaw == Flaw::NONE)
             continue;
-        TriangulateFace(face, GetFaceOverlayColor(flaw), vertices, indices);
+        TriangulateFace(face, Color::GetFaceOverlay(flaw), vertices, indices);
     }
 }
 
@@ -218,7 +218,7 @@ void AnalysisRenderer::GenerateLayerLines(const AnalysisResults &results,
     {
         for (const auto &layer : layers)
         {
-            glm::vec4 color = GetLayerColor(layer.flaw);
+            glm::vec4 color = Color::GetLayerOverlay(layer.flaw);
             for (const auto &seg : layer.segments)
             {
                 uint32_t base = vertices.size();
@@ -228,36 +228,6 @@ void AnalysisRenderer::GenerateLayerLines(const AnalysisResults &results,
                 indices.push_back(base + 1);
             }
         }
-    }
-}
-
-// -- Colors --
-
-glm::vec4 AnalysisRenderer::GetFaceOverlayColor(Flaw flaw)
-{
-    switch (flaw)
-    {
-    case Flaw::OVERHANG:
-        return glm::vec4(0.8f, 0.2f, 0.2f, 0.35f);
-    default:
-        return glm::vec4(0.0f);
-    }
-}
-
-glm::vec4 AnalysisRenderer::GetLayerColor(Flaw flaw)
-{
-    switch (flaw)
-    {
-    case Flaw::THIN_SECTION:
-        return glm::vec4(0.9f, 0.3f, 0.3f, 1.0f);
-    case Flaw::SHARP_CORNER:
-        return glm::vec4(0.3f, 0.9f, 0.3f, 1.0f);
-    case Flaw::BRIDGING:
-        return glm::vec4(0.3f, 0.3f, 0.9f, 1.0f);
-    case Flaw::SMALL_FEATURE:
-        return glm::vec4(0.9f, 0.9f, 0.3f, 1.0f);
-    default:
-        return glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);
     }
 }
 

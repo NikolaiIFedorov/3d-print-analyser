@@ -58,7 +58,4 @@ private:
                               std::vector<AnalysisVertex> &vertices, std::vector<uint32_t> &indices) const;
     void GenerateLayerLines(const AnalysisResults &results,
                             std::vector<AnalysisVertex> &vertices, std::vector<uint32_t> &indices) const;
-
-    static glm::vec4 GetFaceOverlayColor(Flaw flaw);
-    static glm::vec4 GetLayerColor(Flaw flaw);
 };

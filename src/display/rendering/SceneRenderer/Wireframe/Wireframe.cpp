@@ -59,41 +59,6 @@ void Wireframe::AddLineEdge(const Edge *edge,
     indices.push_back(baseIndex + 1);
 }
 
-void Wireframe::AddLayers(const std::vector<Layer> &layers,
-                          std::vector<Vertex> &vertices,
-                          std::vector<uint32_t> &indices) const
-{
-    for (const auto &layer : layers)
-        AddLayer(layer, vertices, indices);
-}
-
-void Wireframe::AddLayer(const Layer &layer,
-                         std::vector<Vertex> &vertices,
-                         std::vector<uint32_t> &indices) const
-{
-    const auto &segments = layer.segments;
-    for (const auto &segment : segments)
-    {
-        const glm::dvec3 *p0 = &segment.a;
-        const glm::dvec3 *p1 = &segment.b;
-
-        uint32_t baseIndex = vertices.size();
-
-        Vertex v0, v1;
-        v0.position = glm::vec3(*p0);
-        v0.color = Color::GetEdge(layer.flaw);
-
-        v1.position = glm::vec3(*p1);
-        v1.color = Color::GetEdge(layer.flaw);
-
-        vertices.push_back(v0);
-        vertices.push_back(v1);
-
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 1);
-    }
-}
-
 void Wireframe::AddCurvedEdge(const Edge *edge,
                               std::vector<Vertex> &vertices,
                               std::vector<uint32_t> &indices) const
@@ -129,13 +94,6 @@ void Wireframe::AddSolid(const Solid *solid,
 {
     for (auto face : solid->faces)
         AddFace(face, vertices, indices, true);
-
-    if (results)
-    {
-        auto it = results->solidLayers.find(solid);
-        if (it != results->solidLayers.end())
-            AddLayers(it->second, vertices, indices);
-    }
 }
 
 void Wireframe::TessellateCurve(const Curve *curve,

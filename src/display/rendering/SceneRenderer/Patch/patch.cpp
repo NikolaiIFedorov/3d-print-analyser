@@ -126,14 +126,7 @@ void Patch::AddFace(const Face *face,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            Flaw flaw = Flaw::NONE;
-            if (results)
-            {
-                auto it = results->faceFlaws.find(face);
-                if (it != results->faceFlaws.end())
-                    flaw = it->second;
-            }
-            v.color = Color::GetFace(flaw);
+            v.color = Color::GetFace();
 
             vertices.push_back(v);
         }
