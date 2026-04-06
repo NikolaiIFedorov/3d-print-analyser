@@ -8,6 +8,11 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
+  "/Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c" "CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c" "CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c" "CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c" "CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp" "CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.cpp" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o.d"
@@ -29,6 +34,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d"

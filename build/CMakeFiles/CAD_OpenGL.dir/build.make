@@ -436,6 +436,90 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s
 
+CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c
+CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/CAD_OpenGL.dir/include/miniz.c.i"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c > CMakeFiles/CAD_OpenGL.dir/include/miniz.c.i
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/CAD_OpenGL.dir/include/miniz.c.s"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c -o CMakeFiles/CAD_OpenGL.dir/include/miniz.c.s
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.i"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c > CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.i
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.s"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.s
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.i"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c > CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.i
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.s"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.s
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c
+CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing C source to CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.i"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c > CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.i
+
+CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling C source to assembly CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.s"
+	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c -o CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.s
+
+CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp
+CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp > CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp -o CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s
+
 # Object files for target CAD_OpenGL
 CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" \
@@ -463,7 +547,13 @@ CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o" \
-"CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o"
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
 
 # External object files for target CAD_OpenGL
 CAD_OpenGL_EXTERNAL_OBJECTS =
@@ -494,11 +584,17 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeatu
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/build.make
 CAD_OpenGL: libglad.a
 CAD_OpenGL: /opt/homebrew/lib/libSDL3.0.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Linking CXX executable CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders

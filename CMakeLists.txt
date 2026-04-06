@@ -57,6 +57,12 @@ add_executable(CAD_OpenGL
     src/logic/Analysis/utils/Slice.cpp
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
+    src/logic/Import/ThreeMFImport.cpp
+    include/miniz.c
+    include/miniz_tdef.c
+    include/miniz_tinfl.c
+    include/miniz_zip.c
+    include/tinyxml2.cpp
 
 )
 
@@ -81,6 +87,7 @@ add_custom_command(TARGET CAD_OpenGL POST_BUILD
 target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/include/glad/include
     ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
+    ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/logic
     ${CMAKE_SOURCE_DIR}/src/display

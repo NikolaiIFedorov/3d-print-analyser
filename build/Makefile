@@ -166,6 +166,126 @@ include/glad/src/glad.c.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/glad.dir/build.make CMakeFiles/glad.dir/include/glad/src/glad.c.s
 .PHONY : include/glad/src/glad.c.s
 
+include/miniz.o: include/miniz.c.o
+.PHONY : include/miniz.o
+
+# target to build an object file
+include/miniz.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o
+.PHONY : include/miniz.c.o
+
+include/miniz.i: include/miniz.c.i
+.PHONY : include/miniz.i
+
+# target to preprocess a source file
+include/miniz.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz.c.i
+.PHONY : include/miniz.c.i
+
+include/miniz.s: include/miniz.c.s
+.PHONY : include/miniz.s
+
+# target to generate assembly for a file
+include/miniz.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz.c.s
+.PHONY : include/miniz.c.s
+
+include/miniz_tdef.o: include/miniz_tdef.c.o
+.PHONY : include/miniz_tdef.o
+
+# target to build an object file
+include/miniz_tdef.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o
+.PHONY : include/miniz_tdef.c.o
+
+include/miniz_tdef.i: include/miniz_tdef.c.i
+.PHONY : include/miniz_tdef.i
+
+# target to preprocess a source file
+include/miniz_tdef.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.i
+.PHONY : include/miniz_tdef.c.i
+
+include/miniz_tdef.s: include/miniz_tdef.c.s
+.PHONY : include/miniz_tdef.s
+
+# target to generate assembly for a file
+include/miniz_tdef.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.s
+.PHONY : include/miniz_tdef.c.s
+
+include/miniz_tinfl.o: include/miniz_tinfl.c.o
+.PHONY : include/miniz_tinfl.o
+
+# target to build an object file
+include/miniz_tinfl.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o
+.PHONY : include/miniz_tinfl.c.o
+
+include/miniz_tinfl.i: include/miniz_tinfl.c.i
+.PHONY : include/miniz_tinfl.i
+
+# target to preprocess a source file
+include/miniz_tinfl.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.i
+.PHONY : include/miniz_tinfl.c.i
+
+include/miniz_tinfl.s: include/miniz_tinfl.c.s
+.PHONY : include/miniz_tinfl.s
+
+# target to generate assembly for a file
+include/miniz_tinfl.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.s
+.PHONY : include/miniz_tinfl.c.s
+
+include/miniz_zip.o: include/miniz_zip.c.o
+.PHONY : include/miniz_zip.o
+
+# target to build an object file
+include/miniz_zip.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o
+.PHONY : include/miniz_zip.c.o
+
+include/miniz_zip.i: include/miniz_zip.c.i
+.PHONY : include/miniz_zip.i
+
+# target to preprocess a source file
+include/miniz_zip.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.i
+.PHONY : include/miniz_zip.c.i
+
+include/miniz_zip.s: include/miniz_zip.c.s
+.PHONY : include/miniz_zip.s
+
+# target to generate assembly for a file
+include/miniz_zip.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.s
+.PHONY : include/miniz_zip.c.s
+
+include/tinyxml2.o: include/tinyxml2.cpp.o
+.PHONY : include/tinyxml2.o
+
+# target to build an object file
+include/tinyxml2.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o
+.PHONY : include/tinyxml2.cpp.o
+
+include/tinyxml2.i: include/tinyxml2.cpp.i
+.PHONY : include/tinyxml2.i
+
+# target to preprocess a source file
+include/tinyxml2.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.i
+.PHONY : include/tinyxml2.cpp.i
+
+include/tinyxml2.s: include/tinyxml2.cpp.s
+.PHONY : include/tinyxml2.s
+
+# target to generate assembly for a file
+include/tinyxml2.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s
+.PHONY : include/tinyxml2.cpp.s
+
 src/display/display.o: src/display/display.cpp.o
 .PHONY : src/display/display.o
 
@@ -670,6 +790,30 @@ src/logic/Import/STLImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.s
 .PHONY : src/logic/Import/STLImport.cpp.s
 
+src/logic/Import/ThreeMFImport.o: src/logic/Import/ThreeMFImport.cpp.o
+.PHONY : src/logic/Import/ThreeMFImport.o
+
+# target to build an object file
+src/logic/Import/ThreeMFImport.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o
+.PHONY : src/logic/Import/ThreeMFImport.cpp.o
+
+src/logic/Import/ThreeMFImport.i: src/logic/Import/ThreeMFImport.cpp.i
+.PHONY : src/logic/Import/ThreeMFImport.i
+
+# target to preprocess a source file
+src/logic/Import/ThreeMFImport.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.i
+.PHONY : src/logic/Import/ThreeMFImport.cpp.i
+
+src/logic/Import/ThreeMFImport.s: src/logic/Import/ThreeMFImport.cpp.s
+.PHONY : src/logic/Import/ThreeMFImport.s
+
+# target to generate assembly for a file
+src/logic/Import/ThreeMFImport.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s
+.PHONY : src/logic/Import/ThreeMFImport.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -803,6 +947,21 @@ help:
 	@echo "... include/glad/src/glad.o"
 	@echo "... include/glad/src/glad.i"
 	@echo "... include/glad/src/glad.s"
+	@echo "... include/miniz.o"
+	@echo "... include/miniz.i"
+	@echo "... include/miniz.s"
+	@echo "... include/miniz_tdef.o"
+	@echo "... include/miniz_tdef.i"
+	@echo "... include/miniz_tdef.s"
+	@echo "... include/miniz_tinfl.o"
+	@echo "... include/miniz_tinfl.i"
+	@echo "... include/miniz_tinfl.s"
+	@echo "... include/miniz_zip.o"
+	@echo "... include/miniz_zip.i"
+	@echo "... include/miniz_zip.s"
+	@echo "... include/tinyxml2.o"
+	@echo "... include/tinyxml2.i"
+	@echo "... include/tinyxml2.s"
 	@echo "... src/display/display.o"
 	@echo "... src/display/display.i"
 	@echo "... src/display/display.s"
@@ -866,6 +1025,9 @@ help:
 	@echo "... src/logic/Import/STLImport.o"
 	@echo "... src/logic/Import/STLImport.i"
 	@echo "... src/logic/Import/STLImport.s"
+	@echo "... src/logic/Import/ThreeMFImport.o"
+	@echo "... src/logic/Import/ThreeMFImport.i"
+	@echo "... src/logic/Import/ThreeMFImport.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

@@ -3,6 +3,7 @@
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Import/STLImport.hpp"
 #include "logic/Import/OBJImport.hpp"
+#include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
@@ -244,6 +245,8 @@ void Display::InitUI()
                                                              STLImport::Import(path, this->scene);
                                                          else if (lower == "obj")
                                                              OBJImport::Import(path, this->scene);
+                                                         else if (lower == "3mf")
+                                                             ThreeMFImport::Import(path, this->scene);
 
                                                          FrameScene();
                                                          UpdateScene(); }); });

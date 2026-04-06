@@ -1,6 +1,16 @@
 file(REMOVE_RECURSE
   "CAD_OpenGL"
   "CAD_OpenGL.pdb"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o"
+  "CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
+  "CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o"
@@ -43,6 +53,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o"
@@ -56,6 +68,6 @@ file(REMOVE_RECURSE
 )
 
 # Per-language clean rules from dependency scanning.
-foreach(lang CXX)
+foreach(lang C CXX)
   include(CMakeFiles/CAD_OpenGL.dir/cmake_clean_${lang}.cmake OPTIONAL)
 endforeach()

@@ -33,13 +33,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 99,
+				"line" : 106,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 106,
+				"line" : 113,
 				"parent" : 0
 			},
 			{
@@ -63,7 +63,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 81,
+				"line" : 87,
 				"parent" : 0
 			}
 		]
@@ -114,6 +114,10 @@
 				{
 					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include"
 				},
 				{
 					"backtrace" : 7,
@@ -200,7 +204,100 @@
 				22,
 				23,
 				24,
-				25
+				25,
+				26,
+				31
+			]
+		},
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -arch arm64"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 4,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2"
+				},
+				{
+					"backtrace" : 5,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include"
+				},
+				{
+					"backtrace" : 6,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/include"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene"
+				},
+				{
+					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry"
+				},
+				{
+					"backtrace" : 2,
+					"path" : "/opt/homebrew/include"
+				}
+			],
+			"language" : "C",
+			"sourceIndexes" : 
+			[
+				27,
+				28,
+				29,
+				30
 			]
 		}
 	],
@@ -299,7 +396,13 @@
 				22,
 				23,
 				24,
-				25
+				25,
+				26,
+				27,
+				28,
+				29,
+				30,
+				31
 			]
 		}
 	],
@@ -459,6 +562,42 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/logic/Import/OBJImport.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Import/ThreeMFImport.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 1,
+			"path" : "include/miniz.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 1,
+			"path" : "include/miniz_tdef.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 1,
+			"path" : "include/miniz_tinfl.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 1,
+			"path" : "include/miniz_zip.c",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "include/tinyxml2.cpp",
 			"sourceGroupIndex" : 0
 		}
 	],
