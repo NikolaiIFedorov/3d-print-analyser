@@ -1,6 +1,6 @@
 #include "rendering/color.hpp"
 
-glm::vec4 Color::GetFaceOverlay(Flaw flaw)
+glm::vec4 Color::GetFace(Flaw flaw)
 {
     switch (flaw)
     {
@@ -11,7 +11,7 @@ glm::vec4 Color::GetFaceOverlay(Flaw flaw)
     }
 }
 
-glm::vec4 Color::GetLayerOverlay(Flaw flaw)
+glm::vec4 Color::GetEdge(Flaw flaw)
 {
     switch (flaw)
     {

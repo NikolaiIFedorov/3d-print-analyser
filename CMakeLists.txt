@@ -44,6 +44,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/input/Input.cpp
+    src/input/FileImport.cpp
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
     src/scene/Geometry/Face.cpp
@@ -54,6 +55,8 @@ add_executable(CAD_OpenGL
     src/logic/Analysis/Bridging/Bridging.cpp
     src/logic/Analysis/SmallFeature/SmallFeature.cpp
     src/logic/Analysis/utils/Slice.cpp
+    src/logic/Import/STLImport.cpp
+    src/logic/Import/OBJImport.cpp
 
 )
 

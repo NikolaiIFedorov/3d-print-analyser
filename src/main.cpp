@@ -90,34 +90,6 @@ int main()
         if (!Init())
             return -1;
 
-        Point *bp1 = scene.CreatePoint(glm::vec3(0, 0, 0));
-        Point *bp2 = scene.CreatePoint(glm::vec3(0, 10, 0));
-        Point *bp3 = scene.CreatePoint(glm::vec3(10, 10, 0));
-        Point *bp4 = scene.CreatePoint(glm::vec3(10, 0, 0));
-
-        Edge *be1 = scene.CreateEdge(bp1, bp2);
-        Edge *be2 = scene.CreateEdge(bp2, bp3);
-        Edge *be3 = scene.CreateEdge(bp3, bp4);
-        Edge *be4 = scene.CreateEdge(bp4, bp1);
-
-        Face *bf = scene.CreateFace({{be1, be2, be3, be4}});
-
-        Point *ep = scene.CreatePoint(glm::vec3(0, 0, 10));
-
-        Edge *e1 = scene.CreateEdge(bp1, ep);
-        Edge *e2 = scene.CreateEdge(bp2, ep);
-        Edge *e3 = scene.CreateEdge(bp3, ep);
-        Edge *e4 = scene.CreateEdge(bp4, ep);
-
-        Face *ef1 = scene.CreateFace({{be1, e2, e1}});
-        Face *ef2 = scene.CreateFace({{be2, e3, e2}});
-        Face *ef3 = scene.CreateFace({{be3, e4, e3}});
-        Face *ef4 = scene.CreateFace({{be4, e1, e4}});
-
-        Solid *s = scene.CreateSolid({bf, ef1, ef2, ef3, ef4});
-
-        display->UpdateScene();
-
         LOG_FILTER_BACK(true);
         display->Frame();
         while (input->handleEvents())

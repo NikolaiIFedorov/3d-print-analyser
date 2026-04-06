@@ -33,6 +33,7 @@ public:
     void Orbit(float offsetX, float offsetY);
     void Roll(float delta);
     void Pan(float offsetX, float offsetY, bool scroll = true);
+    void FrameScene();
 
 private:
     int16_t windowWidth;

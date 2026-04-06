@@ -37,6 +37,6 @@ struct Color
         return FACE_DEFAULT;
     }
 
-    static glm::vec4 GetFaceOverlay(Flaw flaw);
-    static glm::vec4 GetLayerOverlay(Flaw flaw);
+    static glm::vec4 GetFace(Flaw flaw);
+    static glm::vec4 GetEdge(Flaw flaw);
 };

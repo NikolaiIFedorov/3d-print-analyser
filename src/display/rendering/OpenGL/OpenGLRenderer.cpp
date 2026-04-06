@@ -241,6 +241,7 @@ void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
 
 void OpenGLRenderer::DrawTriangles()
 {
+    LOG_DESC("Drawing triangles with index count: " + std::to_string(triangleIndexCount));
     if (triangleIndexCount == 0)
     {
         return;
@@ -276,6 +277,7 @@ void OpenGLRenderer::DrawTriangles()
 
 void OpenGLRenderer::DrawLines()
 {
+    LOG_DESC("Drawing lines with index count: " + std::to_string(lineIndexCount));
     if (lineIndexCount == 0)
         return;
 

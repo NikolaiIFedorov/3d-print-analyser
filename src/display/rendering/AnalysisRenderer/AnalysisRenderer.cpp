@@ -206,7 +206,7 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
     {
         if (flaw == Flaw::NONE)
             continue;
-        TriangulateFace(face, Color::GetFaceOverlay(flaw), vertices, indices);
+        TriangulateFace(face, Color::GetFace(flaw), vertices, indices);
     }
 }
 
@@ -218,7 +218,7 @@ void AnalysisRenderer::GenerateLayerLines(const AnalysisResults &results,
     {
         for (const auto &layer : layers)
         {
-            glm::vec4 color = Color::GetLayerOverlay(layer.flaw);
+            glm::vec4 color = Color::GetEdge(layer.flaw);
             for (const auto &seg : layer.segments)
             {
                 uint32_t base = vertices.size();

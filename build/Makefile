@@ -406,6 +406,30 @@ src/display/rendering/color.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.s
 .PHONY : src/display/rendering/color.cpp.s
 
+src/input/FileImport.o: src/input/FileImport.cpp.o
+.PHONY : src/input/FileImport.o
+
+# target to build an object file
+src/input/FileImport.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/FileImport.cpp.o
+.PHONY : src/input/FileImport.cpp.o
+
+src/input/FileImport.i: src/input/FileImport.cpp.i
+.PHONY : src/input/FileImport.i
+
+# target to preprocess a source file
+src/input/FileImport.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/FileImport.cpp.i
+.PHONY : src/input/FileImport.cpp.i
+
+src/input/FileImport.s: src/input/FileImport.cpp.s
+.PHONY : src/input/FileImport.s
+
+# target to generate assembly for a file
+src/input/FileImport.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/input/FileImport.cpp.s
+.PHONY : src/input/FileImport.cpp.s
+
 src/input/Input.o: src/input/Input.cpp.o
 .PHONY : src/input/Input.o
 
@@ -598,6 +622,54 @@ src/logic/Analysis/utils/Slice.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s
 .PHONY : src/logic/Analysis/utils/Slice.cpp.s
 
+src/logic/Import/OBJImport.o: src/logic/Import/OBJImport.cpp.o
+.PHONY : src/logic/Import/OBJImport.o
+
+# target to build an object file
+src/logic/Import/OBJImport.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o
+.PHONY : src/logic/Import/OBJImport.cpp.o
+
+src/logic/Import/OBJImport.i: src/logic/Import/OBJImport.cpp.i
+.PHONY : src/logic/Import/OBJImport.i
+
+# target to preprocess a source file
+src/logic/Import/OBJImport.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.i
+.PHONY : src/logic/Import/OBJImport.cpp.i
+
+src/logic/Import/OBJImport.s: src/logic/Import/OBJImport.cpp.s
+.PHONY : src/logic/Import/OBJImport.s
+
+# target to generate assembly for a file
+src/logic/Import/OBJImport.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s
+.PHONY : src/logic/Import/OBJImport.cpp.s
+
+src/logic/Import/STLImport.o: src/logic/Import/STLImport.cpp.o
+.PHONY : src/logic/Import/STLImport.o
+
+# target to build an object file
+src/logic/Import/STLImport.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o
+.PHONY : src/logic/Import/STLImport.cpp.o
+
+src/logic/Import/STLImport.i: src/logic/Import/STLImport.cpp.i
+.PHONY : src/logic/Import/STLImport.i
+
+# target to preprocess a source file
+src/logic/Import/STLImport.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.i
+.PHONY : src/logic/Import/STLImport.cpp.i
+
+src/logic/Import/STLImport.s: src/logic/Import/STLImport.cpp.s
+.PHONY : src/logic/Import/STLImport.s
+
+# target to generate assembly for a file
+src/logic/Import/STLImport.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.s
+.PHONY : src/logic/Import/STLImport.cpp.s
+
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
 
@@ -761,6 +833,9 @@ help:
 	@echo "... src/display/rendering/color.o"
 	@echo "... src/display/rendering/color.i"
 	@echo "... src/display/rendering/color.s"
+	@echo "... src/input/FileImport.o"
+	@echo "... src/input/FileImport.i"
+	@echo "... src/input/FileImport.s"
 	@echo "... src/input/Input.o"
 	@echo "... src/input/Input.i"
 	@echo "... src/input/Input.s"
@@ -785,6 +860,12 @@ help:
 	@echo "... src/logic/Analysis/utils/Slice.o"
 	@echo "... src/logic/Analysis/utils/Slice.i"
 	@echo "... src/logic/Analysis/utils/Slice.s"
+	@echo "... src/logic/Import/OBJImport.o"
+	@echo "... src/logic/Import/OBJImport.i"
+	@echo "... src/logic/Import/OBJImport.s"
+	@echo "... src/logic/Import/STLImport.o"
+	@echo "... src/logic/Import/STLImport.i"
+	@echo "... src/logic/Import/STLImport.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"

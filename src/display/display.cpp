@@ -1,6 +1,9 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
 #include "logic/Analysis/Analysis.hpp"
+#include "logic/Import/STLImport.hpp"
+#include "logic/Import/OBJImport.hpp"
+#include "input/FileImport.hpp"
 
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
 {
@@ -154,6 +157,25 @@ void Display::Pan(float offsetX, float offsetY, bool scroll)
     UpdateCamera();
 }
 
+void Display::FrameScene()
+{
+    if (scene->points.empty())
+        return;
+
+    glm::vec3 min(std::numeric_limits<float>::max());
+    glm::vec3 max(std::numeric_limits<float>::lowest());
+
+    for (const auto &point : scene->points)
+    {
+        glm::vec3 pos(point.position);
+        min = glm::min(min, pos);
+        max = glm::max(max, pos);
+    }
+
+    camera.FrameBounds(min, max);
+    UpdateCamera();
+}
+
 bool Display::HitTestUI(float pixelX, float pixelY) const
 {
     return uiRenderer.HitTest(pixelX, pixelY);
@@ -211,4 +233,18 @@ void Display::InitUI()
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.height = filesWidth;
     uiRenderer.AddPanel(filesDef);
+    uiRenderer.AddButton(filesDef, [this]()
+                         { FileImport::OpenFileDialog(window, [this](const std::string &path)
+                                                      {
+                                                         auto ext = path.substr(path.find_last_of('.') + 1);
+                                                         std::string lower;
+                                                         for (char c : ext) lower += std::tolower(c);
+
+                                                         if (lower == "stl")
+                                                             STLImport::Import(path, this->scene);
+                                                         else if (lower == "obj")
+                                                             OBJImport::Import(path, this->scene);
+
+                                                         FrameScene();
+                                                         UpdateScene(); }); });
 }

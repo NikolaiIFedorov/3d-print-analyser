@@ -33,13 +33,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 96,
+				"line" : 99,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 103,
+				"line" : 106,
 				"parent" : 0
 			},
 			{
@@ -63,7 +63,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 78,
+				"line" : 81,
 				"parent" : 0
 			}
 		]
@@ -197,7 +197,10 @@
 				19,
 				20,
 				21,
-				22
+				22,
+				23,
+				24,
+				25
 			]
 		}
 	],
@@ -293,7 +296,10 @@
 				19,
 				20,
 				21,
-				22
+				22,
+				23,
+				24,
+				25
 			]
 		}
 	],
@@ -380,6 +386,12 @@
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
+			"path" : "src/input/FileImport.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
 			"path" : "src/scene/scene.cpp",
 			"sourceGroupIndex" : 0
 		},
@@ -435,6 +447,18 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/logic/Analysis/utils/Slice.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Import/STLImport.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Import/OBJImport.cpp",
 			"sourceGroupIndex" : 0
 		}
 	],
