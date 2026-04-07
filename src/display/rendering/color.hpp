@@ -37,6 +37,23 @@ struct Color
         return FACE_DEFAULT;
     }
 
+    static glm::vec3 GetGrid() { return glm::vec3(BASE + STEP, BASE + STEP, BASE + STEP); }
+    static glm::vec3 GetAxisX(bool positive = true)
+    {
+        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
+        return glm::vec3(v, BASE + STEP, BASE + STEP);
+    }
+    static glm::vec3 GetAxisY(bool positive = true)
+    {
+        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
+        return glm::vec3(BASE + STEP, v, BASE + STEP);
+    }
+    static glm::vec3 GetAxisZ(bool positive = true)
+    {
+        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
+        return glm::vec3(BASE + STEP, BASE + STEP, v);
+    }
+
     static glm::vec4 GetFace(Flaw flaw);
     static glm::vec4 GetEdge(Flaw flaw);
 };

@@ -6,7 +6,7 @@
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
 {
     InitUI();
     LOG_VOID("Initialized display");
@@ -56,6 +56,7 @@ void Display::Shutdown()
 {
     uiRenderer.Shutdown();
     analysisRenderer.Shutdown();
+    viewportRenderer.Shutdown();
     renderer.Shutdown();
     if (glContext)
         SDL_GL_DestroyContext(glContext);
@@ -71,6 +72,10 @@ void Display::UpdateCamera()
 
 void Display::Render()
 {
+    glClearColor(BASE, BASE, BASE, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    viewportRenderer.Render();
     renderer.Render();
     analysisRenderer.Render();
     uiRenderer.Render();
@@ -91,6 +96,7 @@ void Display::Frame()
     {
         renderer.SetCamera(camera);
         analysisRenderer.SetCamera(camera);
+        viewportRenderer.SetCamera(camera);
         cameraDirty = false;
     }
 

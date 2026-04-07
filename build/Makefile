@@ -502,6 +502,30 @@ src/display/rendering/UIRenderer/UIRenderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.s
 .PHONY : src/display/rendering/UIRenderer/UIRenderer.cpp.s
 
+src/display/rendering/ViewportRenderer/ViewportRenderer.o: src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.o
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.o
+
+# target to build an object file
+src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.o
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.o
+
+src/display/rendering/ViewportRenderer/ViewportRenderer.i: src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.i
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.i
+
+# target to preprocess a source file
+src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.i
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.i
+
+src/display/rendering/ViewportRenderer/ViewportRenderer.s: src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.s
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.s
+
+# target to generate assembly for a file
+src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.s
+.PHONY : src/display/rendering/ViewportRenderer/ViewportRenderer.cpp.s
+
 src/display/rendering/color.o: src/display/rendering/color.cpp.o
 .PHONY : src/display/rendering/color.o
 
@@ -989,6 +1013,9 @@ help:
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.o"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.i"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.s"
+	@echo "... src/display/rendering/ViewportRenderer/ViewportRenderer.o"
+	@echo "... src/display/rendering/ViewportRenderer/ViewportRenderer.i"
+	@echo "... src/display/rendering/ViewportRenderer/ViewportRenderer.s"
 	@echo "... src/display/rendering/color.o"
 	@echo "... src/display/rendering/color.i"
 	@echo "... src/display/rendering/color.s"

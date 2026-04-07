@@ -29,9 +29,6 @@ void SceneRenderer::SetCamera(Camera &camera)
 
 void SceneRenderer::Render()
 {
-
-    renderer.Clear(Color::GetBase());
-
     renderer.DrawTriangles();
     renderer.DrawLines();
 }

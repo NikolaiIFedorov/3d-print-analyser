@@ -6,6 +6,7 @@
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
 #include "rendering/AnalysisRenderer/AnalysisRenderer.hpp"
+#include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
 
 class Display
@@ -44,6 +45,7 @@ private:
 
     SceneRenderer renderer;
     AnalysisRenderer analysisRenderer;
+    ViewportRenderer viewportRenderer;
     UIRenderer uiRenderer;
     Scene *scene = nullptr;
 

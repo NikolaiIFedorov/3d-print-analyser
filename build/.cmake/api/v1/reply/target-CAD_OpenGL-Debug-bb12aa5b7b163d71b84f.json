@@ -33,13 +33,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 106,
+				"line" : 108,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 113,
+				"line" : 115,
 				"parent" : 0
 			},
 			{
@@ -63,7 +63,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 87,
+				"line" : 88,
 				"parent" : 0
 			}
 		]
@@ -153,6 +153,10 @@
 				},
 				{
 					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer"
+				},
+				{
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer"
 				},
 				{
@@ -206,7 +210,8 @@
 				24,
 				25,
 				26,
-				31
+				27,
+				32
 			]
 		},
 		{
@@ -276,6 +281,10 @@
 				},
 				{
 					"backtrace" : 7,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer"
+				},
+				{
+					"backtrace" : 7,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer"
 				},
 				{
@@ -294,10 +303,10 @@
 			"language" : "C",
 			"sourceIndexes" : 
 			[
-				27,
 				28,
 				29,
-				30
+				30,
+				31
 			]
 		}
 	],
@@ -402,7 +411,8 @@
 				28,
 				29,
 				30,
-				31
+				31,
+				32
 			]
 		}
 	],
@@ -466,6 +476,12 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/display/rendering/ViewportRenderer/ViewportRenderer.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{

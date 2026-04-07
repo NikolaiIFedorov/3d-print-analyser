@@ -41,6 +41,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/color.cpp
     src/display/rendering/UIRenderer/UIRenderer.cpp
     src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp
+    src/display/rendering/ViewportRenderer/ViewportRenderer.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/display.cpp
     src/input/Input.cpp
@@ -96,6 +97,7 @@ target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/src/display/rendering/OpenGL
     ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
     ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer
+    ${CMAKE_SOURCE_DIR}/src/display/rendering/ViewportRenderer
     ${CMAKE_SOURCE_DIR}/src/display/rendering/UIRenderer
     ${CMAKE_SOURCE_DIR}/src/scene
     ${CMAKE_SOURCE_DIR}/src/scene/Geometry

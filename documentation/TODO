@@ -1,9 +1,5 @@
 1. Run architector to document/check each of the four layers in a separate doc each
-2. The `Analysis` singleton creates a hidden global dependency that couples rendering directly to analysis logic and complicates testing.
-3. Scene re-upload on every dirty frame re-generates *all* geometry CPU-side and re-uploads to the GPU, which will not scale beyond small models.
-5. Learn more about O(V) and o(V)
-6. Understand pathway to testing - what tests to use, how to create, if anything needs refactoring for testability
-13. Consider Analysis running async, only triggereing from render loop, but not blocking it
-14. Consider some sort of shading in the future
-15. !!! Review and fix non-confotming best practices
-
+2. Scene re-upload on every dirty frame re-generates *all* geometry CPU-side and re-uploads to the GPU, which will not scale beyond small models.
+3. Learn more about O(V) and o(V)
+4. Understand pathway to testing - what tests to use, how to create, if anything needs refactoring for testability
+5. Consider some sort of shading in the future
