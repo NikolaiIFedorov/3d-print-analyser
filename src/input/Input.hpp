@@ -45,8 +45,8 @@ private:
     bool rightMouseDown = false;
     bool middleMouseDown = false;
     static constexpr float MOUSE_SENSITIVITY = 0.005f;
-    static constexpr int LOCK_FRAMES = 10;
-    static constexpr int WINDOW_SIZE = 8;
+    static constexpr int LOCK_FRAMES = 12;
+    static constexpr int WINDOW_SIZE = 4;
     static constexpr float ORBIT_RATIO_THRESHOLD = 0.3f;
     static constexpr float TOUCH_DEADZONE = 0.0005f;
 

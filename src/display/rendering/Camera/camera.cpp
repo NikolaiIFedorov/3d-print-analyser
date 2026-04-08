@@ -70,8 +70,8 @@ void Camera::Pan(float deltaX, float deltaY, bool scroll)
     float scaleX, scaleY;
     if (scroll)
     {
-        scaleX = orthoSize * 2.0f * aspectRatio;
-        scaleY = orthoSize * 2.0f;
+        scaleX = orthoSize * aspectRatio;
+        scaleY = orthoSize;
     }
     else
     {

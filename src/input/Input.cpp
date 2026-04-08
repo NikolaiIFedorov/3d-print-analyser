@@ -32,16 +32,19 @@ Input::GestureType Input::classifyTwoFinger()
     auto &h1 = h1_it->second;
     auto &h2 = h2_it->second;
 
-    if (h1.size() < WINDOW_SIZE || h2.size() < WINDOW_SIZE)
+    if (h1.empty() || h2.empty())
         return GestureType::None;
 
+    int n1 = static_cast<int>(std::min(h1.size(), static_cast<size_t>(WINDOW_SIZE)));
+    int n2 = static_cast<int>(std::min(h2.size(), static_cast<size_t>(WINDOW_SIZE)));
+
     float sum1dx = 0, sum1dy = 0, sum2dx = 0, sum2dy = 0;
-    for (int i = static_cast<int>(h1.size()) - WINDOW_SIZE; i < static_cast<int>(h1.size()); i++)
+    for (int i = static_cast<int>(h1.size()) - n1; i < static_cast<int>(h1.size()); i++)
     {
         sum1dx += h1[i].dx;
         sum1dy += h1[i].dy;
     }
-    for (int i = static_cast<int>(h2.size()) - WINDOW_SIZE; i < static_cast<int>(h2.size()); i++)
+    for (int i = static_cast<int>(h2.size()) - n2; i < static_cast<int>(h2.size()); i++)
     {
         sum2dx += h2[i].dx;
         sum2dy += h2[i].dy;
@@ -106,9 +109,9 @@ void Input::trackpadGestures()
             break;
         case GestureType::Orbit:
         {
-            if (orbitFingerID == 0)
+            // Re-evaluate moving finger until gesture is locked
+            if (!gestureLocked || orbitFingerID == 0)
             {
-                // Determine which finger is moving based on history
                 auto it1 = activeTouches.begin();
                 auto it2 = std::next(it1);
                 auto h1 = touchHistory.find(it1->first);
@@ -160,14 +163,18 @@ void Input::mouseGestures(const SDL_Event &event)
         SDL_Keymod mod = SDL_GetModState();
         float x = event.wheel.x;
         float y = event.wheel.y;
-        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT);
+        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
         bool trackpadActive = activeTouches.size() >= 2;
         if (hasModifier || !trackpadActive)
         {
             if (mod & SDL_KMOD_ALT)
             {
-                float val = (y != 0.0f) ? y : x;
-                display->Orbit(val * 0.05f, 0.0f);
+                display->Orbit(x * 0.05f, y * 0.05f);
+            }
+            else if (mod & SDL_KMOD_CTRL)
+            {
+                if (x != 0.0f)
+                    display->Roll(x * 0.05f);
             }
             else if (mod & SDL_KMOD_SHIFT)
             {
