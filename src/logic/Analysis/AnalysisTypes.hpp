@@ -9,7 +9,6 @@ enum class Flaw
     OVERHANG,
     THIN_SECTION,
     SHARP_CORNER,
-    BRIDGING,
     SMALL_FEATURE,
     NONE,
 };
@@ -34,11 +33,20 @@ struct Layer
     Layer(const std::vector<Segment> &segments) : segments(segments) {};
 };
 
+class Edge;
 class Face;
 class Solid;
+
+struct EdgeFlaw
+{
+    const Edge *edge;
+    Flaw flaw;
+    ZBounds bounds;
+};
 
 struct AnalysisResults
 {
     std::unordered_map<const Face *, Flaw> faceFlaws;
     std::unordered_map<const Solid *, std::vector<Layer>> solidLayers;
+    std::unordered_map<const Solid *, std::vector<EdgeFlaw>> edgeFlaws;
 };

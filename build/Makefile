@@ -622,30 +622,6 @@ src/logic/Analysis/Analysis.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s
 .PHONY : src/logic/Analysis/Analysis.cpp.s
 
-src/logic/Analysis/Bridging/Bridging.o: src/logic/Analysis/Bridging/Bridging.cpp.o
-.PHONY : src/logic/Analysis/Bridging/Bridging.o
-
-# target to build an object file
-src/logic/Analysis/Bridging/Bridging.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.o
-.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.o
-
-src/logic/Analysis/Bridging/Bridging.i: src/logic/Analysis/Bridging/Bridging.cpp.i
-.PHONY : src/logic/Analysis/Bridging/Bridging.i
-
-# target to preprocess a source file
-src/logic/Analysis/Bridging/Bridging.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.i
-.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.i
-
-src/logic/Analysis/Bridging/Bridging.s: src/logic/Analysis/Bridging/Bridging.cpp.s
-.PHONY : src/logic/Analysis/Bridging/Bridging.s
-
-# target to generate assembly for a file
-src/logic/Analysis/Bridging/Bridging.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.s
-.PHONY : src/logic/Analysis/Bridging/Bridging.cpp.s
-
 src/logic/Analysis/Overhang/Overhang.o: src/logic/Analysis/Overhang/Overhang.cpp.o
 .PHONY : src/logic/Analysis/Overhang/Overhang.o
 
@@ -1028,9 +1004,6 @@ help:
 	@echo "... src/logic/Analysis/Analysis.o"
 	@echo "... src/logic/Analysis/Analysis.i"
 	@echo "... src/logic/Analysis/Analysis.s"
-	@echo "... src/logic/Analysis/Bridging/Bridging.o"
-	@echo "... src/logic/Analysis/Bridging/Bridging.i"
-	@echo "... src/logic/Analysis/Bridging/Bridging.s"
 	@echo "... src/logic/Analysis/Overhang/Overhang.o"
 	@echo "... src/logic/Analysis/Overhang/Overhang.i"
 	@echo "... src/logic/Analysis/Overhang/Overhang.s"

@@ -23,6 +23,16 @@ Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint)
         return nullptr;
     }
 
+    // Check if an edge between these two points already exists
+    for (Edge *existing : startPoint->dependencies)
+    {
+        if ((existing->startPoint == startPoint && existing->endPoint == endPoint) ||
+            (existing->startPoint == endPoint && existing->endPoint == startPoint))
+        {
+            return existing;
+        }
+    }
+
     edges.emplace_back(startPoint, endPoint);
 
     Edge &edge = edges.back();

@@ -163,9 +163,7 @@ glm::vec3 Display::ScreenToWorld(float pixelX, float pixelY) const
     glm::vec3 right = camera.orientation * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 up = camera.orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
-    return camera.target
-         + right * ndcX * camera.orthoSize * camera.aspectRatio
-         + up * ndcY * camera.orthoSize;
+    return camera.target + right * ndcX * camera.orthoSize * camera.aspectRatio + up * ndcY * camera.orthoSize;
 }
 
 void Display::snapInput(float &x, float &y)

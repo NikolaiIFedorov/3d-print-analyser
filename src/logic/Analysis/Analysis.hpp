@@ -22,6 +22,13 @@ public:
     virtual std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const = 0;
 };
 
+class IEdgeAnalysis
+{
+public:
+    virtual ~IEdgeAnalysis() = default;
+    virtual std::vector<EdgeFlaw> Analyze(const Solid *solid) const = 0;
+};
+
 class Analysis
 {
 public:
@@ -29,13 +36,16 @@ public:
 
     void AddFaceAnalysis(std::unique_ptr<IFaceAnalysis> analysis);
     void AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis);
+    void AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis);
 
     Flaw FlawFace(const Face *face) const;
     std::vector<Layer> FlawSolid(const Solid *solid) const;
+    std::vector<EdgeFlaw> FlawEdges(const Solid *solid) const;
 
     AnalysisResults AnalyzeScene(const Scene *scene) const;
 
 private:
     std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;
     std::vector<std::unique_ptr<ISolidAnalysis>> solidAnalyses;
+    std::vector<std::unique_ptr<IEdgeAnalysis>> edgeAnalyses;
 };

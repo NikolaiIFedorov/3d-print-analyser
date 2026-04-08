@@ -17,6 +17,11 @@ void Analysis::AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis)
     solidAnalyses.push_back(std::move(analysis));
 }
 
+void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
+{
+    edgeAnalyses.push_back(std::move(analysis));
+}
+
 Flaw Analysis::FlawFace(const Face *face) const
 {
     for (const auto &analysis : faceAnalyses)
@@ -42,6 +47,17 @@ std::vector<Layer> Analysis::FlawSolid(const Solid *solid) const
     return allLayers;
 }
 
+std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
+{
+    std::vector<EdgeFlaw> allEdgeFlaws;
+    for (const auto &analysis : edgeAnalyses)
+    {
+        auto flaws = analysis->Analyze(solid);
+        allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
+    }
+    return allEdgeFlaws;
+}
+
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
 {
     AnalysisResults results;
@@ -52,6 +68,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
             results.faceFlaws[face] = FlawFace(face);
 
         results.solidLayers[&solid] = FlawSolid(&solid);
+        results.edgeFlaws[&solid] = FlawEdges(&solid);
     }
 
     for (const Face &face : scene->faces)

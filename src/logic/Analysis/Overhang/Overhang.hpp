@@ -1,17 +1,14 @@
 #pragma once
 
-#include "scene/Geometry/AllGeometry.hpp"
-#include "logic/Analysis/utils/Slice.hpp"
 #include "Analysis/Analysis.hpp"
 
-class Overhang : public ISolidAnalysis
+class Overhang : public IFaceAnalysis
 {
 public:
-    Overhang(double layerHeight = 0.2)
-        : layerHeight(layerHeight) {}
+    Overhang(double maxAngleDeg = 45.0);
 
-    std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
+    std::optional<Flaw> Analyze(const Face *face) const override;
 
 private:
-    double layerHeight;
+    double minZComponent;
 };

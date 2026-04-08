@@ -21,8 +21,6 @@ glm::vec4 Color::GetEdge(Flaw flaw)
         return glm::vec4(EDGE + STEP, EDGE, EDGE, 1.0f);
     case Flaw::SHARP_CORNER:
         return glm::vec4(EDGE, EDGE + STEP, EDGE, 1.0f);
-    case Flaw::BRIDGING:
-        return glm::vec4(EDGE, EDGE, EDGE + STEP, 1.0f);
     case Flaw::SMALL_FEATURE:
         return glm::vec4(EDGE + STEP, EDGE + STEP, EDGE, 1.0f);
     default:

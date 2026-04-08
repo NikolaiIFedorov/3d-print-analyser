@@ -1,12 +1,12 @@
 #include "SharpCorner.hpp"
-
+#include "utils/log.hpp"
 #include <unordered_set>
+#include <algorithm>
 
-std::vector<Layer> SharpCorner::Analyze(const Solid *solid, [[maybe_unused]] std::optional<ZBounds> bounds) const
+std::vector<EdgeFlaw> SharpCorner::Analyze(const Solid *solid) const
 {
-    std::vector<Layer> layers;
+    std::vector<EdgeFlaw> results;
 
-    // Collect all unique edges in the solid
     std::unordered_set<Edge *> visited;
 
     for (const Face *face : solid->faces)
@@ -19,7 +19,6 @@ std::vector<Layer> SharpCorner::Analyze(const Solid *solid, [[maybe_unused]] std
                 if (!visited.insert(edge).second)
                     continue;
 
-                // An edge needs exactly 2 adjacent faces to compute a dihedral angle
                 if (edge->dependencies.size() != 2)
                     continue;
 
@@ -27,25 +26,26 @@ std::vector<Layer> SharpCorner::Analyze(const Solid *solid, [[maybe_unused]] std
                 const Face *f1 = *it++;
                 const Face *f2 = *it;
 
-                // Both faces must be planar for a meaningful dihedral angle
                 if (!f1->GetSurface().IsPlanar() || !f2->GetSurface().IsPlanar())
                     continue;
 
                 glm::dvec3 n1 = glm::normalize(f1->GetSurface().GetNormal());
                 glm::dvec3 n2 = glm::normalize(f2->GetSurface().GetNormal());
 
-                // cos(dihedral) — a value close to 1 means faces are nearly coplanar,
-                // a value close to -1 means a very sharp internal corner
                 double cosAngle = glm::dot(n1, n2);
 
                 if (cosAngle < cosThreshold)
                 {
-                    Segment seg{edge->startPoint->position, edge->endPoint->position};
-                    layers.emplace_back(std::vector<Segment>{seg}, Flaw::SHARP_CORNER);
+                    double zStart = edge->startPoint->position.z;
+                    double zEnd = edge->endPoint->position.z;
+                    double zMin = std::min(zStart, zEnd);
+                    double zMax = std::max(zStart, zEnd);
+
+                    results.push_back({edge, Flaw::SHARP_CORNER, {zMin, zMax}});
                 }
             }
         }
     }
-
-    return layers;
+    LOG_DEBU(Log::NumToStr(results.size()) + " sharp corner edge flaws found");
+    return results;
 }

@@ -229,6 +229,19 @@ void AnalysisRenderer::GenerateLayerLines(const AnalysisResults &results,
             }
         }
     }
+
+    for (const auto &[solid, edgeFlaws] : results.edgeFlaws)
+    {
+        for (const auto &ef : edgeFlaws)
+        {
+            glm::vec4 color = Color::GetEdge(ef.flaw);
+            uint32_t base = vertices.size();
+            vertices.push_back({glm::vec3(ef.edge->startPoint->position), color});
+            vertices.push_back({glm::vec3(ef.edge->endPoint->position), color});
+            indices.push_back(base);
+            indices.push_back(base + 1);
+        }
+    }
 }
 
 // -- GL resource management --

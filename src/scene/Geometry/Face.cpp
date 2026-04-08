@@ -8,8 +8,9 @@ void Face::OrientEdgeLoops(const std::vector<std::vector<Edge *>> &edgePtrs)
         std::vector<OrientedEdge> orientedLoop;
         Point *expectedStart = nullptr;
 
-        for (Edge *edge : edgeLoop)
+        for (size_t i = 0; i < edgeLoop.size(); i++)
         {
+            Edge *edge = edgeLoop[i];
             bool reversed = false;
 
             if (expectedStart != nullptr)
@@ -26,6 +27,15 @@ void Face::OrientEdgeLoops(const std::vector<std::vector<Edge *>> &edgePtrs)
                 {
                     LOG_WARN("Edge loop is not connected at vertex");
                 }
+            }
+            else if (edgeLoop.size() >= 2)
+            {
+                // Determine first edge orientation by looking at the second edge
+                Edge *next = edgeLoop[1];
+                if (edge->endPoint == next->startPoint || edge->endPoint == next->endPoint)
+                    reversed = false;
+                else if (edge->startPoint == next->startPoint || edge->startPoint == next->endPoint)
+                    reversed = true;
             }
 
             orientedLoop.emplace_back(edge, reversed);

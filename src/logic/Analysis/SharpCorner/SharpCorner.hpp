@@ -6,13 +6,13 @@
 #include "scene/Geometry/AllGeometry.hpp"
 #include "Analysis/Analysis.hpp"
 
-class SharpCorner : public ISolidAnalysis
+class SharpCorner : public IEdgeAnalysis
 {
 public:
     SharpCorner(double angleThresholdDegrees = 40.0)
         : cosThreshold(std::cos(glm::radians(angleThresholdDegrees))) {}
 
-    std::vector<Layer> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
+    std::vector<EdgeFlaw> Analyze(const Solid *solid) const override;
 
 private:
     double cosThreshold;

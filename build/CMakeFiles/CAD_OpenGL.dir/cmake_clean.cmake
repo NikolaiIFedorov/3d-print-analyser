@@ -39,8 +39,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o.d"
-  "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.o"
-  "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Bridging/Bridging.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.o"
