@@ -33,6 +33,7 @@ private:
     GLuint lineVBO = 0;
     GLuint lineIBO = 0;
     uint32_t lineIndexCount = 0;
+    uint32_t gridIndexCount = 0;
 
     glm::mat4 viewProjection = glm::mat4(1.0f);
 

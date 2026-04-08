@@ -25,10 +25,12 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
     : shader(std::move(other.shader)),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO),
       lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      gridIndexCount(other.gridIndexCount),
       viewProjection(other.viewProjection)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
+    other.gridIndexCount = 0;
 }
 
 ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
@@ -41,9 +43,11 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         lineVBO = other.lineVBO;
         lineIBO = other.lineIBO;
         lineIndexCount = other.lineIndexCount;
+        gridIndexCount = other.gridIndexCount;
         viewProjection = other.viewProjection;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
+        other.gridIndexCount = 0;
     }
     return *this;
 }
@@ -68,62 +72,66 @@ void ViewportRenderer::Generate()
 
     glm::vec3 gridColor = Color::GetGrid();
 
-    // Grid lines parallel to X axis (varying Z)
-    for (float z = -extent; z <= extent; z += spacing)
+    // Grid lines parallel to X axis (varying Y)
+    for (float y = -extent; y <= extent; y += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
-        vertices.push_back({glm::vec3(-extent, 0.0f, z), gridColor});
-        vertices.push_back({glm::vec3(extent, 0.0f, z), gridColor});
+        vertices.push_back({glm::vec3(-extent, y, 0.0f), gridColor});
+        vertices.push_back({glm::vec3(extent, y, 0.0f), gridColor});
         indices.push_back(base);
         indices.push_back(base + 1);
     }
 
-    // Grid lines parallel to Z axis (varying X)
+    // Grid lines parallel to Y axis (varying X)
     for (float x = -extent; x <= extent; x += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
-        vertices.push_back({glm::vec3(x, 0.0f, -extent), gridColor});
-        vertices.push_back({glm::vec3(x, 0.0f, extent), gridColor});
+        vertices.push_back({glm::vec3(x, -extent, 0.0f), gridColor});
+        vertices.push_back({glm::vec3(x, extent, 0.0f), gridColor});
         indices.push_back(base);
         indices.push_back(base + 1);
     }
 
+    gridIndexCount = static_cast<uint32_t>(indices.size());
+
+    const float axisExtent = 10000.0f;
+
     // X axis (negative then positive)
     uint32_t base = static_cast<uint32_t>(vertices.size());
-    vertices.push_back({glm::vec3(-extent, 0.0f, 0.0f), Color::GetAxisX(false)});
+    vertices.push_back({glm::vec3(-axisExtent, 0.0f, 0.0f), Color::GetAxisX(false)});
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisX(false)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
     base = static_cast<uint32_t>(vertices.size());
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisX(true)});
-    vertices.push_back({glm::vec3(extent, 0.0f, 0.0f), Color::GetAxisX(true)});
+    vertices.push_back({glm::vec3(axisExtent, 0.0f, 0.0f), Color::GetAxisX(true)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
     // Y axis (negative then positive)
     base = static_cast<uint32_t>(vertices.size());
-    vertices.push_back({glm::vec3(0.0f, -extent, 0.0f), Color::GetAxisY(false)});
+    vertices.push_back({glm::vec3(0.0f, -axisExtent, 0.0f), Color::GetAxisY(false)});
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisY(false)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
     base = static_cast<uint32_t>(vertices.size());
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisY(true)});
-    vertices.push_back({glm::vec3(0.0f, extent, 0.0f), Color::GetAxisY(true)});
+    vertices.push_back({glm::vec3(0.0f, axisExtent, 0.0f), Color::GetAxisY(true)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
     // Z axis (negative then positive)
     base = static_cast<uint32_t>(vertices.size());
-    vertices.push_back({glm::vec3(0.0f, 0.0f, -extent), Color::GetAxisZ(false)});
+    vertices.push_back({glm::vec3(0.0f, 0.0f, -axisExtent), Color::GetAxisZ(false)});
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisZ(false)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
     base = static_cast<uint32_t>(vertices.size());
     vertices.push_back({glm::vec3(0.0f, 0.0f, 0.0f), Color::GetAxisZ(true)});
-    vertices.push_back({glm::vec3(0.0f, 0.0f, extent), Color::GetAxisZ(true)});
+    vertices.push_back({glm::vec3(0.0f, 0.0f, axisExtent), Color::GetAxisZ(true)});
     indices.push_back(base);
     indices.push_back(base + 1);
 
@@ -176,7 +184,17 @@ void ViewportRenderer::Render()
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(lineVAO);
-    glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
+
+    // Draw grid
+    glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
+
+    // Draw axes on top of grid
+    glDisable(GL_DEPTH_TEST);
+    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
+    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
+                   (void *)(gridIndexCount * sizeof(uint32_t)));
+    glEnable(GL_DEPTH_TEST);
+
     glBindVertexArray(0);
 }
 
