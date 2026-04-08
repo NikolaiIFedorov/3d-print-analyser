@@ -47,8 +47,8 @@ private:
     static constexpr float MOUSE_SENSITIVITY = 0.005f;
     static constexpr int LOCK_FRAMES = 12;
     static constexpr int WINDOW_SIZE = 4;
-    static constexpr float ORBIT_RATIO_THRESHOLD = 0.3f;
-    static constexpr float TOUCH_DEADZONE = 0.0005f;
+    static constexpr float ORBIT_RATIO_THRESHOLD = 0.45f;
+    static constexpr float TOUCH_DEADZONE = 0.001f;
 
     static Touch signTouch(const Touch &touch);
     GestureType classifyTwoFinger();

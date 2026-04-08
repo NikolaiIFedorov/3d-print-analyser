@@ -129,7 +129,7 @@ void Input::trackpadGestures()
             if (movingIt != activeTouches.end())
             {
                 Touch &moving = movingIt->second;
-                display->Orbit(moving.dx, -moving.dy);
+                display->Orbit(moving.dx * 2.0f, -moving.dy * 2.0f);
             }
             break;
         }
@@ -200,19 +200,33 @@ void Input::mouseGestures(const SDL_Event &event)
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             if (!display->HitTestUI(event.button.x, event.button.y))
+            {
                 rightMouseDown = true;
+                SDL_SetWindowRelativeMouseMode(display->GetWindow(), true);
+            }
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
             if (!display->HitTestUI(event.button.x, event.button.y))
+            {
                 middleMouseDown = true;
+                SDL_SetWindowRelativeMouseMode(display->GetWindow(), true);
+            }
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
         if (event.button.button == SDL_BUTTON_RIGHT)
+        {
             rightMouseDown = false;
+            if (!middleMouseDown)
+                SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
+        }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
+        {
             middleMouseDown = false;
+            if (!rightMouseDown)
+                SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
+        }
         break;
     case SDL_EVENT_MOUSE_MOTION:
         if (middleMouseDown)
@@ -247,10 +261,13 @@ bool Input::handleEvents()
             break;
         }
         case SDL_EVENT_MOUSE_WHEEL:
+            mouseGestures(event);
+            break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
         case SDL_EVENT_MOUSE_MOTION:
-            mouseGestures(event);
+            if (activeTouches.size() < 2)
+                mouseGestures(event);
             break;
         case SDL_EVENT_FINGER_DOWN:
             activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
