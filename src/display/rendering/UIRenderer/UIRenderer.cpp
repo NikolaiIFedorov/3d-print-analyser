@@ -107,11 +107,11 @@ Panel &UIRenderer::AddButton(const Panel &panel, std::function<void()> onClick)
 
 bool UIRenderer::HandleClick(float pixelX, float pixelY)
 {
-    if (grid.cellSize <= 0.0f)
+    if (grid.cellSizeX <= 0.0f || grid.cellSizeY <= 0.0f)
         return false;
 
-    float cellX = pixelX / grid.cellSize;
-    float cellY = pixelY / grid.cellSize;
+    float cellX = pixelX / grid.cellSizeX;
+    float cellY = pixelY / grid.cellSizeY;
 
     for (auto it = buttons.rbegin(); it != buttons.rend(); ++it)
     {
@@ -233,11 +233,11 @@ void UIRenderer::BuildMesh()
         if (!panel.visible)
             continue;
 
-        float x0 = grid.ToPixels(panel.col);
-        float y0 = grid.ToPixels(panel.row);
-        float x1 = grid.ToPixels(panel.col + panel.colSpan);
-        float y1 = grid.ToPixels(panel.row + panel.rowSpan);
-        float r = grid.ToPixels(panel.borderRadius);
+        float x0 = grid.ToPixelsX(panel.col);
+        float y0 = grid.ToPixelsY(panel.row);
+        float x1 = grid.ToPixelsX(panel.col + panel.colSpan);
+        float y1 = grid.ToPixelsY(panel.row + panel.rowSpan);
+        float r = std::min(grid.cellSizeX, grid.cellSizeY) * panel.borderRadius;
 
         // Clamp radius to half the smaller dimension
         float maxR = std::min((x1 - x0), (y1 - y0)) * 0.5f;
@@ -381,11 +381,11 @@ void UIRenderer::Render()
 
 bool UIRenderer::HitTest(float pixelX, float pixelY) const
 {
-    if (grid.cellSize <= 0.0f)
+    if (grid.cellSizeX <= 0.0f || grid.cellSizeY <= 0.0f)
         return false;
 
-    float cellX = pixelX / grid.cellSize;
-    float cellY = pixelY / grid.cellSize;
+    float cellX = pixelX / grid.cellSizeX;
+    float cellY = pixelY / grid.cellSizeY;
 
     for (const auto &panel : panels)
     {

@@ -9,6 +9,7 @@
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
 {
     InitUI();
+    SDL_AddEventWatch(ResizeEventWatcher, this);
     LOG_VOID("Initialized display");
 }
 
@@ -52,8 +53,25 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
     return w;
 }
 
+bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
+{
+    if (event->type == SDL_EVENT_WINDOW_RESIZED)
+    {
+        Display *self = static_cast<Display *>(userdata);
+        int width = event->window.data1;
+        int height = event->window.data2;
+        if (height > 0)
+        {
+            self->SetAspectRatio(width, height);
+            self->Render();
+        }
+    }
+    return true;
+}
+
 void Display::Shutdown()
 {
+    SDL_RemoveEventWatch(ResizeEventWatcher, this);
     uiRenderer.Shutdown();
     analysisRenderer.Shutdown();
     viewportRenderer.Shutdown();

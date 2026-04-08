@@ -5,19 +5,20 @@
 struct UIGrid
 {
     static constexpr int COLUMNS = 80;
+    static constexpr int ROWS = 45;
     static constexpr float GAP = 0.5f; // universal spacing in cells
 
-    float cellSize = 0.0f;
+    float cellSizeX = 0.0f;
+    float cellSizeY = 0.0f;
     int columns = COLUMNS;
-    int rows = 0;
+    int rows = ROWS;
 
     void Update(int screenWidth, int screenHeight)
     {
-        cellSize = static_cast<float>(screenWidth) / static_cast<float>(columns);
-        rows = static_cast<int>(std::floor(static_cast<float>(screenHeight) / cellSize));
+        cellSizeX = static_cast<float>(screenWidth) / static_cast<float>(columns);
+        cellSizeY = static_cast<float>(screenHeight) / static_cast<float>(rows);
     }
 
-    float ToPixels(float cells) const { return cells * cellSize; }
-    float ToPixelsX(float cells) const { return cells * cellSize; }
-    float ToPixelsY(float cells) const { return cells * cellSize; }
+    float ToPixelsX(float cells) const { return cells * cellSizeX; }
+    float ToPixelsY(float cells) const { return cells * cellSizeY; }
 };

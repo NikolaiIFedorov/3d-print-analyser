@@ -29,6 +29,8 @@ public:
     void SetAspectRatio(uint16_t width, uint16_t height);
 
     void UpdateCamera();
+
+    static bool ResizeEventWatcher(void *userdata, SDL_Event *event);
     Camera GetCamera() { return camera; }
     void Zoom(const float offsetY, const glm::vec3 &posCursotr);
     void Orbit(float offsetX, float offsetY);
