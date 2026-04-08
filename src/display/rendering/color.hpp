@@ -7,6 +7,7 @@
 static const float BASE = 0.1;
 static const float UI_BASE = BASE / 2.0f;
 static const float STEP = 0.1f;
+static const float GRID_EXTENT = 256.0f;
 
 static const float FACE = BASE + STEP;
 static const float EDGE = FACE + STEP;

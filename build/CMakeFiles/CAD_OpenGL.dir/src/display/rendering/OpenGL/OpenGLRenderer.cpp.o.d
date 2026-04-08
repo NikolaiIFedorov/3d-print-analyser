@@ -1353,4 +1353,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/utc_clock.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/zoned_time.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/ostream.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp

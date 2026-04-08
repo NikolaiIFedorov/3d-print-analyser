@@ -152,6 +152,22 @@ void Display::Zoom(const float offsetY, const glm::vec3 &posCursotr)
     UpdateCamera();
 }
 
+glm::vec3 Display::ScreenToWorld(float pixelX, float pixelY) const
+{
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+
+    float ndcX = 2.0f * pixelX / w - 1.0f;
+    float ndcY = 1.0f - 2.0f * pixelY / h;
+
+    glm::vec3 right = camera.orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 up = camera.orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+
+    return camera.target
+         + right * ndcX * camera.orthoSize * camera.aspectRatio
+         + up * ndcY * camera.orthoSize;
+}
+
 void Display::snapInput(float &x, float &y)
 {
     if (std::abs(x) <= std::abs(y) * 0.5f)
@@ -162,7 +178,6 @@ void Display::snapInput(float &x, float &y)
 
 void Display::Orbit(float offsetY, float offsetX)
 {
-    snapInput(offsetX, offsetY);
     camera.Orbit(offsetY, offsetX);
 
     UpdateCamera();

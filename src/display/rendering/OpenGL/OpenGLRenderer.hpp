@@ -35,6 +35,8 @@ private:
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     glm::mat4 modelMatrix = glm::mat4(1.0f);
+    glm::vec3 viewPos = glm::vec3(0.0f);
+    glm::vec3 lightDir = glm::vec3(0.0f, 0.0f, 1.0f);
 
     bool GetGLError(const std::source_location &loc = std::source_location::current());
     bool InitializeShaders();
@@ -59,6 +61,7 @@ public:
     void SetViewMatrix(const glm::mat4 &view);
     void SetProjectionMatrix(const glm::mat4 &projection);
     void SetModelMatrix(const glm::mat4 &model);
+    void SetViewPos(const glm::vec3 &pos);
 
     void UploadTriangleMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);

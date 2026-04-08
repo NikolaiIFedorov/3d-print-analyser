@@ -5911,6 +5911,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o: /Us
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders/OpenGLShader.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/shaders/Vertex.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /opt/homebrew/include/SDL3/SDL.h \

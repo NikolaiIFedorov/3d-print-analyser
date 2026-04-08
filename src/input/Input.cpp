@@ -129,7 +129,7 @@ void Input::trackpadGestures()
             if (movingIt != activeTouches.end())
             {
                 Touch &moving = movingIt->second;
-                display->Orbit(moving.dx * 2.0f, -moving.dy * 2.0f);
+                display->Orbit(moving.dx * 1.0f, -moving.dy * 1.0f);
             }
             break;
         }
@@ -145,7 +145,10 @@ void Input::trackpadGestures()
             else
                 zoomAmount = zoomAmount * signTouch(p2).dy;
 
-            display->Zoom(zoomAmount, glm::vec3(0, 0, 0));
+            float mx, my;
+            SDL_GetMouseState(&mx, &my);
+            glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
+            display->Zoom(zoomAmount, cursorWorld);
             break;
         }
         default:
@@ -180,14 +183,22 @@ void Input::mouseGestures(const SDL_Event &event)
             {
                 // macOS swaps scroll axes when Shift is held
                 float val = (y != 0.0f) ? y : x;
-                display->Zoom(val * 0.05f, glm::vec3(0, 0, 0));
+                float mx, my;
+                SDL_GetMouseState(&mx, &my);
+                glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
+                display->Zoom(val * 0.05f, cursorWorld);
             }
             else
             {
                 if (x != 0.0f)
                     display->Roll(x * 0.05f);
                 if (y != 0.0f)
-                    display->Zoom(y * 0.05f, glm::vec3(0, 0, 0));
+                {
+                    float mx, my;
+                    SDL_GetMouseState(&mx, &my);
+                    glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
+                    display->Zoom(y * 0.05f, cursorWorld);
+                }
             }
         }
         break;

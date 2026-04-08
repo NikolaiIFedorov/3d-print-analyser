@@ -127,6 +127,7 @@ void Patch::AddFace(const Face *face,
             Vertex v;
             v.position = glm::vec3(pos);
             v.color = Color::GetFace();
+            v.normal = glm::vec3(faceNormal);
 
             vertices.push_back(v);
         }

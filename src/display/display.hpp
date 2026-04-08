@@ -37,6 +37,7 @@ public:
     void Roll(float delta);
     void Pan(float offsetX, float offsetY, bool scroll = true);
     void FrameScene();
+    glm::vec3 ScreenToWorld(float pixelX, float pixelY) const;
 
 private:
     int16_t windowWidth;

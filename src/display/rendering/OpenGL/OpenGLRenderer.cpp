@@ -1,5 +1,6 @@
 #include "OpenGLRenderer.hpp"
 #include "utils/log.hpp"
+#include "rendering/color.hpp"
 
 OpenGLRenderer::~OpenGLRenderer()
 {
@@ -152,6 +153,13 @@ void OpenGLRenderer::SetModelMatrix(const glm::mat4 &model)
     modelMatrix = model;
 }
 
+void OpenGLRenderer::SetViewPos(const glm::vec3 &pos)
+{
+    viewPos = pos;
+    // Headlight: light comes from the camera direction
+    lightDir = glm::normalize(viewPos);
+}
+
 void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                                         const std::vector<uint32_t> &indices)
 {
@@ -192,6 +200,11 @@ void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                           sizeof(Vertex),
                           (void *)offsetof(Vertex, color));
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(Vertex),
+                          (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
 
     glBindVertexArray(0);
     GetGLError();
@@ -234,7 +247,10 @@ void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
                           sizeof(Vertex),
                           (void *)offsetof(Vertex, color));
     glEnableVertexAttribArray(1);
-
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE,
+                          sizeof(Vertex),
+                          (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
     glBindVertexArray(0);
     GetGLError();
 }
@@ -255,6 +271,16 @@ void OpenGLRenderer::DrawTriangles()
     shader.SetMat4("uViewProjection", viewProj);
 
     shader.SetMat4("uModel", modelMatrix);
+
+    // Lighting uniforms — asymmetric diagonal so cube faces differ
+    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 0.8f, 0.5f)));
+    shader.SetVec3("uViewPos", viewPos);
+    shader.SetFloat("uBrightenAmount", 0.5f);
+    shader.SetFloat("uBlueMin", 0.0f);
+    shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
+    shader.SetFloat("uBlueNear", 0.0f);
+    shader.SetFloat("uBlueFar", GRID_EXTENT);
+    shader.SetFloat("uLightingEnabled", 1.0f);
 
     // Force depth state
     glEnable(GL_DEPTH_TEST);
@@ -284,6 +310,7 @@ void OpenGLRenderer::DrawLines()
     shader.Use();
     shader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
     shader.SetMat4("uModel", modelMatrix);
+    shader.SetFloat("uLightingEnabled", 0.0f);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);

@@ -42,6 +42,5 @@ public:
     uint16_t widthWindow;
     uint16_t heightWindow;
 
-private:
     glm::vec3 GetPosition() const;
 };
