@@ -26,6 +26,8 @@ public:
     std::deque<Solid> solids;
     Solid *CreateSolid(const std::vector<Face *> &faces);
 
+    void MergeCoplanarFaces(Solid *solid);
+
     std::unordered_set<uint32_t> renderBuffer;
     std::unordered_set<uint32_t> lockedBuffer;
 };

@@ -110,11 +110,46 @@ void Patch::AddFace(const Face *face,
     if (polygon.empty())
         return;
 
+    // Ensure consistent winding for earcut: outer loop CCW, inner loops CW
+    if (polygon.size() > 1)
+    {
+        auto signedArea2D = [](const std::vector<Point2D> &loop) -> double
+        {
+            double area = 0.0;
+            for (size_t j = 0; j < loop.size(); j++)
+            {
+                size_t k = (j + 1) % loop.size();
+                area += loop[j][0] * loop[k][1] - loop[k][0] * loop[j][1];
+            }
+            return area;
+        };
+
+        // Outer loop (index 0) should be CCW (positive signed area)
+        if (signedArea2D(polygon[0]) < 0)
+        {
+            std::reverse(polygon[0].begin(), polygon[0].end());
+            std::reverse(allLoopPositions[0].begin(), allLoopPositions[0].end());
+        }
+
+        // Inner loops should be CW (negative signed area)
+        for (size_t li = 1; li < polygon.size(); li++)
+        {
+            if (signedArea2D(polygon[li]) > 0)
+            {
+                std::reverse(polygon[li].begin(), polygon[li].end());
+                std::reverse(allLoopPositions[li].begin(), allLoopPositions[li].end());
+            }
+        }
+    }
+
     std::vector<uint32_t> triangleIndices = mapbox::earcut<uint32_t>(polygon);
 
     if (triangleIndices.empty())
     {
-        LOG_WARN("Earcut produced no indices for face");
+        std::string dbg = "Earcut failed: " + std::to_string(polygon.size()) + " loops, sizes:";
+        for (const auto &loop : polygon)
+            dbg += " " + std::to_string(loop.size());
+        LOG_WARN(dbg);
         return;
     }
 

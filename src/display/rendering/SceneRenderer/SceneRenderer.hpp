@@ -24,7 +24,7 @@ public:
 
     SceneRenderer(SDL_Window *window) : renderer(window) {};
 
-    void UpdateScene(Scene *scene);
+    void UpdateScene(Scene *scene, const AnalysisResults *results = nullptr);
 
     void SetCamera(Camera &camera);
 

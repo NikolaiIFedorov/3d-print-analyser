@@ -63,21 +63,28 @@ static bool RayHitsFaceBelow(const glm::dvec3 &p, const Face *face)
     return (crossings % 2) == 1;
 }
 
-static bool IsSupportedBelow(const Face *face)
+static bool IsSolidBelow(const Face *face)
 {
     if (face->dependency == nullptr)
         return false;
 
     glm::dvec3 centroid = FaceCentroid(face);
 
+    // Test a point slightly below the face centroid
+    glm::dvec3 testPoint = centroid - glm::dvec3(0.0, 0.0, 1e-6);
+
+    // Count how many other faces a downward ray from testPoint intersects
+    int crossings = 0;
     for (const Face *other : face->dependency->faces)
     {
         if (other == face)
             continue;
-        if (RayHitsFaceBelow(centroid, other))
-            return true;
+        if (RayHitsFaceBelow(testPoint, other))
+            crossings++;
     }
-    return false;
+
+    // Odd crossings = point is inside the solid = supported
+    return (crossings % 2) == 1;
 }
 
 std::optional<Flaw> Overhang::Analyze(const Face *face) const
@@ -87,7 +94,7 @@ std::optional<Flaw> Overhang::Analyze(const Face *face) const
     if (normal.z >= minZComponent)
         return std::nullopt;
 
-    if (IsSupportedBelow(face))
+    if (IsSolidBelow(face))
         return std::nullopt;
 
     return Flaw::OVERHANG;

@@ -11,5 +11,6 @@ uniform mat4 uModel;
 void main()
 {
     gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+    gl_Position.z -= 0.001 * gl_Position.w;
     fragColor = aColor;
 }

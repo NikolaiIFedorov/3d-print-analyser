@@ -34,17 +34,17 @@ Flaw Analysis::FlawFace(const Face *face) const
     return Flaw::NONE;
 }
 
-std::vector<Layer> Analysis::FlawSolid(const Solid *solid) const
+std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid) const
 {
     ZBounds bounds = Slice::GetZBounds(solid);
 
-    std::vector<Layer> allLayers;
+    std::vector<FaceFlaw> allFlaws;
     for (const auto &analysis : solidAnalyses)
     {
-        auto layers = analysis->Analyze(solid, bounds);
-        allLayers.insert(allLayers.end(), layers.begin(), layers.end());
+        auto flaws = analysis->Analyze(solid, bounds);
+        allFlaws.insert(allFlaws.end(), flaws.begin(), flaws.end());
     }
-    return allLayers;
+    return allFlaws;
 }
 
 std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
@@ -67,7 +67,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
         for (const Face *face : solid.faces)
             results.faceFlaws[face] = FlawFace(face);
 
-        results.solidLayers[&solid] = FlawSolid(&solid);
+        results.faceFlawRanges[&solid] = FlawSolid(&solid);
         results.edgeFlaws[&solid] = FlawEdges(&solid);
     }
 

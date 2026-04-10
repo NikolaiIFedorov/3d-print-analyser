@@ -9,7 +9,7 @@
 class SharpCorner : public IEdgeAnalysis
 {
 public:
-    SharpCorner(double angleThresholdDegrees = 40.0)
+    SharpCorner(double angleThresholdDegrees = 100.0)
         : cosThreshold(std::cos(glm::radians(angleThresholdDegrees))) {}
 
     std::vector<EdgeFlaw> Analyze(const Solid *solid) const override;

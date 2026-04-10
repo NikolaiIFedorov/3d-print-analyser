@@ -82,7 +82,7 @@ std::vector<Segment> Slice::At(const Solid *solid, double z)
 
             for (size_t i = 0; i + 1 < intersections.size(); i += 2)
             {
-                segments.push_back({intersections[i], intersections[i + 1]});
+                segments.push_back({intersections[i], intersections[i + 1], face});
             }
         }
     }

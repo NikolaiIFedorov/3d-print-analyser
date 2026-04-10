@@ -8,7 +8,6 @@
 
 #include "Analysis/Analysis.hpp"
 #include "Analysis/Overhang/Overhang.hpp"
-#include "Analysis/ThinSection/ThinSection.hpp"
 #include "Analysis/SharpCorner/SharpCorner.hpp"
 
 #include "Analysis/SmallFeature/SmallFeature.hpp"
@@ -65,9 +64,11 @@ bool Init()
     }
 
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>());
-    Analysis::Instance().AddEdgeAnalysis(std::make_unique<SharpCorner>());
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>());
+
+    auto sharpCorner = std::make_unique<SharpCorner>();
+    const SharpCorner *sharpCornerPtr = sharpCorner.get();
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(0.2, 1.5, 3.0, sharpCornerPtr));
+    Analysis::Instance().AddEdgeAnalysis(std::move(sharpCorner));
 
     return true;
 }

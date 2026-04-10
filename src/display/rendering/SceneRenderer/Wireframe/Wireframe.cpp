@@ -1,5 +1,6 @@
 #include "Wireframe.hpp"
 #include "utils/utils.hpp"
+#include <unordered_set>
 
 void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
@@ -10,7 +11,11 @@ void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vecto
         AddFace(&face, vertices, indices, false);
 
     for (const Edge &edge : scene->edges)
+    {
+        if (edge.startPoint == nullptr || edge.endPoint == nullptr)
+            continue;
         AddEdge(&edge, vertices, indices, false);
+    }
 
     for (const Point &point : scene->points)
         AddPoint(&point, vertices, indices, false);
@@ -92,8 +97,33 @@ void Wireframe::AddSolid(const Solid *solid,
                          std::vector<Vertex> &vertices,
                          std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
-    for (auto face : solid->faces)
-        AddFace(face, vertices, indices, true);
+    if (results)
+    {
+        std::unordered_set<const Edge *> flawedEdges;
+        auto it = results->edgeFlaws.find(solid);
+        if (it != results->edgeFlaws.end())
+        {
+            for (const auto &ef : it->second)
+                flawedEdges.insert(ef.edge);
+        }
+
+        for (auto face : solid->faces)
+        {
+            for (const auto &loop : face->loops)
+            {
+                for (const auto &orientedEdge : loop)
+                {
+                    if (flawedEdges.count(orientedEdge.edge))
+                        AddEdge(orientedEdge.edge, vertices, indices, true);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (auto face : solid->faces)
+            AddFace(face, vertices, indices, true);
+    }
 }
 
 void Wireframe::TessellateCurve(const Curve *curve,

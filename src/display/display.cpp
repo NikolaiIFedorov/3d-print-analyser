@@ -120,10 +120,13 @@ void Display::Frame()
 
     if (sceneDirty)
     {
-        renderer.UpdateScene(scene);
+        AnalysisResults results;
+        if (analysisEnabled)
+            results = Analysis::Instance().AnalyzeScene(scene);
+
+        renderer.UpdateScene(scene, analysisEnabled ? &results : nullptr);
         if (analysisEnabled)
         {
-            auto results = Analysis::Instance().AnalyzeScene(scene);
             analysisRenderer.Update(scene, results);
         }
         else

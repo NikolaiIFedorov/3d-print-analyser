@@ -41,6 +41,10 @@ std::vector<EdgeFlaw> SharpCorner::Analyze(const Solid *solid) const
                     double zMin = std::min(zStart, zEnd);
                     double zMax = std::max(zStart, zEnd);
 
+                    // Skip horizontal edges — they don't cause layer-wise bulging
+                    if (zMax - zMin < 1e-6)
+                        continue;
+
                     results.push_back({edge, Flaw::SHARP_CORNER, {zMin, zMax}});
                 }
             }

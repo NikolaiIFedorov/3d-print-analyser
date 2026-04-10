@@ -1,7 +1,7 @@
 #include "SceneRenderer.hpp"
 #include "utils/log.hpp"
 
-void SceneRenderer::UpdateScene(Scene *scene)
+void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
 {
     GLint viewPort[4];
     glGetIntegerv(GL_VIEWPORT, viewPort);
@@ -9,7 +9,7 @@ void SceneRenderer::UpdateScene(Scene *scene)
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
-    wireframe.Generate(scene, vertices, indices, nullptr);
+    wireframe.Generate(scene, vertices, indices, results);
     renderer.UploadLineMesh(vertices, indices);
 
     vertices.clear();
