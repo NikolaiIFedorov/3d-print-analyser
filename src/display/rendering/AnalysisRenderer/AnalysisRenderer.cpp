@@ -229,10 +229,10 @@ static void TriangulateFace(const Face *face, const glm::vec4 &color,
 }
 
 static void TriangulateClipBoundary(const Face *face,
-                                     const std::vector<glm::dvec3> &boundary,
-                                     const glm::vec4 &color,
-                                     std::vector<AnalysisVertex> &vertices,
-                                     std::vector<uint32_t> &indices)
+                                    const std::vector<glm::dvec3> &boundary,
+                                    const glm::vec4 &color,
+                                    std::vector<AnalysisVertex> &vertices,
+                                    std::vector<uint32_t> &indices)
 {
     if (boundary.size() < 3)
         return;
@@ -283,13 +283,14 @@ static void TriangulateClipBoundary(const Face *face,
 
 // Clip a 3D loop against a Z half-plane. keep vertices where inside(v) is true.
 static std::vector<glm::dvec3> ClipLoopByZ(const std::vector<glm::dvec3> &loop,
-                                            double zPlane, bool keepAbove)
+                                           double zPlane, bool keepAbove)
 {
     std::vector<glm::dvec3> out;
     if (loop.empty())
         return out;
 
-    auto inside = [&](const glm::dvec3 &p) {
+    auto inside = [&](const glm::dvec3 &p)
+    {
         return keepAbove ? p.z >= zPlane - 1e-10 : p.z <= zPlane + 1e-10;
     };
 
@@ -317,9 +318,9 @@ static std::vector<glm::dvec3> ClipLoopByZ(const std::vector<glm::dvec3> &loop,
 }
 
 static void TriangulateFaceZClipped(const Face *face, const ZBounds &zb,
-                                     const glm::vec4 &color,
-                                     std::vector<AnalysisVertex> &vertices,
-                                     std::vector<uint32_t> &indices)
+                                    const glm::vec4 &color,
+                                    std::vector<AnalysisVertex> &vertices,
+                                    std::vector<uint32_t> &indices)
 {
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
     glm::dvec3 uAxis, vAxis;
@@ -445,6 +446,67 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
                 TriangulateClipBoundary(ff.face, ff.clipBoundary, color, vertices, indices);
             else
                 TriangulateFaceZClipped(ff.face, ff.bounds, color, vertices, indices);
+        }
+    }
+
+    // Generate vertical bridge surfaces connecting paired faces
+    for (const auto &[solid, bridges] : results.bridgeSurfaces)
+    {
+        for (const auto &bs : bridges)
+        {
+            if (bs.boundary.size() < 3)
+                continue;
+
+            glm::vec4 color = Color::GetFace(bs.flaw);
+
+            // Compute a normal from the boundary to build a 2D coordinate system
+            glm::dvec3 edge1 = bs.boundary[1] - bs.boundary[0];
+            glm::dvec3 edge2 = bs.boundary.back() - bs.boundary[0];
+            glm::dvec3 normal = glm::normalize(glm::cross(edge1, edge2));
+
+            if (glm::length(normal) < 1e-10)
+                continue;
+
+            glm::dvec3 uAxis, vAxis;
+            CreatePlaneCoordinateSystem(normal, uAxis, vAxis);
+            glm::dvec3 origin = bs.boundary[0];
+
+            using Point2D = std::array<double, 2>;
+            std::vector<Point2D> loop2D;
+            for (const auto &pt : bs.boundary)
+            {
+                glm::dvec3 rel = pt - origin;
+                loop2D.push_back({glm::dot(rel, uAxis), glm::dot(rel, vAxis)});
+            }
+
+            // Ensure CCW winding
+            double area = 0.0;
+            for (size_t j = 0; j < loop2D.size(); j++)
+            {
+                size_t k = (j + 1) % loop2D.size();
+                area += loop2D[j][0] * loop2D[k][1] - loop2D[k][0] * loop2D[j][1];
+            }
+
+            std::vector<glm::dvec3> ordered = bs.boundary;
+            if (area < 0)
+            {
+                std::reverse(loop2D.begin(), loop2D.end());
+                std::reverse(ordered.begin(), ordered.end());
+            }
+
+            std::vector<std::vector<Point2D>> polygon;
+            polygon.push_back(loop2D);
+
+            auto triIndices = mapbox::earcut<uint32_t>(polygon);
+            if (triIndices.empty())
+                continue;
+
+            uint32_t base = vertices.size();
+            for (const auto &pt : ordered)
+                vertices.push_back({glm::vec3(pt), color});
+
+            for (uint32_t idx : triIndices)
+                indices.push_back(base + idx);
         }
     }
 }

@@ -13,7 +13,8 @@ public:
         : layerHeight(layerHeight), minFeatureSize(minFeatureSize),
           heightToWidthRatio(heightToWidthRatio), sharpCorner(sharpCorner) {}
 
-    std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
+    std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt,
+                                  std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const override;
 
 private:
     double layerHeight;

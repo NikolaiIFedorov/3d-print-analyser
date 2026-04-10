@@ -26,6 +26,7 @@ struct Segment
     glm::dvec3 a;
     glm::dvec3 b;
     const Face *face = nullptr;
+    bool isHole = false;
 };
 
 struct Triangle
@@ -62,9 +63,16 @@ struct FaceFlaw
     std::vector<glm::dvec3> clipBoundary;
 };
 
+struct BridgeSurface
+{
+    Flaw flaw;
+    std::vector<glm::dvec3> boundary; // closed polygon for a vertical connecting face
+};
+
 struct AnalysisResults
 {
     std::unordered_map<const Face *, Flaw> faceFlaws;
     std::unordered_map<const Solid *, std::vector<FaceFlaw>> faceFlawRanges;
     std::unordered_map<const Solid *, std::vector<EdgeFlaw>> edgeFlaws;
+    std::unordered_map<const Solid *, std::vector<BridgeSurface>> bridgeSurfaces;
 };

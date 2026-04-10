@@ -9,7 +9,8 @@ public:
     ThinSection(double layerHeight = 0.2, double widthThreshold = 1.5, double heightToWidthRatio = 3.0)
         : layerHeight(layerHeight), widthThreshold(widthThreshold), heightToWidthRatio(heightToWidthRatio) {}
 
-    std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const override;
+    std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt,
+                                  std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const override;
 
 private:
     double layerHeight;

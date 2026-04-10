@@ -19,7 +19,8 @@ class ISolidAnalysis
 {
 public:
     virtual ~ISolidAnalysis() = default;
-    virtual std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt) const = 0;
+    virtual std::vector<FaceFlaw> Analyze(const Solid *solid, std::optional<ZBounds> bounds = std::nullopt,
+                                          std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const = 0;
 };
 
 class IEdgeAnalysis
@@ -39,7 +40,7 @@ public:
     void AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis);
 
     Flaw FlawFace(const Face *face) const;
-    std::vector<FaceFlaw> FlawSolid(const Solid *solid) const;
+    std::vector<FaceFlaw> FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const;
     std::vector<EdgeFlaw> FlawEdges(const Solid *solid) const;
 
     AnalysisResults AnalyzeScene(const Scene *scene) const;

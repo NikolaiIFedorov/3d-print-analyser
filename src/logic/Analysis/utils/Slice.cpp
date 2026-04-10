@@ -54,35 +54,68 @@ std::vector<Segment> Slice::At(const Solid *solid, double z)
 
     for (const Face *face : solid->faces)
     {
-        for (const auto &loop : face->loops)
+        for (size_t loopIdx = 0; loopIdx < face->loops.size(); loopIdx++)
         {
+            bool isHole = loopIdx > 0;
+            const auto &loop = face->loops[loopIdx];
+
             std::vector<glm::dvec3> intersections;
             for (const auto &orientedEdge : loop)
             {
                 const Edge *edge = orientedEdge.edge;
-                glm::dvec3 p0 = edge->startPoint->position;
-                glm::dvec3 p1 = edge->endPoint->position;
+                glm::dvec3 edgeStart = orientedEdge.GetStartPosition();
+                glm::dvec3 edgeEnd = orientedEdge.GetEndPosition();
 
-                double zMin = std::min(p0.z, p1.z);
-                double zMax = std::max(p0.z, p1.z);
+                if (edge->curve != nullptr)
+                {
+                    // Tessellate curve and find Z crossings
+                    const int tessSegments = 32;
+                    glm::dvec3 prev = edgeStart;
+                    for (int k = 1; k <= tessSegments; k++)
+                    {
+                        double t = static_cast<double>(k) / tessSegments;
+                        glm::dvec3 curr = edge->curve->Evaluate(t, edgeStart, edgeEnd);
 
-                if (z < zMin || z > zMax)
-                    continue;
+                        double z0 = prev.z, z1 = curr.z;
+                        if ((z >= std::min(z0, z1)) && (z <= std::max(z0, z1)))
+                        {
+                            double dz = z1 - z0;
+                            if (std::abs(dz) > 1e-10)
+                            {
+                                double s = (z - z0) / dz;
+                                glm::dvec3 hit = prev + s * (curr - prev);
+                                intersections.push_back(hit);
+                            }
+                        }
+                        prev = curr;
+                    }
+                }
+                else
+                {
+                    glm::dvec3 p0 = edgeStart;
+                    glm::dvec3 p1 = edgeEnd;
 
-                double dz = p1.z - p0.z;
-                if (std::abs(dz) < 1e-10)
-                    continue;
+                    double zMin = std::min(p0.z, p1.z);
+                    double zMax = std::max(p0.z, p1.z);
 
-                double t = (z - p0.z) / dz;
-                double x = p0.x + t * (p1.x - p0.x);
-                double y = p0.y + t * (p1.y - p0.y);
+                    if (z < zMin || z > zMax)
+                        continue;
 
-                intersections.push_back({x, y, z});
+                    double dz = p1.z - p0.z;
+                    if (std::abs(dz) < 1e-10)
+                        continue;
+
+                    double t = (z - p0.z) / dz;
+                    double x = p0.x + t * (p1.x - p0.x);
+                    double y = p0.y + t * (p1.y - p0.y);
+
+                    intersections.push_back({x, y, z});
+                }
             }
 
             for (size_t i = 0; i + 1 < intersections.size(); i += 2)
             {
-                segments.push_back({intersections[i], intersections[i + 1], face});
+                segments.push_back({intersections[i], intersections[i + 1], face, isHole});
             }
         }
     }

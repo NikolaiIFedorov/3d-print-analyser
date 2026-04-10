@@ -29,7 +29,8 @@ static double SegmentToSegmentDist(const Segment &s1, const Segment &s2)
     return std::min({d1, d2, d3, d4});
 }
 
-std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBounds> bounds) const
+std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBounds> bounds,
+                                           std::vector<BridgeSurface> *bridgeSurfaces) const
 {
     std::vector<FaceFlaw> results;
 
