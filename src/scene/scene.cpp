@@ -266,11 +266,6 @@ void Scene::MergeCoplanarFaces(Solid *solid)
             if (used.size() != boundary.size())
                 continue;
 
-            // Sort loops: largest first (outer boundary)
-            std::sort(edgeLoops.begin(), edgeLoops.end(),
-                      [](const auto &a, const auto &b)
-                      { return a.size() > b.size(); });
-
             // Ensure consistent winding: outer loop CCW, inner loops CW
             // by checking signed area in the face's 2D projection
             glm::dvec3 origNormal = glm::normalize(fi->GetSurface().GetNormal());
@@ -310,6 +305,11 @@ void Scene::MergeCoplanarFaces(Solid *solid)
                 }
                 return area;
             };
+
+            // Sort loops: largest absolute area first (outer boundary)
+            std::sort(edgeLoops.begin(), edgeLoops.end(),
+                      [&](const auto &a, const auto &b)
+                      { return std::abs(computeSignedArea(a)) > std::abs(computeSignedArea(b)); });
 
             for (size_t li = 0; li < edgeLoops.size(); li++)
             {

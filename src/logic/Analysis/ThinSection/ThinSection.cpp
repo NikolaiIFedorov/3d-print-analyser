@@ -29,6 +29,23 @@ static double SegmentToSegmentDist(const Segment &s1, const Segment &s2)
     return std::min({d1, d2, d3, d4});
 }
 
+static bool IsInsideSolid(const glm::dvec2 &point, const std::vector<Segment> &segments)
+{
+    int crossings = 0;
+    for (const auto &seg : segments)
+    {
+        glm::dvec2 a(seg.a);
+        glm::dvec2 b(seg.b);
+        if ((a.y <= point.y && b.y > point.y) || (b.y <= point.y && a.y > point.y))
+        {
+            double t = (point.y - a.y) / (b.y - a.y);
+            if (point.x < a.x + t * (b.x - a.x))
+                crossings++;
+        }
+    }
+    return (crossings % 2) == 1;
+}
+
 std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBounds> bounds,
                                            std::vector<BridgeSurface> *bridgeSurfaces) const
 {
@@ -67,8 +84,16 @@ std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBo
                 if (SharesEndpoint(s1, s2))
                     continue;
 
+                if (s1.face && s1.face == s2.face)
+                    continue;
+
                 double dist = SegmentToSegmentDist(s1, s2);
                 if (dist >= widthThreshold)
+                    continue;
+
+                glm::dvec2 midGap = 0.25 * (glm::dvec2(s1.a) + glm::dvec2(s1.b) +
+                                             glm::dvec2(s2.a) + glm::dvec2(s2.b));
+                if (!IsInsideSolid(midGap, layer.segments))
                     continue;
 
                 // Record both faces with their Z level and observed width

@@ -2,7 +2,6 @@
 #include "logic/Analysis/utils/Slice.hpp"
 #include "Analysis/SharpCorner/SharpCorner.hpp"
 #include "scene/Geometry/AllGeometry.hpp"
-#include <map>
 
 static glm::dvec3 ClosestPointOnSegment(const glm::dvec3 &p, const glm::dvec3 &a, const glm::dvec3 &b)
 {
@@ -41,6 +40,23 @@ static glm::dvec2 EdgeXYAtZ(const Edge *edge, double z)
     t = std::clamp(t, 0.0, 1.0);
     glm::dvec3 pos = edge->startPoint->position + t * (edge->endPoint->position - edge->startPoint->position);
     return glm::dvec2(pos);
+}
+
+static bool IsInsideSolid(const glm::dvec2 &point, const std::vector<Segment> &segments)
+{
+    int crossings = 0;
+    for (const auto &seg : segments)
+    {
+        glm::dvec2 a(seg.a);
+        glm::dvec2 b(seg.b);
+        if ((a.y <= point.y && b.y > point.y) || (b.y <= point.y && a.y > point.y))
+        {
+            double t = (point.y - a.y) / (b.y - a.y);
+            if (point.x < a.x + t * (b.x - a.x))
+                crossings++;
+        }
+    }
+    return (crossings % 2) == 1;
 }
 
 static bool NearSharpCorner(const Segment &s1, const Segment &s2, double z,
@@ -95,23 +111,32 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
     if (sharpCorner)
         sharpEdges = sharpCorner->Analyze(solid);
 
+    // Track hole wall faces (gap is void — just highlight the faces directly)
+    struct HoleFaceInfo
+    {
+        ZBounds zBounds;
+        double minWidth;
+    };
+    std::unordered_map<const Face *, HoleFaceInfo> holeFaces;
+
     // Track trimmed segments per face for building clip boundaries
     std::unordered_map<const Face *, std::vector<Segment>> faceTrimmedSegments;
     std::unordered_map<const Face *, double> faceMinWidth;
     std::unordered_map<const Face *, bool> faceHasOuterOuterPair;
 
-    // Track bridge data per face pair: pairs of trim segments at each Z level
-    using FacePairKey = std::pair<const Face *, const Face *>;
-    struct BridgeLayerData
+    // Cached close pairs for second pass
+    struct ClosePair
     {
+        const Segment *s1;
+        const Segment *s2;
+        double dist;
         double z;
-        glm::dvec3 a1, b1; // trim endpoints on face 1
-        glm::dvec3 a2, b2; // trim endpoints on face 2
     };
-    std::map<FacePairKey, std::vector<BridgeLayerData>> facePairBridges;
+    std::vector<ClosePair> closePairs;
 
     auto layers = Slice::Range(solid, zMin, zMax, layerHeight);
 
+    // First pass: identify hole wall faces (gap is void)
     for (const auto &layer : layers)
     {
         if (layer.segments.size() < 2)
@@ -130,83 +155,131 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
                 if (SharesEndpoint(s1, s2))
                     continue;
 
+                if (s1.face && s1.face == s2.face)
+                    continue;
+
                 double dist = SegmentToSegmentDist(s1, s2);
                 if (dist >= minFeatureSize)
                     continue;
 
-                if (NearSharpCorner(s1, s2, z, sharpEdges, minFeatureSize))
-                    continue;
-
-                bool isOuterOuter = !s1.isHole && !s2.isHole;
-
-                // Compute trimmed portions within threshold distance
-                auto [t1Min, t1Max] = CloseRange(s1, s2, minFeatureSize);
-                auto [t2Min, t2Max] = CloseRange(s2, s1, minFeatureSize);
-
-                bool hasTrim1 = s1.face && t1Min < t1Max;
-                bool hasTrim2 = s2.face && t2Min < t2Max;
-
-                glm::dvec3 trim1A, trim1B, trim2A, trim2B;
-
-                if (hasTrim1)
+                glm::dvec2 midGap = 0.25 * (glm::dvec2(s1.a) + glm::dvec2(s1.b) +
+                                             glm::dvec2(s2.a) + glm::dvec2(s2.b));
+                if (!IsInsideSolid(midGap, layer.segments))
                 {
-                    trim1A = s1.a + t1Min * (s1.b - s1.a);
-                    trim1B = s1.a + t1Max * (s1.b - s1.a);
-                    faceTrimmedSegments[s1.face].push_back({trim1A, trim1B, s1.face});
-                    auto it = faceMinWidth.find(s1.face);
-                    if (it == faceMinWidth.end())
-                        faceMinWidth[s1.face] = dist;
-                    else
-                        it->second = std::min(it->second, dist);
-                    if (isOuterOuter)
-                        faceHasOuterOuterPair[s1.face] = true;
-                }
-                if (hasTrim2)
-                {
-                    trim2A = s2.a + t2Min * (s2.b - s2.a);
-                    trim2B = s2.a + t2Max * (s2.b - s2.a);
-                    faceTrimmedSegments[s2.face].push_back({trim2A, trim2B, s2.face});
-                    auto it = faceMinWidth.find(s2.face);
-                    if (it == faceMinWidth.end())
-                        faceMinWidth[s2.face] = dist;
-                    else
-                        it->second = std::min(it->second, dist);
-                    if (isOuterOuter)
-                        faceHasOuterOuterPair[s2.face] = true;
-                }
-
-                // Record bridge pair connecting the two faces (grouped by face pair)
-                if (bridgeSurfaces && hasTrim1 && hasTrim2)
-                {
-                    const Face *f1 = s1.face;
-                    const Face *f2 = s2.face;
-                    FacePairKey key = (f1 < f2) ? FacePairKey{f1, f2} : FacePairKey{f2, f1};
-
-                    BridgeLayerData bld;
-                    bld.z = z;
-                    if (f1 < f2)
+                    // Gap is void — record both faces as hole walls
+                    for (const Face *face : {s1.face, s2.face})
                     {
-                        bld.a1 = trim1A;
-                        bld.b1 = trim1B;
-                        bld.a2 = trim2A;
-                        bld.b2 = trim2B;
+                        if (!face)
+                            continue;
+                        auto it = holeFaces.find(face);
+                        if (it == holeFaces.end())
+                            holeFaces[face] = {{z, z}, dist};
+                        else
+                        {
+                            it->second.zBounds.zMin = std::min(it->second.zBounds.zMin, z);
+                            it->second.zBounds.zMax = std::max(it->second.zBounds.zMax, z);
+                            it->second.minWidth = std::min(it->second.minWidth, dist);
+                        }
                     }
-                    else
-                    {
-                        bld.a1 = trim2A;
-                        bld.b1 = trim2B;
-                        bld.a2 = trim1A;
-                        bld.b2 = trim1B;
-                    }
-                    facePairBridges[key].push_back(bld);
+                }
+                else
+                {
+                    closePairs.push_back({&s1, &s2, dist, z});
                 }
             }
         }
     }
 
+    // Second pass: process material-gap pairs, skipping faces adjacent to holes
+    for (const auto &cp : closePairs)
+    {
+        const auto &s1 = *cp.s1;
+        const auto &s2 = *cp.s2;
+        double dist = cp.dist;
+        double z = cp.z;
+
+        if (NearSharpCorner(s1, s2, z, sharpEdges, minFeatureSize))
+            continue;
+
+        // If either face is a known hole wall, redirect to hole path
+        bool s1IsHole = (s1.face && holeFaces.count(s1.face)) || s1.isHole;
+        bool s2IsHole = (s2.face && holeFaces.count(s2.face)) || s2.isHole;
+        if (s1IsHole || s2IsHole)
+        {
+            for (const Face *face : {s1.face, s2.face})
+            {
+                if (!face)
+                    continue;
+                bool faceIsHole = holeFaces.count(face) || s1.isHole || s2.isHole;
+                if (!faceIsHole)
+                    continue;
+                auto it = holeFaces.find(face);
+                if (it == holeFaces.end())
+                    holeFaces[face] = {{z, z}, dist};
+                else
+                {
+                    it->second.zBounds.zMin = std::min(it->second.zBounds.zMin, z);
+                    it->second.zBounds.zMax = std::max(it->second.zBounds.zMax, z);
+                    it->second.minWidth = std::min(it->second.minWidth, dist);
+                }
+            }
+            continue;
+        }
+
+        bool isOuterOuter = !s1.isHole && !s2.isHole;
+
+        // Compute trimmed portions within threshold distance
+        auto [t1Min, t1Max] = CloseRange(s1, s2, minFeatureSize);
+        auto [t2Min, t2Max] = CloseRange(s2, s1, minFeatureSize);
+
+        bool hasTrim1 = s1.face && t1Min < t1Max;
+        bool hasTrim2 = s2.face && t2Min < t2Max;
+
+        glm::dvec3 trim1A, trim1B, trim2A, trim2B;
+
+        if (hasTrim1)
+        {
+            trim1A = s1.a + t1Min * (s1.b - s1.a);
+            trim1B = s1.a + t1Max * (s1.b - s1.a);
+            faceTrimmedSegments[s1.face].push_back({trim1A, trim1B, s1.face});
+            auto it = faceMinWidth.find(s1.face);
+            if (it == faceMinWidth.end())
+                faceMinWidth[s1.face] = dist;
+            else
+                it->second = std::min(it->second, dist);
+            if (isOuterOuter)
+                faceHasOuterOuterPair[s1.face] = true;
+        }
+        if (hasTrim2)
+        {
+            trim2A = s2.a + t2Min * (s2.b - s2.a);
+            trim2B = s2.a + t2Max * (s2.b - s2.a);
+            faceTrimmedSegments[s2.face].push_back({trim2A, trim2B, s2.face});
+            auto it = faceMinWidth.find(s2.face);
+            if (it == faceMinWidth.end())
+                faceMinWidth[s2.face] = dist;
+            else
+                it->second = std::min(it->second, dist);
+            if (isOuterOuter)
+                faceHasOuterOuterPair[s2.face] = true;
+        }
+    }
+
+    // Emit hole wall faces as simple z-clipped highlights (no clip boundaries)
+    for (const auto &[face, info] : holeFaces)
+    {
+        ZBounds extended = {std::max(info.zBounds.zMin - layerHeight, zMin),
+                            std::min(info.zBounds.zMax + layerHeight, zMax)};
+        results.push_back({face, Flaw::SMALL_FEATURE, extended});
+    }
+
     // Build clip boundary polygons from trimmed segments
+    // Skip faces already identified as hole walls
     for (auto &[face, segments] : faceTrimmedSegments)
     {
+        if (holeFaces.count(face))
+            continue;
+
         std::sort(segments.begin(), segments.end(),
                   [](const Segment &a, const Segment &b)
                   { return a.a.z < b.a.z; });
@@ -282,70 +355,6 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
             boundary.push_back(it->b);
 
         results.push_back({face, flawType, zb, std::move(boundary)});
-    }
-
-    // Build vertical connecting surfaces from face-pair bridge data
-    if (bridgeSurfaces)
-    {
-        for (auto &[key, layers] : facePairBridges)
-        {
-            if (layers.size() < 2)
-                continue;
-
-            std::sort(layers.begin(), layers.end(),
-                      [](const BridgeLayerData &a, const BridgeLayerData &b)
-                      { return a.z < b.z; });
-
-            // Determine a consistent direction for a/b endpoints using the first layer
-            glm::dvec2 refDir1 = glm::dvec2(layers[0].b1 - layers[0].a1);
-            double refLen1 = glm::length(refDir1);
-            glm::dvec2 refDir2 = glm::dvec2(layers[0].b2 - layers[0].a2);
-            double refLen2 = glm::length(refDir2);
-
-            if (refLen1 > 1e-10)
-            {
-                refDir1 /= refLen1;
-                for (auto &ld : layers)
-                    if (glm::dot(glm::dvec2(ld.b1 - ld.a1), refDir1) < 0)
-                        std::swap(ld.a1, ld.b1);
-            }
-            if (refLen2 > 1e-10)
-            {
-                refDir2 /= refLen2;
-                for (auto &ld : layers)
-                    if (glm::dot(glm::dvec2(ld.b2 - ld.a2), refDir2) < 0)
-                        std::swap(ld.a2, ld.b2);
-            }
-
-            // Left side: a1 going up, a2 going down
-            std::vector<glm::dvec3> leftBoundary;
-            for (const auto &ld : layers)
-                leftBoundary.push_back(ld.a1);
-            for (auto it = layers.rbegin(); it != layers.rend(); ++it)
-                leftBoundary.push_back(it->a2);
-
-            // Right side: b1 going up, b2 going down
-            std::vector<glm::dvec3> rightBoundary;
-            for (const auto &ld : layers)
-                rightBoundary.push_back(ld.b1);
-            for (auto it = layers.rbegin(); it != layers.rend(); ++it)
-                rightBoundary.push_back(it->b2);
-
-            // Inherit flaw type from connected faces
-            Flaw flaw = Flaw::SMALL_FEATURE;
-            for (const auto &r : results)
-            {
-                if (r.face == key.first || r.face == key.second)
-                {
-                    flaw = r.flaw;
-                    break;
-                }
-            }
-            if (leftBoundary.size() >= 3)
-                bridgeSurfaces->push_back({flaw, std::move(leftBoundary)});
-            if (rightBoundary.size() >= 3)
-                bridgeSurfaces->push_back({flaw, std::move(rightBoundary)});
-        }
     }
 
     return results;
