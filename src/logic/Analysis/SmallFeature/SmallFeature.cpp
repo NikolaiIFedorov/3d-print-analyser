@@ -163,7 +163,7 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
                     continue;
 
                 glm::dvec2 midGap = 0.25 * (glm::dvec2(s1.a) + glm::dvec2(s1.b) +
-                                             glm::dvec2(s2.a) + glm::dvec2(s2.b));
+                                            glm::dvec2(s2.a) + glm::dvec2(s2.b));
                 if (!IsInsideSolid(midGap, layer.segments))
                 {
                     // Gap is void — record both faces as hole walls

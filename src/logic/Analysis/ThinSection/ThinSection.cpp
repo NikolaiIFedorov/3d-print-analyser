@@ -92,7 +92,7 @@ std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBo
                     continue;
 
                 glm::dvec2 midGap = 0.25 * (glm::dvec2(s1.a) + glm::dvec2(s1.b) +
-                                             glm::dvec2(s2.a) + glm::dvec2(s2.b));
+                                            glm::dvec2(s2.a) + glm::dvec2(s2.b));
                 if (!IsInsideSolid(midGap, layer.segments))
                     continue;
 

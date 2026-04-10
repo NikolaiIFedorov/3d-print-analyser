@@ -1,6 +1,7 @@
 #include "Overhang.hpp"
 
 #include <cmath>
+#include <limits>
 #include <numbers>
 
 Overhang::Overhang(double maxAngleDeg)
@@ -63,10 +64,33 @@ static bool RayHitsFaceBelow(const glm::dvec3 &p, const Face *face)
     return (crossings % 2) == 1;
 }
 
+static double SolidMinZ(const Solid *solid)
+{
+    double minZ = std::numeric_limits<double>::max();
+    for (const Face *f : solid->faces)
+        for (const auto &loop : f->loops)
+            for (const auto &oe : loop)
+                minZ = std::min(minZ, oe.GetStartPosition().z);
+    return minZ;
+}
+
+static bool IsOnBuildPlate(const Face *face, double solidMinZ)
+{
+    for (const auto &loop : face->loops)
+        for (const auto &oe : loop)
+            if (oe.GetStartPosition().z > solidMinZ + 1e-6)
+                return false;
+    return true;
+}
+
 static bool IsSolidBelow(const Face *face)
 {
     if (face->dependency == nullptr)
         return false;
+
+    // Faces at the lowest Z of the solid rest on the build plate
+    if (IsOnBuildPlate(face, SolidMinZ(face->dependency)))
+        return true;
 
     glm::dvec3 centroid = FaceCentroid(face);
 
