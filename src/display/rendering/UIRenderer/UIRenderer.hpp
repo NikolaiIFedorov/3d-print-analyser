@@ -7,6 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <deque>
+#include <string>
 #include <vector>
 
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
@@ -51,6 +52,9 @@ public:
     bool HandleMouseDown(float pixelX, float pixelY);
     bool HandleMouseMotion(float pixelX, float pixelY);
     void HandleMouseUp();
+    bool HandleKeyDown(SDL_Keycode key);
+    bool HandleTextInput(const char *text);
+    bool IsEditing() const { return editingSlider != nullptr; }
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
 
@@ -71,6 +75,10 @@ private:
     std::vector<SectionButton> sectionButtons;
     std::vector<SectionSlider> sectionSliders;
     SectionSlider *activeSlider = nullptr;
+    SectionSlider *editingSlider = nullptr;
+    std::string editBuffer;
+    bool editSelectAll = false;
+    float lastDragX = 0;
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     bool dirty = true;

@@ -28,6 +28,9 @@ public:
     bool HandleMouseDown(float pixelX, float pixelY);
     bool HandleMouseMotion(float pixelX, float pixelY);
     void HandleMouseUp();
+    bool HandleKeyDown(SDL_Keycode key);
+    bool HandleTextInput(const char *text);
+    bool IsEditing() const;
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 

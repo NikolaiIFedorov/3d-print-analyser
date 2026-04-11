@@ -282,8 +282,15 @@ bool Input::handleEvents()
             }
             break;
         }
+        case SDL_EVENT_KEY_DOWN:
+            if (display->HandleKeyDown(event.key.key))
+                break;
+            [[fallthrough]];
         case SDL_EVENT_MOUSE_WHEEL:
             mouseGestures(event);
+            break;
+        case SDL_EVENT_TEXT_INPUT:
+            display->HandleTextInput(event.text.text);
             break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:

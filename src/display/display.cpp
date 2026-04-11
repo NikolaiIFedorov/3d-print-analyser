@@ -392,6 +392,21 @@ void Display::HandleMouseUp()
     uiRenderer.HandleMouseUp();
 }
 
+bool Display::HandleKeyDown(SDL_Keycode key)
+{
+    return uiRenderer.HandleKeyDown(key);
+}
+
+bool Display::HandleTextInput(const char *text)
+{
+    return uiRenderer.HandleTextInput(text);
+}
+
+bool Display::IsEditing() const
+{
+    return uiRenderer.IsEditing();
+}
+
 void Display::InitUI()
 {
     float sidebarWidth = 10.0f;
@@ -438,12 +453,21 @@ void Display::InitUI()
 
     // Parameter sections with sliders
     analysis.AddSection("Overhang angle (deg)").visible = false;
-    analysis.AddSection("Sharp corner (deg)").visible = false;
-    { auto &s = analysis.sections.back(); s.showSplitter = false; }
-    analysis.AddSection("Min feature (mm)").visible = false;
-    { auto &s = analysis.sections.back(); s.showSplitter = false; }
-    analysis.AddSection("Layer height (mm)").visible = false;
-    { auto &s = analysis.sections.back(); s.showSplitter = false; }
+    {
+        auto &s = analysis.AddSection("Sharp corner (deg)");
+        s.visible = false;
+        s.showSplitter = false;
+    }
+    {
+        auto &s = analysis.AddSection("Min feature (mm)");
+        s.visible = false;
+        s.showSplitter = false;
+    }
+    {
+        auto &s = analysis.AddSection("Layer height (mm)");
+        s.visible = false;
+        s.showSplitter = false;
+    }
 
     auto onParamChange = [this]()
     {

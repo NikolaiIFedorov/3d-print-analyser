@@ -230,27 +230,28 @@ bool UIRenderer::HandleClick(float pixelX, float pixelY)
     return false;
 }
 
-// --- Slider track pixel rect (used by drag + rendering) ---
-// Returns {x0, y0, x1, y1} of the slider track area within a section.
-// Track spans full section width, positioned at the bottom of the section.
-static void SliderTrackRect(const Panel &section, const Panel &parent, const UIGrid &grid,
-                            const TextRenderer &textRenderer, float &tx0, float &ty0, float &tx1, float &ty1)
+// Compute the pixel rect of the value text area within a slider section.
+// Returns {vx0, vy0, vx1, vy1} — the bounds of the value button.
+static void SliderValueRect(const Panel &section, const Panel &parent, const UIGrid &grid,
+                            const TextRenderer &textRenderer, const std::string &valText,
+                            float &vx0, float &vy0, float &vx1, float &vy1)
 {
     float padPxH = grid.ToPixelsX(parent.padding);
     float padPxV = grid.ToPixelsY(parent.padding);
-    float sx0 = grid.ToPixelsX(section.col);
-    float sy1 = grid.ToPixelsY(section.row + section.rowSpan);
-    float sx1 = grid.ToPixelsX(section.col + section.colSpan);
+    float sx0 = grid.ToPixelsX(section.col) + padPxH;
+    float sy0 = grid.ToPixelsY(section.row) + padPxV;
+    float sx1 = grid.ToPixelsX(section.col + section.colSpan) - padPxH;
+    float sy1 = grid.ToPixelsY(section.row + section.rowSpan) - padPxV;
 
-    // Track: full width inset by padding, at the bottom of the section
     float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
     float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-    float trackH = textRenderer.GetMaxBearingY(textScale) * 0.5f;
+    float valW = textRenderer.MeasureWidth(valText, textScale);
+    float insetPx = section.localGrid.cellSizeX * section.padding;
 
-    tx0 = sx0 + padPxH * 0.5f;
-    tx1 = sx1 - padPxH * 0.5f;
-    ty1 = sy1 - padPxV * 0.5f;
-    ty0 = ty1 - trackH;
+    vx1 = sx1 - insetPx;
+    vx0 = vx1 - valW - insetPx * 2.0f;
+    vy0 = sy0;
+    vy1 = sy1;
 }
 
 static double SnapToStep(double val, double min, double max, double step)
@@ -265,7 +266,29 @@ static double SnapToStep(double val, double min, double max, double step)
 
 bool UIRenderer::HandleMouseDown(float pixelX, float pixelY)
 {
-    // Check sliders first
+    // If currently editing, a click anywhere commits the edit
+    if (editingSlider)
+    {
+        // Apply the edit buffer
+        char *end = nullptr;
+        double parsed = std::strtod(editBuffer.c_str(), &end);
+        if (end != editBuffer.c_str())
+        {
+            double newVal = SnapToStep(parsed, editingSlider->min, editingSlider->max, editingSlider->step);
+            if (std::abs(newVal - *editingSlider->value) > 1e-12)
+            {
+                *editingSlider->value = newVal;
+                if (editingSlider->onChange)
+                    editingSlider->onChange();
+            }
+        }
+        editingSlider = nullptr;
+        editBuffer.clear();
+        SDL_StopTextInput(window);
+        dirty = true;
+    }
+
+    // Check sliders first — hit test on full section bounds
     for (auto &slider : sectionSliders)
     {
         const Panel *p = GetPanel(slider.panelId);
@@ -277,25 +300,40 @@ bool UIRenderer::HandleMouseDown(float pixelX, float pixelY)
             if (section.id != slider.sectionId || !section.visible)
                 continue;
 
-            float tx0, ty0, tx1, ty1;
-            SliderTrackRect(section, *p, grid, textRenderer, tx0, ty0, tx1, ty1);
+            float sx0 = grid.ToPixelsX(section.col);
+            float sy0 = grid.ToPixelsY(section.row);
+            float sx1 = grid.ToPixelsX(section.col + section.colSpan);
+            float sy1 = grid.ToPixelsY(section.row + section.rowSpan);
 
-            // Expand hit area slightly above the track for easier grabbing
-            float hitPad = (ty1 - ty0) * 1.5f;
-            if (pixelX >= tx0 && pixelX <= tx1 &&
-                pixelY >= ty0 - hitPad && pixelY <= ty1 + hitPad * 0.5f)
+            if (pixelX >= sx0 && pixelX <= sx1 &&
+                pixelY >= sy0 && pixelY <= sy1)
             {
-                activeSlider = &slider;
-                // Set value from click position
-                double t = static_cast<double>(pixelX - tx0) / static_cast<double>(tx1 - tx0);
-                t = std::clamp(t, 0.0, 1.0);
-                double newVal = SnapToStep(slider.min + t * (slider.max - slider.min), slider.min, slider.max, slider.step);
-                if (std::abs(newVal - *slider.value) > 1e-12)
+                // Check if click is on the value text area
+                std::string valText;
+                if (!section.values.empty())
+                    valText = section.values[0].prefix + section.values[0].text;
+
+                if (!valText.empty())
                 {
-                    *slider.value = newVal;
-                    if (slider.onChange)
-                        slider.onChange();
+                    float vx0, vy0, vx1, vy1;
+                    SliderValueRect(section, *p, grid, textRenderer, valText, vx0, vy0, vx1, vy1);
+
+                    if (pixelX >= vx0 && pixelX <= vx1 &&
+                        pixelY >= vy0 && pixelY <= vy1)
+                    {
+                        // Enter edit mode — select all
+                        editingSlider = &slider;
+                        editBuffer = valText;
+                        editSelectAll = true;
+                        SDL_StartTextInput(window);
+                        dirty = true;
+                        return true;
+                    }
                 }
+
+                // Elsewhere on section → start drag
+                activeSlider = &slider;
+                lastDragX = pixelX;
                 return true;
             }
         }
@@ -321,13 +359,13 @@ bool UIRenderer::HandleMouseMotion(float pixelX, float pixelY)
         if (section.id != activeSlider->sectionId || !section.visible)
             continue;
 
-        float tx0, ty0, tx1, ty1;
-        SliderTrackRect(section, *p, grid, textRenderer, tx0, ty0, tx1, ty1);
-
-        double t = static_cast<double>(pixelX - tx0) / static_cast<double>(tx1 - tx0);
-        t = std::clamp(t, 0.0, 1.0);
-        double newVal = SnapToStep(activeSlider->min + t * (activeSlider->max - activeSlider->min),
+        // Relative drag: dx maps to value change proportional to section width
+        float sectionPx = grid.ToPixelsX(section.colSpan);
+        double dx = static_cast<double>(pixelX - lastDragX);
+        double rangePerPixel = (activeSlider->max - activeSlider->min) / static_cast<double>(sectionPx);
+        double newVal = SnapToStep(*activeSlider->value + dx * rangePerPixel,
                                    activeSlider->min, activeSlider->max, activeSlider->step);
+        lastDragX = pixelX;
         if (std::abs(newVal - *activeSlider->value) > 1e-12)
         {
             *activeSlider->value = newVal;
@@ -344,6 +382,80 @@ bool UIRenderer::HandleMouseMotion(float pixelX, float pixelY)
 void UIRenderer::HandleMouseUp()
 {
     activeSlider = nullptr;
+}
+
+bool UIRenderer::HandleKeyDown(SDL_Keycode key)
+{
+    if (!editingSlider)
+        return false;
+
+    if (key == SDLK_RETURN || key == SDLK_KP_ENTER)
+    {
+        // Apply value
+        char *end = nullptr;
+        double parsed = std::strtod(editBuffer.c_str(), &end);
+        if (end != editBuffer.c_str())
+        {
+            double newVal = SnapToStep(parsed, editingSlider->min, editingSlider->max, editingSlider->step);
+            if (std::abs(newVal - *editingSlider->value) > 1e-12)
+            {
+                *editingSlider->value = newVal;
+                if (editingSlider->onChange)
+                    editingSlider->onChange();
+            }
+        }
+        editingSlider = nullptr;
+        editBuffer.clear();
+        SDL_StopTextInput(window);
+        dirty = true;
+        return true;
+    }
+    else if (key == SDLK_ESCAPE)
+    {
+        // Cancel edit
+        editingSlider = nullptr;
+        editBuffer.clear();
+        SDL_StopTextInput(window);
+        dirty = true;
+        return true;
+    }
+    else if (key == SDLK_BACKSPACE)
+    {
+        if (editSelectAll)
+        {
+            editBuffer.clear();
+            editSelectAll = false;
+        }
+        else if (!editBuffer.empty())
+        {
+            editBuffer.pop_back();
+        }
+        dirty = true;
+        return true;
+    }
+    return true; // consume all keys while editing
+}
+
+bool UIRenderer::HandleTextInput(const char *text)
+{
+    if (!editingSlider)
+        return false;
+
+    // If select-all is active, replace entire buffer
+    if (editSelectAll)
+    {
+        editBuffer.clear();
+        editSelectAll = false;
+    }
+
+    // Only allow digits, decimal point, minus sign
+    for (const char *c = text; *c; ++c)
+    {
+        if ((*c >= '0' && *c <= '9') || *c == '.' || *c == '-')
+            editBuffer += *c;
+    }
+    dirty = true;
+    return true;
 }
 
 void UIRenderer::ResolveAnchors()
@@ -411,6 +523,14 @@ void UIRenderer::ResolveAnchors()
             bool willBeVertical = !(panel.leftAnchor.has_value() && panel.rightAnchor.has_value());
             if (willBeVertical)
             {
+                auto hasSlider = [&](const std::string &sectionId) -> bool
+                {
+                    for (const auto &s : sectionSliders)
+                        if (s.panelId == panel.id && s.sectionId == sectionId)
+                            return true;
+                    return false;
+                };
+
                 for (const auto &section : panel.sections)
                 {
                     if (!section.visible)
@@ -418,11 +538,26 @@ void UIRenderer::ResolveAnchors()
                     float btnPad = (section.color.a > 0.0f) ? 2.0f * panel.padding : 0.0f;
                     float secLabelW = textRenderer.MeasureWidth(section.id, textScale) / grid.cellSizeX;
                     float secWidth = 2.0f * section.padding + secLabelW + btnPad;
-                    for (const auto &line : section.values)
+                    if (hasSlider(section.id))
                     {
-                        float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
-                        float lineWidth = 2.0f * section.padding + lineW + btnPad;
-                        secWidth = std::max(secWidth, lineWidth);
+                        // Slider: label + gap + value on one line
+                        float valW = 0;
+                        for (const auto &line : section.values)
+                        {
+                            float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
+                            valW = std::max(valW, lineW);
+                        }
+                        float gapCells = 1.0f;
+                        secWidth = 2.0f * section.padding + secLabelW + gapCells + valW + btnPad;
+                    }
+                    else
+                    {
+                        for (const auto &line : section.values)
+                        {
+                            float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
+                            float lineWidth = 2.0f * section.padding + lineW + btnPad;
+                            secWidth = std::max(secWidth, lineWidth);
+                        }
                     }
                     w = std::max(*w, secWidth);
                 }
@@ -553,7 +688,6 @@ void UIRenderer::ResolveAnchors()
                 // Stack sections downward; expand panel height to fit
                 // Each section height = label line + value lines
                 float lineHeight = textHeightCells + 0.5f * secPadding; // line step in cells
-                float sliderTrackHeight = sectionHeight * 0.6f;         // extra height for slider track
                 float totalHeight = sectionHeight;                      // header
 
                 auto hasSlider = [&](const std::string &sectionId) -> bool
@@ -572,8 +706,8 @@ void UIRenderer::ResolveAnchors()
                     float secH = sectionHeight + btnPad; // base: label row + button padding
                     if (hasSlider(section.id))
                     {
-                        // Slider: label+value on one line, track below
-                        secH = sectionHeight + sliderTrackHeight;
+                        // Slider: label+value on one line, no extra height
+                        secH = sectionHeight;
                     }
                     else if (!section.values.empty())
                     {
@@ -598,7 +732,7 @@ void UIRenderer::ResolveAnchors()
                     float secH = sectionHeight + btnPad;
                     if (hasSlider(section.id))
                     {
-                        secH = sectionHeight + sliderTrackHeight;
+                        secH = sectionHeight;
                     }
                     else if (!section.values.empty())
                     {
@@ -1057,7 +1191,7 @@ void UIRenderer::BuildMesh()
             }
         }
 
-        // Generate slider track + fill geometry
+        // Generate slider value button backgrounds
         for (const auto &slider : sectionSliders)
         {
             if (slider.panelId != panel.id)
@@ -1067,158 +1201,66 @@ void UIRenderer::BuildMesh()
             {
                 if (section.id != slider.sectionId || !section.visible)
                     continue;
+                if (section.values.empty())
+                    break;
 
-                float tx0, ty0, tx1, ty1;
-                SliderTrackRect(section, panel, grid, textRenderer, tx0, ty0, tx1, ty1);
-                float trackH = ty1 - ty0;
-                float tr = trackH * 0.5f; // fully rounded ends
+                std::string valText;
+                bool isEditing = (&slider == editingSlider);
+                if (isEditing && !editSelectAll)
+                    valText = editBuffer + "|";
+                else if (isEditing)
+                    valText = editBuffer;
+                else
+                    valText = section.values[0].prefix + section.values[0].text;
 
-                glm::vec4 trackColor = Color::GetUI(2);
+                float vx0, vy0, vx1, vy1;
+                SliderValueRect(section, panel, grid, textRenderer, valText, vx0, vy0, vx1, vy1);
 
-                // Track background (rounded rect)
-                {
-                    constexpr int SEGS = 6;
-                    float cx = (tx0 + tx1) * 0.5f;
-                    float cy = (ty0 + ty1) * 0.5f;
-                    vertices.push_back({{cx, cy}, trackColor});
-                    uint32_t cIdx = vertexOffset++;
+                glm::vec4 btnColor;
+                if (isEditing && editSelectAll)
+                    btnColor = glm::vec4(0.2f, 0.35f, 0.55f, 1.0f); // selection accent
+                else if (isEditing)
+                    btnColor = Color::GetUI(3);
+                else
+                    btnColor = Color::GetUI(2);
+                float sr = std::min(grid.cellSizeX, grid.cellSizeY) * section.borderRadius;
+                float maxSR = std::min((vx1 - vx0), (vy1 - vy0)) * 0.5f;
+                if (sr > maxSR)
+                    sr = maxSR;
 
-                    struct Corner
+                constexpr int SEGS = 6;
+                float cx = (vx0 + vx1) * 0.5f;
+                float cy = (vy0 + vy1) * 0.5f;
+                vertices.push_back({{cx, cy}, btnColor});
+                uint32_t cIdx = vertexOffset++;
+
+                struct Corner { float cx, cy, startAngle; };
+                Corner corners[4] = {
+                    {vx0 + sr, vy0 + sr, static_cast<float>(M_PI)},
+                    {vx1 - sr, vy0 + sr, static_cast<float>(M_PI) * 1.5f},
+                    {vx1 - sr, vy1 - sr, 0.0f},
+                    {vx0 + sr, vy1 - sr, static_cast<float>(M_PI) * 0.5f},
+                };
+                uint32_t pStart = vertexOffset;
+                for (int c = 0; c < 4; c++)
+                    for (int s = 0; s <= SEGS; s++)
                     {
-                        float cx, cy, startAngle;
-                    };
-                    Corner corners[4] = {
-                        {tx0 + tr, ty0 + tr, static_cast<float>(M_PI)},
-                        {tx1 - tr, ty0 + tr, static_cast<float>(M_PI) * 1.5f},
-                        {tx1 - tr, ty1 - tr, 0.0f},
-                        {tx0 + tr, ty1 - tr, static_cast<float>(M_PI) * 0.5f},
-                    };
-                    uint32_t pStart = vertexOffset;
-                    for (int c = 0; c < 4; c++)
-                        for (int s = 0; s <= SEGS; s++)
-                        {
-                            float angle = corners[c].startAngle +
-                                          (static_cast<float>(M_PI) * 0.5f) *
-                                              (static_cast<float>(s) / static_cast<float>(SEGS));
-                            vertices.push_back({{corners[c].cx + tr * std::cos(angle),
-                                                 corners[c].cy + tr * std::sin(angle)},
-                                                trackColor});
-                            vertexOffset++;
-                        }
-                    uint32_t total = 4 * (SEGS + 1);
-                    for (uint32_t i = 0; i < total; i++)
-                    {
-                        indices.push_back(cIdx);
-                        indices.push_back(pStart + i);
-                        indices.push_back(pStart + (i + 1) % total);
+                        float angle = corners[c].startAngle +
+                                      (static_cast<float>(M_PI) * 0.5f) *
+                                          (static_cast<float>(s) / static_cast<float>(SEGS));
+                        vertices.push_back({{corners[c].cx + sr * std::cos(angle),
+                                             corners[c].cy + sr * std::sin(angle)},
+                                            btnColor});
+                        vertexOffset++;
                     }
-                }
-
-                // Fill (from left edge to current value position)
-                double t = (*slider.value - slider.min) / (slider.max - slider.min);
-                t = std::clamp(t, 0.0, 1.0);
-                float fillX1 = tx0 + static_cast<float>(t) * (tx1 - tx0);
-
-                // Only draw fill if there's enough width for a rounded rect
-                if (fillX1 - tx0 > tr * 2.0f)
+                uint32_t total = 4 * (SEGS + 1);
+                for (uint32_t i = 0; i < total; i++)
                 {
-                    // Use the section's prefix color from the first value line, or a default
-                    glm::vec4 fillColor = (!section.values.empty() && section.values[0].prefixColor.a > 0.0f)
-                                              ? section.values[0].prefixColor
-                                              : glm::vec4(0.5f, 0.7f, 1.0f, 1.0f);
-
-                    constexpr int SEGS = 6;
-                    float cx = (tx0 + fillX1) * 0.5f;
-                    float cy = (ty0 + ty1) * 0.5f;
-                    vertices.push_back({{cx, cy}, fillColor});
-                    uint32_t cIdx = vertexOffset++;
-
-                    struct Corner
-                    {
-                        float cx, cy, startAngle;
-                    };
-                    Corner corners[4] = {
-                        {tx0 + tr, ty0 + tr, static_cast<float>(M_PI)},
-                        {fillX1 - tr, ty0 + tr, static_cast<float>(M_PI) * 1.5f},
-                        {fillX1 - tr, ty1 - tr, 0.0f},
-                        {tx0 + tr, ty1 - tr, static_cast<float>(M_PI) * 0.5f},
-                    };
-                    uint32_t pStart = vertexOffset;
-                    for (int c = 0; c < 4; c++)
-                        for (int s = 0; s <= SEGS; s++)
-                        {
-                            float angle = corners[c].startAngle +
-                                          (static_cast<float>(M_PI) * 0.5f) *
-                                              (static_cast<float>(s) / static_cast<float>(SEGS));
-                            vertices.push_back({{corners[c].cx + tr * std::cos(angle),
-                                                 corners[c].cy + tr * std::sin(angle)},
-                                                fillColor});
-                            vertexOffset++;
-                        }
-                    uint32_t total = 4 * (SEGS + 1);
-                    for (uint32_t i = 0; i < total; i++)
-                    {
-                        indices.push_back(cIdx);
-                        indices.push_back(pStart + i);
-                        indices.push_back(pStart + (i + 1) % total);
-                    }
+                    indices.push_back(cIdx);
+                    indices.push_back(pStart + i);
+                    indices.push_back(pStart + (i + 1) % total);
                 }
-                else if (fillX1 > tx0 + 1.0f)
-                {
-                    // Small fill: just draw a simple quad
-                    glm::vec4 fillColor = (!section.values.empty() && section.values[0].prefixColor.a > 0.0f)
-                                              ? section.values[0].prefixColor
-                                              : glm::vec4(0.5f, 0.7f, 1.0f, 1.0f);
-                    vertices.push_back({{tx0, ty0}, fillColor});
-                    vertices.push_back({{fillX1, ty0}, fillColor});
-                    vertices.push_back({{fillX1, ty1}, fillColor});
-                    vertices.push_back({{tx0, ty1}, fillColor});
-                    indices.push_back(vertexOffset);
-                    indices.push_back(vertexOffset + 1);
-                    indices.push_back(vertexOffset + 2);
-                    indices.push_back(vertexOffset);
-                    indices.push_back(vertexOffset + 2);
-                    indices.push_back(vertexOffset + 3);
-                    vertexOffset += 4;
-                }
-
-                // Background rect behind value text to visually split the track
-                if (!section.values.empty())
-                {
-                    float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-                    float txtScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-                    float bearingY = textRenderer.GetMaxBearingY(txtScale);
-
-                    const auto &line = section.values[0];
-                    std::string valText = line.prefix + line.text;
-                    float valW = textRenderer.MeasureWidth(valText, txtScale);
-
-                    float handleX = tx0 + static_cast<float>(t) * (tx1 - tx0);
-                    float textLeft = std::clamp(handleX - valW * 0.5f, tx0, tx1 - valW);
-                    float textRight = textLeft + valW;
-
-                    // Pad the background slightly around the text
-                    float hPad = trackH * 0.5f;
-                    float bx0 = textLeft - hPad;
-                    float bx1 = textRight + hPad;
-                    float by0 = ty0 - bearingY * 0.3f;
-                    float by1 = ty1 + bearingY * 0.3f;
-
-                    glm::vec4 bgColor = panel.color;
-                    vertices.push_back({{bx0, by0}, bgColor});
-                    vertices.push_back({{bx1, by0}, bgColor});
-                    vertices.push_back({{bx1, by1}, bgColor});
-                    vertices.push_back({{bx0, by1}, bgColor});
-                    indices.push_back(vertexOffset);
-                    indices.push_back(vertexOffset + 1);
-                    indices.push_back(vertexOffset + 2);
-                    indices.push_back(vertexOffset);
-                    indices.push_back(vertexOffset + 2);
-                    indices.push_back(vertexOffset + 3);
-                    vertexOffset += 4;
-                }
-
-                break; // found the section
+                break;
             }
         }
     }
@@ -1307,7 +1349,66 @@ void UIRenderer::Render()
             float lineStepPx = bearingY + slg.cellSizeY * 0.5f * section.padding;
 
             // Button sections: center text within the inset background
-            if (section.color.a > 0.0f)
+            // Check if this section has a slider first (sliders use label-left/value-right)
+            bool isSlider = false;
+            for (const auto &s : sectionSliders)
+                if (s.panelId == panel.id && s.sectionId == section.id)
+                {
+                    isSlider = true;
+                    break;
+                }
+
+            if (isSlider)
+            {
+                // Slider layout: label left in section, value right inside button
+                float spx = slg.ToPixelsX(slg.padding);
+                float spy = slg.ToPixelsY(slg.padding) + bearingY;
+
+                if (!section.id.empty() && section.showLabel)
+                    textRenderer.RenderText(section.id, spx, spy, sTextScale, Color::GetUIText(1));
+
+                // Value inside the button background
+                if (!section.values.empty())
+                {
+                    // Find the slider pointer for edit check
+                    const SectionSlider *sl = nullptr;
+                    for (const auto &s : sectionSliders)
+                        if (s.panelId == panel.id && s.sectionId == section.id)
+                        { sl = &s; break; }
+
+                    bool editing = (sl == editingSlider && editingSlider != nullptr);
+                    std::string valText;
+                    if (editing && !editSelectAll)
+                        valText = editBuffer + "|";
+                    else if (editing)
+                        valText = editBuffer;
+                    else
+                        valText = section.values[0].prefix + section.values[0].text;
+
+                    float vx0, vy0, vx1, vy1;
+                    SliderValueRect(section, panel, grid, textRenderer, valText, vx0, vy0, vx1, vy1);
+                    float valW = textRenderer.MeasureWidth(valText, sTextScale);
+                    float vpx = vx0 + (vx1 - vx0 - valW) * 0.5f;
+                    float vpy = vy0 + (vy1 - vy0 + bearingY) * 0.5f;
+
+                    if (editing)
+                    {
+                        textRenderer.RenderText(valText, vpx, vpy, sTextScale, Color::GetUIText(1));
+                    }
+                    else
+                    {
+                        const auto &line = section.values[0];
+                        if (!line.prefix.empty())
+                        {
+                            textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
+                            vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
+                        }
+                        if (!line.text.empty())
+                            textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
+                    }
+                }
+            }
+            else if (section.color.a > 0.0f)
             {
                 float bgX0 = grid.ToPixelsX(section.col) + grid.ToPixelsX(panel.padding);
                 float bgY0 = grid.ToPixelsY(section.row) + grid.ToPixelsY(panel.padding);
@@ -1340,86 +1441,26 @@ void UIRenderer::Render()
             }
             else
             {
-                // Check if this section has a slider
-                bool isSlider = false;
-                for (const auto &s : sectionSliders)
-                    if (s.panelId == panel.id && s.sectionId == section.id)
-                    {
-                        isSlider = true;
-                        break;
-                    }
-
-                if (isSlider)
+                if (!section.id.empty() && section.showLabel)
                 {
-                    // Slider layout: label on top, value text as handle on the track
                     float spx = slg.ToPixelsX(slg.padding);
                     float spy = slg.ToPixelsY(slg.padding) + bearingY;
-
-                    if (!section.id.empty() && section.showLabel)
-                        textRenderer.RenderText(section.id, spx, spy, sTextScale, Color::GetUIText(1));
-
-                    // Render value text centered on the track at the slider position
-                    if (!section.values.empty())
-                    {
-                        // Find the slider to get the normalized position
-                        const SectionSlider *sl = nullptr;
-                        for (const auto &s : sectionSliders)
-                            if (s.panelId == panel.id && s.sectionId == section.id)
-                            {
-                                sl = &s;
-                                break;
-                            }
-
-                        if (sl)
-                        {
-                            float tx0, ty0, tx1, ty1;
-                            SliderTrackRect(section, panel, grid, textRenderer, tx0, ty0, tx1, ty1);
-
-                            double t = (*sl->value - sl->min) / (sl->max - sl->min);
-                            t = std::clamp(t, 0.0, 1.0);
-                            float handleX = tx0 + static_cast<float>(t) * (tx1 - tx0);
-                            float handleY = (ty0 + ty1) * 0.5f + bearingY * 0.5f;
-
-                            const auto &line = section.values[0];
-                            std::string valText = line.prefix + line.text;
-                            float valW = textRenderer.MeasureWidth(valText, sTextScale);
-
-                            // Clamp so text stays within track bounds
-                            float vpx = std::clamp(handleX - valW * 0.5f, tx0, tx1 - valW);
-
-                            if (!line.prefix.empty())
-                            {
-                                textRenderer.RenderText(line.prefix, vpx, handleY, sTextScale, line.prefixColor);
-                                vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
-                            }
-                            if (!line.text.empty())
-                                textRenderer.RenderText(line.text, vpx, handleY, sTextScale, Color::GetUIText(1));
-                        }
-                    }
+                    textRenderer.RenderText(section.id, spx, spy, sTextScale, Color::GetUIText(1));
                 }
-                else
-                {
-                    if (!section.id.empty() && section.showLabel)
-                    {
-                        float spx = slg.ToPixelsX(slg.padding);
-                        float spy = slg.ToPixelsY(slg.padding) + bearingY;
-                        textRenderer.RenderText(section.id, spx, spy, sTextScale, Color::GetUIText(1));
-                    }
 
-                    float valueStart = section.showLabel ? 1.0f : 0.0f;
-                    for (size_t i = 0; i < section.values.size(); i++)
+                float valueStart = section.showLabel ? 1.0f : 0.0f;
+                for (size_t i = 0; i < section.values.size(); i++)
+                {
+                    const auto &line = section.values[i];
+                    float vpx = slg.ToPixelsX(slg.padding);
+                    float vpy = slg.ToPixelsY(slg.padding) + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
+                    if (!line.prefix.empty())
                     {
-                        const auto &line = section.values[i];
-                        float vpx = slg.ToPixelsX(slg.padding);
-                        float vpy = slg.ToPixelsY(slg.padding) + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
-                        if (!line.prefix.empty())
-                        {
-                            textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
-                            vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
-                        }
-                        if (!line.text.empty())
-                            textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
+                        textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
+                        vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
                     }
+                    if (!line.text.empty())
+                        textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
                 }
             }
         }
