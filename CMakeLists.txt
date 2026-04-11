@@ -22,6 +22,9 @@ target_include_directories(glad PUBLIC include/glad/include)
 # Find SDL3
 find_package(SDL3 REQUIRED)
 
+# Find FreeType
+find_package(Freetype REQUIRED)
+
 # GLM (header-only from local directory)
 include_directories(include/glm-1.0.2)
 
@@ -40,6 +43,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
     src/display/rendering/color.cpp
     src/display/rendering/UIRenderer/UIRenderer.cpp
+    src/display/rendering/UIRenderer/TextRenderer.cpp
     src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp
     src/display/rendering/ViewportRenderer/ViewportRenderer.cpp
     src/display/rendering/Camera/camera.cpp
@@ -100,13 +104,14 @@ target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/src/display/rendering/UIRenderer
     ${CMAKE_SOURCE_DIR}/src/scene
     ${CMAKE_SOURCE_DIR}/src/scene/Geometry
-
+    ${FREETYPE_INCLUDE_DIRS}
 )
 
 
 target_link_libraries(CAD_OpenGL
     glad
     SDL3::SDL3
+    Freetype::Freetype
 )
 
 # Mac-specific

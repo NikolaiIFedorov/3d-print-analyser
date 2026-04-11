@@ -1,12 +1,19 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
 #include "logic/Analysis/Analysis.hpp"
+#include "logic/Analysis/Overhang/Overhang.hpp"
+#include "logic/Analysis/SharpCorner/SharpCorner.hpp"
+#include "logic/Analysis/SmallFeature/SmallFeature.hpp"
 #include "logic/Import/STLImport.hpp"
+
+#include <unordered_set>
+#include <queue>
+#include <cstdio>
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow()), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/Helvetica.ttc"), camera(width, height), scene(scene)
 {
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
@@ -83,6 +90,16 @@ void Display::Shutdown()
     SDL_Quit();
 }
 
+void Display::RebuildAnalysis()
+{
+    Analysis::Instance().Clear();
+    Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>(overhangAngle));
+    auto sharpCorner = std::make_unique<SharpCorner>(sharpCornerAngle);
+    const SharpCorner *sharpCornerPtr = sharpCorner.get();
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize, 3.0, sharpCornerPtr));
+    Analysis::Instance().AddEdgeAnalysis(std::move(sharpCorner));
+}
+
 void Display::UpdateCamera()
 {
     cameraDirty = true;
@@ -120,6 +137,44 @@ void Display::Frame()
 
     if (sceneDirty)
     {
+        bool hasModel = !scene->solids.empty() || !scene->faces.empty();
+
+        // Toggle Analysis panel sections based on model presence
+        uiRenderer.SetSectionVisible("Analysis", "Import file", !hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Result", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Verdict", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Overhang angle (deg)", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Sharp corner (deg)", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Min feature (mm)", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Layer height (mm)", hasModel);
+
+        // Update parameter display values
+        if (hasModel)
+        {
+            char buf[32];
+
+            glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
+            glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
+            glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
+
+            uiRenderer.SetSectionValue("Analysis", "Overhang angle (deg)",
+                                       {{std::to_string((int)overhangAngle), "", overhangColor}});
+            uiRenderer.SetSectionValue("Analysis", "Sharp corner (deg)",
+                                       {{std::to_string((int)sharpCornerAngle), "", edgeColor}});
+            snprintf(buf, sizeof(buf), "%.1f", minFeatureSize);
+            uiRenderer.SetSectionValue("Analysis", "Min feature (mm)",
+                                       {{std::string(buf), "", thinColor}});
+            snprintf(buf, sizeof(buf), "%.1f", layerHeight);
+            uiRenderer.SetSectionValue("Analysis", "Layer height (mm)",
+                                       {{std::string(buf), "", Color::GetUIText(1)}});
+        }
+
         AnalysisResults results;
         if (analysisEnabled)
             results = Analysis::Instance().AnalyzeScene(scene);
@@ -128,10 +183,105 @@ void Display::Frame()
         if (analysisEnabled)
         {
             analysisRenderer.Update(scene, results);
+
+            // Count flaws per type and push to UI
+            size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
+
+            // Count overhang regions as connected components of adjacent overhang faces
+            // Skip defunct faces (loops cleared by MergeCoplanarFaces)
+            std::unordered_set<const Face *> overhangFaces;
+            for (const auto &[face, kind] : results.faceFlaws)
+            {
+                if (kind == FaceFlawKind::OVERHANG && !face->loops.empty())
+                    overhangFaces.insert(face);
+            }
+
+            size_t overhangs = 0;
+            std::unordered_set<const Face *> visited;
+            for (const Face *seed : overhangFaces)
+            {
+                if (visited.count(seed))
+                    continue;
+                overhangs++;
+                std::queue<const Face *> bfs;
+                bfs.push(seed);
+                visited.insert(seed);
+                while (!bfs.empty())
+                {
+                    const Face *current = bfs.front();
+                    bfs.pop();
+                    for (const auto &loop : current->loops)
+                    {
+                        for (const auto &oe : loop)
+                        {
+                            for (Face *neighbor : oe.edge->dependencies)
+                            {
+                                if (overhangFaces.count(neighbor) && !visited.count(neighbor))
+                                {
+                                    visited.insert(neighbor);
+                                    bfs.push(neighbor);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const auto &[solid, flaws] : results.faceFlawRanges)
+            {
+                for (const auto &ff : flaws)
+                {
+                    switch (ff.flaw)
+                    {
+                    case FaceFlawKind::THIN_SECTION:
+                        thinSections++;
+                        break;
+                    case FaceFlawKind::SMALL_FEATURE:
+                        smallFeatures++;
+                        break;
+                    default:
+                        break;
+                    }
+                }
+            }
+            for (const auto &[solid, edgeVec] : results.edgeFlaws)
+            {
+                for (const auto &e : edgeVec)
+                {
+                    if (e.flaw == EdgeFlawKind::SHARP_CORNER)
+                        sharpEdges++;
+                }
+            }
+
+            // Bright versions of flaw colors for UI text
+            glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
+            glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
+            glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
+
+            std::vector<SectionLine> lines;
+            if (overhangs > 0)
+                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor});
+            if (thinSections > 0)
+                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor});
+            if (smallFeatures > 0)
+                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor});
+            if (sharpEdges > 0)
+                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor});
+            if (lines.empty())
+                lines.push_back({"", "No flaws", Color::GetUIText(1)});
+
+            uiRenderer.SetSectionValue("Analysis", "Result", lines);
         }
         else
         {
             analysisRenderer.Clear();
+            uiRenderer.SetSectionValue("Analysis", "Result", {});
         }
         sceneDirty = false;
     }
@@ -227,54 +377,35 @@ bool Display::HandleClick(float pixelX, float pixelY)
     return uiRenderer.HandleClick(pixelX, pixelY);
 }
 
+bool Display::HandleMouseDown(float pixelX, float pixelY)
+{
+    return uiRenderer.HandleMouseDown(pixelX, pixelY);
+}
+
+bool Display::HandleMouseMotion(float pixelX, float pixelY)
+{
+    return uiRenderer.HandleMouseMotion(pixelX, pixelY);
+}
+
+void Display::HandleMouseUp()
+{
+    uiRenderer.HandleMouseUp();
+}
+
 void Display::InitUI()
 {
-    float toolsWidth = 2.0f;  // sidebar width in cells
-    float sceneWidth = 10.0f; // sidebar width in cells
-    float filesWidth = 2.5f;  // top bar height in cells
+    float sidebarWidth = 10.0f;
 
-    const auto &grid = uiRenderer.GetGrid();
-
-    Panel analysisDef;
-    analysisDef.id = "analysis";
-    analysisDef.color = Color::GetUI(1);
-    analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
-    analysisDef.width = toolsWidth + UIGrid::GAP + sceneWidth;
-    analysisDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-    analysisDef.height = filesWidth;
-    Panel &analysis = uiRenderer.AddPanel(analysisDef);
-    uiRenderer.AddButton(analysis, [this]()
-                         {
-                             analysisEnabled = !analysisEnabled;
-                             UpdateScene(); });
-
-    Panel toolsDef;
-    toolsDef.id = "tools";
-    toolsDef.color = Color::GetUI(1);
-    toolsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
-    toolsDef.width = toolsWidth;
-    toolsDef.topAnchor = PanelAnchor{&analysis, PanelAnchor::Bottom};
-    toolsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
-    Panel &tools = uiRenderer.AddPanel(toolsDef);
-
-    Panel sceneDef;
-    sceneDef.id = "scene";
-    sceneDef.color = Color::GetUI(1);
-    sceneDef.leftAnchor = PanelAnchor{&tools, PanelAnchor::Right};
-    sceneDef.width = sceneWidth;
-    sceneDef.topAnchor = PanelAnchor{&analysis, PanelAnchor::Bottom};
-    sceneDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
-    Panel &scene = uiRenderer.AddPanel(sceneDef);
-
+    // Header
     Panel filesDef;
-    filesDef.id = "files";
+    filesDef.id = "Files";
     filesDef.color = Color::GetUI(1);
-    filesDef.leftAnchor = PanelAnchor{&scene, PanelAnchor::Right};
+    filesDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-    filesDef.height = filesWidth;
-    uiRenderer.AddPanel(filesDef);
-    uiRenderer.AddButton(filesDef, [this]()
+    filesDef.minWidth = sidebarWidth;
+    Panel &files = uiRenderer.AddPanel(filesDef);
+    uiRenderer.AddButton(files, [this]()
                          { FileImport::OpenFileDialog(window, [this](const std::string &path)
                                                       {
                                                          auto ext = path.substr(path.find_last_of('.') + 1);
@@ -290,4 +421,62 @@ void Display::InitUI()
 
                                                          FrameScene();
                                                          UpdateScene(); }); });
+
+    // Analysis panel with sections
+    Panel analysisDef;
+    analysisDef.id = "Analysis";
+    analysisDef.color = Color::GetUI(1);
+    analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
+    Panel &analysis = uiRenderer.AddPanel(analysisDef);
+    Panel &result = analysis.AddSection("Result");
+    result.showLabel = false;
+    result.visible = false;
+    Panel &import = analysis.AddSection("Import");
+    import.id = "Import file";
+    analysis.AddSection("Verdict").visible = false;
+
+    // Parameter sections with sliders
+    analysis.AddSection("Overhang angle (deg)").visible = false;
+    analysis.AddSection("Sharp corner (deg)").visible = false;
+    { auto &s = analysis.sections.back(); s.showSplitter = false; }
+    analysis.AddSection("Min feature (mm)").visible = false;
+    { auto &s = analysis.sections.back(); s.showSplitter = false; }
+    analysis.AddSection("Layer height (mm)").visible = false;
+    { auto &s = analysis.sections.back(); s.showSplitter = false; }
+
+    auto onParamChange = [this]()
+    {
+        RebuildAnalysis();
+        UpdateScene();
+    };
+
+    uiRenderer.SetSectionSlider("Analysis", "Overhang angle (deg)", 20.0, 70.0, 1.0, &overhangAngle, onParamChange);
+    uiRenderer.SetSectionSlider("Analysis", "Sharp corner (deg)", 60.0, 150.0, 1.0, &sharpCornerAngle, onParamChange);
+    uiRenderer.SetSectionSlider("Analysis", "Min feature (mm)", 0.1, 5.0, 0.1, &minFeatureSize, onParamChange);
+    uiRenderer.SetSectionSlider("Analysis", "Layer height (mm)", 0.05, 0.5, 0.05, &layerHeight, onParamChange);
+
+    RebuildAnalysis();
+
+    uiRenderer.SetSectionClick("Analysis", "Import file", [this]()
+                               { FileImport::OpenFileDialog(window, [this](const std::string &path)
+                                                            {
+                                                                auto ext = path.substr(path.find_last_of('.') + 1);
+                                                                std::string lower;
+                                                                for (char c : ext) lower += std::tolower(c);
+
+                                                                if (lower == "stl")
+                                                                    STLImport::Import(path, this->scene);
+                                                                else if (lower == "obj")
+                                                                    OBJImport::Import(path, this->scene);
+                                                                else if (lower == "3mf")
+                                                                    ThreeMFImport::Import(path, this->scene);
+
+                                                                FrameScene();
+                                                                UpdateScene(); }); });
+
+    // Compute minimum grid extent and enforce as SDL minimum window size
+    uiRenderer.ComputeMinGridSize();
+    const auto &grid = uiRenderer.GetGrid();
+    SDL_SetWindowMinimumSize(window, grid.MinWidthPixels(), grid.MinHeightPixels());
 }

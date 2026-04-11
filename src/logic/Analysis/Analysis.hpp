@@ -12,7 +12,7 @@ class IFaceAnalysis
 {
 public:
     virtual ~IFaceAnalysis() = default;
-    virtual std::optional<Flaw> Analyze(const Face *face) const = 0;
+    virtual std::optional<FaceFlawKind> Analyze(const Face *face) const = 0;
 };
 
 class ISolidAnalysis
@@ -39,11 +39,13 @@ public:
     void AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis);
     void AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis);
 
-    Flaw FlawFace(const Face *face) const;
+    FaceFlawKind FlawFace(const Face *face) const;
     std::vector<FaceFlaw> FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const;
     std::vector<EdgeFlaw> FlawEdges(const Solid *solid) const;
 
     AnalysisResults AnalyzeScene(const Scene *scene) const;
+
+    void Clear();
 
 private:
     std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;

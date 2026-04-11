@@ -206,7 +206,8 @@ void Input::mouseGestures(const SDL_Event &event)
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (event.button.button == SDL_BUTTON_LEFT)
         {
-            display->HandleClick(event.button.x, event.button.y);
+            if (display->HandleMouseDown(event.button.x, event.button.y))
+                sliderDragging = true;
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
@@ -226,7 +227,15 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_MOUSE_BUTTON_UP:
-        if (event.button.button == SDL_BUTTON_RIGHT)
+        if (event.button.button == SDL_BUTTON_LEFT)
+        {
+            if (sliderDragging)
+            {
+                display->HandleMouseUp();
+                sliderDragging = false;
+            }
+        }
+        else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             rightMouseDown = false;
             if (!middleMouseDown)
@@ -240,7 +249,9 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        if (middleMouseDown)
+        if (sliderDragging)
+            display->HandleMouseMotion(event.motion.x, event.motion.y);
+        else if (middleMouseDown)
             display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
                            -event.motion.yrel * MOUSE_SENSITIVITY);
         else if (rightMouseDown)

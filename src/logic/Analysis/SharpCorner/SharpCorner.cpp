@@ -45,7 +45,7 @@ std::vector<EdgeFlaw> SharpCorner::Analyze(const Solid *solid) const
                     if (zMax - zMin < 1e-6)
                         continue;
 
-                    results.push_back({edge, Flaw::SHARP_CORNER, {zMin, zMax}});
+                    results.push_back({edge, EdgeFlawKind::SHARP_CORNER, {zMin, zMax}});
                 }
             }
         }

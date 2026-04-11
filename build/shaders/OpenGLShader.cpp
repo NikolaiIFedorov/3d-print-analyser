@@ -113,6 +113,68 @@ bool OpenGLShader::LoadFromFiles(const std::string &vertexPath,
     return true;
 }
 
+bool OpenGLShader::LoadFromFiles(const std::string &vertexPath,
+                                 const std::string &geometryPath,
+                                 const std::string &fragmentPath)
+{
+    std::string vertexSource = ReadFile(vertexPath);
+    std::string geometrySource = ReadFile(geometryPath);
+    std::string fragmentSource = ReadFile(fragmentPath);
+
+    if (vertexSource.empty())
+        return LOG_FALSE("Vertex source is empty: " + vertexPath);
+    if (geometrySource.empty())
+        return LOG_FALSE("Geometry source is empty: " + geometryPath);
+    if (fragmentSource.empty())
+        return LOG_FALSE("Fragment source is empty: " + fragmentPath);
+
+    GLuint vertexShader = CompileShader(GL_VERTEX_SHADER, vertexSource);
+    if (!GetCompileError(vertexShader, "VERTEX"))
+    {
+        glDeleteShader(vertexShader);
+        return LOG_FALSE("Failed to compile vertex shader");
+    }
+
+    GLuint geometryShader = CompileShader(GL_GEOMETRY_SHADER, geometrySource);
+    if (!GetCompileError(geometryShader, "GEOMETRY"))
+    {
+        glDeleteShader(vertexShader);
+        glDeleteShader(geometryShader);
+        return LOG_FALSE("Failed to compile geometry shader");
+    }
+
+    GLuint fragmentShader = CompileShader(GL_FRAGMENT_SHADER, fragmentSource);
+    if (!GetCompileError(fragmentShader, "FRAGMENT"))
+    {
+        glDeleteShader(vertexShader);
+        glDeleteShader(geometryShader);
+        glDeleteShader(fragmentShader);
+        return LOG_FALSE("Failed to compile fragment shader");
+    }
+
+    programID = glCreateProgram();
+    glAttachShader(programID, vertexShader);
+    glAttachShader(programID, geometryShader);
+    glAttachShader(programID, fragmentShader);
+    glLinkProgram(programID);
+
+    if (!GetLinkError(programID))
+    {
+        glDeleteShader(vertexShader);
+        glDeleteShader(geometryShader);
+        glDeleteShader(fragmentShader);
+        glDeleteProgram(programID);
+        programID = 0;
+        return LOG_FALSE("Failed to link program");
+    }
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(geometryShader);
+    glDeleteShader(fragmentShader);
+
+    return true;
+}
+
 void OpenGLShader::Use()
 {
     if (programID != 0)
@@ -149,9 +211,30 @@ void OpenGLShader::SetVec3(const std::string &name, const glm::vec3 &vec)
         glUniform3fv(location, 1, glm::value_ptr(vec));
 }
 
+void OpenGLShader::SetVec4(const std::string &name, const glm::vec4 &vec)
+{
+    GLint location = glGetUniformLocation(programID, name.c_str());
+    if (location != -1)
+        glUniform4fv(location, 1, glm::value_ptr(vec));
+}
+
+void OpenGLShader::SetVec2(const std::string &name, const glm::vec2 &vec)
+{
+    GLint location = glGetUniformLocation(programID, name.c_str());
+    if (location != -1)
+        glUniform2fv(location, 1, glm::value_ptr(vec));
+}
+
 void OpenGLShader::SetFloat(const std::string &name, float value)
 {
     GLint location = glGetUniformLocation(programID, name.c_str());
     if (location != -1)
         glUniform1f(location, value);
+}
+
+void OpenGLShader::SetInt(const std::string &name, int value)
+{
+    GLint location = glGetUniformLocation(programID, name.c_str());
+    if (location != -1)
+        glUniform1i(location, value);
 }

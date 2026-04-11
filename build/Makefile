@@ -478,6 +478,30 @@ src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 
+src/display/rendering/UIRenderer/TextRenderer.o: src/display/rendering/UIRenderer/TextRenderer.cpp.o
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.o
+
+# target to build an object file
+src/display/rendering/UIRenderer/TextRenderer.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/TextRenderer.cpp.o
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.cpp.o
+
+src/display/rendering/UIRenderer/TextRenderer.i: src/display/rendering/UIRenderer/TextRenderer.cpp.i
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.i
+
+# target to preprocess a source file
+src/display/rendering/UIRenderer/TextRenderer.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/TextRenderer.cpp.i
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.cpp.i
+
+src/display/rendering/UIRenderer/TextRenderer.s: src/display/rendering/UIRenderer/TextRenderer.cpp.s
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.s
+
+# target to generate assembly for a file
+src/display/rendering/UIRenderer/TextRenderer.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/TextRenderer.cpp.s
+.PHONY : src/display/rendering/UIRenderer/TextRenderer.cpp.s
+
 src/display/rendering/UIRenderer/UIRenderer.o: src/display/rendering/UIRenderer/UIRenderer.cpp.o
 .PHONY : src/display/rendering/UIRenderer/UIRenderer.o
 
@@ -986,6 +1010,9 @@ help:
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.o"
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.i"
 	@echo "... src/display/rendering/SceneRenderer/Wireframe/Wireframe.s"
+	@echo "... src/display/rendering/UIRenderer/TextRenderer.o"
+	@echo "... src/display/rendering/UIRenderer/TextRenderer.i"
+	@echo "... src/display/rendering/UIRenderer/TextRenderer.s"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.o"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.i"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.s"

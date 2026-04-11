@@ -25,6 +25,11 @@ struct Color
         float v = UI_BASE + STEP * depth;
         return glm::vec4(v, v, v, alpha);
     }
+    static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
+    {
+        float v = UI_BASE + STEP * (depth + 5);
+        return glm::vec4(v, v, v, alpha);
+    }
     static glm::vec3 GetEdge()
     {
         return EDGE_DEFAULT;
@@ -55,6 +60,6 @@ struct Color
         return glm::vec3(BASE + STEP, BASE + STEP, v);
     }
 
-    static glm::vec4 GetFace(Flaw flaw);
-    static glm::vec4 GetEdge(Flaw flaw);
+    static glm::vec4 GetFace(FaceFlawKind flaw);
+    static glm::vec4 GetEdge(EdgeFlawKind flaw);
 };

@@ -12,6 +12,7 @@
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
 #include "Button.hpp"
 #include "Panel.hpp"
+#include "TextRenderer.hpp"
 #include "UIGrid.hpp"
 
 struct UIVertex
@@ -24,7 +25,7 @@ class UIRenderer
 {
 public:
     UIRenderer() = default;
-    UIRenderer(SDL_Window *window);
+    UIRenderer(SDL_Window *window, const std::string &fontPath);
     ~UIRenderer();
 
     UIRenderer(const UIRenderer &) = delete;
@@ -40,8 +41,18 @@ public:
     Panel &AddPanel(const Panel &panel);
     Panel &AddButton(const Panel &panel, std::function<void()> onClick);
     Panel *GetPanel(const std::string &id);
+    void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
+    void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
+    void SetSectionClick(const std::string &panelId, const std::string &sectionId, std::function<void()> onClick);
+    void SetSectionSlider(const std::string &panelId, const std::string &sectionId,
+                          double min, double max, double step, double *value,
+                          std::function<void()> onChange);
     bool HandleClick(float pixelX, float pixelY);
+    bool HandleMouseDown(float pixelX, float pixelY);
+    bool HandleMouseMotion(float pixelX, float pixelY);
+    void HandleMouseUp();
     const UIGrid &GetGrid() const { return grid; }
+    void ComputeMinGridSize();
 
 private:
     OpenGLShader shader;
@@ -57,6 +68,11 @@ private:
     UIGrid grid;
     std::deque<Panel> panels;
     std::vector<Button> buttons;
+    std::vector<SectionButton> sectionButtons;
+    std::vector<SectionSlider> sectionSliders;
+    SectionSlider *activeSlider = nullptr;
+    TextRenderer textRenderer;
+    SDL_Window *window = nullptr;
     bool dirty = true;
 
     bool InitializeShaders();

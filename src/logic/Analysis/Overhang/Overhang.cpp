@@ -111,7 +111,7 @@ static bool IsSolidBelow(const Face *face)
     return (crossings % 2) == 1;
 }
 
-std::optional<Flaw> Overhang::Analyze(const Face *face) const
+std::optional<FaceFlawKind> Overhang::Analyze(const Face *face) const
 {
     glm::dvec3 normal = face->GetSurface().GetNormal();
 
@@ -121,5 +121,5 @@ std::optional<Flaw> Overhang::Analyze(const Face *face) const
     if (IsSolidBelow(face))
         return std::nullopt;
 
-    return Flaw::OVERHANG;
+    return FaceFlawKind::OVERHANG;
 }

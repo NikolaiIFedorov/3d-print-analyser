@@ -44,6 +44,7 @@ private:
     int gestureFrames = 0;
     bool rightMouseDown = false;
     bool middleMouseDown = false;
+    bool sliderDragging = false;
     static constexpr float MOUSE_SENSITIVITY = 0.003f;
     static constexpr int LOCK_FRAMES = 12;
     static constexpr int WINDOW_SIZE = 4;

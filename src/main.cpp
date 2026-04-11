@@ -6,12 +6,6 @@
 #include "display/display.hpp"
 #include "input/Input.hpp"
 
-#include "Analysis/Analysis.hpp"
-#include "Analysis/Overhang/Overhang.hpp"
-#include "Analysis/SharpCorner/SharpCorner.hpp"
-
-#include "Analysis/SmallFeature/SmallFeature.hpp"
-
 Scene scene;
 SDL_Window *window = nullptr;
 std::optional<Display> display;
@@ -62,13 +56,6 @@ bool Init()
         Shutdown();
         return LOG_FALSE("Window is null");
     }
-
-    Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>());
-
-    auto sharpCorner = std::make_unique<SharpCorner>();
-    const SharpCorner *sharpCornerPtr = sharpCorner.get();
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(0.2, 1.5, 3.0, sharpCornerPtr));
-    Analysis::Instance().AddEdgeAnalysis(std::move(sharpCorner));
 
     return true;
 }

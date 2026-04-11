@@ -38,11 +38,14 @@ private:
     glm::vec3 viewPos = glm::vec3(0.0f);
     glm::vec3 lightDir = glm::vec3(0.0f, 0.0f, 1.0f);
 
+    float lineWidth = 3.0f;
+
     bool GetGLError(const std::source_location &loc = std::source_location::current());
     bool InitializeShaders();
 
 public:
     OpenGLShader shader;
+    OpenGLShader lineShader;
 
     OpenGLRenderer() {};
     OpenGLRenderer(SDL_Window *window);
@@ -70,4 +73,6 @@ public:
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);
+    void SetLineWidth(float width) { lineWidth = width; }
+    float GetLineWidth() const { return lineWidth; }
 };

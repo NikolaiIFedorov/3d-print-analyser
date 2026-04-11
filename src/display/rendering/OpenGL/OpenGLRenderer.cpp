@@ -13,7 +13,8 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
       triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO), triangleIBO(other.triangleIBO), triangleIndexCount(other.triangleIndexCount),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO), lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
       viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
-      shader(std::move(other.shader))
+      shader(std::move(other.shader)),
+      lineShader(std::move(other.lineShader))
 {
     other.window = nullptr;
     other.glContext = nullptr;
@@ -41,6 +42,7 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         projectionMatrix = other.projectionMatrix;
         modelMatrix = other.modelMatrix;
         shader = std::move(other.shader);
+        lineShader = std::move(other.lineShader);
         other.window = nullptr;
         other.glContext = nullptr;
         other.triangleVAO = other.triangleVBO = other.triangleIBO = 0;
@@ -100,13 +102,22 @@ OpenGLRenderer::OpenGLRenderer(SDL_Window *windowHandle)
 
 bool OpenGLRenderer::InitializeShaders()
 {
-    return shader.LoadFromFiles("shaders/basic.vert",
-                                "shaders/basic.frag");
+    if (!shader.LoadFromFiles("shaders/basic.vert",
+                              "shaders/basic.frag"))
+        return false;
+
+    if (!lineShader.LoadFromFiles("shaders/line.vert",
+                                  "shaders/line.geom",
+                                  "shaders/line.frag"))
+        return false;
+
+    return true;
 }
 
 void OpenGLRenderer::Shutdown()
 {
     shader.Delete();
+    lineShader.Delete();
 
     if (triangleVBO)
         glDeleteBuffers(1, &triangleVBO);
@@ -307,10 +318,14 @@ void OpenGLRenderer::DrawLines()
     if (lineIndexCount == 0)
         return;
 
-    shader.Use();
-    shader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
-    shader.SetMat4("uModel", modelMatrix);
-    shader.SetFloat("uLightingEnabled", 0.0f);
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", lineWidth);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);

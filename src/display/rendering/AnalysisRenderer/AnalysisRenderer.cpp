@@ -23,6 +23,7 @@ AnalysisRenderer::~AnalysisRenderer()
 
 AnalysisRenderer::AnalysisRenderer(AnalysisRenderer &&other) noexcept
     : shader(std::move(other.shader)),
+      lineShader(std::move(other.lineShader)),
       triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO),
       triangleIBO(other.triangleIBO), triangleIndexCount(other.triangleIndexCount),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO),
@@ -40,6 +41,7 @@ AnalysisRenderer &AnalysisRenderer::operator=(AnalysisRenderer &&other) noexcept
     {
         Shutdown();
         shader = std::move(other.shader);
+        lineShader = std::move(other.lineShader);
         triangleVAO = other.triangleVAO;
         triangleVBO = other.triangleVBO;
         triangleIBO = other.triangleIBO;
@@ -58,7 +60,15 @@ AnalysisRenderer &AnalysisRenderer::operator=(AnalysisRenderer &&other) noexcept
 
 bool AnalysisRenderer::InitializeShaders()
 {
-    return shader.LoadFromFiles("shaders/analysis.vert", "shaders/analysis.frag");
+    if (!shader.LoadFromFiles("shaders/analysis.vert", "shaders/analysis.frag"))
+        return false;
+
+    if (!lineShader.LoadFromFiles("shaders/analysis_line.vert",
+                                  "shaders/analysis_line.geom",
+                                  "shaders/analysis_line.frag"))
+        return false;
+
+    return true;
 }
 
 void AnalysisRenderer::SetCamera(Camera &camera)
@@ -432,7 +442,7 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
 {
     for (const auto &[face, flaw] : results.faceFlaws)
     {
-        if (flaw == Flaw::NONE)
+        if (flaw == FaceFlawKind::NONE)
             continue;
         TriangulateFace(face, Color::GetFace(flaw), vertices, indices);
     }
@@ -618,6 +628,15 @@ void AnalysisRenderer::Render()
 
     if (lineIndexCount > 0)
     {
+        GLint viewport[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
+
+        lineShader.Use();
+        lineShader.SetMat4("uViewProjection", viewProjection);
+        lineShader.SetMat4("uModel", glm::mat4(1.0f));
+        lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+        lineShader.SetFloat("uLineWidth", lineWidth);
+
         glBindVertexArray(lineVAO);
         glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
@@ -629,6 +648,7 @@ void AnalysisRenderer::Render()
 void AnalysisRenderer::Shutdown()
 {
     shader.Delete();
+    lineShader.Delete();
     if (triangleVBO)
         glDeleteBuffers(1, &triangleVBO);
     if (triangleIBO)

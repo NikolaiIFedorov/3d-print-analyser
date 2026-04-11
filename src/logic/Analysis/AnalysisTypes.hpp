@@ -4,12 +4,17 @@
 #include <unordered_map>
 #include <glm/glm.hpp>
 
-enum class Flaw
+enum class FaceFlawKind
 {
     OVERHANG,
     THIN_SECTION,
-    SHARP_CORNER,
     SMALL_FEATURE,
+    NONE,
+};
+
+enum class EdgeFlawKind
+{
+    SHARP_CORNER,
     NONE,
 };
 
@@ -38,10 +43,10 @@ struct Layer
 {
     std::vector<Segment> segments;
     std::vector<Triangle> triangles;
-    Flaw flaw;
-    Layer(const std::vector<Segment> &segments, Flaw flaw) : segments(segments), flaw(flaw) {}
+    FaceFlawKind flaw;
+    Layer(const std::vector<Segment> &segments, FaceFlawKind flaw) : segments(segments), flaw(flaw) {}
     Layer(const std::vector<Segment> &segments) : segments(segments) {};
-    Layer(const std::vector<Triangle> &triangles, Flaw flaw) : triangles(triangles), flaw(flaw) {}
+    Layer(const std::vector<Triangle> &triangles, FaceFlawKind flaw) : triangles(triangles), flaw(flaw) {}
 };
 
 class Edge;
@@ -51,27 +56,27 @@ class Solid;
 struct EdgeFlaw
 {
     const Edge *edge;
-    Flaw flaw;
+    EdgeFlawKind flaw;
     ZBounds bounds;
 };
 
 struct FaceFlaw
 {
     const Face *face;
-    Flaw flaw;
+    FaceFlawKind flaw;
     ZBounds bounds;
     std::vector<glm::dvec3> clipBoundary;
 };
 
 struct BridgeSurface
 {
-    Flaw flaw;
+    FaceFlawKind flaw;
     std::vector<glm::dvec3> boundary; // closed polygon for a vertical connecting face
 };
 
 struct AnalysisResults
 {
-    std::unordered_map<const Face *, Flaw> faceFlaws;
+    std::unordered_map<const Face *, FaceFlawKind> faceFlaws;
     std::unordered_map<const Solid *, std::vector<FaceFlaw>> faceFlawRanges;
     std::unordered_map<const Solid *, std::vector<EdgeFlaw>> edgeFlaws;
     std::unordered_map<const Solid *, std::vector<BridgeSurface>> bridgeSurfaces;

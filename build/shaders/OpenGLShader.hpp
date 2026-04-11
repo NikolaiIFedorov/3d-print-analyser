@@ -41,12 +41,18 @@ public:
 
     bool LoadFromFiles(const std::string &vertexPath,
                        const std::string &fragmentPath);
+    bool LoadFromFiles(const std::string &vertexPath,
+                       const std::string &geometryPath,
+                       const std::string &fragmentPath);
     void Use();
     void Delete();
 
     void SetMat4(const std::string &name, const glm::mat4 &matrix);
     void SetVec3(const std::string &name, const glm::vec3 &vec);
+    void SetVec4(const std::string &name, const glm::vec4 &vec);
+    void SetVec2(const std::string &name, const glm::vec2 &vec);
     void SetFloat(const std::string &name, float value);
+    void SetInt(const std::string &name, int value);
 
     GLuint GetProgramId() const { return programID; }
 };

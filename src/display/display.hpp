@@ -25,6 +25,9 @@ public:
 
     bool HitTestUI(float pixelX, float pixelY) const;
     bool HandleClick(float pixelX, float pixelY);
+    bool HandleMouseDown(float pixelX, float pixelY);
+    bool HandleMouseMotion(float pixelX, float pixelY);
+    void HandleMouseUp();
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 
@@ -54,10 +57,16 @@ private:
 
     Camera camera;
 
-    bool analysisEnabled = false;
+    bool analysisEnabled = true;
     bool cameraDirty = true;
     bool sceneDirty = true;
 
+    double overhangAngle = 45.0;
+    double sharpCornerAngle = 100.0;
+    double minFeatureSize = 1.5;
+    double layerHeight = 0.2;
+
+    void RebuildAnalysis();
     void snapInput(float &x, float &y);
     void InitUI();
 };

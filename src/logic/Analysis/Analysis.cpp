@@ -22,7 +22,7 @@ void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
     edgeAnalyses.push_back(std::move(analysis));
 }
 
-Flaw Analysis::FlawFace(const Face *face) const
+FaceFlawKind Analysis::FlawFace(const Face *face) const
 {
     for (const auto &analysis : faceAnalyses)
     {
@@ -31,7 +31,7 @@ Flaw Analysis::FlawFace(const Face *face) const
             return result.value();
     }
 
-    return Flaw::NONE;
+    return FaceFlawKind::NONE;
 }
 
 std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces) const
@@ -56,6 +56,13 @@ std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
         allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
     }
     return allEdgeFlaws;
+}
+
+void Analysis::Clear()
+{
+    faceAnalyses.clear();
+    solidAnalyses.clear();
+    edgeAnalyses.clear();
 }
 
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const

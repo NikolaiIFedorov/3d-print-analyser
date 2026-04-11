@@ -34,9 +34,12 @@ public:
     void SetCamera(Camera &camera);
     void Render();
     void Shutdown();
+    void SetLineWidth(float width) { lineWidth = width; }
+    float GetLineWidth() const { return lineWidth; }
 
 private:
     OpenGLShader shader;
+    OpenGLShader lineShader;
 
     GLuint triangleVAO = 0;
     GLuint triangleVBO = 0;
@@ -49,6 +52,8 @@ private:
     uint32_t lineIndexCount = 0;
 
     glm::mat4 viewProjection = glm::mat4(1.0f);
+
+    float lineWidth = 3.0f;
 
     bool InitializeShaders();
     void UploadTriangles(const std::vector<AnalysisVertex> &vertices, const std::vector<uint32_t> &indices);

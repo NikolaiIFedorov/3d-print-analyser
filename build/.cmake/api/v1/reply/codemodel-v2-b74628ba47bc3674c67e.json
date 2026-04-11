@@ -6,6 +6,13 @@
 			[
 				{
 					"directoryIndex" : 0,
+					"id" : "Freetype::Freetype::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Freetype__Freetype-Debug-c4332547ad39ca44ef6f.json",
+					"name" : "Freetype::Freetype",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
 					"id" : "SDL3::Headers::@6890427a1f51a3e7e1df",
 					"jsonFile" : "target-SDL3__Headers-Debug-759edeb3f97344303f70.json",
 					"name" : "SDL3::Headers",
@@ -33,7 +40,8 @@
 					[
 						0,
 						1,
-						2
+						2,
+						3
 					],
 					"build" : ".",
 					"jsonFile" : "directory-.-Debug-9ad1a58d4644cf6543fa.json",
@@ -58,7 +66,8 @@
 					[
 						0,
 						1,
-						2
+						2,
+						3
 					],
 					"directoryIndexes" : 
 					[
@@ -77,14 +86,14 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "CAD_OpenGL::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-CAD_OpenGL-Debug-79f754abb5e2faa3e671.json",
+					"jsonFile" : "target-CAD_OpenGL-Debug-372e30e1e6da5bddac84.json",
 					"name" : "CAD_OpenGL",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "glad::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-glad-Debug-288d37f60e91dcc38b1d.json",
+					"jsonFile" : "target-glad-Debug-55ad8f5c3f5e48f200ae.json",
 					"name" : "glad",
 					"projectIndex" : 0
 				}

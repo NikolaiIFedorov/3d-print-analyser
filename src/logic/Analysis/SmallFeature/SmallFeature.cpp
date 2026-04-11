@@ -270,7 +270,7 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
     {
         ZBounds extended = {std::max(info.zBounds.zMin - layerHeight, zMin),
                             std::min(info.zBounds.zMax + layerHeight, zMax)};
-        results.push_back({face, Flaw::SMALL_FEATURE, extended});
+        results.push_back({face, FaceFlawKind::SMALL_FEATURE, extended});
     }
 
     // Build clip boundary polygons from trimmed segments
@@ -322,7 +322,7 @@ std::vector<FaceFlaw> SmallFeature::Analyze(const Solid *solid, std::optional<ZB
         // Classify: tall narrow outer-outer region = thin section, otherwise small feature
         bool hasOuterOuter = faceHasOuterOuterPair.count(face) && faceHasOuterOuterPair[face];
         bool isThinSection = hasOuterOuter && minWidth > 1e-10 && height / minWidth >= heightToWidthRatio;
-        Flaw flawType = isThinSection ? Flaw::THIN_SECTION : Flaw::SMALL_FEATURE;
+        FaceFlawKind flawType = isThinSection ? FaceFlawKind::THIN_SECTION : FaceFlawKind::SMALL_FEATURE;
 
         if (merged.size() < 2)
         {

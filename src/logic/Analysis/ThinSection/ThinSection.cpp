@@ -122,7 +122,7 @@ std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBo
         if (info.minWidth < 1e-10)
             continue;
         if (height / info.minWidth >= heightToWidthRatio)
-            results.push_back({face, Flaw::THIN_SECTION, info.zBounds});
+            results.push_back({face, FaceFlawKind::THIN_SECTION, info.zBounds});
     }
 
     return results;
