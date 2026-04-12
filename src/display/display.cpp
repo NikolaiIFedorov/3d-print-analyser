@@ -23,8 +23,10 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 13.0f);
+    ImFont *pixelFont = io.Fonts->AddFontDefault(); // ProggyClean for interactable elements
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
     ImGui_ImplOpenGL3_Init("#version 330");
+    uiRenderer.SetPixelImFont(pixelFont);
 
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
@@ -332,9 +334,7 @@ void Display::Frame()
                 lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
             if (sharpEdges > 0)
                 lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
-            if (lines.empty())
-                lines.push_back({"", "No flaws", Color::GetUIText(1)});
-
+            uiRenderer.SetSectionVisible("Analysis", "Result", !lines.empty());
             uiRenderer.SetSectionValue("Analysis", "Result", lines);
 
             // Two-tier verdict
@@ -378,7 +378,11 @@ void Display::Frame()
                 double footprintArea = footprintX * footprintY;
                 double footprintDiag = std::sqrt(footprintX * footprintX + footprintY * footprintY);
 
-                struct Tip { const char *text; float weight; };
+                struct Tip
+                {
+                    const char *text;
+                    float weight;
+                };
                 std::vector<Tip> tips = {
                     {"Remember to clean your build plate!", 1.0f},
                     {"A brim can help with bed adhesion", 1.0f},

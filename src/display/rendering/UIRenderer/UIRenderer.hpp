@@ -15,6 +15,8 @@
 #include "TextRenderer.hpp"
 #include "UIGrid.hpp"
 
+struct ImFont;
+
 struct UIVertex
 {
     glm::vec2 position;
@@ -44,6 +46,8 @@ public:
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
+    void SetPixelImFont(ImFont *font) { pixelImFont = font; }
+    ImFont *GetPixelImFont() const { return pixelImFont; }
 
 private:
     OpenGLShader shader;
@@ -60,6 +64,7 @@ private:
     std::deque<Panel> panels;
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
+    ImFont *pixelImFont = nullptr;
     bool dirty = true;
 
     bool InitializeShaders();
