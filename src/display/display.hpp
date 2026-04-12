@@ -8,6 +8,9 @@
 #include "rendering/AnalysisRenderer/AnalysisRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_opengl3.h"
 
 class Display
 {
@@ -24,13 +27,6 @@ public:
     void Frame();
 
     bool HitTestUI(float pixelX, float pixelY) const;
-    bool HandleClick(float pixelX, float pixelY);
-    bool HandleMouseDown(float pixelX, float pixelY);
-    bool HandleMouseMotion(float pixelX, float pixelY);
-    void HandleMouseUp();
-    bool HandleKeyDown(SDL_Keycode key);
-    bool HandleTextInput(const char *text);
-    bool IsEditing() const;
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 
@@ -64,10 +60,10 @@ private:
     bool cameraDirty = true;
     bool sceneDirty = true;
 
-    double overhangAngle = 45.0;
-    double sharpCornerAngle = 100.0;
-    double minFeatureSize = 1.5;
-    double layerHeight = 0.2;
+    float overhangAngle = 45.0f;
+    float sharpCornerAngle = 100.0f;
+    float minFeatureSize = 1.5f;
+    float layerHeight = 0.2f;
 
     void RebuildAnalysis();
     void snapInput(float &x, float &y);

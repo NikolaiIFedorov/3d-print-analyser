@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -66,6 +67,9 @@ struct Panel
     bool visible = true;
     bool showSplitter = true;
 
+    // Optional ImGui content callback — when set, renders ImGui widgets inside the section
+    std::function<void(float width, float height)> imguiContent;
+
     // Horizontal constraints
     std::optional<PanelAnchor> leftAnchor;  // defines left edge position
     std::optional<PanelAnchor> rightAnchor; // defines right edge position
@@ -91,6 +95,18 @@ struct Panel
         section.borderRadius = RadiusForLayer(1);
         section.padding = PaddingForLayer(1);
         sections.push_back(section);
+        return sections.back();
+    }
+
+    Panel &AddContent(const std::string &contentId)
+    {
+        Panel content;
+        content.id = contentId;
+        content.borderRadius = RadiusForLayer(2);
+        content.padding = PaddingForLayer(2);
+        content.showLabel = false;
+        content.showSplitter = false;
+        sections.push_back(content);
         return sections.back();
     }
 };

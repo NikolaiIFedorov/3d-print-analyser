@@ -534,6 +534,104 @@ CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp -o CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s
 
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.s
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp > CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.s
+
 # Object files for target CAD_OpenGL
 CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" \
@@ -568,7 +666,14 @@ CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o" \
 "CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o" \
 "CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o" \
-"CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
+"CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o"
 
 # External object files for target CAD_OpenGL
 CAD_OpenGL_EXTERNAL_OBJECTS =
@@ -606,12 +711,19 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/build.make
 CAD_OpenGL: libglad.a
 CAD_OpenGL: /opt/homebrew/lib/libSDL3.0.dylib
 CAD_OpenGL: /opt/homebrew/lib/libfreetype.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Linking CXX executable CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders

@@ -1129,7 +1129,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/print \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/throw_system_error.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/unistd.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Button.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/PanelGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
@@ -1161,6 +1160,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/zoned_time.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/ostream.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/algorithm \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/adjacent_find.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/all_of.h \

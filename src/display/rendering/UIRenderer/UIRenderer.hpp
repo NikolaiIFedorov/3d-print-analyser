@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
-#include "Button.hpp"
 #include "Panel.hpp"
 #include "TextRenderer.hpp"
 #include "UIGrid.hpp"
@@ -40,21 +39,9 @@ public:
     void Shutdown();
 
     Panel &AddPanel(const Panel &panel);
-    Panel &AddButton(const Panel &panel, std::function<void()> onClick);
     Panel *GetPanel(const std::string &id);
     void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
-    void SetSectionClick(const std::string &panelId, const std::string &sectionId, std::function<void()> onClick);
-    void SetSectionSlider(const std::string &panelId, const std::string &sectionId,
-                          double min, double max, double step, double *value,
-                          std::function<void()> onChange);
-    bool HandleClick(float pixelX, float pixelY);
-    bool HandleMouseDown(float pixelX, float pixelY);
-    bool HandleMouseMotion(float pixelX, float pixelY);
-    void HandleMouseUp();
-    bool HandleKeyDown(SDL_Keycode key);
-    bool HandleTextInput(const char *text);
-    bool IsEditing() const { return editingSlider != nullptr; }
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
 
@@ -71,14 +58,6 @@ private:
 
     UIGrid grid;
     std::deque<Panel> panels;
-    std::vector<Button> buttons;
-    std::vector<SectionButton> sectionButtons;
-    std::vector<SectionSlider> sectionSliders;
-    SectionSlider *activeSlider = nullptr;
-    SectionSlider *editingSlider = nullptr;
-    std::string editBuffer;
-    bool editSelectAll = false;
-    float lastDragX = 0;
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     bool dirty = true;

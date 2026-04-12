@@ -31,6 +31,9 @@ include_directories(include/glm-1.0.2)
 # TinyNURBS (header-only)
 include_directories(include/tinynurbs/include)
 
+# ImGui
+include_directories(include/imgui include/imgui/backends)
+
 include_directories(include/earcut.hpp-2.2.4/include/)
 
 add_executable(CAD_OpenGL
@@ -67,6 +70,13 @@ add_executable(CAD_OpenGL
     include/miniz_tinfl.c
     include/miniz_zip.c
     include/tinyxml2.cpp
+    include/imgui/imgui.cpp
+    include/imgui/imgui_draw.cpp
+    include/imgui/imgui_tables.cpp
+    include/imgui/imgui_widgets.cpp
+    include/imgui/imgui_demo.cpp
+    include/imgui/backends/imgui_impl_sdl3.cpp
+    include/imgui/backends/imgui_impl_opengl3.cpp
 
 )
 

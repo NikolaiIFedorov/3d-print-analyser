@@ -1,4 +1,6 @@
 #include "Input.hpp"
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
 
 Input::Input(Display *display)
     : display(display)
@@ -206,8 +208,7 @@ void Input::mouseGestures(const SDL_Event &event)
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (event.button.button == SDL_BUTTON_LEFT)
         {
-            if (display->HandleMouseDown(event.button.x, event.button.y))
-                sliderDragging = true;
+            // UI interaction will be handled by ImGui later
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
@@ -229,11 +230,7 @@ void Input::mouseGestures(const SDL_Event &event)
     case SDL_EVENT_MOUSE_BUTTON_UP:
         if (event.button.button == SDL_BUTTON_LEFT)
         {
-            if (sliderDragging)
-            {
-                display->HandleMouseUp();
-                sliderDragging = false;
-            }
+            // UI interaction will be handled by ImGui later
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
@@ -249,9 +246,7 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        if (sliderDragging)
-            display->HandleMouseMotion(event.motion.x, event.motion.y);
-        else if (middleMouseDown)
+        if (middleMouseDown)
             display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
                            -event.motion.yrel * MOUSE_SENSITIVITY);
         else if (rightMouseDown)
@@ -266,8 +261,15 @@ void Input::mouseGestures(const SDL_Event &event)
 bool Input::handleEvents()
 {
     SDL_Event event;
-    while (SDL_PollEvent(&event))
+    if (!SDL_WaitEvent(&event))
+        return true;
+
+    do
     {
+        // Feed events to ImGui first
+        ImGui_ImplSDL3_ProcessEvent(&event);
+        ImGuiIO &io = ImGui::GetIO();
+
         switch (event.type)
         {
         case SDL_EVENT_QUIT:
@@ -283,18 +285,17 @@ bool Input::handleEvents()
             break;
         }
         case SDL_EVENT_KEY_DOWN:
-            if (display->HandleKeyDown(event.key.key))
+            if (io.WantCaptureKeyboard)
                 break;
             [[fallthrough]];
         case SDL_EVENT_MOUSE_WHEEL:
             mouseGestures(event);
             break;
-        case SDL_EVENT_TEXT_INPUT:
-            display->HandleTextInput(event.text.text);
-            break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
         case SDL_EVENT_MOUSE_MOTION:
+            if (io.WantCaptureMouse)
+                break;
             if (activeTouches.size() < 2)
                 mouseGestures(event);
             break;
@@ -338,7 +339,7 @@ bool Input::handleEvents()
             resetGestureState();
             break;
         }
-    }
+    } while (SDL_PollEvent(&event));
 
     return true;
 }

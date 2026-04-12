@@ -4,7 +4,7 @@
 # compile C with /usr/bin/clang
 C_DEFINES = 
 
-C_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include
+C_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include
 
 C_FLAGSarm64 = -g -arch arm64
 
