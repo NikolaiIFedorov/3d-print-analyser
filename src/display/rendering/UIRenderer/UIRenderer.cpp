@@ -6,6 +6,7 @@
 #include <cmath>
 
 static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter thickness in cells
+static constexpr float LINE_GAP_FACTOR = 0.35f;  // fraction of padding used between stacked value lines
 
 UIRenderer::UIRenderer(SDL_Window *window, const std::string &fontPath)
     : window(window)
@@ -337,7 +338,8 @@ void UIRenderer::ResolveAnchors()
             float textHeightPx = textRenderer.GetMaxBearingY(textScale);
             float textHeightCells = textHeightPx / grid.cellSizeY;
             float GAP = panel.padding;                       // universal spacing = padding
-            float lineStep = GAP + textHeightCells;          // per-line step: gap + text
+            float lineGap = GAP * LINE_GAP_FACTOR;           // tighter gap between stacked value lines
+            float lineStep = lineGap + textHeightCells;      // per-line step: small gap + text
             float itemHeight = 2.0f * GAP + textHeightCells; // full item: pad + text + pad
 
             float textWidthPx = textRenderer.MeasureWidth(panel.id, textScale);
@@ -395,15 +397,16 @@ void UIRenderer::ResolveAnchors()
                 float totalHeight = itemHeight; // header (includes own top+bottom padding)
 
                 // Compute height of a leaf item (no children)
-                auto leafHeight = [&](const Panel &item) -> float
+                auto leafHeight = [&](const Panel &item, bool isContent = false) -> float
                 {
-                    float h = itemHeight;
+                    float g = isContent ? lineGap : GAP;
+                    float h = 2.0f * g + textHeightCells;
                     if (!item.values.empty())
                     {
                         float valLines = static_cast<float>(item.values.size());
                         h = item.showLabel
-                                ? itemHeight + valLines * lineStep
-                                : GAP + valLines * lineStep;
+                                ? (2.0f * g + textHeightCells) + valLines * lineStep
+                                : g + valLines * lineStep;
                     }
                     return h;
                 };
@@ -421,9 +424,9 @@ void UIRenderer::ResolveAnchors()
                     {
                         if (!content.visible)
                             continue;
-                        h += leafHeight(content);
+                        h += leafHeight(content, true);
                     }
-                    return h + 2.0f * subGap + splGap;
+                    return h + 2.0f * subGap + splGap + (GAP - lineGap);
                 };
 
                 for (const auto &section : panel.sections)
@@ -469,7 +472,7 @@ void UIRenderer::ResolveAnchors()
                         {
                             if (!content.visible)
                                 continue;
-                            float cH = leafHeight(content);
+                            float cH = leafHeight(content, true);
                             content.col = cCol;
                             content.colSpan = cColSpan;
                             content.row = contentRow;
@@ -1117,7 +1120,7 @@ void UIRenderer::Render()
             const auto &slg = item.localGrid;
             float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
             float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-            float lineStepPx = panel.padding * grid.cellSizeY + bearingY; // matches layout lineStep
+            float lineStepPx = panel.padding * LINE_GAP_FACTOR * grid.cellSizeY + bearingY; // matches layout lineStep
 
             if (item.color.a > 0.0f)
             {
