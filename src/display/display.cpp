@@ -9,6 +9,7 @@
 #include <unordered_set>
 #include <queue>
 #include <cstdio>
+#include <random>
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
@@ -345,24 +346,93 @@ void Display::Frame()
 
             std::vector<SectionLine> verdictLines;
             if (hasVisual && hasPrecision)
-            {
-                verdictLines.push_back({"Quality and precision issues", "", failColor});
-                verdictLines.push_back({"Some areas might not print well or accurately", "", Color::GetUIText(1)});
-            }
+                verdictLines.push_back({"Some areas might not print well or accurately", "", failColor});
             else if (hasVisual)
-            {
-                verdictLines.push_back({"Print quality issues", "", failColor});
-                verdictLines.push_back({"Some areas might not print well", "", Color::GetUIText(1)});
-            }
+                verdictLines.push_back({"Some areas might not print well", "", failColor});
             else if (hasPrecision)
-            {
-                verdictLines.push_back({"Precision issues", "", failColor});
-                verdictLines.push_back({"Some areas might not print accurately", "", Color::GetUIText(1)});
-            }
+                verdictLines.push_back({"Some areas might not print accurately", "", failColor});
             else
             {
-                verdictLines.push_back({"Ready to print", "", passColor});
-                verdictLines.push_back({"No issues detected", "", Color::GetUIText(1)});
+                verdictLines.push_back({"No issues detected", "", passColor});
+
+                // Contextual printing tip based on model geometry
+                glm::dvec3 modelMin(std::numeric_limits<double>::max());
+                glm::dvec3 modelMax(std::numeric_limits<double>::lowest());
+                size_t totalLoops = 0;
+
+                for (const auto &face : scene->faces)
+                {
+                    totalLoops += face.loops.size();
+                    for (const auto &loop : face.loops)
+                        for (const auto &oe : loop)
+                        {
+                            const auto &p = oe.edge->startPoint->position;
+                            modelMin = glm::min(modelMin, p);
+                            modelMax = glm::max(modelMax, p);
+                        }
+                }
+
+                double height = modelMax.z - modelMin.z;
+                double footprintX = modelMax.x - modelMin.x;
+                double footprintY = modelMax.y - modelMin.y;
+                double footprintArea = footprintX * footprintY;
+                double footprintDiag = std::sqrt(footprintX * footprintX + footprintY * footprintY);
+
+                struct Tip { const char *text; float weight; };
+                std::vector<Tip> tips = {
+                    {"Remember to clean your build plate!", 1.0f},
+                    {"A brim can help with bed adhesion", 1.0f},
+                    {"Keep your filament dry", 1.0f},
+                    {"A retraction test can help reduce stringing", 0.5f},
+                    {"Level your bed before printing", 1.0f},
+                    {"Check your nozzle for wear", 0.5f},
+                };
+
+                // Tall & narrow → adhesion tips
+                if (footprintDiag > 0 && height / footprintDiag > 1.5)
+                {
+                    tips[0].weight += 3.0f; // clean build plate
+                    tips[1].weight += 3.0f; // brim
+                }
+
+                // Large footprint → level bed matters more
+                if (footprintArea > 2500.0) // > ~50x50 mm
+                    tips[4].weight += 3.0f;
+
+                // Many loops → complex geometry → stringing risk
+                if (totalLoops > 30)
+                {
+                    tips[2].weight += 2.0f; // dry filament
+                    tips[3].weight += 2.0f; // retraction test
+                }
+                if (totalLoops > 80)
+                {
+                    tips[2].weight += 2.0f;
+                    tips[3].weight += 2.0f;
+                }
+
+                // Weighted random pick
+                float totalWeight = 0;
+                for (const auto &t : tips)
+                    totalWeight += t.weight;
+
+                static std::mt19937 rng(std::random_device{}());
+                std::uniform_real_distribution<float> dist(0.0f, totalWeight);
+                float r = dist(rng);
+                const char *tip = tips[0].text;
+                float cumulative = 0;
+                for (const auto &t : tips)
+                {
+                    cumulative += t.weight;
+                    if (r < cumulative)
+                    {
+                        tip = t.text;
+                        break;
+                    }
+                }
+
+                glm::vec4 tipColor(0.55f, 0.55f, 0.55f, 1.0f);
+                verdictLines.push_back({tip, "", tipColor});
             }
 
             uiRenderer.SetSectionValue("Analysis", "Verdict", verdictLines);
@@ -520,7 +590,9 @@ void Display::InitUI()
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar();
     };
-    analysis.AddSection("Verdict").visible = false;
+    Panel &verdict = analysis.AddSection("Verdict");
+    verdict.visible = false;
+    verdict.showLabel = false;
 
     // Parameter group
     Panel &config = analysis.AddSection("Configs");

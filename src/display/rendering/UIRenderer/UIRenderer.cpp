@@ -1168,65 +1168,58 @@ void UIRenderer::Render()
                     float vpx = slg.ToPixelsX(slg.padding);
                     float vpy = slg.ToPixelsY(slg.padding) + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
 
-                    // Clickable value lines: render text + button via ImGui
+                    float btnX = vpx;
+                    float btnY = vpy - bearingY;
+                    float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
+                    float btnH = bearingY;
+                    ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
+                    ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
+                    std::string winId = "##val_" + panel.id + "_" + item.id + "_" + std::to_string(i);
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
                     if (line.onClick)
                     {
-                        float btnX = slg.ToPixelsX(slg.padding);
-                        float btnY = vpy - bearingY;
-                        float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-                        float btnH = bearingY; // match imguiContent inset height
-                        ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
-                        ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
-                        std::string winId = "##click_" + panel.id + "_" + item.id + "_" + std::to_string(i);
-                        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
                         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, btnH * 0.3f);
                         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
                         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
                         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-                        if (ImGui::Begin(winId.c_str(), nullptr,
-                                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                             ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+                    }
+                    if (ImGui::Begin(winId.c_str(), nullptr,
+                                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+                    {
+                        if (line.onClick)
                         {
                             if (ImGui::Button(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
                                 line.onClick();
                             if (ImGui::IsItemHovered())
                                 ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-                            // Render text via ImGui draw list
-                            float pad = ImGui::GetStyle().FramePadding.x;
-                            float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
-                            ImDrawList *dl = ImGui::GetWindowDrawList();
-                            float tx = btnX + pad;
-                            if (!line.prefix.empty())
-                            {
-                                ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                                dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
-                                tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
-                            }
-                            if (!line.text.empty())
-                            {
-                                glm::vec4 tc = Color::GetUIText(1);
-                                ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                                dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
-                            }
                         }
-                        ImGui::End();
-                        ImGui::PopStyleColor(3);
-                        ImGui::PopStyleVar(3);
-                    }
-                    else
-                    {
-                        // Non-clickable: use custom text renderer
-                        float tvpx = vpx;
+
+                        float pad = ImGui::GetStyle().FramePadding.x;
+                        float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
+                        ImDrawList *dl = ImGui::GetWindowDrawList();
+                        float tx = btnX + pad;
                         if (!line.prefix.empty())
                         {
-                            textRenderer.RenderText(line.prefix, tvpx, vpy, sTextScale, line.prefixColor);
-                            tvpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
+                            ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
+                            dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
+                            tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
                         }
                         if (!line.text.empty())
-                            textRenderer.RenderText(line.text, tvpx, vpy, sTextScale, Color::GetUIText(1));
+                        {
+                            glm::vec4 tc = Color::GetUIText(1);
+                            ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                            dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
+                        }
                     }
+                    ImGui::End();
+                    if (line.onClick)
+                    {
+                        ImGui::PopStyleColor(3);
+                        ImGui::PopStyleVar(1);
+                    }
+                    ImGui::PopStyleVar(2);
                 }
             }
         };
