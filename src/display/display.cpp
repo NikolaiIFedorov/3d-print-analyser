@@ -21,6 +21,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 13.0f);
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
     ImGui_ImplOpenGL3_Init("#version 330");
 
@@ -116,6 +117,7 @@ void Display::RebuildAnalysis()
 void Display::UpdateCamera()
 {
     cameraDirty = true;
+    renderDirty = true;
 }
 
 void Display::Render()
@@ -144,6 +146,7 @@ void Display::Render()
 void Display::UpdateScene()
 {
     sceneDirty = true;
+    renderDirty = true;
 }
 
 void Display::Frame()
@@ -164,7 +167,7 @@ void Display::Frame()
         uiRenderer.SetSectionVisible("Analysis", "Import file", !hasModel);
         uiRenderer.SetSectionVisible("Analysis", "Result", hasModel);
         uiRenderer.SetSectionVisible("Analysis", "Verdict", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Config", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Configs", hasModel);
 
         AnalysisResults results;
         if (analysisEnabled)
@@ -244,6 +247,58 @@ void Display::Frame()
                 }
             }
 
+            // Compute 3D bounding boxes per flaw category for click-to-frame
+            auto expandBounds = [](glm::vec3 &bMin, glm::vec3 &bMax, const glm::dvec3 &p)
+            {
+                glm::vec3 fp(p);
+                bMin = glm::min(bMin, fp);
+                bMax = glm::max(bMax, fp);
+            };
+            auto expandFaceBounds = [&](glm::vec3 &bMin, glm::vec3 &bMax, const Face *face)
+            {
+                for (const auto &loop : face->loops)
+                    for (const auto &oe : loop)
+                    {
+                        expandBounds(bMin, bMax, oe.edge->startPoint->position);
+                        expandBounds(bMin, bMax, oe.edge->endPoint->position);
+                    }
+            };
+
+            constexpr float INF = std::numeric_limits<float>::max();
+            glm::vec3 overhangMin(INF), overhangMax(-INF);
+            glm::vec3 thinMin(INF), thinMax(-INF);
+            glm::vec3 smallMin(INF), smallMax(-INF);
+            glm::vec3 sharpMin(INF), sharpMax(-INF);
+
+            // Overhang face bounds
+            for (const Face *face : overhangFaces)
+                expandFaceBounds(overhangMin, overhangMax, face);
+
+            // Thin section / small feature bounds from faceFlawRanges
+            for (const auto &[solid, flaws] : results.faceFlawRanges)
+            {
+                for (const auto &ff : flaws)
+                {
+                    if (ff.flaw == FaceFlawKind::THIN_SECTION && ff.face)
+                        expandFaceBounds(thinMin, thinMax, ff.face);
+                    else if (ff.flaw == FaceFlawKind::SMALL_FEATURE && ff.face)
+                        expandFaceBounds(smallMin, smallMax, ff.face);
+                }
+            }
+
+            // Sharp edge bounds
+            for (const auto &[solid, edgeVec] : results.edgeFlaws)
+            {
+                for (const auto &e : edgeVec)
+                {
+                    if (e.flaw == EdgeFlawKind::SHARP_CORNER && e.edge)
+                    {
+                        expandBounds(sharpMin, sharpMax, e.edge->startPoint->position);
+                        expandBounds(sharpMin, sharpMax, e.edge->endPoint->position);
+                    }
+                }
+            }
+
             // Bright versions of flaw colors for UI text
             glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
@@ -255,29 +310,77 @@ void Display::Frame()
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
 
+            auto makeFrameCallback = [this](glm::vec3 bMin, glm::vec3 bMax) -> std::function<void()>
+            {
+                if (bMin.x > bMax.x)
+                    return nullptr; // no valid bounds
+                return [this, bMin, bMax]()
+                {
+                    camera.FrameBounds(bMin, bMax);
+                    cameraDirty = true;
+                    renderDirty = true;
+                };
+            };
+
             std::vector<SectionLine> lines;
             if (overhangs > 0)
-                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor});
+                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, makeFrameCallback(overhangMin, overhangMax)});
             if (thinSections > 0)
-                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor});
+                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, makeFrameCallback(thinMin, thinMax)});
             if (smallFeatures > 0)
-                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor});
+                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
             if (sharpEdges > 0)
-                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor});
+                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
             if (lines.empty())
                 lines.push_back({"", "No flaws", Color::GetUIText(1)});
 
             uiRenderer.SetSectionValue("Analysis", "Result", lines);
+
+            // Two-tier verdict
+            bool hasVisual = (overhangs > 0) || (thinSections > 0);
+            bool hasPrecision = (smallFeatures > 0) || (sharpEdges > 0);
+
+            glm::vec4 passColor = glm::vec4(0.4f, 0.8f, 0.4f, 1.0f);
+            glm::vec4 failColor = glm::vec4(0.9f, 0.4f, 0.4f, 1.0f);
+
+            std::vector<SectionLine> verdictLines;
+            if (hasVisual && hasPrecision)
+            {
+                verdictLines.push_back({"Quality and precision issues", "", failColor});
+                verdictLines.push_back({"Some areas might not print well or accurately", "", Color::GetUIText(1)});
+            }
+            else if (hasVisual)
+            {
+                verdictLines.push_back({"Print quality issues", "", failColor});
+                verdictLines.push_back({"Some areas might not print well", "", Color::GetUIText(1)});
+            }
+            else if (hasPrecision)
+            {
+                verdictLines.push_back({"Precision issues", "", failColor});
+                verdictLines.push_back({"Some areas might not print accurately", "", Color::GetUIText(1)});
+            }
+            else
+            {
+                verdictLines.push_back({"Ready to print", "", passColor});
+                verdictLines.push_back({"No issues detected", "", Color::GetUIText(1)});
+            }
+
+            uiRenderer.SetSectionValue("Analysis", "Verdict", verdictLines);
         }
         else
         {
             analysisRenderer.Clear();
             uiRenderer.SetSectionValue("Analysis", "Result", {});
+            uiRenderer.SetSectionValue("Analysis", "Verdict", {});
         }
         sceneDirty = false;
     }
 
-    Render();
+    if (renderDirty)
+    {
+        Render();
+        renderDirty = false;
+    }
 }
 
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
@@ -287,6 +390,7 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
     uiRenderer.SetScreenSize(width, height);
 
     UpdateCamera();
+    renderDirty = true;
 }
 
 void Display::Zoom(const float offsetY, const glm::vec3 &posCursotr)
@@ -419,14 +523,14 @@ void Display::InitUI()
     analysis.AddSection("Verdict").visible = false;
 
     // Parameter group
-    Panel &config = analysis.AddSection("Config");
-    config.showLabel = false;
+    Panel &config = analysis.AddSection("Configs");
+    config.color = Color::GetUI(2);
     config.visible = false;
 
     Panel &overhangContent = config.AddContent("Overhang angle (deg)");
     overhangContent.imguiContent = [this](float w, float h)
     {
-        static bool requestEdit = false, editing = false, tracking = false;
+        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
@@ -435,22 +539,29 @@ void Display::InitUI()
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        float normalPad = ImGui::GetStyle().FramePadding.x;
+        float labelW = ImGui::CalcTextSize("Overhang:  ").x;
+        float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
+        float originX = ImGui::GetCursorScreenPos().x;
         if (requestEdit)
         {
             ImGui::SetKeyboardFocusHere();
             requestEdit = false;
-            editing = true;
+            focusPending = true;
         }
-        float labelW = ImGui::CalcTextSize("Overhang:  ").x;
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        if (editing)
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(labelW + normalPad, ImGui::GetStyle().FramePadding.y));
-        ImGui::SetNextItemWidth(w);
+        bool showEdit = editing || focusPending;
+        if (showEdit)
+        {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
+            ImGui::SetNextItemWidth(w - labelW - unitW);
+        }
+        else
+            ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##overhang", &overhangAngle, 0.5f, 0.0f, 90.0f,
-                                        editing ? "%.0f" : "");
-        if (editing)
-            ImGui::PopStyleVar();
+                                        showEdit ? "%.0f" : "");
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+        if (editing)
+            focusPending = false;
         if (ImGui::IsItemActivated())
         {
             tracking = true;
@@ -461,22 +572,24 @@ void Display::InitUI()
             ImVec2 ep = ImGui::GetIO().MousePos;
             float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
             if (d < 9.0f)
-            {
                 requestEdit = true;
-                SDL_Event wake; SDL_zero(wake); wake.type = SDL_EVENT_USER; SDL_PushEvent(&wake);
-            }
             tracking = false;
         }
-        ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
-        float ty = mn.y + ImGui::GetStyle().FramePadding.y;
+        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(mn.x + normalPad, ty), col, "Overhang:");
-        if (!editing)
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Overhang:");
+        if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.0f\u00b0", overhangAngle);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(mx.x - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+        }
+        else
+        {
+            const char *unit = "\u00b0";
+            ImVec2 us = ImGui::CalcTextSize(unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
         }
         if (changed)
         {
@@ -489,7 +602,7 @@ void Display::InitUI()
     Panel &sharpContent = config.AddContent("Sharp corner (deg)");
     sharpContent.imguiContent = [this](float w, float h)
     {
-        static bool requestEdit = false, editing = false, tracking = false;
+        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
@@ -498,22 +611,29 @@ void Display::InitUI()
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        float normalPad = ImGui::GetStyle().FramePadding.x;
+        float labelW = ImGui::CalcTextSize("Sharp corner:  ").x;
+        float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
+        float originX = ImGui::GetCursorScreenPos().x;
         if (requestEdit)
         {
             ImGui::SetKeyboardFocusHere();
             requestEdit = false;
-            editing = true;
+            focusPending = true;
         }
-        float labelW = ImGui::CalcTextSize("Sharp corner:  ").x;
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        if (editing)
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(labelW + normalPad, ImGui::GetStyle().FramePadding.y));
-        ImGui::SetNextItemWidth(w);
+        bool showEdit = editing || focusPending;
+        if (showEdit)
+        {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
+            ImGui::SetNextItemWidth(w - labelW - unitW);
+        }
+        else
+            ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##sharp", &sharpCornerAngle, 0.5f, 0.0f, 180.0f,
-                                        editing ? "%.0f" : "");
-        if (editing)
-            ImGui::PopStyleVar();
+                                        showEdit ? "%.0f" : "");
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+        if (editing)
+            focusPending = false;
         if (ImGui::IsItemActivated())
         {
             tracking = true;
@@ -524,22 +644,24 @@ void Display::InitUI()
             ImVec2 ep = ImGui::GetIO().MousePos;
             float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
             if (d < 9.0f)
-            {
                 requestEdit = true;
-                SDL_Event wake; SDL_zero(wake); wake.type = SDL_EVENT_USER; SDL_PushEvent(&wake);
-            }
             tracking = false;
         }
-        ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
-        float ty = mn.y + ImGui::GetStyle().FramePadding.y;
+        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(mn.x + normalPad, ty), col, "Sharp corner:");
-        if (!editing)
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Sharp corner:");
+        if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.0f\u00b0", sharpCornerAngle);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(mx.x - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+        }
+        else
+        {
+            const char *unit = "\u00b0";
+            ImVec2 us = ImGui::CalcTextSize(unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
         }
         if (changed)
         {
@@ -552,7 +674,7 @@ void Display::InitUI()
     Panel &featureContent = config.AddContent("Min feature (mm)");
     featureContent.imguiContent = [this](float w, float h)
     {
-        static bool requestEdit = false, editing = false, tracking = false;
+        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
@@ -561,22 +683,29 @@ void Display::InitUI()
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        float normalPad = ImGui::GetStyle().FramePadding.x;
+        float labelW = ImGui::CalcTextSize("Min feature:  ").x;
+        float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
+        float originX = ImGui::GetCursorScreenPos().x;
         if (requestEdit)
         {
             ImGui::SetKeyboardFocusHere();
             requestEdit = false;
-            editing = true;
+            focusPending = true;
         }
-        float labelW = ImGui::CalcTextSize("Min feature:  ").x;
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        if (editing)
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(labelW + normalPad, ImGui::GetStyle().FramePadding.y));
-        ImGui::SetNextItemWidth(w);
+        bool showEdit = editing || focusPending;
+        if (showEdit)
+        {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
+            ImGui::SetNextItemWidth(w - labelW - unitW);
+        }
+        else
+            ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##feature", &minFeatureSize, 0.05f, 0.1f, 50.0f,
-                                        editing ? "%.1f" : "");
-        if (editing)
-            ImGui::PopStyleVar();
+                                        showEdit ? "%.1f" : "");
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+        if (editing)
+            focusPending = false;
         if (ImGui::IsItemActivated())
         {
             tracking = true;
@@ -587,22 +716,24 @@ void Display::InitUI()
             ImVec2 ep = ImGui::GetIO().MousePos;
             float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
             if (d < 9.0f)
-            {
                 requestEdit = true;
-                SDL_Event wake; SDL_zero(wake); wake.type = SDL_EVENT_USER; SDL_PushEvent(&wake);
-            }
             tracking = false;
         }
-        ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
-        float ty = mn.y + ImGui::GetStyle().FramePadding.y;
+        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(mn.x + normalPad, ty), col, "Min feature:");
-        if (!editing)
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Min feature:");
+        if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.1f mm", minFeatureSize);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(mx.x - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+        }
+        else
+        {
+            const char *unit = "mm";
+            ImVec2 us = ImGui::CalcTextSize(unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
         }
         if (changed)
         {
@@ -615,29 +746,36 @@ void Display::InitUI()
     Panel &layerContent = config.AddContent("Layer height (mm)");
     layerContent.imguiContent = [this](float w, float h)
     {
-        static bool requestEdit = false, editing = false, tracking = false;
+        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = Color::GetUIText(1);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
         ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        float normalPad = ImGui::GetStyle().FramePadding.x;
+        float labelW = ImGui::CalcTextSize("Layer height:  ").x;
+        float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
+        float originX = ImGui::GetCursorScreenPos().x;
         if (requestEdit)
         {
             ImGui::SetKeyboardFocusHere();
             requestEdit = false;
-            editing = true;
+            focusPending = true;
         }
-        float labelW = ImGui::CalcTextSize("Layer height:  ").x;
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        if (editing)
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(labelW + normalPad, ImGui::GetStyle().FramePadding.y));
-        ImGui::SetNextItemWidth(w);
+        bool showEdit = editing || focusPending;
+        if (showEdit)
+        {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
+            ImGui::SetNextItemWidth(w - labelW - unitW);
+        }
+        else
+            ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##layer", &layerHeight, 0.01f, 0.01f, 5.0f,
-                                        editing ? "%.2f" : "");
-        if (editing)
-            ImGui::PopStyleVar();
+                                        showEdit ? "%.2f" : "");
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+        if (editing)
+            focusPending = false;
         if (ImGui::IsItemActivated())
         {
             tracking = true;
@@ -648,22 +786,24 @@ void Display::InitUI()
             ImVec2 ep = ImGui::GetIO().MousePos;
             float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
             if (d < 9.0f)
-            {
                 requestEdit = true;
-                SDL_Event wake; SDL_zero(wake); wake.type = SDL_EVENT_USER; SDL_PushEvent(&wake);
-            }
             tracking = false;
         }
-        ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
-        float ty = mn.y + ImGui::GetStyle().FramePadding.y;
+        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(mn.x + normalPad, ty), col, "Layer height:");
-        if (!editing)
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Layer height:");
+        if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.2f mm", layerHeight);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(mx.x - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+        }
+        else
+        {
+            const char *unit = "mm";
+            ImVec2 us = ImGui::CalcTextSize(unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
         }
         if (changed)
         {

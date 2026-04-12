@@ -260,12 +260,11 @@ void Input::mouseGestures(const SDL_Event &event)
 
 bool Input::handleEvents()
 {
+    bool hadEvents = false;
     SDL_Event event;
-    if (!SDL_WaitEvent(&event))
-        return true;
-
-    do
+    while (SDL_PollEvent(&event))
     {
+        hadEvents = true;
         // Feed events to ImGui first
         ImGui_ImplSDL3_ProcessEvent(&event);
         ImGuiIO &io = ImGui::GetIO();
@@ -339,7 +338,10 @@ bool Input::handleEvents()
             resetGestureState();
             break;
         }
-    } while (SDL_PollEvent(&event));
+    }
+
+    if (hadEvents)
+        display->renderDirty = true;
 
     return true;
 }

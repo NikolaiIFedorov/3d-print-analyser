@@ -26,16 +26,17 @@ struct PanelAnchor
 
 struct SectionLine
 {
-    std::string prefix;       // colored portion (e.g. the number)
-    std::string text;         // default-colored portion (e.g. the label)
-    glm::vec4 prefixColor{0}; // color for the prefix
+    std::string prefix;            // colored portion (e.g. the number)
+    std::string text;              // default-colored portion (e.g. the label)
+    glm::vec4 prefixColor{0};      // color for the prefix
+    std::function<void()> onClick; // optional click callback
 };
 
 struct Panel
 {
     // Layer-based border radius: panels are layer 0, sections are layer 1, etc.
     // Each layer gets 1 cell of total padding per axis (borderRadius = 0.5).
-    static constexpr float BASE_RADIUS = 1.0f;  // border radius per layer (in global cells)
+    static constexpr float BASE_RADIUS = 0.5f;  // border radius per layer (in global cells)
     static constexpr float RADIUS_DECAY = 1.0f; // multiplier per layer depth
 
     static constexpr float RadiusForLayer(int layer)
@@ -46,10 +47,10 @@ struct Panel
         return r;
     }
 
-    // Content padding per layer: 0.5/(layer+1) in global cells
-    static constexpr float PaddingForLayer(int layer)
+    // Content padding per layer: constant across layers
+    static constexpr float PaddingForLayer(int /*layer*/)
     {
-        return 0.5f / static_cast<float>(layer + 1);
+        return 0.5f;
     }
 
     // Resolved position and size in grid cell units (computed by resolver)

@@ -41,6 +41,8 @@ public:
     void FrameScene();
     glm::vec3 ScreenToWorld(float pixelX, float pixelY) const;
 
+    bool renderDirty = true;
+
 private:
     int16_t windowWidth;
     int16_t windowHeight;

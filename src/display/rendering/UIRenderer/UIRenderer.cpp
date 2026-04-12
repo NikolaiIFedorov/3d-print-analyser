@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float SPLITTER_HEIGHT = 0.2f; // splitter thickness between sections in cells
+static constexpr float SPLITTER_HEIGHT = 0.25f; // splitter thickness in cells (= GAP/2)
 
 UIRenderer::UIRenderer(SDL_Window *window, const std::string &fontPath)
     : window(window)
@@ -234,30 +234,31 @@ void UIRenderer::ResolveAnchors()
             bool willBeVertical = !(panel.leftAnchor.has_value() && panel.rightAnchor.has_value());
             if (willBeVertical)
             {
+                float wGAP = panel.padding;
                 for (const auto &section : panel.sections)
                 {
                     if (!section.visible)
                         continue;
-                    float btnPad = (section.color.a > 0.0f) ? 2.0f * panel.padding : 0.0f;
+                    bool isSubPanel = section.color.a > 0.0f;
+                    float subExtra = isSubPanel ? 2.0f * wGAP : 0.0f;
                     float secLabelW = textRenderer.MeasureWidth(section.id, textScale) / grid.cellSizeX;
-                    float secWidth = 2.0f * section.padding + secLabelW + btnPad;
+                    float secWidth = 2.0f * wGAP + secLabelW + subExtra;
                     for (const auto &line : section.values)
                     {
                         float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
-                        float lineWidth = 2.0f * section.padding + lineW + btnPad;
+                        float lineWidth = 2.0f * wGAP + lineW + subExtra;
                         secWidth = std::max(secWidth, lineWidth);
                     }
                     for (const auto &content : section.sections)
                     {
                         if (!content.visible)
                             continue;
-                        float cBtnPad = (content.color.a > 0.0f) ? 2.0f * panel.padding : 0.0f;
                         float cLabelW = textRenderer.MeasureWidth(content.id, textScale) / grid.cellSizeX;
-                        float cWidth = 2.0f * content.padding + cLabelW + cBtnPad;
+                        float cWidth = 2.0f * wGAP + cLabelW + subExtra;
                         for (const auto &cLine : content.values)
                         {
                             float cLineW = textRenderer.MeasureWidth(cLine.prefix + cLine.text, textScale) / grid.cellSizeX;
-                            float cLineWidth = 2.0f * content.padding + cLineW + cBtnPad;
+                            float cLineWidth = 2.0f * wGAP + cLineW + subExtra;
                             cWidth = std::max(cWidth, cLineWidth);
                         }
                         secWidth = std::max(secWidth, cWidth);
@@ -335,11 +336,13 @@ void UIRenderer::ResolveAnchors()
             float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
             float textHeightPx = textRenderer.GetMaxBearingY(textScale);
             float textHeightCells = textHeightPx / grid.cellSizeY;
-            float sectionHeight = 2.0f * panel.padding + textHeightCells;
+            float GAP = panel.padding;                       // universal spacing = padding
+            float lineStep = GAP + textHeightCells;          // per-line step: gap + text
+            float itemHeight = 2.0f * GAP + textHeightCells; // full item: pad + text + pad
 
             float textWidthPx = textRenderer.MeasureWidth(panel.id, textScale);
             float textWidthCells = textWidthPx / grid.cellSizeX;
-            float sectionWidth = 2.0f * panel.padding + textWidthCells;
+            float sectionWidth = 2.0f * GAP + textWidthCells;
 
             float secPadding = Panel::PaddingForLayer(1);
 
@@ -389,20 +392,18 @@ void UIRenderer::ResolveAnchors()
             else
             {
                 // Stack sections downward; expand panel height to fit
-                float lineHeight = textHeightCells + 0.5f * secPadding;
-                float totalHeight = sectionHeight; // header
+                float totalHeight = itemHeight; // header (includes own top+bottom padding)
 
                 // Compute height of a leaf item (no children)
                 auto leafHeight = [&](const Panel &item) -> float
                 {
-                    float btnPad = (item.color.a > 0.0f) ? 2.0f * panel.padding : 0.0f;
-                    float h = sectionHeight + btnPad;
+                    float h = itemHeight;
                     if (!item.values.empty())
                     {
                         float valLines = static_cast<float>(item.values.size());
                         h = item.showLabel
-                                ? sectionHeight + valLines * lineHeight + btnPad
-                                : sectionHeight + (valLines - 1.0f) * lineHeight + btnPad;
+                                ? itemHeight + valLines * lineStep
+                                : GAP + valLines * lineStep;
                     }
                     return h;
                 };
@@ -412,34 +413,36 @@ void UIRenderer::ResolveAnchors()
                 {
                     if (section.sections.empty())
                         return leafHeight(section);
-                    float h = section.showLabel ? sectionHeight : 0.0f;
+                    bool isSubPanel = section.color.a > 0.0f;
+                    float subGap = isSubPanel ? GAP : 0.0f;
+                    float splGap = (isSubPanel && section.showLabel) ? GAP : 0.0f;
+                    float h = section.showLabel ? itemHeight : 0.0f;
                     for (const auto &content : section.sections)
                     {
                         if (!content.visible)
                             continue;
                         h += leafHeight(content);
                     }
-                    return std::max(h, sectionHeight);
+                    return h + 2.0f * subGap + splGap;
                 };
 
                 for (const auto &section : panel.sections)
                 {
                     if (!section.visible)
                         continue;
-                    totalHeight += (section.showSplitter ? SPLITTER_HEIGHT : 0.0f) + computeSecHeight(section);
+                    totalHeight += computeSecHeight(section);
                 }
 
                 if (!panel.bottomAnchor && !panel.height)
                     panel.rowSpan = std::max(panel.rowSpan, totalHeight);
 
-                float currentRow = panel.row + sectionHeight;
+                float currentRow = panel.row + itemHeight;
                 for (auto &section : panel.sections)
                 {
                     if (!section.visible)
                         continue;
                     float secH = computeSecHeight(section);
 
-                    currentRow += section.showSplitter ? SPLITTER_HEIGHT : 0.0f;
                     section.col = panel.col;
                     section.colSpan = panel.colSpan;
                     section.row = currentRow;
@@ -454,14 +457,21 @@ void UIRenderer::ResolveAnchors()
                     // Place contents within section
                     if (!section.sections.empty())
                     {
-                        float contentRow = currentRow + (section.showLabel ? sectionHeight : 0.0f);
+                        bool isSubPanel = section.color.a > 0.0f;
+                        float subGap = isSubPanel ? GAP : 0.0f;
+                        float splGap = (isSubPanel && section.showLabel) ? GAP : 0.0f;
+                        float contentRow = currentRow + (section.showLabel ? itemHeight : 0.0f) + subGap + splGap;
+                        float secPad = isSubPanel ? section.padding : panel.padding;
+                        // For sub-panels, inset content col/colSpan to the background bounds
+                        float cCol = isSubPanel ? section.col + section.padding : section.col;
+                        float cColSpan = isSubPanel ? section.colSpan - 2.0f * section.padding : section.colSpan;
                         for (auto &content : section.sections)
                         {
                             if (!content.visible)
                                 continue;
                             float cH = leafHeight(content);
-                            content.col = section.col;
-                            content.colSpan = section.colSpan;
+                            content.col = cCol;
+                            content.colSpan = cColSpan;
                             content.row = contentRow;
                             content.rowSpan = cH;
 
@@ -469,7 +479,7 @@ void UIRenderer::ResolveAnchors()
                             float cpy = grid.ToPixelsY(content.row);
                             float cpw = grid.ToPixelsX(content.colSpan);
                             float cph = grid.ToPixelsY(content.rowSpan);
-                            content.localGrid.Update(cpx, cpy, cpw, cph, grid.cellSizeX, panel.padding);
+                            content.localGrid.Update(cpx, cpy, cpw, cph, grid.cellSizeX, secPad);
 
                             contentRow += cH;
                         }
@@ -648,14 +658,16 @@ void UIRenderer::ComputeMinGridSize()
             {
                 float textHeightPx = textRenderer.GetMaxBearingY(textScale);
                 float textHeightCells = textHeightPx / grid.cellSizeY;
-                float sectionH = 2.0f * Panel::PaddingForLayer(1) + textHeightCells;
+                float minGAP = panel.padding;
+                float minItemH = 2.0f * minGAP + textHeightCells;
                 float totalHeight = r.rowSpan;
                 for (size_t i = 0; i < panel.sections.size(); i++)
                 {
                     if (!panel.sections[i].visible)
                         continue;
-                    float btnPad = (panel.sections[i].color.a > 0.0f) ? 2.0f * panel.padding : 0.0f;
-                    totalHeight += (panel.sections[i].showSplitter ? SPLITTER_HEIGHT : 0.0f) + sectionH + btnPad;
+                    bool isSubPanel = panel.sections[i].color.a > 0.0f;
+                    float subExtra = isSubPanel ? 3.0f * minGAP : 0.0f;
+                    totalHeight += minItemH + subExtra;
                 }
                 if (!panel.bottomAnchor && !panel.height)
                     r.rowSpan = totalHeight;
@@ -787,22 +799,27 @@ void UIRenderer::BuildMesh()
             if (horizontal)
             {
                 // Vertical splitter: left of section, inset top/bottom
-                rsx0 = grid.ToPixelsX(section.col - SPLITTER_HEIGHT);
-                rsx1 = grid.ToPixelsX(section.col);
+                float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                rsx0 = grid.ToPixelsX(section.col - halfSpl);
+                rsx1 = grid.ToPixelsX(section.col + halfSpl);
                 rsy0 = y0 + halfPadPx;
                 rsy1 = y1 - halfPadPx;
             }
             else
             {
-                // Horizontal splitter: above section, inset left/right
+                // Horizontal splitter: above section, centered in gap
+                float halfSpl = SPLITTER_HEIGHT * 0.5f;
                 rsx0 = x0 + halfPadPx;
                 rsx1 = x1 - halfPadPx;
-                rsy0 = grid.ToPixelsY(section.row - SPLITTER_HEIGHT);
-                rsy1 = grid.ToPixelsY(section.row);
+                rsy0 = grid.ToPixelsY(section.row - halfSpl);
+                rsy1 = grid.ToPixelsY(section.row + halfSpl);
             }
 
             glm::vec4 splitterColor = Color::GetUI(2);
-            float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f; // fully rounded ends
+            float sr = std::min(grid.cellSizeX, grid.cellSizeY) * Panel::BASE_RADIUS;
+            float maxSR = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+            if (sr > maxSR)
+                sr = maxSR;
 
             constexpr int SEGS = 8;
             float scx = (rsx0 + rsx1) * 0.5f;
@@ -852,8 +869,9 @@ void UIRenderer::BuildMesh()
         // Generate section and content background geometry
         auto generateBackground = [&](const Panel &item)
         {
-            float padPxH = grid.ToPixelsX(panel.padding);
-            float padPxV = grid.ToPixelsY(panel.padding);
+            float inset = (!item.sections.empty()) ? item.padding : panel.padding;
+            float padPxH = grid.ToPixelsX(inset);
+            float padPxV = grid.ToPixelsY(inset);
             float sx0 = grid.ToPixelsX(item.col) + padPxH;
             float sy0 = grid.ToPixelsY(item.row) + padPxV;
             float sx1 = grid.ToPixelsX(item.col + item.colSpan) - padPxH;
@@ -914,6 +932,65 @@ void UIRenderer::BuildMesh()
                 continue;
             if (section.color.a > 0.0f)
                 generateBackground(section);
+
+            // Draw splitters between contents inside colored (sub-panel) sections
+            if (section.color.a > 0.0f && section.showLabel && !section.sections.empty())
+            {
+                // Find the first visible content to place a splitter above it
+                for (const auto &content : section.sections)
+                {
+                    if (!content.visible)
+                        continue;
+
+                    float secPadPxH = grid.ToPixelsX(section.padding);
+                    float secBgX0 = grid.ToPixelsX(section.col) + secPadPxH;
+                    float secBgX1 = grid.ToPixelsX(section.col + section.colSpan) - secPadPxH;
+                    float secHalfPad = secPadPxH * 0.5f;
+                    float rsx0 = secBgX0 + secHalfPad;
+                    float rsx1 = secBgX1 - secHalfPad;
+                    float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                    float rsy0 = grid.ToPixelsY(content.row - halfSpl);
+                    float rsy1 = grid.ToPixelsY(content.row + halfSpl);
+
+                    glm::vec4 splColor = Color::GetUI(3);
+                    float sr = std::min(grid.cellSizeX, grid.cellSizeY) * Panel::BASE_RADIUS;
+                    float maxSR = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+                    if (sr > maxSR)
+                        sr = maxSR;
+                    constexpr int SEGS = 8;
+                    float scx = (rsx0 + rsx1) * 0.5f;
+                    float scy = (rsy0 + rsy1) * 0.5f;
+                    vertices.push_back({{scx, scy}, splColor});
+                    uint32_t cIdx = vertexOffset++;
+                    struct Corner
+                    {
+                        float cx, cy, startAngle;
+                    };
+                    Corner cs[4] = {
+                        {rsx0 + sr, rsy0 + sr, static_cast<float>(M_PI)},
+                        {rsx1 - sr, rsy0 + sr, static_cast<float>(M_PI) * 1.5f},
+                        {rsx1 - sr, rsy1 - sr, 0.0f},
+                        {rsx0 + sr, rsy1 - sr, static_cast<float>(M_PI) * 0.5f},
+                    };
+                    uint32_t pStart = vertexOffset;
+                    for (int c = 0; c < 4; c++)
+                        for (int s = 0; s <= SEGS; s++)
+                        {
+                            float angle = cs[c].startAngle + (static_cast<float>(M_PI) * 0.5f) * (static_cast<float>(s) / static_cast<float>(SEGS));
+                            vertices.push_back({{cs[c].cx + sr * std::cos(angle), cs[c].cy + sr * std::sin(angle)}, splColor});
+                            vertexOffset++;
+                        }
+                    uint32_t total = 4 * (SEGS + 1);
+                    for (uint32_t i = 0; i < total; i++)
+                    {
+                        indices.push_back(cIdx);
+                        indices.push_back(pStart + i);
+                        indices.push_back(pStart + (i + 1) % total);
+                    }
+                    break; // only one splitter, between header and first content
+                }
+            }
+
             for (const auto &content : section.sections)
             {
                 if (!content.visible || content.color.a <= 0.0f)
@@ -997,12 +1074,12 @@ void UIRenderer::Render()
         textRenderer.RenderText(panel.id, px, py, textScale, Color::GetUIText(1));
 
         // Helper to render a section/content item
-        auto renderItem = [&](const Panel &item)
+        auto renderItem = [&](const Panel &item, const Panel &parent)
         {
             if (item.imguiContent)
             {
-                float padPxH = grid.ToPixelsX(panel.padding);
-                float padPxV = grid.ToPixelsY(panel.padding);
+                float padPxH = grid.ToPixelsX(parent.padding);
+                float padPxV = grid.ToPixelsY(parent.padding);
                 float sx0 = grid.ToPixelsX(item.col) + padPxH;
                 float sy0 = grid.ToPixelsY(item.row) + padPxV;
                 float sx1 = grid.ToPixelsX(item.col + item.colSpan) - padPxH;
@@ -1030,21 +1107,33 @@ void UIRenderer::Render()
             const auto &slg = item.localGrid;
             float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
             float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-            float lineStepPx = bearingY + slg.cellSizeY * 0.5f * item.padding;
+            float lineStepPx = panel.padding * grid.cellSizeY + bearingY; // matches layout lineStep
 
             if (item.color.a > 0.0f)
             {
-                float bgX0 = grid.ToPixelsX(item.col) + grid.ToPixelsX(panel.padding);
-                float bgY0 = grid.ToPixelsY(item.row) + grid.ToPixelsY(panel.padding);
-                float bgX1 = grid.ToPixelsX(item.col + item.colSpan) - grid.ToPixelsX(panel.padding);
-                float bgY1 = grid.ToPixelsY(item.row + item.rowSpan) - grid.ToPixelsY(panel.padding);
+                float inset = (!item.sections.empty()) ? item.padding : panel.padding;
+                float bgX0 = grid.ToPixelsX(item.col) + grid.ToPixelsX(inset);
+                float bgY0 = grid.ToPixelsY(item.row) + grid.ToPixelsY(inset);
+                float bgX1 = grid.ToPixelsX(item.col + item.colSpan) - grid.ToPixelsX(inset);
+                float bgY1 = grid.ToPixelsY(item.row + item.rowSpan) - grid.ToPixelsY(inset);
 
                 if (!item.id.empty() && item.showLabel)
                 {
-                    float tw = textRenderer.MeasureWidth(item.id, sTextScale);
-                    float spx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
-                    float spy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f;
-                    textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
+                    if (!item.sections.empty())
+                    {
+                        // Sub-panel style: top-left header
+                        float spx = bgX0 + grid.ToPixelsX(item.padding);
+                        float spy = bgY0 + grid.ToPixelsY(item.padding) + bearingY;
+                        textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
+                    }
+                    else
+                    {
+                        // Button style: centered
+                        float tw = textRenderer.MeasureWidth(item.id, sTextScale);
+                        float spx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
+                        float spy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f;
+                        textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
+                    }
                 }
 
                 float valueStart = item.showLabel ? 1.0f : 0.0f;
@@ -1078,13 +1167,66 @@ void UIRenderer::Render()
                     const auto &line = item.values[i];
                     float vpx = slg.ToPixelsX(slg.padding);
                     float vpy = slg.ToPixelsY(slg.padding) + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
-                    if (!line.prefix.empty())
+
+                    // Clickable value lines: render text + button via ImGui
+                    if (line.onClick)
                     {
-                        textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
-                        vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
+                        float btnX = slg.ToPixelsX(slg.padding);
+                        float btnY = vpy - bearingY;
+                        float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
+                        float btnH = bearingY; // match imguiContent inset height
+                        ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
+                        ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
+                        std::string winId = "##click_" + panel.id + "_" + item.id + "_" + std::to_string(i);
+                        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+                        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, btnH * 0.3f);
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+                        if (ImGui::Begin(winId.c_str(), nullptr,
+                                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                             ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+                        {
+                            if (ImGui::Button(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
+                                line.onClick();
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+                            // Render text via ImGui draw list
+                            float pad = ImGui::GetStyle().FramePadding.x;
+                            float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
+                            ImDrawList *dl = ImGui::GetWindowDrawList();
+                            float tx = btnX + pad;
+                            if (!line.prefix.empty())
+                            {
+                                ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
+                                dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
+                                tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
+                            }
+                            if (!line.text.empty())
+                            {
+                                glm::vec4 tc = Color::GetUIText(1);
+                                ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                                dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
+                            }
+                        }
+                        ImGui::End();
+                        ImGui::PopStyleColor(3);
+                        ImGui::PopStyleVar(3);
                     }
-                    if (!line.text.empty())
-                        textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
+                    else
+                    {
+                        // Non-clickable: use custom text renderer
+                        float tvpx = vpx;
+                        if (!line.prefix.empty())
+                        {
+                            textRenderer.RenderText(line.prefix, tvpx, vpy, sTextScale, line.prefixColor);
+                            tvpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
+                        }
+                        if (!line.text.empty())
+                            textRenderer.RenderText(line.text, tvpx, vpy, sTextScale, Color::GetUIText(1));
+                    }
                 }
             }
         };
@@ -1094,12 +1236,13 @@ void UIRenderer::Render()
         {
             if (!section.visible)
                 continue;
-            renderItem(section);
+            renderItem(section, panel);
+            const Panel &contentParent = (section.color.a > 0.0f) ? section : panel;
             for (const auto &content : section.sections)
             {
                 if (!content.visible)
                     continue;
-                renderItem(content);
+                renderItem(content, contentParent);
             }
         }
     }
