@@ -244,6 +244,9 @@ void UIRenderer::ResolveAnchors()
                     float subExtra = isSubPanel ? 2.0f * wGAP : 0.0f;
                     float secLabelW = textRenderer.MeasureWidth(section.id, textScale) / grid.cellSizeX;
                     float secWidth = 2.0f * wGAP + secLabelW + subExtra;
+                    // ImGui content uses a different (monospace) font — add extra width
+                    if (section.imguiContent)
+                        secWidth += wGAP;
                     for (const auto &line : section.values)
                     {
                         float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
@@ -252,7 +255,7 @@ void UIRenderer::ResolveAnchors()
                     }
                     for (const auto &content : section.sections)
                     {
-                        if (!content.visible)
+                        if (!content.visible || content.imguiContent)
                             continue;
                         float cLabelW = textRenderer.MeasureWidth(content.id, textScale) / grid.cellSizeX;
                         float cWidth = 2.0f * wGAP + cLabelW + subExtra;
@@ -401,12 +404,16 @@ void UIRenderer::ResolveAnchors()
                 {
                     float g = isContent ? lineGap : GAP;
                     float h = 2.0f * g + textHeightCells;
+                    if (item.imguiContent && !isContent)
+                        h += GAP; // ImGui content uses a different font — add extra height
                     if (!item.values.empty())
                     {
                         float valLines = static_cast<float>(item.values.size());
                         h = item.showLabel
                                 ? (2.0f * g + textHeightCells) + valLines * lineStep
                                 : g + valLines * lineStep;
+                        if (!isContent)
+                            h += (GAP - lineGap); // full GAP at bottom for proper section merging
                     }
                     return h;
                 };
@@ -429,21 +436,28 @@ void UIRenderer::ResolveAnchors()
                     return h + 2.0f * subGap + splGap + (GAP - lineGap);
                 };
 
+                int visibleSections = 0;
                 for (const auto &section : panel.sections)
                 {
                     if (!section.visible)
                         continue;
                     totalHeight += computeSecHeight(section);
+                    if (section.showSplitter)
+                        totalHeight += SPLITTER_HEIGHT;
+                    visibleSections++;
                 }
+                totalHeight -= visibleSections * GAP; // merge double-gaps between items
 
                 if (!panel.bottomAnchor && !panel.height)
                     panel.rowSpan = std::max(panel.rowSpan, totalHeight);
 
-                float currentRow = panel.row + itemHeight;
+                float currentRow = panel.row + itemHeight - GAP;
                 for (auto &section : panel.sections)
                 {
                     if (!section.visible)
                         continue;
+                    if (section.showSplitter)
+                        currentRow += SPLITTER_HEIGHT;
                     float secH = computeSecHeight(section);
 
                     section.col = panel.col;
@@ -463,7 +477,7 @@ void UIRenderer::ResolveAnchors()
                         bool isSubPanel = section.color.a > 0.0f;
                         float subGap = isSubPanel ? GAP : 0.0f;
                         float splGap = (isSubPanel && section.showLabel) ? GAP : 0.0f;
-                        float contentRow = currentRow + (section.showLabel ? itemHeight : 0.0f) + subGap + splGap;
+                        float contentRow = currentRow + (section.showLabel ? itemHeight - GAP : 0.0f) + subGap + splGap;
                         float secPad = isSubPanel ? section.padding : panel.padding;
                         // For sub-panels, inset content col/colSpan to the background bounds
                         float cCol = isSubPanel ? section.col + section.padding : section.col;
@@ -488,7 +502,7 @@ void UIRenderer::ResolveAnchors()
                         }
                     }
 
-                    currentRow += secH;
+                    currentRow += secH - GAP;
                 }
             }
 
@@ -664,6 +678,7 @@ void UIRenderer::ComputeMinGridSize()
                 float minGAP = panel.padding;
                 float minItemH = 2.0f * minGAP + textHeightCells;
                 float totalHeight = r.rowSpan;
+                int minVisibleSections = 0;
                 for (size_t i = 0; i < panel.sections.size(); i++)
                 {
                     if (!panel.sections[i].visible)
@@ -671,7 +686,11 @@ void UIRenderer::ComputeMinGridSize()
                     bool isSubPanel = panel.sections[i].color.a > 0.0f;
                     float subExtra = isSubPanel ? 3.0f * minGAP : 0.0f;
                     totalHeight += minItemH + subExtra;
+                    if (panel.sections[i].showSplitter)
+                        totalHeight += SPLITTER_HEIGHT;
+                    minVisibleSections++;
                 }
+                totalHeight -= minVisibleSections * minGAP;
                 if (!panel.bottomAnchor && !panel.height)
                     r.rowSpan = totalHeight;
             }
@@ -810,12 +829,13 @@ void UIRenderer::BuildMesh()
             }
             else
             {
-                // Horizontal splitter: above section, centered in gap
+                // Horizontal splitter: centered between previous content bottom and section content top
                 float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                float splCenterY = section.row - halfSpl + panel.padding * 0.5f;
                 rsx0 = x0 + halfPadPx;
                 rsx1 = x1 - halfPadPx;
-                rsy0 = grid.ToPixelsY(section.row - halfSpl);
-                rsy1 = grid.ToPixelsY(section.row + halfSpl);
+                rsy0 = grid.ToPixelsY(splCenterY - halfSpl);
+                rsy1 = grid.ToPixelsY(splCenterY + halfSpl);
             }
 
             // Snap splitter rect to whole pixels for clean border radius

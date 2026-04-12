@@ -14,7 +14,7 @@
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/Helvetica.ttc"), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
 {
     // Initialize ImGui
     IMGUI_CHECKVERSION();
@@ -22,7 +22,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 13.0f);
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
     ImFont *pixelFont = io.Fonts->AddFontDefault(); // ProggyClean for interactable elements
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
     ImGui_ImplOpenGL3_Init("#version 330");
