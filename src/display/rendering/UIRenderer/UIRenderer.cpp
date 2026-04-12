@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float SPLITTER_HEIGHT = 0.25f; // splitter thickness in cells (= GAP/2)
+static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter thickness in cells
 
 UIRenderer::UIRenderer(SDL_Window *window, const std::string &fontPath)
     : window(window)
@@ -815,11 +815,14 @@ void UIRenderer::BuildMesh()
                 rsy1 = grid.ToPixelsY(section.row + halfSpl);
             }
 
+            // Snap splitter rect to whole pixels for clean border radius
+            rsx0 = std::round(rsx0);
+            rsy0 = std::round(rsy0);
+            rsx1 = std::round(rsx1);
+            rsy1 = std::round(rsy1);
+
             glm::vec4 splitterColor = Color::GetUI(2);
-            float sr = std::min(grid.cellSizeX, grid.cellSizeY) * Panel::BASE_RADIUS;
-            float maxSR = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-            if (sr > maxSR)
-                sr = maxSR;
+            float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
 
             constexpr int SEGS = 8;
             float scx = (rsx0 + rsx1) * 0.5f;
@@ -952,11 +955,14 @@ void UIRenderer::BuildMesh()
                     float rsy0 = grid.ToPixelsY(content.row - halfSpl);
                     float rsy1 = grid.ToPixelsY(content.row + halfSpl);
 
+                    // Snap to whole pixels for clean border radius
+                    rsx0 = std::round(rsx0);
+                    rsy0 = std::round(rsy0);
+                    rsx1 = std::round(rsx1);
+                    rsy1 = std::round(rsy1);
+
                     glm::vec4 splColor = Color::GetUI(3);
-                    float sr = std::min(grid.cellSizeX, grid.cellSizeY) * Panel::BASE_RADIUS;
-                    float maxSR = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                    if (sr > maxSR)
-                        sr = maxSR;
+                    float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
                     constexpr int SEGS = 8;
                     float scx = (rsx0 + rsx1) * 0.5f;
                     float scy = (rsy0 + rsy1) * 0.5f;
@@ -1183,6 +1189,8 @@ void UIRenderer::Render()
                         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
                         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
                         ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+                        if (pixelImFont)
+                            ImGui::PushFont(pixelImFont);
                     }
                     if (ImGui::Begin(winId.c_str(), nullptr,
                                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
@@ -1216,6 +1224,8 @@ void UIRenderer::Render()
                     ImGui::End();
                     if (line.onClick)
                     {
+                        if (pixelImFont)
+                            ImGui::PopFont();
                         ImGui::PopStyleColor(3);
                         ImGui::PopStyleVar(1);
                     }

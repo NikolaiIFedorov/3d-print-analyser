@@ -9,23 +9,28 @@
 #include <unordered_set>
 #include <queue>
 #include <cstdio>
-#include <random>
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
+static constexpr double kOverhangPresets[] = {30.0, 45.0, 60.0};
+static constexpr double kSharpCornerPresets[] = {80.0, 100.0, 120.0};
+static constexpr double kFeatureSizePresets[] = {0.5, 1.0, 1.5, 2.0};
+static constexpr double kLayerHeightPresets[] = {0.1, 0.2, 0.3};
+
+template <int N>
+static double NextPreset(double current, const double (&presets)[N])
+{
+    for (int i = 0; i < N; i++)
+    {
+        if (std::abs(presets[i] - current) < 1e-9)
+            return presets[(i + 1) % N];
+    }
+    return presets[0];
+}
+
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/Helvetica.ttc"), camera(width, height), scene(scene)
 {
-    // Initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::StyleColorsDark();
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 13.0f);
-    ImGui_ImplSDL3_InitForOpenGL(window, glContext);
-    ImGui_ImplOpenGL3_Init("#version 330");
-
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
     LOG_VOID("Initialized display");
@@ -89,10 +94,6 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-
     SDL_RemoveEventWatch(ResizeEventWatcher, this);
     uiRenderer.Shutdown();
     analysisRenderer.Shutdown();
@@ -118,7 +119,6 @@ void Display::RebuildAnalysis()
 void Display::UpdateCamera()
 {
     cameraDirty = true;
-    renderDirty = true;
 }
 
 void Display::Render()
@@ -129,29 +129,20 @@ void Display::Render()
     viewportRenderer.Render();
     renderer.Render();
     analysisRenderer.Render();
-
-    // Start ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
-
     uiRenderer.Render();
-
-    // Finish ImGui frame
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
     SDL_GL_SwapWindow(window);
 }
 
 void Display::UpdateScene()
 {
     sceneDirty = true;
-    renderDirty = true;
 }
 
 void Display::Frame()
 {
+    if (!cameraDirty && !sceneDirty)
+        return;
+
     if (cameraDirty)
     {
         renderer.SetCamera(camera);
@@ -168,7 +159,37 @@ void Display::Frame()
         uiRenderer.SetSectionVisible("Analysis", "Import file", !hasModel);
         uiRenderer.SetSectionVisible("Analysis", "Result", hasModel);
         uiRenderer.SetSectionVisible("Analysis", "Verdict", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Configs", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Overhang angle", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Sharp corner", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Min feature", hasModel);
+        uiRenderer.SetSectionVisible("Analysis", "Layer height", hasModel);
+
+        // Update parameter display values
+        if (hasModel)
+        {
+            char buf[32];
+
+            glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
+            glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
+            glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
+
+            uiRenderer.SetSectionValue("Analysis", "Overhang angle",
+                                       {{std::to_string((int)overhangAngle), " deg", overhangColor}});
+            uiRenderer.SetSectionValue("Analysis", "Sharp corner",
+                                       {{std::to_string((int)sharpCornerAngle), " deg", edgeColor}});
+            snprintf(buf, sizeof(buf), "%.1f", minFeatureSize);
+            uiRenderer.SetSectionValue("Analysis", "Min feature",
+                                       {{std::string(buf), " mm", thinColor}});
+            snprintf(buf, sizeof(buf), "%.1f", layerHeight);
+            uiRenderer.SetSectionValue("Analysis", "Layer height",
+                                       {{std::string(buf), " mm", Color::GetUIText(1)}});
+        }
 
         AnalysisResults results;
         if (analysisEnabled)
@@ -248,58 +269,6 @@ void Display::Frame()
                 }
             }
 
-            // Compute 3D bounding boxes per flaw category for click-to-frame
-            auto expandBounds = [](glm::vec3 &bMin, glm::vec3 &bMax, const glm::dvec3 &p)
-            {
-                glm::vec3 fp(p);
-                bMin = glm::min(bMin, fp);
-                bMax = glm::max(bMax, fp);
-            };
-            auto expandFaceBounds = [&](glm::vec3 &bMin, glm::vec3 &bMax, const Face *face)
-            {
-                for (const auto &loop : face->loops)
-                    for (const auto &oe : loop)
-                    {
-                        expandBounds(bMin, bMax, oe.edge->startPoint->position);
-                        expandBounds(bMin, bMax, oe.edge->endPoint->position);
-                    }
-            };
-
-            constexpr float INF = std::numeric_limits<float>::max();
-            glm::vec3 overhangMin(INF), overhangMax(-INF);
-            glm::vec3 thinMin(INF), thinMax(-INF);
-            glm::vec3 smallMin(INF), smallMax(-INF);
-            glm::vec3 sharpMin(INF), sharpMax(-INF);
-
-            // Overhang face bounds
-            for (const Face *face : overhangFaces)
-                expandFaceBounds(overhangMin, overhangMax, face);
-
-            // Thin section / small feature bounds from faceFlawRanges
-            for (const auto &[solid, flaws] : results.faceFlawRanges)
-            {
-                for (const auto &ff : flaws)
-                {
-                    if (ff.flaw == FaceFlawKind::THIN_SECTION && ff.face)
-                        expandFaceBounds(thinMin, thinMax, ff.face);
-                    else if (ff.flaw == FaceFlawKind::SMALL_FEATURE && ff.face)
-                        expandFaceBounds(smallMin, smallMax, ff.face);
-                }
-            }
-
-            // Sharp edge bounds
-            for (const auto &[solid, edgeVec] : results.edgeFlaws)
-            {
-                for (const auto &e : edgeVec)
-                {
-                    if (e.flaw == EdgeFlawKind::SHARP_CORNER && e.edge)
-                    {
-                        expandBounds(sharpMin, sharpMax, e.edge->startPoint->position);
-                        expandBounds(sharpMin, sharpMax, e.edge->endPoint->position);
-                    }
-                }
-            }
-
             // Bright versions of flaw colors for UI text
             glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
@@ -311,146 +280,29 @@ void Display::Frame()
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
 
-            auto makeFrameCallback = [this](glm::vec3 bMin, glm::vec3 bMax) -> std::function<void()>
-            {
-                if (bMin.x > bMax.x)
-                    return nullptr; // no valid bounds
-                return [this, bMin, bMax]()
-                {
-                    camera.FrameBounds(bMin, bMax);
-                    cameraDirty = true;
-                    renderDirty = true;
-                };
-            };
-
             std::vector<SectionLine> lines;
             if (overhangs > 0)
-                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, makeFrameCallback(overhangMin, overhangMax)});
+                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor});
             if (thinSections > 0)
-                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, makeFrameCallback(thinMin, thinMax)});
+                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor});
             if (smallFeatures > 0)
-                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
+                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor});
             if (sharpEdges > 0)
-                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
+                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor});
             if (lines.empty())
                 lines.push_back({"", "No flaws", Color::GetUIText(1)});
 
             uiRenderer.SetSectionValue("Analysis", "Result", lines);
-
-            // Two-tier verdict
-            bool hasVisual = (overhangs > 0) || (thinSections > 0);
-            bool hasPrecision = (smallFeatures > 0) || (sharpEdges > 0);
-
-            glm::vec4 passColor = glm::vec4(0.4f, 0.8f, 0.4f, 1.0f);
-            glm::vec4 failColor = glm::vec4(0.9f, 0.4f, 0.4f, 1.0f);
-
-            std::vector<SectionLine> verdictLines;
-            if (hasVisual && hasPrecision)
-                verdictLines.push_back({"Some areas might not print well or accurately", "", failColor});
-            else if (hasVisual)
-                verdictLines.push_back({"Some areas might not print well", "", failColor});
-            else if (hasPrecision)
-                verdictLines.push_back({"Some areas might not print accurately", "", failColor});
-            else
-            {
-                verdictLines.push_back({"No issues detected", "", passColor});
-
-                // Contextual printing tip based on model geometry
-                glm::dvec3 modelMin(std::numeric_limits<double>::max());
-                glm::dvec3 modelMax(std::numeric_limits<double>::lowest());
-                size_t totalLoops = 0;
-
-                for (const auto &face : scene->faces)
-                {
-                    totalLoops += face.loops.size();
-                    for (const auto &loop : face.loops)
-                        for (const auto &oe : loop)
-                        {
-                            const auto &p = oe.edge->startPoint->position;
-                            modelMin = glm::min(modelMin, p);
-                            modelMax = glm::max(modelMax, p);
-                        }
-                }
-
-                double height = modelMax.z - modelMin.z;
-                double footprintX = modelMax.x - modelMin.x;
-                double footprintY = modelMax.y - modelMin.y;
-                double footprintArea = footprintX * footprintY;
-                double footprintDiag = std::sqrt(footprintX * footprintX + footprintY * footprintY);
-
-                struct Tip { const char *text; float weight; };
-                std::vector<Tip> tips = {
-                    {"Remember to clean your build plate!", 1.0f},
-                    {"A brim can help with bed adhesion", 1.0f},
-                    {"Keep your filament dry", 1.0f},
-                    {"A retraction test can help reduce stringing", 0.5f},
-                    {"Level your bed before printing", 1.0f},
-                    {"Check your nozzle for wear", 0.5f},
-                };
-
-                // Tall & narrow → adhesion tips
-                if (footprintDiag > 0 && height / footprintDiag > 1.5)
-                {
-                    tips[0].weight += 3.0f; // clean build plate
-                    tips[1].weight += 3.0f; // brim
-                }
-
-                // Large footprint → level bed matters more
-                if (footprintArea > 2500.0) // > ~50x50 mm
-                    tips[4].weight += 3.0f;
-
-                // Many loops → complex geometry → stringing risk
-                if (totalLoops > 30)
-                {
-                    tips[2].weight += 2.0f; // dry filament
-                    tips[3].weight += 2.0f; // retraction test
-                }
-                if (totalLoops > 80)
-                {
-                    tips[2].weight += 2.0f;
-                    tips[3].weight += 2.0f;
-                }
-
-                // Weighted random pick
-                float totalWeight = 0;
-                for (const auto &t : tips)
-                    totalWeight += t.weight;
-
-                static std::mt19937 rng(std::random_device{}());
-                std::uniform_real_distribution<float> dist(0.0f, totalWeight);
-                float r = dist(rng);
-                const char *tip = tips[0].text;
-                float cumulative = 0;
-                for (const auto &t : tips)
-                {
-                    cumulative += t.weight;
-                    if (r < cumulative)
-                    {
-                        tip = t.text;
-                        break;
-                    }
-                }
-
-                glm::vec4 tipColor(0.55f, 0.55f, 0.55f, 1.0f);
-                verdictLines.push_back({tip, "", tipColor});
-            }
-
-            uiRenderer.SetSectionValue("Analysis", "Verdict", verdictLines);
         }
         else
         {
             analysisRenderer.Clear();
             uiRenderer.SetSectionValue("Analysis", "Result", {});
-            uiRenderer.SetSectionValue("Analysis", "Verdict", {});
         }
         sceneDirty = false;
     }
 
-    if (renderDirty)
-    {
-        Render();
-        renderDirty = false;
-    }
+    Render();
 }
 
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
@@ -460,7 +312,6 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
     uiRenderer.SetScreenSize(width, height);
 
     UpdateCamera();
-    renderDirty = true;
 }
 
 void Display::Zoom(const float offsetY, const glm::vec3 &posCursotr)
@@ -537,6 +388,11 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
     return uiRenderer.HitTest(pixelX, pixelY);
 }
 
+bool Display::HandleClick(float pixelX, float pixelY)
+{
+    return uiRenderer.HandleClick(pixelX, pixelY);
+}
+
 void Display::InitUI()
 {
     float sidebarWidth = 10.0f;
@@ -550,6 +406,22 @@ void Display::InitUI()
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
     Panel &files = uiRenderer.AddPanel(filesDef);
+    uiRenderer.AddButton(files, [this]()
+                         { FileImport::OpenFileDialog(window, [this](const std::string &path)
+                                                      {
+                                                         auto ext = path.substr(path.find_last_of('.') + 1);
+                                                         std::string lower;
+                                                         for (char c : ext) lower += std::tolower(c);
+
+                                                         if (lower == "stl")
+                                                             STLImport::Import(path, this->scene);
+                                                         else if (lower == "obj")
+                                                             OBJImport::Import(path, this->scene);
+                                                         else if (lower == "3mf")
+                                                             ThreeMFImport::Import(path, this->scene);
+
+                                                         FrameScene();
+                                                         UpdateScene(); }); });
 
     // Analysis panel with sections
     Panel analysisDef;
@@ -563,329 +435,53 @@ void Display::InitUI()
     result.visible = false;
     Panel &import = analysis.AddSection("Import");
     import.id = "Import file";
-    import.imguiContent = [this](float w, float h)
-    {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.28f, 0.28f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
-        if (ImGui::Button("Import file", ImVec2(w, h)))
-        {
-            FileImport::OpenFileDialog(window, [this](const std::string &path)
-                                       {
-                auto ext = path.substr(path.find_last_of('.') + 1);
-                std::string lower;
-                for (char c : ext) lower += std::tolower(c);
+    analysis.AddSection("Verdict").visible = false;
 
-                if (lower == "stl")
-                    STLImport::Import(path, this->scene);
-                else if (lower == "obj")
-                    OBJImport::Import(path, this->scene);
-                else if (lower == "3mf")
-                    ThreeMFImport::Import(path, this->scene);
+    // Parameter sections (clickable to cycle through presets)
+    analysis.AddSection("Overhang angle").visible = false;
+    analysis.AddSection("Sharp corner").visible = false;
+    analysis.AddSection("Min feature").visible = false;
+    analysis.AddSection("Layer height").visible = false;
 
-                FrameScene();
-                UpdateScene(); });
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar();
-    };
-    Panel &verdict = analysis.AddSection("Verdict");
-    verdict.visible = false;
-    verdict.showLabel = false;
-
-    // Parameter group
-    Panel &config = analysis.AddSection("Configs");
-    config.color = Color::GetUI(2);
-    config.visible = false;
-
-    Panel &overhangContent = config.AddContent("Overhang angle (deg)");
-    overhangContent.imguiContent = [this](float w, float h)
-    {
-        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
-        static ImVec2 startPos;
-        glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
-                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
-                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        float labelW = ImGui::CalcTextSize("Overhang:  ").x;
-        float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
-        float originX = ImGui::GetCursorScreenPos().x;
-        if (requestEdit)
-        {
-            ImGui::SetKeyboardFocusHere();
-            requestEdit = false;
-            focusPending = true;
-        }
-        bool showEdit = editing || focusPending;
-        if (showEdit)
-        {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
-        }
-        else
-            ImGui::SetNextItemWidth(w);
-        bool changed = ImGui::DragFloat("##overhang", &overhangAngle, 0.5f, 0.0f, 90.0f,
-                                        showEdit ? "%.0f" : "");
-        editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-        if (editing)
-            focusPending = false;
-        if (ImGui::IsItemActivated())
-        {
-            tracking = true;
-            startPos = ImGui::GetIO().MousePos;
-        }
-        if (tracking && !ImGui::IsItemActive())
-        {
-            ImVec2 ep = ImGui::GetIO().MousePos;
-            float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
-            if (d < 9.0f)
-                requestEdit = true;
-            tracking = false;
-        }
-        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-        ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Overhang:");
-        if (!showEdit)
-        {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.0f\u00b0", overhangAngle);
-            ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
-        }
-        else
-        {
-            const char *unit = "\u00b0";
-            ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
-        }
-        if (changed)
-        {
-            RebuildAnalysis();
-            UpdateScene();
-        }
-        ImGui::PopStyleColor(4);
-    };
-
-    Panel &sharpContent = config.AddContent("Sharp corner (deg)");
-    sharpContent.imguiContent = [this](float w, float h)
-    {
-        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
-        static ImVec2 startPos;
-        glm::vec4 c = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
-                                Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
-                                Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        float labelW = ImGui::CalcTextSize("Sharp corner:  ").x;
-        float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
-        float originX = ImGui::GetCursorScreenPos().x;
-        if (requestEdit)
-        {
-            ImGui::SetKeyboardFocusHere();
-            requestEdit = false;
-            focusPending = true;
-        }
-        bool showEdit = editing || focusPending;
-        if (showEdit)
-        {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
-        }
-        else
-            ImGui::SetNextItemWidth(w);
-        bool changed = ImGui::DragFloat("##sharp", &sharpCornerAngle, 0.5f, 0.0f, 180.0f,
-                                        showEdit ? "%.0f" : "");
-        editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-        if (editing)
-            focusPending = false;
-        if (ImGui::IsItemActivated())
-        {
-            tracking = true;
-            startPos = ImGui::GetIO().MousePos;
-        }
-        if (tracking && !ImGui::IsItemActive())
-        {
-            ImVec2 ep = ImGui::GetIO().MousePos;
-            float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
-            if (d < 9.0f)
-                requestEdit = true;
-            tracking = false;
-        }
-        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-        ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Sharp corner:");
-        if (!showEdit)
-        {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.0f\u00b0", sharpCornerAngle);
-            ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
-        }
-        else
-        {
-            const char *unit = "\u00b0";
-            ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
-        }
-        if (changed)
-        {
-            RebuildAnalysis();
-            UpdateScene();
-        }
-        ImGui::PopStyleColor(4);
-    };
-
-    Panel &featureContent = config.AddContent("Min feature (mm)");
-    featureContent.imguiContent = [this](float w, float h)
-    {
-        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
-        static ImVec2 startPos;
-        glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                                Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
-                                Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        float labelW = ImGui::CalcTextSize("Min feature:  ").x;
-        float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
-        float originX = ImGui::GetCursorScreenPos().x;
-        if (requestEdit)
-        {
-            ImGui::SetKeyboardFocusHere();
-            requestEdit = false;
-            focusPending = true;
-        }
-        bool showEdit = editing || focusPending;
-        if (showEdit)
-        {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
-        }
-        else
-            ImGui::SetNextItemWidth(w);
-        bool changed = ImGui::DragFloat("##feature", &minFeatureSize, 0.05f, 0.1f, 50.0f,
-                                        showEdit ? "%.1f" : "");
-        editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-        if (editing)
-            focusPending = false;
-        if (ImGui::IsItemActivated())
-        {
-            tracking = true;
-            startPos = ImGui::GetIO().MousePos;
-        }
-        if (tracking && !ImGui::IsItemActive())
-        {
-            ImVec2 ep = ImGui::GetIO().MousePos;
-            float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
-            if (d < 9.0f)
-                requestEdit = true;
-            tracking = false;
-        }
-        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-        ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Min feature:");
-        if (!showEdit)
-        {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.1f mm", minFeatureSize);
-            ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
-        }
-        else
-        {
-            const char *unit = "mm";
-            ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
-        }
-        if (changed)
-        {
-            RebuildAnalysis();
-            UpdateScene();
-        }
-        ImGui::PopStyleColor(4);
-    };
-
-    Panel &layerContent = config.AddContent("Layer height (mm)");
-    layerContent.imguiContent = [this](float w, float h)
-    {
-        static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
-        static ImVec2 startPos;
-        glm::vec4 c = Color::GetUIText(1);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-        float normalPad = ImGui::GetStyle().FramePadding.x;
-        float labelW = ImGui::CalcTextSize("Layer height:  ").x;
-        float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
-        float originX = ImGui::GetCursorScreenPos().x;
-        if (requestEdit)
-        {
-            ImGui::SetKeyboardFocusHere();
-            requestEdit = false;
-            focusPending = true;
-        }
-        bool showEdit = editing || focusPending;
-        if (showEdit)
-        {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
-        }
-        else
-            ImGui::SetNextItemWidth(w);
-        bool changed = ImGui::DragFloat("##layer", &layerHeight, 0.01f, 0.01f, 5.0f,
-                                        showEdit ? "%.2f" : "");
-        editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-        if (editing)
-            focusPending = false;
-        if (ImGui::IsItemActivated())
-        {
-            tracking = true;
-            startPos = ImGui::GetIO().MousePos;
-        }
-        if (tracking && !ImGui::IsItemActive())
-        {
-            ImVec2 ep = ImGui::GetIO().MousePos;
-            float d = (ep.x - startPos.x) * (ep.x - startPos.x) + (ep.y - startPos.y) * (ep.y - startPos.y);
-            if (d < 9.0f)
-                requestEdit = true;
-            tracking = false;
-        }
-        float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-        ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Layer height:");
-        if (!showEdit)
-        {
-            char buf[32];
-            snprintf(buf, sizeof(buf), "%.2f mm", layerHeight);
-            ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
-        }
-        else
-        {
-            const char *unit = "mm";
-            ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
-        }
-        if (changed)
-        {
-            RebuildAnalysis();
-            UpdateScene();
-        }
-        ImGui::PopStyleColor(4);
-    };
+    uiRenderer.SetSectionClick("Analysis", "Overhang angle", [this]()
+                               {
+                                   overhangAngle = NextPreset(overhangAngle, kOverhangPresets);
+                                   RebuildAnalysis();
+                                   UpdateScene(); });
+    uiRenderer.SetSectionClick("Analysis", "Sharp corner", [this]()
+                               {
+                                   sharpCornerAngle = NextPreset(sharpCornerAngle, kSharpCornerPresets);
+                                   RebuildAnalysis();
+                                   UpdateScene(); });
+    uiRenderer.SetSectionClick("Analysis", "Min feature", [this]()
+                               {
+                                   minFeatureSize = NextPreset(minFeatureSize, kFeatureSizePresets);
+                                   RebuildAnalysis();
+                                   UpdateScene(); });
+    uiRenderer.SetSectionClick("Analysis", "Layer height", [this]()
+                               {
+                                   layerHeight = NextPreset(layerHeight, kLayerHeightPresets);
+                                   RebuildAnalysis();
+                                   UpdateScene(); });
 
     RebuildAnalysis();
+
+    uiRenderer.SetSectionClick("Analysis", "Import file", [this]()
+                               { FileImport::OpenFileDialog(window, [this](const std::string &path)
+                                                            {
+                                                                auto ext = path.substr(path.find_last_of('.') + 1);
+                                                                std::string lower;
+                                                                for (char c : ext) lower += std::tolower(c);
+
+                                                                if (lower == "stl")
+                                                                    STLImport::Import(path, this->scene);
+                                                                else if (lower == "obj")
+                                                                    OBJImport::Import(path, this->scene);
+                                                                else if (lower == "3mf")
+                                                                    ThreeMFImport::Import(path, this->scene);
+
+                                                                FrameScene();
+                                                                UpdateScene(); }); });
 
     // Compute minimum grid extent and enforce as SDL minimum window size
     uiRenderer.ComputeMinGridSize();

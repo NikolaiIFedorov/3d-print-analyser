@@ -15,6 +15,8 @@
 #include "TextRenderer.hpp"
 #include "UIGrid.hpp"
 
+struct ImFont;
+
 struct UIVertex
 {
     glm::vec2 position;
@@ -42,6 +44,8 @@ public:
     Panel *GetPanel(const std::string &id);
     void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
+    void SetPixelImFont(ImFont *font) { pixelImFont = font; }
+    ImFont *GetPixelImFont() const { return pixelImFont; }
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
 
@@ -59,6 +63,7 @@ private:
     UIGrid grid;
     std::deque<Panel> panels;
     TextRenderer textRenderer;
+    ImFont *pixelImFont = nullptr;
     SDL_Window *window = nullptr;
     bool dirty = true;
 
