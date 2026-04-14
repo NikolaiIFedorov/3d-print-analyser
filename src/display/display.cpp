@@ -574,7 +574,7 @@ void Display::InitUI()
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
     Panel &analysis = uiRenderer.AddPanel(analysisDef);
 
-#if 0  // DEBUG: panel-only mode — sections/content hidden for layout debugging
+#if 1                             // DEBUG: panel-only mode — sections/content hidden for layout debugging
     analysis.sections.reserve(4); // stable pointers: capacity pre-allocated, no reallocation after this point
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
