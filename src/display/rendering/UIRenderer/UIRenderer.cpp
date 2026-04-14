@@ -1093,23 +1093,23 @@ void UIRenderer::Render()
             float bx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin);
             float by1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin);
 
-            float cx0 = grid.ToPixelsX(item.col + item.margin + item.padding);
-            float cy0 = grid.ToPixelsY(item.row + item.margin + item.padding);
-            float cx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin - item.padding);
-            float cy1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin - item.padding);
-
-            // Layered fills: each layer overwrites the center of the previous,
-            // leaving only the zone ring visible.
+            // Fill only the zone bands as 4-strip donuts — content area stays clear.
             // Blue  = margin zone (outer → background boundary)
             // Green = padding zone (background → content boundary)
-            dl->AddRectFilled(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 70));
-            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), IM_COL32(0, 210, 90, 70));
-            // Content area: no fill — leave it showing through
+            auto fillRing = [&](float x0, float y0, float x1, float y1,
+                                float ix0, float iy0, float ix1, float iy1,
+                                ImU32 col)
+            {
+                dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, iy0), col);   // top
+                dl->AddRectFilled(ImVec2(x0, iy1), ImVec2(x1, y1), col);   // bottom
+                dl->AddRectFilled(ImVec2(x0, iy0), ImVec2(ix0, iy1), col); // left
+                dl->AddRectFilled(ImVec2(ix1, iy0), ImVec2(x1, iy1), col); // right
+            };
+            fillRing(ox0, oy0, ox1, oy1, bx0, by0, bx1, by1, IM_COL32(0, 140, 255, 70));
 
             // Outlines
             dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 200), 0.0f, 0, 1.0f);
             dl->AddRect(ImVec2(bx0, by0), ImVec2(bx1, by1), IM_COL32(0, 210, 90, 200), 0.0f, 0, 1.0f);
-            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(200, 200, 200, 120), 0.0f, 0, 1.0f);
 
             for (const auto &child : item.sections)
                 self(child);
