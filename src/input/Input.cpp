@@ -286,6 +286,12 @@ bool Input::handleEvents()
         case SDL_EVENT_KEY_DOWN:
             if (io.WantCaptureKeyboard)
                 break;
+            if (event.key.scancode == SDL_SCANCODE_GRAVE)
+            {
+                UIRenderer *ui = display->GetUIRenderer();
+                ui->SetDebugLayout(!ui->GetDebugLayout());
+                break;
+            }
             [[fallthrough]];
         case SDL_EVENT_MOUSE_WHEEL:
             mouseGestures(event);

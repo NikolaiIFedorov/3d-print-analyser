@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include "glm/glm.hpp"
 #include "logic/Analysis/AnalysisTypes.hpp"
@@ -24,6 +25,10 @@ struct Color
     {
         float v = UI_BASE + STEP * depth;
         return glm::vec4(v, v, v, alpha);
+    }
+    static glm::vec4 GetInputBg(int layer, float alpha = 1.0f)
+    {
+        return GetUI(std::max(layer, 2), alpha);
     }
     static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
     {

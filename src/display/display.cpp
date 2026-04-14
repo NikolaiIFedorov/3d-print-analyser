@@ -23,7 +23,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     ImGui::StyleColorsDark();
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
-    ImFont *pixelFont = io.Fonts->AddFontDefault(); // ProggyClean for interactable elements
+    ImFont *pixelFont = io.Fonts->AddFontDefault();
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
     ImGui_ImplOpenGL3_Init("#version 330");
     uiRenderer.SetPixelImFont(pixelFont);
@@ -167,10 +167,11 @@ void Display::Frame()
         bool hasModel = !scene->solids.empty() || !scene->faces.empty();
 
         // Toggle Analysis panel sections based on model presence
-        uiRenderer.SetSectionVisible("Analysis", "Import file", !hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Result", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Verdict", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Configs", hasModel);
+        uiImportPara->visible = !hasModel;
+        uiResult->visible = hasModel;
+        uiVerdict->visible = hasModel;
+        uiConfig->visible = hasModel;
+        uiRenderer.MarkDirty();
 
         AnalysisResults results;
         if (analysisEnabled)
@@ -334,8 +335,8 @@ void Display::Frame()
                 lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
             if (sharpEdges > 0)
                 lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
-            uiRenderer.SetSectionVisible("Analysis", "Result", !lines.empty());
-            uiRenderer.SetSectionValue("Analysis", "Result", lines);
+            uiResult->visible = !lines.empty();
+            uiResult->values = std::move(lines);
 
             // Two-tier verdict
             bool hasVisual = (overhangs > 0) || (thinSections > 0);
@@ -439,13 +440,13 @@ void Display::Frame()
                 verdictLines.push_back({tip, "", tipColor});
             }
 
-            uiRenderer.SetSectionValue("Analysis", "Verdict", verdictLines);
+            uiVerdict->values = std::move(verdictLines);
         }
         else
         {
             analysisRenderer.Clear();
-            uiRenderer.SetSectionValue("Analysis", "Result", {});
-            uiRenderer.SetSectionValue("Analysis", "Verdict", {});
+            uiResult->values = {};
+            uiVerdict->values = {};
         }
         sceneDirty = false;
     }
@@ -562,21 +563,17 @@ void Display::InitUI()
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
     Panel &analysis = uiRenderer.AddPanel(analysisDef);
-    Panel &result = analysis.AddSection("Result");
-    result.showLabel = false;
-    result.visible = false;
-    Panel &import = analysis.AddSection("Import");
-    import.id = "Import file";
-    import.imguiContent = [this](float w, float h)
+    analysis.sections.reserve(4); // stable pointers: capacity pre-allocated, no reallocation after this point
+    uiResult = &analysis.AddParagraph("Result");
+    uiResult->visible = false;
+    uiImportPara = &analysis.AddParagraph("ImportAction");
+    Panel &importPara = *uiImportPara;
+    SectionLine &importLine = importPara.values.emplace_back();
+    importLine.text = "Import file";
+    importLine.onClick = [this]()
     {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.22f, 0.22f, 0.22f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.28f, 0.28f, 0.28f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.18f, 0.18f, 0.18f, 1.0f));
-        if (ImGui::Button("Import file", ImVec2(w, h)))
-        {
-            FileImport::OpenFileDialog(window, [this](const std::string &path)
-                                       {
+        FileImport::OpenFileDialog(window, [this](const std::string &path)
+                                   {
                 auto ext = path.substr(path.find_last_of('.') + 1);
                 std::string lower;
                 for (char c : ext) lower += std::tolower(c);
@@ -590,29 +587,33 @@ void Display::InitUI()
 
                 FrameScene();
                 UpdateScene(); });
-        }
-        ImGui::PopStyleColor(3);
-        ImGui::PopStyleVar();
     };
-    Panel &verdict = analysis.AddSection("Verdict");
-    verdict.visible = false;
-    verdict.showLabel = false;
+    uiVerdict = &analysis.AddParagraph("Verdict");
+    uiVerdict->visible = false;
 
     // Parameter group
-    Panel &config = analysis.AddSection("Configs");
+    uiConfig = &analysis.AddSection("Configs");
+    Panel &config = *uiConfig;
+    config.collapsible = true;
     config.color = Color::GetUI(2);
     config.visible = false;
-
-    Panel &overhangContent = config.AddContent("Overhang angle (deg)");
-    overhangContent.imguiContent = [this](float w, float h)
+    Panel &configParams = config.AddParagraph("ConfigParams");
+    configParams.values.reserve(4);
+    // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color
+    constexpr int kInputLayer = 2;
+    SectionLine &overhangContent = configParams.values.emplace_back();
+    overhangContent.imguiContent = [this, layer = kInputLayer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        glm::vec4 tc = Color::GetUIText(1);
+        glm::vec4 bg = Color::GetInputBg(layer);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
         float normalPad = ImGui::GetStyle().FramePadding.x;
@@ -653,38 +654,43 @@ void Display::InitUI()
         }
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
+        ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
         ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Overhang:");
         if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.0f\u00b0", overhangAngle);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), valCol, buf);
         }
         else
         {
             const char *unit = "\u00b0";
             ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), valCol, unit);
         }
         if (changed)
         {
             RebuildAnalysis();
             UpdateScene();
         }
+        ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
     };
 
-    Panel &sharpContent = config.AddContent("Sharp corner (deg)");
-    sharpContent.imguiContent = [this](float w, float h)
+    SectionLine &sharpContent = configParams.values.emplace_back();
+    sharpContent.imguiContent = [this, layer = kInputLayer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        glm::vec4 tc = Color::GetUIText(1);
+        glm::vec4 bg = Color::GetInputBg(layer);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
         float normalPad = ImGui::GetStyle().FramePadding.x;
@@ -725,38 +731,43 @@ void Display::InitUI()
         }
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
+        ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
         ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Sharp corner:");
         if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.0f\u00b0", sharpCornerAngle);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), valCol, buf);
         }
         else
         {
             const char *unit = "\u00b0";
             ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), valCol, unit);
         }
         if (changed)
         {
             RebuildAnalysis();
             UpdateScene();
         }
+        ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
     };
 
-    Panel &featureContent = config.AddContent("Min feature (mm)");
-    featureContent.imguiContent = [this](float w, float h)
+    SectionLine &featureContent = configParams.values.emplace_back();
+    featureContent.imguiContent = [this, layer = kInputLayer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        glm::vec4 tc = Color::GetUIText(1);
+        glm::vec4 bg = Color::GetInputBg(layer);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
         float normalPad = ImGui::GetStyle().FramePadding.x;
@@ -797,36 +808,40 @@ void Display::InitUI()
         }
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
+        ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
         ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Min feature:");
         if (!showEdit)
         {
             char buf[32];
             snprintf(buf, sizeof(buf), "%.1f mm", minFeatureSize);
             ImVec2 vs = ImGui::CalcTextSize(buf);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), col, buf);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - vs.x, ty), valCol, buf);
         }
         else
         {
             const char *unit = "mm";
             ImVec2 us = ImGui::CalcTextSize(unit);
-            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), col, unit);
+            ImGui::GetWindowDrawList()->AddText(ImVec2(originX + w - normalPad - us.x, ty), valCol, unit);
         }
         if (changed)
         {
             RebuildAnalysis();
             UpdateScene();
         }
+        ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
     };
 
-    Panel &layerContent = config.AddContent("Layer height (mm)");
-    layerContent.imguiContent = [this](float w, float h)
+    SectionLine &layerContent = configParams.values.emplace_back();
+    layerContent.imguiContent = [this, layer = kInputLayer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 c = Color::GetUIText(1);
+        glm::vec4 bg = Color::GetInputBg(layer);
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
         float normalPad = ImGui::GetStyle().FramePadding.x;
@@ -886,6 +901,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
+        ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
     };
 

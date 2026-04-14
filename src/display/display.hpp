@@ -67,6 +67,11 @@ private:
     float minFeatureSize = 1.5f;
     float layerHeight = 0.2f;
 
+    Panel *uiResult = nullptr;
+    Panel *uiImportPara = nullptr;
+    Panel *uiVerdict = nullptr;
+    Panel *uiConfig = nullptr;
+
     void RebuildAnalysis();
     void snapInput(float &x, float &y);
     void InitUI();

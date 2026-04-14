@@ -142,7 +142,7 @@ Display::UpdateScene()  →  SceneRenderer::UpdateScene()
 ### Conforming
 - **Memory management**: `std::unique_ptr` for polymorphic `Curve`/`Surface` ownership. No raw `new`/`delete` outside of `Scene` factory methods (which place into deques).
 - **RAII**: OpenGL resources cleaned up in destructors with proper move semantics.
-- **Naming**: Consistent PascalCase for types, camelCase for variables/methods, matching `best_practices.md`.
+- **Naming**: Consistent PascalCase for types, camelCase for variables/methods, matching `practices/best_practices.md`.
 - **Rendering**: Uses VAO/VBO/IBO properly. Polygon offset for depth-correct edge rendering. `GL_DYNAMIC_DRAW` for buffers that change per scene update.
 - **Input abstraction**: SDL3 events are translated to high-level camera operations, not leaked into scene/rendering code.
 

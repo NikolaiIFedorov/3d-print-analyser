@@ -23,6 +23,14 @@ struct UIVertex
     glm::vec4 color;
 };
 
+// Precomputed text metrics derived from grid + font, reused throughout layout and rendering.
+struct TextMetrics
+{
+    float localCell;       // grid.cellSizeX * LOCAL_CELL_RATIO
+    float textScale;       // localCell / lineHeight * 1.4
+    float textHeightCells; // maxBearingY(textScale) / cellSizeY
+};
+
 class UIRenderer
 {
 public:
@@ -44,10 +52,13 @@ public:
     Panel *GetPanel(const std::string &id);
     void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
+    void MarkDirty() { dirty = true; }
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
     void SetPixelImFont(ImFont *font) { pixelImFont = font; }
     ImFont *GetPixelImFont() const { return pixelImFont; }
+    void SetDebugLayout(bool v) { debugLayout = v; }
+    bool GetDebugLayout() const { return debugLayout; }
 
 private:
     OpenGLShader shader;
@@ -66,8 +77,13 @@ private:
     SDL_Window *window = nullptr;
     ImFont *pixelImFont = nullptr;
     bool dirty = true;
+    bool debugLayout = false;
 
     bool InitializeShaders();
     void ResolveAnchors();
     void BuildMesh();
+    TextMetrics ComputeTextMetrics() const;
+    static void EmitRoundedRect(std::vector<UIVertex> &vertices, std::vector<uint32_t> &indices,
+                                uint32_t &vertexOffset, float x0, float y0, float x1, float y1,
+                                float radius, glm::vec4 color);
 };
