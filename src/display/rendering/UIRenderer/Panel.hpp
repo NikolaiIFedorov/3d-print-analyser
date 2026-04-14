@@ -80,10 +80,9 @@ struct Panel
         return 0.25f;
     }
 
-    static constexpr float MarginForLayer(int layer)
+    static constexpr float MarginForLayer(int /*layer*/)
     {
-        // Panels are anchor-positioned, not stacked — margin is structural 0.
-        return layer == 0 ? 0.0f : 0.25f;
+        return 0.25f;
     }
 
     static constexpr float GapForLayer(int /*layer*/)

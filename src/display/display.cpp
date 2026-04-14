@@ -167,10 +167,14 @@ void Display::Frame()
         bool hasModel = !scene->solids.empty() || !scene->faces.empty();
 
         // Toggle Analysis panel sections based on model presence
-        uiImportPara->visible = !hasModel;
-        uiResult->visible = hasModel;
-        uiVerdict->visible = hasModel;
-        uiConfig->visible = hasModel;
+        if (uiImportPara)
+            uiImportPara->visible = !hasModel;
+        if (uiResult)
+            uiResult->visible = hasModel;
+        if (uiVerdict)
+            uiVerdict->visible = hasModel;
+        if (uiConfig)
+            uiConfig->visible = hasModel;
         uiRenderer.MarkDirty();
 
         AnalysisResults results;
@@ -335,8 +339,11 @@ void Display::Frame()
                 lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
             if (sharpEdges > 0)
                 lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
-            uiResult->visible = !lines.empty();
-            uiResult->values = std::move(lines);
+            if (uiResult)
+            {
+                uiResult->visible = !lines.empty();
+                uiResult->values = std::move(lines);
+            }
 
             // Two-tier verdict
             bool hasVisual = (overhangs > 0) || (thinSections > 0);
@@ -440,13 +447,16 @@ void Display::Frame()
                 verdictLines.push_back({tip, "", tipColor});
             }
 
-            uiVerdict->values = std::move(verdictLines);
+            if (uiVerdict)
+                uiVerdict->values = std::move(verdictLines);
         }
         else
         {
             analysisRenderer.Clear();
-            uiResult->values = {};
-            uiVerdict->values = {};
+            if (uiResult)
+                uiResult->values = {};
+            if (uiVerdict)
+                uiVerdict->values = {};
         }
         sceneDirty = false;
     }
@@ -563,6 +573,8 @@ void Display::InitUI()
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
     Panel &analysis = uiRenderer.AddPanel(analysisDef);
+
+#if 0  // DEBUG: panel-only mode — sections/content hidden for layout debugging
     analysis.sections.reserve(4); // stable pointers: capacity pre-allocated, no reallocation after this point
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
@@ -906,6 +918,7 @@ void Display::InitUI()
     };
 
     RebuildAnalysis();
+#endif // DEBUG: panel-only mode
 
     // Compute minimum grid extent and enforce as SDL minimum window size
     uiRenderer.ComputeMinGridSize();

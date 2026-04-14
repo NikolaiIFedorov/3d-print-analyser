@@ -342,18 +342,21 @@ void UIRenderer::ResolveAnchors()
     // Gap is applied automatically: screen edges push inward, panel edges push outward.
     auto resolveEdge = [&](const PanelAnchor &anchor) -> float
     {
-        const float gap = UIGrid::GAP;
+        // Each panel now owns its own margin (GAP/2), so:
+        //   screen edges push inward by GAP/2 — the panel's margin fills the rest.
+        //   panel-to-panel edges are raw outer edges — adjacent margins provide the gap.
+        const float halfGap = UIGrid::GAP * 0.5f;
 
         if (!anchor.panel)
         {
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return static_cast<float>(grid.columns) - gap;
+                return static_cast<float>(grid.columns) - halfGap;
             case PanelAnchor::Bottom:
-                return static_cast<float>(grid.rows) - gap;
+                return static_cast<float>(grid.rows) - halfGap;
             default: // Left, Top
-                return gap;
+                return halfGap;
             }
         }
 
@@ -361,13 +364,13 @@ void UIRenderer::ResolveAnchors()
         switch (anchor.edge)
         {
         case PanelAnchor::Left:
-            return other.col - gap;
+            return other.col;
         case PanelAnchor::Right:
-            return other.col + other.colSpan + gap;
+            return other.col + other.colSpan;
         case PanelAnchor::Top:
-            return other.row - gap;
+            return other.row;
         case PanelAnchor::Bottom:
-            return other.row + other.rowSpan + gap;
+            return other.row + other.rowSpan;
         }
         return 0.0f;
     };
@@ -375,10 +378,11 @@ void UIRenderer::ResolveAnchors()
     // Helper to update localGrid from cell coordinates
     auto updateLocalGrid = [&](Panel &item, float padOverride)
     {
-        float px = grid.ToPixelsX(item.col);
-        float py = grid.ToPixelsY(item.row);
-        float pw = grid.ToPixelsX(item.colSpan);
-        float ph = grid.ToPixelsY(item.rowSpan);
+        float mx = item.margin;
+        float px = grid.ToPixelsX(item.col + mx);
+        float py = grid.ToPixelsY(item.row + mx);
+        float pw = grid.ToPixelsX(item.colSpan - 2.0f * mx);
+        float ph = grid.ToPixelsY(item.rowSpan - 2.0f * mx);
         item.localGrid.Update(px, py, pw, ph, grid.cellSizeX, padOverride);
     };
 
@@ -389,8 +393,8 @@ void UIRenderer::ResolveAnchors()
         if (parent.sections.empty())
             return;
 
-        // Horizontal inset: panels use padding (margin=0), others use margin
-        float insetX = (parent.kind == UIKind::Panel) ? parent.padding : parent.margin;
+        // Horizontal inset: margin + padding for panels, margin only for sections
+        float insetX = (parent.kind == UIKind::Panel) ? parent.margin + parent.padding : parent.margin;
 
         // Vertical cursor: skip margin + padding + optional label
         float cursor = parent.row + parent.margin + parent.padding;
@@ -585,16 +589,18 @@ void UIRenderer::ComputeMinGridSize()
 
     auto resolveEdgeMin = [&](const PanelAnchor &anchor, float minExtentX, float minExtentY) -> float
     {
+        const float halfGap = gap * 0.5f;
+
         if (!anchor.panel)
         {
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return minExtentX - gap;
+                return minExtentX - halfGap;
             case PanelAnchor::Bottom:
-                return minExtentY - gap;
+                return minExtentY - halfGap;
             default:
-                return gap;
+                return halfGap;
             }
         }
 
@@ -606,13 +612,13 @@ void UIRenderer::ComputeMinGridSize()
                 switch (anchor.edge)
                 {
                 case PanelAnchor::Left:
-                    return r.col - gap;
+                    return r.col;
                 case PanelAnchor::Right:
-                    return r.col + r.colSpan + gap;
+                    return r.col + r.colSpan;
                 case PanelAnchor::Top:
-                    return r.row - gap;
+                    return r.row;
                 case PanelAnchor::Bottom:
-                    return r.row + r.rowSpan + gap;
+                    return r.row + r.rowSpan;
                 }
             }
         }
@@ -816,10 +822,11 @@ void UIRenderer::BuildMesh()
         // Panel background
         if (panel.HasBackground())
         {
-            float x0 = grid.ToPixelsX(panel.col);
-            float y0 = grid.ToPixelsY(panel.row);
-            float x1 = grid.ToPixelsX(panel.col + panel.colSpan);
-            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan);
+            float mx = panel.margin;
+            float x0 = grid.ToPixelsX(panel.col + mx);
+            float y0 = grid.ToPixelsY(panel.row + mx);
+            float x1 = grid.ToPixelsX(panel.col + panel.colSpan - mx);
+            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - mx);
             float r = std::min(grid.cellSizeX, grid.cellSizeY) * panel.borderRadius;
             EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, panel.color);
         }
@@ -1081,27 +1088,28 @@ void UIRenderer::Render()
             float ox1 = grid.ToPixelsX(item.col + item.colSpan);
             float oy1 = grid.ToPixelsY(item.row + item.rowSpan);
 
-            // Background box: blue tint fill + outline — shows the background zone (inside margin)
             float bx0 = grid.ToPixelsX(item.col + item.margin);
             float by0 = grid.ToPixelsY(item.row + item.margin);
             float bx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin);
             float by1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin);
-            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), IM_COL32(0, 140, 255, 30));
-            dl->AddRect(ImVec2(bx0, by0), ImVec2(bx1, by1),
-                        IM_COL32(0, 140, 255, 180), 0.0f, 0, 1.0f);
 
-            // Content box: green tint fill + outline — shows the actual content area
             float cx0 = grid.ToPixelsX(item.col + item.margin + item.padding);
             float cy0 = grid.ToPixelsY(item.row + item.margin + item.padding);
             float cx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin - item.padding);
             float cy1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin - item.padding);
-            dl->AddRectFilled(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(0, 220, 100, 30));
-            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1),
-                        IM_COL32(0, 220, 100, 200), 0.0f, 0, 1.0f);
 
-            // Outer box: amber outline drawn last — always on top of fills
-            dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1),
-                        IM_COL32(255, 180, 0, 200), 0.0f, 0, 1.0f);
+            // Layered fills: each layer overwrites the center of the previous,
+            // leaving only the zone ring visible.
+            // Blue  = margin zone (outer → background boundary)
+            // Green = padding zone (background → content boundary)
+            dl->AddRectFilled(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 70));
+            dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1), IM_COL32(0, 210, 90, 70));
+            // Content area: no fill — leave it showing through
+
+            // Outlines
+            dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 200), 0.0f, 0, 1.0f);
+            dl->AddRect(ImVec2(bx0, by0), ImVec2(bx1, by1), IM_COL32(0, 210, 90, 200), 0.0f, 0, 1.0f);
+            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(200, 200, 200, 120), 0.0f, 0, 1.0f);
 
             for (const auto &child : item.sections)
                 self(child);
