@@ -9,14 +9,6 @@ static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in c
 static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
 static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
 
-// Adjacent margins collapse: visual space = max(m1, m2, gap).
-// Since each box already includes its own margin, the advance is the collapsed
-// space minus the two margins already accounted for.
-static float MarginAdvance(float m1, float m2, float gap)
-{
-    return std::max({m1, m2, gap}) - m1 - m2;
-}
-
 TextMetrics UIRenderer::ComputeTextMetrics() const
 {
     TextMetrics tm;
@@ -293,28 +285,14 @@ void UIRenderer::ResolveAnchors()
 
         if (!item.sections.empty())
         {
-            // Container: stack children with margin collapsing.
-            // prevMargin tracks bottom margin of previous element.
-            // First child has no previous margin to collapse with.
-            float prevMargin = 0.0f;
-
-            int visibleChildren = 0;
+            // Container: stack children additively.
             for (auto &child : item.sections)
             {
                 if (!child.visible)
                     continue;
-                float gap = item.gap;
-                float advance = MarginAdvance(prevMargin, child.margin, gap);
-
-                contentH += advance;
                 contentH += child.box.outerHeight;
                 contentW = std::max(contentW, child.box.outerWidth);
-                prevMargin = child.margin;
-                visibleChildren++;
             }
-            // Collapse last child's trailing margin with parent's bottom padding
-            if (visibleChildren > 0)
-                contentH -= std::min(prevMargin, pad);
         }
         else if (!item.values.empty())
         {
@@ -401,14 +379,10 @@ void UIRenderer::ResolveAnchors()
         if (parent.showLabel)
             cursor += textHeightCells;
 
-        float prevMargin = 0.0f;
-        int placed = 0;
         for (auto &child : parent.sections)
         {
             if (!child.visible)
                 continue;
-
-            cursor += MarginAdvance(prevMargin, child.margin, parent.gap);
 
             child.col = parent.col + insetX;
             child.colSpan = parent.colSpan - 2.0f * insetX;
@@ -429,8 +403,6 @@ void UIRenderer::ResolveAnchors()
             self(child);
 
             cursor += child.box.outerHeight;
-            prevMargin = child.margin;
-            placed++;
         }
     };
 
