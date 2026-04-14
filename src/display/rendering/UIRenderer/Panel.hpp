@@ -36,7 +36,7 @@ struct SectionLine
 };
 
 // Element kind — determines rendering behavior.
-// The box model (padding, gap, margin collapsing) is the same for all kinds.
+// The box model (padding, margin) is the same for all kinds. Margins are additive.
 enum class UIKind
 {
     Panel,     // top-level anchor-positioned container with background
@@ -45,9 +45,8 @@ enum class UIKind
 };
 
 // Box model for UI elements (CSS-like). Each element has:
-//   margin:  external spacing that collapses between siblings
+//   margin:  external spacing added between siblings and from parent
 //   padding: internal spacing between background edge and content
-//   gap:     minimum spacing between child elements (owned by the parent)
 //   lineGap: tighter spacing between stacked value lines
 //
 // Box sizes:
@@ -55,7 +54,7 @@ enum class UIKind
 //   outerWidth/Height  = margin + padding + content + padding + margin
 //   bgWidth/Height     = padding + content + padding  (background covers this)
 //
-// Between siblings, adjacent margins collapse: visual space = max(m1, m2, gap).
+// Margins are additive: space between two siblings = m1 + m2, from parent bg to first child bg = parent.padding + child.margin.
 struct ContentBox
 {
     float contentWidth = 0.0f;
@@ -85,11 +84,6 @@ struct Panel
         return 0.25f;
     }
 
-    static constexpr float GapForLayer(int /*layer*/)
-    {
-        return 0.25f;
-    }
-
     // Fraction of padding used as line-gap between stacked value lines
     static constexpr float LINE_GAP_RATIO = 0.35f;
 
@@ -102,10 +96,10 @@ struct Panel
     float colSpan = 0;
     float rowSpan = 0;
     float borderRadius = RadiusForLayer(0);
-    float margin = MarginForLayer(0);   // external: collapses between siblings
+    float margin = MarginForLayer(0);   // external: additive spacing between siblings
     float padding = PaddingForLayer(0); // internal: background edge to content
-    float gap = GapForLayer(0);         // minimum spacing between child sections (cells)
-    float lineGap = 0.0f;               // spacing between value lines (cells, computed from padding * LINE_GAP_RATIO)
+    float lineGap = 0.0f;        // spacing between value lines (cells, computed from padding * LINE_GAP_RATIO)
+    float labelLeftInset = 0.0f; // extra left inset before the label text (cells)
 
     glm::vec4 color{0.0f};
     std::string id;
@@ -149,7 +143,7 @@ struct Panel
         section.borderRadius = RadiusForLayer(1);
         section.margin = MarginForLayer(1);
         section.padding = PaddingForLayer(1);
-        section.gap = GapForLayer(1);
+        section.labelLeftInset = PaddingForLayer(1);
         sections.push_back(section);
         return sections.back();
     }
@@ -164,7 +158,6 @@ struct Panel
         paragraph.borderRadius = RadiusForLayer(2);
         paragraph.margin = MarginForLayer(2);
         paragraph.padding = PaddingForLayer(2);
-        paragraph.gap = GapForLayer(2);
         paragraph.showLabel = false;
         paragraph.showSplitter = false;
         sections.push_back(paragraph);

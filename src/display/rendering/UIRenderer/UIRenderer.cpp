@@ -258,11 +258,9 @@ void UIRenderer::ResolveAnchors()
     float textHeightCells = tm.textHeightCells;
 
     // --- Compute content boxes bottom-up ---
-    // Each element's box is: padding + content + padding vertically/horizontally.
-    // Adjacent padding zones collapse: visual space = max(m1, m2, gap), not m1 + m2 + gap.
-    // This keeps spacing consistent regardless of nesting depth.
+    // Each element's box is: margin + padding + content + padding + margin (additive, no collapsing).
 
-    auto computeBox = [&](this auto &self, Panel &item, const Panel &parent, bool isContent) -> void
+    auto computeBox = [&](this auto &self, Panel &item) -> void
     {
         float pad = item.padding;
         float mar = item.margin;
@@ -270,17 +268,18 @@ void UIRenderer::ResolveAnchors()
 
         // Recurse into children first
         for (auto &child : item.sections)
-            self(child, item, true);
+            self(child);
 
         // --- Content height ---
         float contentH = 0.0f;
         float contentW = 0.0f;
 
-        // Label contributes one text-height row
+        // Label contributes one text-height row, wrapped in childMar top+bottom (symmetric margin)
         if (item.showLabel)
         {
-            contentH = textHeightCells;
-            contentW = textRenderer.MeasureWidth(item.id, textScale) / grid.cellSizeX;
+            float childMar = Panel::MarginForLayer(item.layer);
+            contentH = childMar + textHeightCells + childMar;
+            contentW = item.labelLeftInset + textRenderer.MeasureWidth(item.id, textScale) / grid.cellSizeX;
         }
 
         if (!item.sections.empty())
@@ -365,19 +364,22 @@ void UIRenderer::ResolveAnchors()
     };
 
     // Recursively place children within a parent (vertical stacking).
-    // Children are inset horizontally and stacked downward with margin collapsing.
+    // Children are inset horizontally and stacked downward (additive margins).
     auto placeChildrenVertical = [&](this auto &self, Panel &parent) -> void
     {
         if (parent.sections.empty())
             return;
 
-        // Horizontal inset: margin + padding for panels, margin only for sections
-        float insetX = (parent.kind == UIKind::Panel) ? parent.margin + parent.padding : parent.margin;
+        // Horizontal inset: margin + padding for all parent kinds (symmetric with vertical cursor)
+        float insetX = parent.margin + parent.padding;
 
-        // Vertical cursor: skip margin + padding + optional label
+        // Vertical cursor: skip margin + padding + optional label (childMar above and below label)
         float cursor = parent.row + parent.margin + parent.padding;
         if (parent.showLabel)
-            cursor += textHeightCells;
+        {
+            float childMar = Panel::MarginForLayer(parent.layer);
+            cursor += childMar + textHeightCells + childMar;
+        }
 
         for (auto &child : parent.sections)
         {
@@ -410,7 +412,7 @@ void UIRenderer::ResolveAnchors()
     for (auto &panel : panels)
     {
         // Compute boxes for this panel and all descendants
-        computeBox(panel, panel, false);
+        computeBox(panel);
 
         // --- Horizontal axis ---
         std::optional<float> left, right, w;
@@ -499,11 +501,20 @@ void UIRenderer::ResolveAnchors()
             {
                 float secPadding = Panel::PaddingForLayer(1);
 
-                // Stack sections rightward; expand panel width to fit
-                float headerWidth = panel.box.outerWidth;
+                // First child is always the title paragraph; place it at panel origin.
+                Panel &titlePara = panel.sections[0];
+                titlePara.col = panel.col;
+                titlePara.colSpan = titlePara.box.outerWidth;
+                titlePara.row = panel.row;
+                titlePara.rowSpan = panel.rowSpan;
+                updateLocalGrid(titlePara, panel.padding);
+
+                // Remaining children are tab sections stacked rightward
+                float headerWidth = titlePara.box.outerWidth;
                 float totalWidth = headerWidth;
-                for (const auto &section : panel.sections)
+                for (size_t i = 1; i < panel.sections.size(); i++)
                 {
+                    const auto &section = panel.sections[i];
                     if (!section.visible)
                         continue;
                     float secTextW = textRenderer.MeasureWidth(section.id, textScale);
@@ -515,8 +526,9 @@ void UIRenderer::ResolveAnchors()
                     panel.colSpan = std::max(panel.colSpan, totalWidth);
 
                 float currentCol = panel.col + headerWidth;
-                for (auto &section : panel.sections)
+                for (size_t i = 1; i < panel.sections.size(); i++)
                 {
+                    auto &section = panel.sections[i];
                     if (!section.visible)
                         continue;
                     currentCol += section.showSplitter ? SPLITTER_TOTAL : 0.0f;
@@ -666,9 +678,10 @@ void UIRenderer::ComputeMinGridSize()
 
             if (isHorizontal)
             {
-                float totalWidth = r.colSpan;
-                for (const auto &sec : panel.sections)
+                float totalWidth = !panel.sections.empty() ? panel.sections[0].box.outerWidth : r.colSpan;
+                for (size_t i = 1; i < panel.sections.size(); i++)
                 {
+                    const auto &sec = panel.sections[i];
                     if (!sec.visible)
                         continue;
                     float secTextW = textRenderer.MeasureWidth(sec.id, textScale);
@@ -753,7 +766,10 @@ void UIRenderer::BuildMesh()
         // For children, this is the background/content bottom (excluding trailing margin).
         float prevVisualBottom = parent.row + parent.margin + parent.padding;
         if (parent.showLabel)
-            prevVisualBottom += tm.textHeightCells;
+        {
+            float childMar = Panel::MarginForLayer(parent.layer);
+            prevVisualBottom += childMar + tm.textHeightCells + childMar;
+        }
 
         int visibleIdx = 0;
         for (const auto &child : parent.sections)
@@ -761,9 +777,10 @@ void UIRenderer::BuildMesh()
             if (!child.visible)
                 continue;
 
-            // Splitter logic matches placeChildrenVertical + header separator
+            // Splitter logic: Panel draws splitters between children (not before the first).
+            // Sections/paragraphs respect their own showSplitter flag.
             bool needsSplitter = false;
-            if (parent.kind == UIKind::Panel)
+            if (parent.kind == UIKind::Panel && visibleIdx > 0)
                 needsSplitter = true;
             else if (child.showSplitter && visibleIdx > 0)
                 needsSplitter = true;
@@ -810,8 +827,9 @@ void UIRenderer::BuildMesh()
             float y0 = grid.ToPixelsY(panel.row);
             float y1 = grid.ToPixelsY(panel.row + panel.rowSpan);
             float halfPadPx = grid.ToPixelsX(panel.padding) * 0.5f;
-            for (const auto &section : panel.sections)
+            for (size_t si = 1; si < panel.sections.size(); si++)
             {
+                const auto &section = panel.sections[si];
                 if (!section.visible)
                     continue;
                 float halfSpl = SPLITTER_HEIGHT * 0.5f;
@@ -822,6 +840,7 @@ void UIRenderer::BuildMesh()
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
                 EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
             }
+
         }
         else
         {
@@ -888,161 +907,154 @@ void UIRenderer::Render()
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    // Render panel titles using each panel's local grid
-    for (const auto &panel : panels)
+    // Recursive helper to render text/ImGui content for an item and its children
+    auto renderItem = [&](this auto &self, const Panel &item, const std::string &parentPath) -> void
     {
-        if (!panel.visible || panel.id.empty())
-            continue;
+        if (!item.visible)
+            return;
 
-        const auto &lg = panel.localGrid;
-        float textScale = lg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
+        std::string itemPath = parentPath + "_" + item.id;
 
-        // Header is row 0 of the local grid, inset by padding (= border radius)
-        float px = lg.ToPixelsX(lg.padding);
-        float py = lg.ToPixelsY(lg.padding) + textRenderer.GetMaxBearingY(textScale);
-        textRenderer.RenderText(panel.id, px, py, textScale, Color::GetUIText(1));
+        const auto &slg = item.localGrid;
+        float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
+        float bearingY = textRenderer.GetMaxBearingY(sTextScale);
+        float lineStepPx = item.padding * Panel::LINE_GAP_RATIO * grid.cellSizeY + bearingY;
 
-        // Recursive helper to render text/ImGui content for an item and its children
-        auto renderItem = [&](this auto &self, const Panel &item, const std::string &parentPath) -> void
+        // Content origin: margin + padding inset from outer box
+        float contentPx = grid.ToPixelsX(item.col + item.margin + item.padding);
+        float contentPy = grid.ToPixelsY(item.row + item.margin + item.padding);
+
+        if (item.HasBackground())
         {
-            if (!item.visible)
-                return;
+            // Background edge = margin inset from outer box
+            float mx = item.margin;
+            float bgX0 = grid.ToPixelsX(item.col + mx);
+            float bgY0 = grid.ToPixelsY(item.row + mx);
+            float bgX1 = grid.ToPixelsX(item.col + item.colSpan - mx);
+            float bgY1 = grid.ToPixelsY(item.row + item.rowSpan - mx);
 
-            std::string itemPath = parentPath + "_" + item.id;
-
-            const auto &slg = item.localGrid;
-            float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-            float lineStepPx = item.padding * Panel::LINE_GAP_RATIO * grid.cellSizeY + bearingY;
-
-            // Content origin: margin + padding inset from outer box
-            float contentPx = grid.ToPixelsX(item.col + item.margin + item.padding);
-            float contentPy = grid.ToPixelsY(item.row + item.margin + item.padding);
-
-            if (item.HasBackground())
+            if (!item.id.empty() && item.showLabel)
             {
-                // Background edge = margin inset from outer box
-                float mx = item.margin;
-                float bgX0 = grid.ToPixelsX(item.col + mx);
-                float bgY0 = grid.ToPixelsY(item.row + mx);
-                float bgX1 = grid.ToPixelsX(item.col + item.colSpan - mx);
-                float bgY1 = grid.ToPixelsY(item.row + item.rowSpan - mx);
-
-                if (!item.id.empty() && item.showLabel)
+                if (!item.sections.empty())
                 {
-                    if (!item.sections.empty())
+                    // Sub-panel style: top-left header inset by childMar
+                    float childMar = Panel::MarginForLayer(item.layer) * grid.cellSizeY;
+                    float labelPx = contentPx + item.labelLeftInset * grid.cellSizeX;
+                    float labelPy = contentPy + childMar;
+                    textRenderer.RenderText(item.id, labelPx, labelPy + bearingY, sTextScale, Color::GetUIText(1));
+                }
+                else
+                {
+                    // Button style: centered in background
+                    float tw = textRenderer.MeasureWidth(item.id, sTextScale);
+                    float spx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
+                    float spy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f;
+                    textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
+                }
+            }
+
+            float valueStart = item.showLabel ? 1.0f : 0.0f;
+            for (size_t i = 0; i < item.values.size(); i++)
+            {
+                const auto &line = item.values[i];
+                float tw = textRenderer.MeasureWidth(line.prefix + line.text, sTextScale);
+                float vpx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
+                float vpy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f + lineStepPx * (valueStart + static_cast<float>(i));
+                if (!line.prefix.empty())
+                {
+                    textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
+                    vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
+                }
+                if (!line.text.empty())
+                    textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
+            }
+        }
+        else
+        {
+            if (!item.id.empty() && item.showLabel)
+            {
+                float childMar = Panel::MarginForLayer(item.layer) * grid.cellSizeY;
+                textRenderer.RenderText(item.id, contentPx, contentPy + childMar + bearingY, sTextScale, Color::GetUIText(1));
+            }
+
+            float valueStart = item.showLabel ? 1.0f : 0.0f;
+            for (size_t i = 0; i < item.values.size(); i++)
+            {
+                const auto &line = item.values[i];
+                float vpx = contentPx;
+                float vpy = contentPy + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
+
+                float btnX = vpx;
+                float btnY = vpy - bearingY;
+                float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
+                float btnH = bearingY;
+                ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
+                ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
+                std::string winId = "##val" + itemPath + "_" + std::to_string(i);
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+                if (ImGui::Begin(winId.c_str(), nullptr,
+                                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                     ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+                {
+                    if (line.imguiContent)
                     {
-                        // Sub-panel style: top-left header at content start
-                        textRenderer.RenderText(item.id, contentPx, contentPy + bearingY, sTextScale, Color::GetUIText(1));
+                        if (pixelImFont)
+                            ImGui::PushFont(pixelImFont);
+                        line.imguiContent(btnW, btnH);
+                        if (pixelImFont)
+                            ImGui::PopFont();
                     }
                     else
                     {
-                        // Button style: centered in background
-                        float tw = textRenderer.MeasureWidth(item.id, sTextScale);
-                        float spx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
-                        float spy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f;
-                        textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
-                    }
-                }
-
-                float valueStart = item.showLabel ? 1.0f : 0.0f;
-                for (size_t i = 0; i < item.values.size(); i++)
-                {
-                    const auto &line = item.values[i];
-                    float tw = textRenderer.MeasureWidth(line.prefix + line.text, sTextScale);
-                    float vpx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
-                    float vpy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f + lineStepPx * (valueStart + static_cast<float>(i));
-                    if (!line.prefix.empty())
-                    {
-                        textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
-                        vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
-                    }
-                    if (!line.text.empty())
-                        textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
-                }
-            }
-            else
-            {
-                if (!item.id.empty() && item.showLabel)
-                {
-                    textRenderer.RenderText(item.id, contentPx, contentPy + bearingY, sTextScale, Color::GetUIText(1));
-                }
-
-                float valueStart = item.showLabel ? 1.0f : 0.0f;
-                for (size_t i = 0; i < item.values.size(); i++)
-                {
-                    const auto &line = item.values[i];
-                    float vpx = contentPx;
-                    float vpy = contentPy + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
-
-                    float btnX = vpx;
-                    float btnY = vpy - bearingY;
-                    float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-                    float btnH = bearingY;
-                    ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
-                    ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
-                    std::string winId = "##val" + itemPath + "_" + std::to_string(i);
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-                    if (ImGui::Begin(winId.c_str(), nullptr,
-                                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
-                    {
-                        if (line.imguiContent)
+                        if (line.onClick)
                         {
-                            if (pixelImFont)
-                                ImGui::PushFont(pixelImFont);
-                            line.imguiContent(btnW, btnH);
-                            if (pixelImFont)
-                                ImGui::PopFont();
+                            ImGui::SetCursorPos(ImVec2(0, 0));
+                            if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
+                                line.onClick();
+                            if (ImGui::IsItemHovered())
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
                         }
-                        else
+                        float pad = ImGui::GetStyle().FramePadding.x;
+                        float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
+                        ImDrawList *dl = ImGui::GetWindowDrawList();
+                        float tx = btnX + pad;
+                        if (!line.prefix.empty())
                         {
+                            ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
+                            dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
+                            tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
+                        }
+                        if (!line.text.empty())
+                        {
+                            glm::vec4 tc = Color::GetUIText(1);
+                            ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                            dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
                             if (line.onClick)
                             {
-                                ImGui::SetCursorPos(ImVec2(0, 0));
-                                if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
-                                    line.onClick();
-                                if (ImGui::IsItemHovered())
-                                    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                            }
-                            float pad = ImGui::GetStyle().FramePadding.x;
-                            float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
-                            ImDrawList *dl = ImGui::GetWindowDrawList();
-                            float tx = btnX + pad;
-                            if (!line.prefix.empty())
-                            {
-                                ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                                dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
-                                tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
-                            }
-                            if (!line.text.empty())
-                            {
-                                glm::vec4 tc = Color::GetUIText(1);
-                                ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                                dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
-                                if (line.onClick)
-                                {
-                                    float tw = ImGui::CalcTextSize(line.text.c_str()).x;
-                                    float underlineY = ty + ImGui::GetFontSize();
-                                    dl->AddLine(ImVec2(tx, underlineY), ImVec2(tx + tw, underlineY), textCol, 1.0f);
-                                }
+                                float tw = ImGui::CalcTextSize(line.text.c_str()).x;
+                                float underlineY = ty + ImGui::GetFontSize();
+                                dl->AddLine(ImVec2(tx, underlineY), ImVec2(tx + tw, underlineY), textCol, 1.0f);
                             }
                         }
                     }
-                    ImGui::End();
-                    ImGui::PopStyleVar(2);
                 }
+                ImGui::End();
+                ImGui::PopStyleVar(2);
             }
+        }
 
-            // Recurse into children
-            for (const auto &child : item.sections)
-                self(child, itemPath);
-        };
+        // Recurse into children
+        for (const auto &child : item.sections)
+            self(child, itemPath);
+    };
 
-        // Render all descendants recursively
-        for (const auto &section : panel.sections)
-            renderItem(section, panel.id);
+    // Render all panels and their descendants recursively
+    for (const auto &panel : panels)
+    {
+        if (!panel.visible)
+            continue;
+        renderItem(panel, "");
     }
 
     // --- Debug layout overlay ---

@@ -564,7 +564,10 @@ void Display::InitUI()
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
+    filesDef.showLabel = false;
     Panel &files = uiRenderer.AddPanel(filesDef);
+    files.sections.reserve(1);
+    files.AddParagraph("Files").showLabel = true;
 
     // Analysis panel with sections
     Panel analysisDef;
@@ -572,10 +575,13 @@ void Display::InitUI()
     analysisDef.color = Color::GetUI(1);
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
+    analysisDef.showLabel = false;
     Panel &analysis = uiRenderer.AddPanel(analysisDef);
 
 #if 1                             // DEBUG: panel-only mode — sections/content hidden for layout debugging
-    analysis.sections.reserve(4); // stable pointers: capacity pre-allocated, no reallocation after this point
+    analysis.sections.reserve(5); // stable pointers: title + Result + ImportAction + Verdict + Configs
+    Panel &analysisTitle = analysis.AddParagraph("Analysis");
+    analysisTitle.showLabel = true;
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
     uiImportPara = &analysis.AddParagraph("ImportAction");
