@@ -1130,6 +1130,9 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/throw_system_error.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/unistd.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/forward_like.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/PanelGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \

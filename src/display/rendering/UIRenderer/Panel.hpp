@@ -6,11 +6,17 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "PanelGrid.hpp"
 
-struct Panel;
+struct RootPanel;
+struct Section;
+struct Paragraph;
+
+// Any child element is either a Section or a Paragraph.
+using ChildElement = std::variant<Section, Paragraph>;
 
 struct PanelAnchor
 {
@@ -22,7 +28,7 @@ struct PanelAnchor
         Bottom
     };
 
-    const Panel *panel = nullptr; // panel to reference (nullptr = screen)
+    const RootPanel *panel = nullptr; // panel to reference (nullptr = screen)
     Edge edge = Left;
 };
 
@@ -33,15 +39,6 @@ struct SectionLine
     glm::vec4 prefixColor{0};                       // color for the prefix
     std::function<void()> onClick;                  // button attachment: underlined text, pointer cursor
     std::function<void(float, float)> imguiContent; // input attachment: custom ImGui widget (w, h)
-};
-
-// Element kind — determines rendering behavior.
-// The box model (padding, margin) is the same for all kinds. Margins are additive.
-enum class UIKind
-{
-    Panel,     // top-level anchor-positioned container with background
-    Section,   // child container (label + optional children; collapsible if flag set)
-    Paragraph, // text leaf with interactive line attachments (onClick / imguiContent)
 };
 
 // Box model for UI elements (CSS-like). Each element has:
@@ -63,52 +60,83 @@ struct ContentBox
     float outerHeight = 0.0f;
 };
 
-struct Panel
+// Shared resolved-position fields. Populated by the layout resolver.
+// Layer reflects nesting depth: RootPanel=0, Section=1, Paragraph=2.
+struct UIElement
 {
-    // Layer-based border radius: panels are layer 0, sections are layer 1, etc.
     static constexpr float BASE_RADIUS = 0.5f;
-    static constexpr float RADIUS_DECAY = 1.0f;
-
-    static constexpr float RadiusForLayer(int /*layer*/)
-    {
-        return BASE_RADIUS;
-    }
-
-    static constexpr float PaddingForLayer(int /*layer*/)
-    {
-        return 0.25f;
-    }
-
-    static constexpr float MarginForLayer(int /*layer*/)
-    {
-        return 0.25f;
-    }
-
-    // Fraction of padding used as line-gap between stacked value lines
     static constexpr float LINE_GAP_RATIO = 0.35f;
 
-    UIKind kind = UIKind::Panel;
-    int layer = 0; // nesting depth: panel=0, section=1, paragraph=2
+    static constexpr float RadiusForLayer(int /*layer*/) { return BASE_RADIUS; }
+    static constexpr float PaddingForLayer(int /*layer*/) { return 0.25f; }
+    static constexpr float MarginForLayer(int /*layer*/) { return 0.25f; }
+
+    std::string id;
+    int layer = 0;
 
     // Resolved position and size in grid cell units (computed by resolver)
     float col = 0;
     float row = 0;
     float colSpan = 0;
     float rowSpan = 0;
+
     float borderRadius = RadiusForLayer(0);
     float margin = MarginForLayer(0);   // external: additive spacing between siblings
     float padding = PaddingForLayer(0); // internal: background edge to content
-    float lineGap = 0.0f;        // spacing between value lines (cells, computed from padding * LINE_GAP_RATIO)
-    float labelLeftInset = 0.0f; // extra left inset before the label text (cells)
+    float lineGap = 0.0f;               // spacing between value lines (cells, computed from padding * LINE_GAP_RATIO)
 
-    glm::vec4 color{0.0f};
-    std::string id;
-    std::vector<SectionLine> values;
-    bool showLabel = true;
     bool visible = true;
-    bool collapsible = false; // Section only: renderer ignores this on Panel/Paragraph
-    bool showSplitter = true;
     bool stretch = true; // false = use content width, centered in parent
+
+    PanelGrid localGrid;
+    ContentBox box;
+};
+
+// Paragraph — leaf element with interactive value lines. No children.
+// Title text is expressed as a plain SectionLine in values; id is used only for lookup.
+struct Paragraph : UIElement
+{
+    std::vector<SectionLine> values;
+
+    Paragraph()
+    {
+        layer = 2;
+        borderRadius = RadiusForLayer(2);
+        margin = MarginForLayer(2);
+        padding = PaddingForLayer(2);
+    }
+};
+
+// Section — labeled child container. No background (VS Code style). Can have Paragraph children.
+// Splitters between children are drawn by the parent layout algorithm, not per-child flags.
+struct Section : UIElement
+{
+    float labelLeftInset = PaddingForLayer(1);
+    std::vector<Paragraph> children;
+
+    Section()
+    {
+        layer = 1;
+        borderRadius = RadiusForLayer(1);
+        margin = MarginForLayer(1);
+        padding = PaddingForLayer(1);
+    }
+
+    Paragraph &AddParagraph(const std::string &paragraphId)
+    {
+        assert(children.capacity() == 0 || children.size() < children.capacity());
+        Paragraph &p = children.emplace_back();
+        p.id = paragraphId;
+        return p;
+    }
+};
+
+// RootPanel — top-level anchor-positioned container with background.
+// Owns anchor constraints and a local grid. Children are Sections or Paragraphs.
+struct RootPanel : UIElement
+{
+    glm::vec4 color{0.0f};
+    bool showLabel = true; // false = anonymous container (background only, no header text)
 
     // Horizontal constraints
     std::optional<PanelAnchor> leftAnchor;
@@ -122,45 +150,31 @@ struct Panel
     std::optional<float> height;
     std::optional<float> minHeight;
 
-    PanelGrid localGrid;
+    std::vector<ChildElement> children;
 
-    // Child elements (stacked vertically or horizontally)
-    std::vector<Panel> sections;
-
-    // Cached box model (recomputed during resolve)
-    ContentBox box;
-
-    bool HasBackground() const { return color.a > 0.0f; }
-    bool IsContainer() const { return kind == UIKind::Panel || kind == UIKind::Section; }
-
-    Panel &AddSection(const std::string &sectionId)
+    RootPanel()
     {
-        assert(sections.capacity() == 0 || sections.size() < sections.capacity());
-        Panel section;
-        section.kind = UIKind::Section;
-        section.layer = 1;
-        section.id = sectionId;
-        section.borderRadius = RadiusForLayer(1);
-        section.margin = MarginForLayer(1);
-        section.padding = PaddingForLayer(1);
-        section.labelLeftInset = PaddingForLayer(1);
-        sections.push_back(section);
-        return sections.back();
+        layer = 0;
+        borderRadius = RadiusForLayer(0);
+        margin = MarginForLayer(0);
+        padding = PaddingForLayer(0);
     }
 
-    Panel &AddParagraph(const std::string &paragraphId)
+    bool HasBackground() const { return color.a > 0.0f; }
+
+    Section &AddSection(const std::string &sectionId)
     {
-        assert(sections.capacity() == 0 || sections.size() < sections.capacity());
-        Panel paragraph;
-        paragraph.kind = UIKind::Paragraph;
-        paragraph.layer = 2;
-        paragraph.id = paragraphId;
-        paragraph.borderRadius = RadiusForLayer(2);
-        paragraph.margin = MarginForLayer(2);
-        paragraph.padding = PaddingForLayer(2);
-        paragraph.showLabel = false;
-        paragraph.showSplitter = false;
-        sections.push_back(paragraph);
-        return sections.back();
+        assert(children.capacity() == 0 || children.size() < children.capacity());
+        Section &s = std::get<Section>(children.emplace_back(Section{}));
+        s.id = sectionId;
+        return s;
+    }
+
+    Paragraph &AddParagraph(const std::string &paragraphId)
+    {
+        assert(children.capacity() == 0 || children.size() < children.capacity());
+        Paragraph &p = std::get<Paragraph>(children.emplace_back(Paragraph{}));
+        p.id = paragraphId;
+        return p;
     }
 };

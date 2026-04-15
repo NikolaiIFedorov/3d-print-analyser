@@ -557,7 +557,7 @@ void Display::InitUI()
     float sidebarWidth = 10.0f;
 
     // Header
-    Panel filesDef;
+    RootPanel filesDef;
     filesDef.id = "Files";
     filesDef.color = Color::GetUI(1);
     filesDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
@@ -565,27 +565,26 @@ void Display::InitUI()
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
     filesDef.showLabel = false;
-    Panel &files = uiRenderer.AddPanel(filesDef);
-    files.sections.reserve(1);
-    files.AddParagraph("Files").showLabel = true;
+    RootPanel &files = uiRenderer.AddPanel(filesDef);
+    files.children.reserve(1);
+    files.AddParagraph("Files").values.emplace_back().text = "Files";
 
     // Analysis panel with sections
-    Panel analysisDef;
+    RootPanel analysisDef;
     analysisDef.id = "Analysis";
     analysisDef.color = Color::GetUI(1);
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
     analysisDef.showLabel = false;
-    Panel &analysis = uiRenderer.AddPanel(analysisDef);
+    RootPanel &analysis = uiRenderer.AddPanel(analysisDef);
 
 #if 1                             // DEBUG: panel-only mode — sections/content hidden for layout debugging
-    analysis.sections.reserve(5); // stable pointers: title + Result + ImportAction + Verdict + Configs
-    Panel &analysisTitle = analysis.AddParagraph("Analysis");
-    analysisTitle.showLabel = true;
+    analysis.children.reserve(5); // stable pointers: title + Result + ImportAction + Verdict + Configs
+    analysis.AddParagraph("Analysis").values.emplace_back().text = "Analysis";
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
     uiImportPara = &analysis.AddParagraph("ImportAction");
-    Panel &importPara = *uiImportPara;
+    Paragraph &importPara = *uiImportPara;
     SectionLine &importLine = importPara.values.emplace_back();
     importLine.text = "Import file";
     importLine.onClick = [this]()
@@ -611,11 +610,10 @@ void Display::InitUI()
 
     // Parameter group
     uiConfig = &analysis.AddSection("Configs");
-    Panel &config = *uiConfig;
-    config.collapsible = true;
-    config.color = Color::GetUI(2);
+    Section &config = *uiConfig;
+
     config.visible = false;
-    Panel &configParams = config.AddParagraph("ConfigParams");
+    Paragraph &configParams = config.AddParagraph("ConfigParams");
     configParams.values.reserve(4);
     // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color
     constexpr int kInputLayer = 2;

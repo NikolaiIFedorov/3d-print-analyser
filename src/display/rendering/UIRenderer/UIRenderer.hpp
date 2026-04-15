@@ -48,8 +48,8 @@ public:
     bool HitTest(float pixelX, float pixelY) const;
     void Shutdown();
 
-    Panel &AddPanel(const Panel &panel);
-    Panel *GetPanel(const std::string &id);
+    RootPanel &AddPanel(const RootPanel &panel);
+    RootPanel *GetPanel(const std::string &id);
     void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
     void MarkDirty() { dirty = true; }
@@ -72,7 +72,7 @@ private:
     glm::mat4 projection = glm::mat4(1.0f);
 
     UIGrid grid;
-    std::deque<Panel> panels;
+    std::deque<RootPanel> panels;
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     ImFont *pixelImFont = nullptr;
