@@ -9,12 +9,36 @@ static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in c
 static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
 static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
 
+// Returns the pixel bounding box for text as ImGui's AddText would produce, plus optionally
+// the underline drawn by onClick lines. Origin = (x,y) passed to AddText; results relative to (0,0).
+// Underline is drawn 1px below the font baseline (font->Ascent). Center snapped to floor(Ascent+1)+0.5,
+// thickness 1 → worst-case bottom = Ascent + 2.0 (relative to the AddText origin).
+static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font, bool includeUnderline = false)
+{
+    PixelBounds b;
+    if (!font || text.empty())
+        return b;
+    float cx = 0.0f;
+    for (unsigned char c : text)
+    {
+        const ImFontGlyph *g = font->FindGlyph(static_cast<ImWchar>(c));
+        if (!g)
+            continue;
+        b.expand(cx + g->X0, g->Y0);
+        b.expand(cx + g->X1, g->Y1);
+        cx += g->AdvanceX;
+    }
+    if (includeUnderline && b.valid())
+        b.expand(b.x0, std::max(b.y1, font->Ascent + 2.0f)); // underline at baseline+1px; worst-case bottom = Ascent+2
+    return b;
+}
+
 TextMetrics UIRenderer::ComputeTextMetrics() const
 {
     TextMetrics tm;
     tm.localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
     tm.textScale = tm.localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-    tm.textHeightCells = textRenderer.GetLineHeight(tm.textScale) / grid.cellSizeY;
+    tm.textHeightCells = textRenderer.GetMaxBearingY(tm.textScale) / grid.cellSizeY;
     return tm;
 }
 
@@ -302,13 +326,22 @@ void UIRenderer::ResolveAnchors()
 
         if (!item.values.empty())
         {
-            float valLines = static_cast<float>(item.values.size());
-            contentH += valLines * textHeightCells + (valLines - 1.0f) * item.lineGap;
-            for (const auto &line : item.values)
+            float bearingPx = textHeightCells * grid.cellSizeY;
+            float lineGapPx = item.lineGap * grid.cellSizeY;
+            float lineStepPx = lineGapPx + bearingPx;
+
+            float maxBottom = 0.0f;
+            for (size_t i = 0; i < item.values.size(); i++)
             {
-                float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
-                contentW = std::max(contentW, lineW);
+                const auto &line = item.values[i];
+                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, cachedTextImFont, bool(line.onClick));
+                float inkH = ink.valid() ? ink.height() : bearingPx;
+                // ink.x1 is the visual right edge of the last glyph (includes overhang past AdvanceX)
+                float inkW = ink.valid() ? ink.x1 : textRenderer.MeasureWidth(line.prefix + line.text, textScale);
+                maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
+                contentW = std::max(contentW, inkW / grid.cellSizeX);
             }
+            contentH += maxBottom / grid.cellSizeY;
         }
 
         item.box.contentWidth = contentW;
@@ -595,17 +628,18 @@ void UIRenderer::ResolveAnchors()
             {
                 float secPadding = UIElement::PaddingForLayer(1);
 
-                // First child is always the title paragraph; place it at panel origin.
+                // First child is always the title paragraph; place it inside the panel's content area.
                 UIElement &titleEl = std::visit([](auto &e) -> UIElement &
                                                 { return e; }, panel.children[0]);
-                titleEl.col = panel.col;
+                float panelInset = panel.margin + panel.padding;
+                titleEl.col     = panel.col + panelInset;
                 titleEl.colSpan = titleEl.box.outerWidth;
-                titleEl.row = panel.row;
-                titleEl.rowSpan = panel.rowSpan;
+                titleEl.row     = panel.row + panelInset;
+                titleEl.rowSpan = panel.rowSpan - 2.0f * panelInset;
                 updateLocalGrid(titleEl, panel.padding);
 
                 // Remaining children are tab sections stacked rightward (splitter between each)
-                float headerWidth = titleEl.box.outerWidth;
+                float headerWidth = panelInset + titleEl.box.outerWidth;
                 float totalWidth = headerWidth;
                 for (size_t i = 1; i < panel.children.size(); i++)
                 {
@@ -619,7 +653,7 @@ void UIRenderer::ResolveAnchors()
                 }
 
                 if (!panel.rightAnchor && !panel.width)
-                    panel.colSpan = std::max(panel.colSpan, totalWidth);
+                    panel.colSpan = std::max(panel.colSpan, totalWidth + panelInset);
 
                 float currentCol = panel.col + headerWidth;
                 for (size_t i = 1; i < panel.children.size(); i++)
@@ -993,6 +1027,8 @@ void UIRenderer::Render()
     if (panels.empty())
         return;
 
+    cachedTextImFont = ImGui::GetFont();
+
     if (dirty)
         BuildMesh();
 
@@ -1026,13 +1062,20 @@ void UIRenderer::Render()
         for (size_t i = 0; i < item.values.size(); i++)
         {
             const auto &line = item.values[i];
+            // Measure actual glyph ink bounds at add-text origin (0,0).
+            const ImFont *font = ImGui::GetFont();
+            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, const_cast<ImFont *>(font), bool(line.onClick));
+            float inkH = ink.valid() ? ink.height() : bearingY;
+            float inkY0 = ink.valid() ? ink.y0 : 0.0f;
+
             float vpx = contentPx;
             float vpy = contentPy + bearingY + lineStepPx * static_cast<float>(i);
 
             float btnX = vpx;
             float btnY = vpy - bearingY;
             float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-            float btnH = bearingY;
+            // Slot height: exact drawn extent including underline bottom edge if present
+            float btnH = inkH;
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
             std::string winId = "##val" + itemPath + "_" + std::to_string(i);
@@ -1060,10 +1103,10 @@ void UIRenderer::Render()
                         if (ImGui::IsItemHovered())
                             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
                     }
-                    float pad = ImGui::GetStyle().FramePadding.x;
-                    float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
+                    // Centre the ink region in the slot; account for glyph y0 inset
+                    float ty = btnY + (btnH - inkH) * 0.5f - inkY0;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
-                    float tx = btnX + pad;
+                    float tx = btnX;
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
@@ -1078,7 +1121,8 @@ void UIRenderer::Render()
                         if (line.onClick)
                         {
                             float tw = ImGui::CalcTextSize(line.text.c_str()).x;
-                            float underlineY = ty + ImGui::GetFontSize();
+                            // Underline 1px below baseline; baseline = ty + font->Ascent (top-down Y)
+                            float underlineY = std::floor(ty + font->Ascent + 1.0f) + 0.5f;
                             dl->AddLine(ImVec2(tx, underlineY), ImVec2(tx + tw, underlineY), textCol, 1.0f);
                         }
                     }

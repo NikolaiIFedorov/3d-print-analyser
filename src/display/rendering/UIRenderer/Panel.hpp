@@ -1,7 +1,9 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <algorithm>
 #include <cassert>
+#include <cfloat>
 #include <deque>
 #include <functional>
 #include <optional>
@@ -10,6 +12,36 @@
 #include <vector>
 
 #include "PanelGrid.hpp"
+
+// Pixel-space bounding box built from actual or simulated vertex positions.
+// Call expand() for every point (vertex corner, line endpoint, etc.) that gets drawn.
+struct PixelBounds
+{
+    float x0 = FLT_MAX, y0 = FLT_MAX;
+    float x1 = -FLT_MAX, y1 = -FLT_MAX;
+
+    bool valid() const { return x0 <= x1 && y0 <= y1; }
+
+    void expand(float x, float y)
+    {
+        x0 = std::min(x0, x);
+        y0 = std::min(y0, y);
+        x1 = std::max(x1, x);
+        y1 = std::max(y1, y);
+    }
+
+    void merge(const PixelBounds &o)
+    {
+        if (o.valid())
+        {
+            expand(o.x0, o.y0);
+            expand(o.x1, o.y1);
+        }
+    }
+
+    float width() const { return valid() ? x1 - x0 : 0.f; }
+    float height() const { return valid() ? y1 - y0 : 0.f; }
+};
 
 struct RootPanel;
 struct Section;
