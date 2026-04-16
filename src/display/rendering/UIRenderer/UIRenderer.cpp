@@ -349,7 +349,7 @@ void UIRenderer::ResolveAnchors()
                 ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont : cachedTextImFont;
                 PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont, bool(line.onClick));
                 float inkH = line.imguiContent ? slotH
-                             : (ink.valid() ? std::max(ink.height(), bearingPx) : bearingPx);
+                                               : (ink.valid() ? std::max(ink.height(), bearingPx) : bearingPx);
                 // ink.x1 is the visual right edge of the last glyph (includes overhang past AdvanceX)
                 float inkW = ink.valid() ? ink.x1 : textRenderer.MeasureWidth(line.prefix + line.text, textScale);
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
@@ -928,7 +928,11 @@ void UIRenderer::BuildMesh()
 
             // Splitter between every visible child, and after the label header.
             bool needsSplitter = (visibleIdx > 0) || (parent.header.has_value() && visibleIdx == 0);
+            // For Sections, the visual boundary is the content edge (margin+padding inset), not the
+            // outer margin edge. This places the splitter at the true midpoint of the visible gap.
             float childVisualTop = el.row + el.margin;
+            if (std::holds_alternative<Section>(child))
+                childVisualTop = el.row + el.margin + el.padding;
             if (needsSplitter)
                 emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetUI(colorLevel));
 
@@ -956,7 +960,12 @@ void UIRenderer::BuildMesh()
                 }
             }
 
-            prevVisualBottom = el.row + el.box.outerHeight - el.margin;
+            // For Sections, use the content boundary (margin+padding inset) as the visual bottom edge,
+            // matching the same logic used for childVisualTop above.
+            if (std::holds_alternative<Section>(child))
+                prevVisualBottom = el.row + el.rowSpan - el.margin - el.padding;
+            else
+                prevVisualBottom = el.row + el.box.outerHeight - el.margin;
             visibleIdx++;
         }
     };
