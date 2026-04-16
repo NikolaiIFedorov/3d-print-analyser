@@ -1305,6 +1305,9 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
@@ -1329,6 +1332,4 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/utc_clock.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/zoned_time.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/ostream.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h

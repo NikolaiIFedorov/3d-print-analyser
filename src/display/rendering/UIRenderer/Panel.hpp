@@ -100,7 +100,7 @@ struct UIElement
     static constexpr float LINE_GAP_RATIO = 0.35f;
 
     static constexpr float RadiusForLayer(int /*layer*/) { return BASE_RADIUS; }
-    static constexpr float PaddingForLayer(int /*layer*/) { return 0.25f; }
+    static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : 0.25f; }
     static constexpr float MarginForLayer(int /*layer*/) { return 0.25f; }
 
     std::string id;
@@ -139,18 +139,31 @@ struct Paragraph : UIElement
     }
 };
 
+// Display label for a Section or RootPanel header.
+// Backed by a Paragraph so it renders via the same ImGui overlay path as panel titles did originally.
+// UIElement::id remains the lookup/debug key only.
+struct Header
+{
+    Paragraph para;
+
+    Header(const std::string &text)
+    {
+        para.values.emplace_back().text = text;
+    }
+};
+
 // Section — labeled child container. No background (VS Code style). Can have Paragraph children.
 // Splitters between children are drawn by the parent layout algorithm, not per-child flags.
 struct Section : UIElement
 {
-    float labelLeftInset = PaddingForLayer(1);
+    std::optional<Header> header; // present = render a title row above children
     std::vector<Paragraph> children;
 
     Section()
     {
         layer = 1;
         borderRadius = RadiusForLayer(1);
-        margin = MarginForLayer(1);
+        margin = 0.0f;
         padding = PaddingForLayer(1);
     }
 
@@ -168,7 +181,7 @@ struct Section : UIElement
 struct RootPanel : UIElement
 {
     glm::vec4 color{0.0f};
-    bool showLabel = true; // false = anonymous container (background only, no header text)
+    std::optional<Header> header; // present = render a title row above children
 
     // Horizontal constraints
     std::optional<PanelAnchor> leftAnchor;

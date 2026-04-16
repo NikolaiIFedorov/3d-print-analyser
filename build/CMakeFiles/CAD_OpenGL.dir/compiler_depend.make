@@ -3168,6 +3168,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer/ViewportRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/input/FileImport.hpp \
@@ -14604,6 +14605,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: /Us
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
@@ -38250,6 +38252,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/arm/_endian.h:
 
 /opt/homebrew/include/SDL3/SDL_bits.h:
+
+/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/radix_sort.h:
 

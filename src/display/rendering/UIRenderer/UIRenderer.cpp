@@ -1,5 +1,6 @@
 #include "UIRenderer.hpp"
 #include "rendering/color.hpp"
+#include "UIStyle.hpp"
 #include "utils/log.hpp"
 #include "imgui.h"
 #include <algorithm>
@@ -326,16 +327,29 @@ void UIRenderer::ResolveAnchors()
 
         if (!item.values.empty())
         {
-            float bearingPx = textHeightCells * grid.cellSizeY;
+            float bearingPx = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
             float lineGapPx = item.lineGap * grid.cellSizeY;
-            float lineStepPx = lineGapPx + bearingPx;
+            // imguiContent lines (e.g. DragFloat) need at least GetFrameHeight() of vertical space.
+            float slotH = bearingPx;
+            if (pixelImFont)
+            {
+                for (const auto &v : item.values)
+                    if (v.imguiContent)
+                    {
+                        slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
+                        break;
+                    }
+            }
+            float lineStepPx = lineGapPx + slotH;
 
             float maxBottom = 0.0f;
             for (size_t i = 0; i < item.values.size(); i++)
             {
                 const auto &line = item.values[i];
-                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, cachedTextImFont, bool(line.onClick));
-                float inkH = ink.valid() ? ink.height() : bearingPx;
+                ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont : cachedTextImFont;
+                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont, bool(line.onClick));
+                float inkH = line.imguiContent ? slotH
+                             : (ink.valid() ? std::max(ink.height(), bearingPx) : bearingPx);
                 // ink.x1 is the visual right edge of the last glyph (includes overhang past AdvanceX)
                 float inkW = ink.valid() ? ink.x1 : textRenderer.MeasureWidth(line.prefix + line.text, textScale);
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
@@ -359,10 +373,15 @@ void UIRenderer::ResolveAnchors()
         for (auto &child : item.children)
             computeParagraphBox(child);
 
-        // Section always has a label header.
-        float childMar = UIElement::MarginForLayer(item.layer);
-        float contentH = childMar + textHeightCells + childMar;
-        float contentW = item.labelLeftInset + textRenderer.MeasureWidth(item.id, textScale) / grid.cellSizeX;
+        float contentH = 0.0f;
+        float contentW = 0.0f;
+
+        if (item.header.has_value())
+        {
+            computeParagraphBox(item.header->para);
+            contentH = item.header->para.box.outerHeight;
+            contentW = item.header->para.box.outerWidth;
+        }
 
         for (auto &child : item.children)
         {
@@ -391,12 +410,12 @@ void UIRenderer::ResolveAnchors()
         float contentH = 0.0f;
         float contentW = 0.0f;
 
-        // Optional label on root panel (anonymous containers have showLabel=false)
-        if (item.showLabel)
+        // Optional label on root panel (anonymous containers have no header)
+        if (item.header.has_value())
         {
-            float childMar = UIElement::MarginForLayer(item.layer);
-            contentH = childMar + textHeightCells + childMar;
-            contentW = textRenderer.MeasureWidth(item.id, textScale) / grid.cellSizeX;
+            computeParagraphBox(item.header->para);
+            contentH = item.header->para.box.outerHeight;
+            contentW = item.header->para.box.outerWidth;
         }
 
         for (auto &child : item.children)
@@ -467,9 +486,17 @@ void UIRenderer::ResolveAnchors()
     auto placeSectionChildren = [&](Section &parent) -> void
     {
         float insetX = parent.margin + parent.padding;
-        float childMar = UIElement::MarginForLayer(parent.layer);
-        // Cursor starts after the section label header
-        float cursor = parent.row + parent.margin + parent.padding + childMar + textHeightCells + childMar;
+        float cursor = parent.row + parent.margin + parent.padding;
+        if (parent.header.has_value())
+        {
+            Paragraph &hpara = parent.header->para;
+            hpara.col = parent.col + insetX;
+            hpara.colSpan = parent.colSpan - 2.0f * insetX;
+            hpara.row = cursor;
+            hpara.rowSpan = hpara.box.outerHeight;
+            updateLocalGrid(hpara, hpara.padding);
+            cursor += hpara.box.outerHeight;
+        }
 
         for (auto &child : parent.children)
         {
@@ -502,10 +529,15 @@ void UIRenderer::ResolveAnchors()
 
         float insetX = parent.margin + parent.padding;
         float cursor = parent.row + parent.margin + parent.padding;
-        if (parent.showLabel)
+        if (parent.header.has_value())
         {
-            float childMar = UIElement::MarginForLayer(parent.layer);
-            cursor += childMar + textHeightCells + childMar;
+            Paragraph &hpara = parent.header->para;
+            hpara.col = parent.col + insetX;
+            hpara.colSpan = parent.colSpan - 2.0f * insetX;
+            hpara.row = cursor;
+            hpara.rowSpan = hpara.box.outerHeight;
+            updateLocalGrid(hpara, hpara.padding);
+            cursor += hpara.box.outerHeight;
         }
 
         for (auto &child : parent.children)
@@ -551,24 +583,10 @@ void UIRenderer::ResolveAnchors()
         w = panel.width;
 
         // Auto-width: use box model
+        // (computeBox already accounts for the widest child, so panel.box.outerWidth suffices)
         if (!w && !right)
         {
             w = panel.box.outerWidth;
-
-            // Vertical panels: widen to fit widest child
-            bool willBeVertical = !(panel.leftAnchor.has_value() && panel.rightAnchor.has_value());
-            if (willBeVertical)
-            {
-                for (const auto &child : panel.children)
-                {
-                    const UIElement &el = std::visit([](const auto &e) -> const UIElement &
-                                                     { return e; }, child);
-                    if (!el.visible)
-                        continue;
-                    float secW = el.box.outerWidth + 2.0f * panel.padding;
-                    w = std::max(*w, secW);
-                }
-            }
         }
 
         if (left && right)
@@ -632,11 +650,11 @@ void UIRenderer::ResolveAnchors()
                 UIElement &titleEl = std::visit([](auto &e) -> UIElement &
                                                 { return e; }, panel.children[0]);
                 float panelInset = panel.margin + panel.padding;
-                titleEl.col     = panel.col + panelInset;
+                titleEl.col = panel.col + panelInset;
                 titleEl.colSpan = titleEl.box.outerWidth;
-                titleEl.row     = panel.row + panelInset;
+                titleEl.row = panel.row + panelInset;
                 titleEl.rowSpan = panel.rowSpan - 2.0f * panelInset;
-                updateLocalGrid(titleEl, panel.padding);
+                updateLocalGrid(titleEl, titleEl.padding);
 
                 // Remaining children are tab sections stacked rightward (splitter between each)
                 float headerWidth = panelInset + titleEl.box.outerWidth;
@@ -688,7 +706,9 @@ void UIRenderer::ResolveAnchors()
 
 void UIRenderer::ComputeMinGridSize()
 {
-    // Uses precomputed box models from the last ResolveAnchors() pass.
+    // Ensure box models are up to date before simulating layout.
+    ResolveAnchors();
+
     // Simulates anchor resolution with minimum dimensions to find
     // the smallest screen extent that fits all panels.
     const float gap = UIGrid::GAP;
@@ -895,11 +915,8 @@ void UIRenderer::BuildMesh()
         float bgX1 = grid.ToPixelsX(parent.col + parent.colSpan) - grid.ToPixelsX(mx);
 
         float prevVisualBottom = parent.row + parent.margin + parent.padding;
-        if (parent.showLabel)
-        {
-            float childMar = UIElement::MarginForLayer(parent.layer);
-            prevVisualBottom += childMar + tm.textHeightCells + childMar;
-        }
+        if (parent.header.has_value())
+            prevVisualBottom = parent.header->para.row + parent.header->para.rowSpan - parent.header->para.margin;
 
         int visibleIdx = 0;
         for (const auto &child : parent.children)
@@ -910,7 +927,7 @@ void UIRenderer::BuildMesh()
                 continue;
 
             // Splitter between every visible child, and after the label header.
-            bool needsSplitter = (visibleIdx > 0) || (parent.showLabel && visibleIdx == 0);
+            bool needsSplitter = (visibleIdx > 0) || (parent.header.has_value() && visibleIdx == 0);
             float childVisualTop = el.row + el.margin;
             if (needsSplitter)
                 emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetUI(colorLevel));
@@ -922,16 +939,18 @@ void UIRenderer::BuildMesh()
                 float secMx = sec.margin;
                 float secBgX0 = grid.ToPixelsX(sec.col) + grid.ToPixelsX(secMx);
                 float secBgX1 = grid.ToPixelsX(sec.col + sec.colSpan) - grid.ToPixelsX(secMx);
-                float childMar = UIElement::MarginForLayer(sec.layer);
-                float secPrevBottom = sec.row + sec.margin + sec.padding + childMar + tm.textHeightCells + childMar;
+                float secPrevBottom = sec.row + sec.margin + sec.padding;
+                if (sec.header.has_value())
+                    secPrevBottom = sec.header->para.row + sec.header->para.rowSpan - sec.header->para.margin;
 
                 int secVisibleIdx = 0;
                 for (const auto &para : sec.children)
                 {
                     if (!para.visible)
                         continue;
+                    // No splitter before the first paragraph — the section label acts as the header.
                     if (secVisibleIdx > 0)
-                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, sec.padding, Color::GetUI(colorLevel + 1));
+                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetUI(colorLevel + 1));
                     secPrevBottom = para.row + para.box.outerHeight - para.margin;
                     secVisibleIdx++;
                 }
@@ -1053,9 +1072,19 @@ void UIRenderer::Render()
             return;
 
         const auto &slg = item.localGrid;
-        float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-        float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-        float lineStepPx = item.padding * UIElement::LINE_GAP_RATIO * grid.cellSizeY + bearingY;
+        float bearingY = slg.cellSizeY;
+        // imguiContent lines need a slot tall enough for GetFrameHeight().
+        float slotH = bearingY;
+        if (pixelImFont)
+        {
+            for (const auto &v : item.values)
+                if (v.imguiContent)
+                {
+                    slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
+                    break;
+                }
+        }
+        float lineStepPx = item.lineGap * grid.cellSizeY + slotH;
         float contentPx = grid.ToPixelsX(item.col + item.margin + item.padding);
         float contentPy = grid.ToPixelsY(item.row + item.margin + item.padding);
 
@@ -1063,8 +1092,8 @@ void UIRenderer::Render()
         {
             const auto &line = item.values[i];
             // Measure actual glyph ink bounds at add-text origin (0,0).
-            const ImFont *font = ImGui::GetFont();
-            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, const_cast<ImFont *>(font), bool(line.onClick));
+            ImFont *font = (line.onClick && pixelImFont) ? pixelImFont : ImGui::GetFont();
+            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, font, false);
             float inkH = ink.valid() ? ink.height() : bearingY;
             float inkY0 = ink.valid() ? ink.y0 : 0.0f;
 
@@ -1074,8 +1103,8 @@ void UIRenderer::Render()
             float btnX = vpx;
             float btnY = vpy - bearingY;
             float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-            // Slot height: exact drawn extent including underline bottom edge if present
-            float btnH = inkH;
+            // Slot height: use frame height for imguiContent, at least text bearing otherwise
+            float btnH = line.imguiContent ? slotH : std::max(inkH, bearingY);
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
             std::string winId = "##val" + itemPath + "_" + std::to_string(i);
@@ -1106,25 +1135,35 @@ void UIRenderer::Render()
                     // Centre the ink region in the slot; account for glyph y0 inset
                     float ty = btnY + (btnH - inkH) * 0.5f - inkY0;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
+                    // Draw framed background for interactive lines (same style as DragFloat sliders)
+                    if (line.onClick)
+                    {
+                        float radius = btnH * UIStyle::FRAME_ROUNDING_RATIO;
+                        ImVec4 bgVec;
+                        if (ImGui::IsItemActive())
+                            bgVec = UIStyle::FrameBgActiveColor();
+                        else if (ImGui::IsItemHovered())
+                            bgVec = UIStyle::FrameBgHoveredColor();
+                        else
+                        {
+                            glm::vec4 bg = Color::GetInputBg(item.layer);
+                            bgVec = ImVec4(bg.r, bg.g, bg.b, bg.a);
+                        }
+                        dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+                                          ImGui::GetColorU32(bgVec), radius);
+                    }
                     float tx = btnX;
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                        dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
-                        tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
+                        dl->AddText(font, font->FontSize, ImVec2(tx, ty), pc, line.prefix.c_str());
+                        tx += font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, line.prefix.c_str()).x;
                     }
                     if (!line.text.empty())
                     {
                         glm::vec4 tc = Color::GetUIText(1);
                         ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                        dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
-                        if (line.onClick)
-                        {
-                            float tw = ImGui::CalcTextSize(line.text.c_str()).x;
-                            // Underline 1px below baseline; baseline = ty + font->Ascent (top-down Y)
-                            float underlineY = std::floor(ty + font->Ascent + 1.0f) + 0.5f;
-                            dl->AddLine(ImVec2(tx, underlineY), ImVec2(tx + tw, underlineY), textCol, 1.0f);
-                        }
+                        dl->AddText(font, font->FontSize, ImVec2(tx, ty), textCol, line.text.c_str());
                     }
                 }
             }
@@ -1140,16 +1179,8 @@ void UIRenderer::Render()
             return;
         std::string secPath = parentPath + "_" + sec.id;
 
-        const auto &slg = sec.localGrid;
-        float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-        float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-        float contentPx = grid.ToPixelsX(sec.col + sec.margin + sec.padding);
-        float contentPy = grid.ToPixelsY(sec.row + sec.margin + sec.padding);
-        float childMar = UIElement::MarginForLayer(sec.layer) * grid.cellSizeY;
-
-        if (!sec.id.empty())
-            textRenderer.RenderText(sec.id, contentPx + sec.labelLeftInset * grid.cellSizeX,
-                                    contentPy + childMar + bearingY, sTextScale, Color::GetUIText(1));
+        if (sec.header.has_value())
+            renderParagraph(sec.header->para, secPath + "_header");
 
         for (const auto &para : sec.children)
             renderParagraph(para, secPath + "_" + para.id);
@@ -1161,19 +1192,11 @@ void UIRenderer::Render()
         if (!panel.visible)
             continue;
 
-        // Render RootPanel label (if not anonymous)
-        if (panel.showLabel && !panel.id.empty())
-        {
-            const auto &slg = panel.localGrid;
-            float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-            float contentPx = grid.ToPixelsX(panel.col + panel.margin + panel.padding);
-            float contentPy = grid.ToPixelsY(panel.row + panel.margin + panel.padding);
-            float childMar = UIElement::MarginForLayer(panel.layer) * grid.cellSizeY;
-            textRenderer.RenderText(panel.id, contentPx, contentPy + childMar + bearingY, sTextScale, Color::GetUIText(1));
-        }
-
         std::string panelPath = "_" + panel.id;
+
+        // Render RootPanel header (anonymous containers have no header)
+        if (panel.header.has_value())
+            renderParagraph(panel.header->para, panelPath + "_header");
         for (const auto &child : panel.children)
         {
             std::visit([&](const auto &el)
@@ -1223,14 +1246,21 @@ void UIRenderer::Render()
         for (const auto &panel : panels)
         {
             drawDebugElement(panel);
+            if (panel.header.has_value())
+                drawDebugElement(panel.header->para);
+
             for (const auto &child : panel.children)
             {
                 std::visit([&](const auto &el)
                            {
                     drawDebugElement(el);
                     if constexpr (std::is_same_v<std::decay_t<decltype(el)>, Section>)
+                    {
+                        if (el.header.has_value())
+                            drawDebugElement(el.header->para);
                         for (const auto &para : el.children)
-                            drawDebugElement(para); }, child);
+                            drawDebugElement(para);
+                    } }, child);
             }
         }
     }

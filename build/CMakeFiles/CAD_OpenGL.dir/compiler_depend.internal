@@ -3181,6 +3181,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer/ViewportRenderer.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/input/FileImport.hpp
@@ -14626,6 +14627,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp

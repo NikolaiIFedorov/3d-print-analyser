@@ -1390,6 +1390,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Analysis.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/Overhang/Overhang.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/SharpCorner/SharpCorner.hpp \

@@ -1,5 +1,6 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
+#include "rendering/UIRenderer/UIStyle.hpp"
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
@@ -564,7 +565,6 @@ void Display::InitUI()
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
-    filesDef.showLabel = false;
     RootPanel &files = uiRenderer.AddPanel(filesDef);
     files.children.reserve(1);
     files.AddParagraph("Files").values.emplace_back().text = "Files";
@@ -575,12 +575,11 @@ void Display::InitUI()
     analysisDef.color = Color::GetUI(1);
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
-    analysisDef.showLabel = false;
     RootPanel &analysis = uiRenderer.AddPanel(analysisDef);
 
-#if 1                             // DEBUG: panel-only mode — sections/content hidden for layout debugging
-    analysis.children.reserve(5); // stable pointers: title + Result + ImportAction + Verdict + Configs
-    analysis.AddParagraph("Analysis").values.emplace_back().text = "Analysis";
+#if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
+    analysis.header = Header{"Analysis"};
+    analysis.children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
     uiImportPara = &analysis.AddParagraph("ImportAction");
@@ -610,6 +609,7 @@ void Display::InitUI()
 
     // Parameter group
     uiConfig = &analysis.AddSection("Configs");
+    uiConfig->header = Header{"Configs"};
     Section &config = *uiConfig;
 
     config.visible = false;
@@ -627,11 +627,7 @@ void Display::InitUI()
                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
         glm::vec4 bg = Color::GetInputBg(layer);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        UIStyle::PushInputStyle(h, bg, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Overhang:  ").x;
         float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
@@ -690,8 +686,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        ImGui::PopStyleVar(1);
-        ImGui::PopStyleColor(4);
+        UIStyle::PopInputStyle();
     };
 
     SectionLine &sharpContent = configParams.values.emplace_back();
@@ -704,11 +699,7 @@ void Display::InitUI()
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
         glm::vec4 bg = Color::GetInputBg(layer);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        UIStyle::PushInputStyle(h, bg, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Sharp corner:  ").x;
         float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
@@ -767,8 +758,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        ImGui::PopStyleVar(1);
-        ImGui::PopStyleColor(4);
+        UIStyle::PopInputStyle();
     };
 
     SectionLine &featureContent = configParams.values.emplace_back();
@@ -781,11 +771,7 @@ void Display::InitUI()
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
         glm::vec4 bg = Color::GetInputBg(layer);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        UIStyle::PushInputStyle(h, bg, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Min feature:  ").x;
         float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
@@ -844,8 +830,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        ImGui::PopStyleVar(1);
-        ImGui::PopStyleColor(4);
+        UIStyle::PopInputStyle();
     };
 
     SectionLine &layerContent = configParams.values.emplace_back();
@@ -853,13 +838,9 @@ void Display::InitUI()
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
-        glm::vec4 c = Color::GetUIText(1);
+        glm::vec4 tc = Color::GetUIText(1);
         glm::vec4 bg = Color::GetInputBg(layer);
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, h * 0.3f);
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, c.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(bg.r, bg.g, bg.b, bg.a));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
+        UIStyle::PushInputStyle(h, bg, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Layer height:  ").x;
         float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
@@ -897,7 +878,7 @@ void Display::InitUI()
             tracking = false;
         }
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-        ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
+        ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
         ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Layer height:");
         if (!showEdit)
         {
@@ -917,8 +898,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        ImGui::PopStyleVar(1);
-        ImGui::PopStyleColor(4);
+        UIStyle::PopInputStyle();
     };
 
     RebuildAnalysis();
