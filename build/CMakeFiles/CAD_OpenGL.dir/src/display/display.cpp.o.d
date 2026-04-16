@@ -1397,6 +1397,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/SmallFeature/SmallFeature.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/utils/Slice.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAccent.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/queue \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/random \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/bernoulli_distribution.h \

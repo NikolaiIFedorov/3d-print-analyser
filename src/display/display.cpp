@@ -6,6 +6,7 @@
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
 #include "logic/Analysis/SmallFeature/SmallFeature.hpp"
 #include "logic/Import/STLImport.hpp"
+#include "utils/SystemAccent.hpp"
 
 #include <unordered_set>
 #include <queue>
@@ -17,6 +18,13 @@
 
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
 {
+    // Apply system accent color if available, before any UI is constructed
+    {
+        float hue, sat;
+        if (SystemAccent::GetHueSat(hue, sat))
+            Color::SetAccent(hue, sat);
+    }
+
     // Initialize ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -616,9 +624,8 @@ void Display::InitUI()
     Paragraph &configParams = config.AddParagraph("ConfigParams");
     configParams.values.reserve(4);
     // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color
-    constexpr int kInputLayer = 2;
     SectionLine &overhangContent = configParams.values.emplace_back();
-    overhangContent.imguiContent = [this, layer = kInputLayer](float w, float h)
+    overhangContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -626,8 +633,7 @@ void Display::InitUI()
                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
-        glm::vec4 bg = Color::GetInputBg(layer);
-        UIStyle::PushInputStyle(h, bg, tc);
+        UIStyle::PushInputStyle(h, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Overhang:  ").x;
         float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
@@ -686,11 +692,12 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
+        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
     SectionLine &sharpContent = configParams.values.emplace_back();
-    sharpContent.imguiContent = [this, layer = kInputLayer](float w, float h)
+    sharpContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -698,8 +705,7 @@ void Display::InitUI()
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                 Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
-        glm::vec4 bg = Color::GetInputBg(layer);
-        UIStyle::PushInputStyle(h, bg, tc);
+        UIStyle::PushInputStyle(h, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Sharp corner:  ").x;
         float unitW = ImGui::CalcTextSize("\u00b0").x + normalPad * 2;
@@ -758,11 +764,12 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
+        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
     SectionLine &featureContent = configParams.values.emplace_back();
-    featureContent.imguiContent = [this, layer = kInputLayer](float w, float h)
+    featureContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -770,8 +777,7 @@ void Display::InitUI()
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
                                 Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
         glm::vec4 tc = Color::GetUIText(1);
-        glm::vec4 bg = Color::GetInputBg(layer);
-        UIStyle::PushInputStyle(h, bg, tc);
+        UIStyle::PushInputStyle(h, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Min feature:  ").x;
         float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
@@ -830,17 +836,17 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
+        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
     SectionLine &layerContent = configParams.values.emplace_back();
-    layerContent.imguiContent = [this, layer = kInputLayer](float w, float h)
+    layerContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
         glm::vec4 tc = Color::GetUIText(1);
-        glm::vec4 bg = Color::GetInputBg(layer);
-        UIStyle::PushInputStyle(h, bg, tc);
+        UIStyle::PushInputStyle(h, tc);
         float normalPad = ImGui::GetStyle().FramePadding.x;
         float labelW = ImGui::CalcTextSize("Layer height:  ").x;
         float unitW = ImGui::CalcTextSize("mm").x + normalPad * 2;
@@ -898,6 +904,7 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
+        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 

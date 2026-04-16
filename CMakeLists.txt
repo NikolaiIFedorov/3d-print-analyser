@@ -38,7 +38,8 @@ include_directories(include/earcut.hpp-2.2.4/include/)
 
 add_executable(CAD_OpenGL
     src/main.cpp
-    src/utils/log.cpp  
+    src/utils/log.cpp
+    src/utils/SystemAccent.mm  
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
@@ -128,5 +129,6 @@ target_link_libraries(CAD_OpenGL
 if(APPLE)
     target_link_libraries(CAD_OpenGL
         "-framework OpenGL"
+        "-framework AppKit"
     )
 endif()

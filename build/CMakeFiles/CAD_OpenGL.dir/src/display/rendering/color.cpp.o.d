@@ -618,8 +618,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_starts_with.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_find_last.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__algorithm/ranges_fold.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/glm.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/_fixes.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cmath \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/hypot.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/abs.h \
@@ -641,6 +639,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/remainder.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/rounding_functions.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__math/trigonometric_functions.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/glm.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/_fixes.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/setup.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cassert \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/assert.h \

@@ -934,7 +934,7 @@ void UIRenderer::BuildMesh()
             if (std::holds_alternative<Section>(child))
                 childVisualTop = el.row + el.margin + el.padding;
             if (needsSplitter)
-                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetUI(colorLevel));
+                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetAccent(colorLevel));
 
             // Emit Section children (Paragraphs inside a Section)
             if (std::holds_alternative<Section>(child))
@@ -954,7 +954,7 @@ void UIRenderer::BuildMesh()
                         continue;
                     // No splitter before the first paragraph — the section label acts as the header.
                     if (secVisibleIdx > 0)
-                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetUI(colorLevel + 1));
+                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetAccent(colorLevel + 1));
                     secPrevBottom = para.row + para.box.outerHeight - para.margin;
                     secVisibleIdx++;
                 }
@@ -1004,7 +1004,7 @@ void UIRenderer::BuildMesh()
                 float rsy0 = std::round(y0 + halfPadPx);
                 float rsy1 = std::round(y1 - halfPadPx);
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2));
             }
         }
         else
@@ -1144,22 +1144,19 @@ void UIRenderer::Render()
                     // Centre the ink region in the slot; account for glyph y0 inset
                     float ty = btnY + (btnH - inkH) * 0.5f - inkY0;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
-                    // Draw framed background for interactive lines (same style as DragFloat sliders)
+                    // Hover/active background tint for clickable lines
                     if (line.onClick)
                     {
-                        float radius = btnH * UIStyle::FRAME_ROUNDING_RATIO;
-                        ImVec4 bgVec;
-                        if (ImGui::IsItemActive())
-                            bgVec = UIStyle::FrameBgActiveColor();
-                        else if (ImGui::IsItemHovered())
-                            bgVec = UIStyle::FrameBgHoveredColor();
-                        else
+                        bool hovered = ImGui::IsItemHovered();
+                        bool active  = ImGui::IsItemActive();
+                        if (hovered || active)
                         {
-                            glm::vec4 bg = Color::GetInputBg(item.layer);
-                            bgVec = ImVec4(bg.r, bg.g, bg.b, bg.a);
+                            int d = active ? item.layer + 2 : item.layer + 1;
+                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f);
+                            float radius = btnH * UIStyle::FRAME_ROUNDING_RATIO;
+                            dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+                                              ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
                         }
-                        dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
-                                          ImGui::GetColorU32(bgVec), radius);
                     }
                     float tx = btnX;
                     if (!line.prefix.empty())
@@ -1173,6 +1170,21 @@ void UIRenderer::Render()
                         glm::vec4 tc = Color::GetUIText(1);
                         ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
                         dl->AddText(font, font->FontSize, ImVec2(tx, ty), textCol, line.text.c_str());
+                    }
+                    // Underline for clickable lines: accent color, drawn below the ink baseline
+                    if (line.onClick && ink.valid())
+                    {
+                        int restDepth = item.layer;
+                        bool hovered = ImGui::IsItemHovered();
+                        bool active = ImGui::IsItemActive();
+                        int d = active ? restDepth + 2 : (hovered ? restDepth + 1 : restDepth);
+                        glm::vec4 ac = Color::GetAccent(d);
+                        ImU32 ulCol = ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a));
+                        float ulY = std::round(ty + ink.y1) + 1.5f;
+                        float ulX1 = btnX + font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
+                                                                (line.prefix + line.text).c_str())
+                                                .x;
+                        dl->AddLine(ImVec2(btnX, ulY), ImVec2(ulX1, ulY), ulCol, 2.0f);
                     }
                 }
             }

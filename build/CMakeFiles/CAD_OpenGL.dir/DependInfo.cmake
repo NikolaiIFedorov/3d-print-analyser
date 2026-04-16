@@ -47,6 +47,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAccent.mm" "CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.cpp" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o.d"
   )
 
