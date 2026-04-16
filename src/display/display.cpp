@@ -7,6 +7,7 @@
 #include "logic/Analysis/SmallFeature/SmallFeature.hpp"
 #include "logic/Import/STLImport.hpp"
 #include "utils/SystemAccent.hpp"
+#include "utils/SystemAppearance.hpp"
 
 #include <unordered_set>
 #include <queue>
@@ -18,8 +19,10 @@
 
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
 {
-    // Apply system accent color if available, before any UI is constructed
+    // Apply system appearance and accent color before any UI is constructed
     {
+        Color::SetAppearance(SystemAppearance::IsDark());
+        viewportRenderer.RegenerateGrid(); // grid was generated before SetAppearance; rebuild with correct mode
         float hue, sat;
         if (SystemAccent::GetHueSat(hue, sat))
             Color::SetAccent(hue, sat);
@@ -30,7 +33,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::StyleColorsDark();
+    Color::IsDark() ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
     io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
     ImFont *pixelFont = io.Fonts->AddFontDefault();
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
@@ -39,6 +42,20 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
 
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
+
+    // Live appearance change: update colors and redraw
+    SystemAppearance::SetChangeCallback([this]()
+                                        {
+        bool dark = SystemAppearance::IsDark();
+        Color::SetAppearance(dark);
+        dark ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
+        uiRenderer.MarkDirty();
+        viewportRenderer.RegenerateGrid(); // grid/axis colors are baked — regenerate
+        // Geometry colors are baked into vertex buffers — rebuild if a model is loaded
+        if (!this->scene->solids.empty() || !this->scene->faces.empty())
+            UpdateScene();
+        renderDirty = true; });
+
     LOG_VOID("Initialized display");
 }
 
@@ -100,6 +117,7 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    SystemAppearance::ClearChangeCallback();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
@@ -134,7 +152,8 @@ void Display::UpdateCamera()
 
 void Display::Render()
 {
-    glClearColor(BASE, BASE, BASE, 1.0f);
+    auto bg = Color::GetBase();
+    glClearColor(bg.r, bg.g, bg.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     viewportRenderer.Render();
@@ -568,7 +587,7 @@ void Display::InitUI()
     // Header
     RootPanel filesDef;
     filesDef.id = "Files";
-    filesDef.color = Color::GetUI(1);
+    filesDef.colorDepth = 1;
     filesDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
@@ -580,7 +599,7 @@ void Display::InitUI()
     // Analysis panel with sections
     RootPanel analysisDef;
     analysisDef.id = "Analysis";
-    analysisDef.color = Color::GetUI(1);
+    analysisDef.colorDepth = 1;
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
     RootPanel &analysis = uiRenderer.AddPanel(analysisDef);

@@ -1,0 +1,114 @@
+{
+	"configurations" : 
+	[
+		{
+			"abstractTargets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "Freetype::Freetype::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-Freetype__Freetype-Debug-c4332547ad39ca44ef6f.json",
+					"name" : "Freetype::Freetype",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "SDL3::Headers::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__Headers-Debug-759edeb3f97344303f70.json",
+					"name" : "SDL3::Headers",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "SDL3::SDL3-shared::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__SDL3-shared-Debug-9a6088343f2cc34ceab7.json",
+					"name" : "SDL3::SDL3-shared",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "SDL3::SDL3_test::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SDL3__SDL3_test-Debug-b5e997f282d555ccf33a.json",
+					"name" : "SDL3::SDL3_test",
+					"projectIndex" : 0
+				}
+			],
+			"directories" : 
+			[
+				{
+					"abstractTargetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					],
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-9ad1a58d4644cf6543fa.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.20"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"abstractTargetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3
+					],
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "CAD_OpenGL",
+					"targetIndexes" : 
+					[
+						0,
+						1
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "CAD_OpenGL::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-CAD_OpenGL-Debug-7cf95818baee2ff3a1cb.json",
+					"name" : "CAD_OpenGL",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "glad::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-glad-Debug-2b7a2f67ae5193c32fe1.json",
+					"name" : "glad",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/Users/nikolnotai/Documents/CAD_OpenGl/build",
+		"source" : "/Users/nikolnotai/Documents/CAD_OpenGl"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 9
+	}
+}

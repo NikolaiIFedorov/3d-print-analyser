@@ -53,10 +53,27 @@ struct Color
         s_accentSat = sat;
     }
 
-    static glm::vec3 GetBase() { return glm::vec3(BASE, BASE, BASE); }
+    // Switch between dark (default) and light appearance.
+    // dark=true: UI steps from near-black upward; dark=false: steps from near-white downward.
+    static void SetAppearance(bool dark)
+    {
+        s_darkMode = dark;
+        s_uiBase = dark ? 0.05f : 0.95f;
+    }
+
+    static bool IsDark() { return s_darkMode; }
+
+    static glm::vec3 GetBase()
+    {
+        // Sits just outside the UI depth scale (s_uiBase = 0.05 dark / 0.95 light)
+        // so panels always have clear separation from the viewport background.
+        float v = s_darkMode ? 0.03f : 0.97f;
+        return glm::vec3(v, v, v);
+    }
     static glm::vec4 GetUI(int depth, float alpha = 1.0f)
     {
-        float v = UI_BASE + STEP * depth;
+        float v = s_darkMode ? s_uiBase + STEP * depth
+                             : s_uiBase - STEP * depth;
         return glm::vec4(v, v, v, alpha);
     }
     static glm::vec4 GetInputBg(int layer, float alpha = 1.0f)
@@ -65,51 +82,59 @@ struct Color
     }
     static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
     {
-        float v = UI_BASE + STEP * (depth + 5);
+        float v = s_darkMode ? s_uiBase + STEP * (depth + 5)
+                             : s_uiBase - STEP * (depth + 5);
         return glm::vec4(v, v, v, alpha);
     }
     // Accent color: same luminance progression as GetUI but with accent hue/saturation applied.
     // Use for structural elements (splitters) and interactive state feedback (hover, active, underlines).
     static glm::vec4 GetAccent(int depth, float alpha = 1.0f)
     {
-        float l = UI_BASE + STEP * depth + UI_ACCENT_L_BOOST;
+        float l = s_darkMode ? s_uiBase + STEP * depth + UI_ACCENT_L_BOOST
+                             : s_uiBase - STEP * depth - UI_ACCENT_L_BOOST;
         return glm::vec4(HslToRgb(s_accentHue, s_accentSat, l), alpha);
     }
 
     static glm::vec3 GetEdge()
     {
-        return EDGE_DEFAULT;
+        float v = s_darkMode ? 0.30f : 0.70f;
+        return glm::vec3(v, v, v);
     }
     static glm::vec3 GetPoint()
     {
-        return POINT_DEFAULT;
+        float v = s_darkMode ? 0.40f : 0.60f;
+        return glm::vec3(v, v, v);
     }
     static glm::vec3 GetFace()
     {
-        return FACE_DEFAULT;
+        float v = s_darkMode ? 0.20f : 0.80f;
+        return glm::vec3(v, v, v);
     }
 
-    static glm::vec3 GetGrid() { return glm::vec3(BASE + STEP, BASE + STEP, BASE + STEP); }
+    static glm::vec3 GetGrid()
+    {
+        float v = s_darkMode ? 0.22f : 0.84f;
+        return glm::vec3(v, v, v);
+    }
     static glm::vec3 GetAxisX(bool positive = true)
     {
-        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
-        return glm::vec3(v, BASE + STEP, BASE + STEP);
+        return positive ? glm::vec3(0.85f, 0.15f, 0.15f) : glm::vec3(0.50f, 0.10f, 0.10f);
     }
     static glm::vec3 GetAxisY(bool positive = true)
     {
-        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
-        return glm::vec3(BASE + STEP, v, BASE + STEP);
+        return positive ? glm::vec3(0.15f, 0.70f, 0.15f) : glm::vec3(0.10f, 0.40f, 0.10f);
     }
     static glm::vec3 GetAxisZ(bool positive = true)
     {
-        float v = positive ? BASE + 5 * STEP : BASE + 3 * STEP;
-        return glm::vec3(BASE + STEP, BASE + STEP, v);
+        return positive ? glm::vec3(0.15f, 0.35f, 0.90f) : glm::vec3(0.10f, 0.20f, 0.55f);
     }
 
     static glm::vec4 GetFace(FaceFlawKind flaw);
     static glm::vec4 GetEdge(EdgeFlawKind flaw);
 
 private:
+    inline static bool s_darkMode = true;     // dark by default
+    inline static float s_uiBase = 0.05f;     // starting luminance (adjusted by SetAppearance)
     inline static float s_accentHue = 220.0f; // default: blue-gray
     inline static float s_accentSat = 0.35f;  // default saturation
 };

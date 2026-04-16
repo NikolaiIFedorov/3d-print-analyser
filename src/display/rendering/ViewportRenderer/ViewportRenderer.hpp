@@ -24,6 +24,7 @@ public:
 
     void SetCamera(Camera &camera);
     void Render();
+    void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
     void Shutdown();
 
 private:

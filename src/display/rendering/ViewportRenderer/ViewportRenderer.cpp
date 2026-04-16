@@ -62,6 +62,11 @@ void ViewportRenderer::SetCamera(Camera &camera)
     viewProjection = camera.GetProjectionMatrix() * camera.GetViewMatrix();
 }
 
+void ViewportRenderer::RegenerateGrid()
+{
+    Generate();
+}
+
 void ViewportRenderer::Generate()
 {
     std::vector<Vertex> vertices;

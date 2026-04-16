@@ -1126,6 +1126,30 @@ src/utils/SystemAccent.mm.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.s
 .PHONY : src/utils/SystemAccent.mm.s
 
+src/utils/SystemAppearance.o: src/utils/SystemAppearance.mm.o
+.PHONY : src/utils/SystemAppearance.o
+
+# target to build an object file
+src/utils/SystemAppearance.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o
+.PHONY : src/utils/SystemAppearance.mm.o
+
+src/utils/SystemAppearance.i: src/utils/SystemAppearance.mm.i
+.PHONY : src/utils/SystemAppearance.i
+
+# target to preprocess a source file
+src/utils/SystemAppearance.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.i
+.PHONY : src/utils/SystemAppearance.mm.i
+
+src/utils/SystemAppearance.s: src/utils/SystemAppearance.mm.s
+.PHONY : src/utils/SystemAppearance.s
+
+# target to generate assembly for a file
+src/utils/SystemAppearance.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.s
+.PHONY : src/utils/SystemAppearance.mm.s
+
 src/utils/log.o: src/utils/log.cpp.o
 .PHONY : src/utils/log.o
 
@@ -1283,6 +1307,9 @@ help:
 	@echo "... src/utils/SystemAccent.o"
 	@echo "... src/utils/SystemAccent.i"
 	@echo "... src/utils/SystemAccent.s"
+	@echo "... src/utils/SystemAppearance.o"
+	@echo "... src/utils/SystemAppearance.i"
+	@echo "... src/utils/SystemAppearance.s"
 	@echo "... src/utils/log.o"
 	@echo "... src/utils/log.i"
 	@echo "... src/utils/log.s"

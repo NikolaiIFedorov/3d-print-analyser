@@ -180,7 +180,7 @@ struct Section : UIElement
 // Owns anchor constraints and a local grid. Children are Sections or Paragraphs.
 struct RootPanel : UIElement
 {
-    glm::vec4 color{0.0f};
+    int colorDepth{-1};           // >= 0 means draw a background via Color::GetUI(colorDepth)
     std::optional<Header> header; // present = render a title row above children
 
     // Horizontal constraints
@@ -205,7 +205,7 @@ struct RootPanel : UIElement
         padding = PaddingForLayer(0);
     }
 
-    bool HasBackground() const { return color.a > 0.0f; }
+    bool HasBackground() const { return colorDepth >= 0; }
 
     Section &AddSection(const std::string &sectionId)
     {

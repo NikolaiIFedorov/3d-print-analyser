@@ -983,7 +983,7 @@ void UIRenderer::BuildMesh()
             float x1 = grid.ToPixelsX(panel.col + panel.colSpan - mx);
             float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - mx);
             float r = std::min(grid.cellSizeX, grid.cellSizeY) * panel.borderRadius;
-            EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, panel.color);
+            EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, Color::GetUI(panel.colorDepth));
         }
 
         bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
@@ -1148,7 +1148,7 @@ void UIRenderer::Render()
                     if (line.onClick)
                     {
                         bool hovered = ImGui::IsItemHovered();
-                        bool active  = ImGui::IsItemActive();
+                        bool active = ImGui::IsItemActive();
                         if (hovered || active)
                         {
                             int d = active ? item.layer + 2 : item.layer + 1;
