@@ -9,9 +9,10 @@
 static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
 static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
 static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
-static constexpr float ACCENT_SAT_MULT = 0.35f;      // structural accents: splitters, resize handle
-static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
-static constexpr float CHEVRON_SIZE_RATIO = 0.22f;   // chevron half-size as fraction of line height
+static constexpr float ACCENT_SAT_MULT = 0.35f;       // structural accents: splitters, resize handle
+static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f;  // interactive feedback: hover/active tint
+static constexpr float CHEVRON_SIZE_RATIO = 0.22f;    // chevron half-size as fraction of line height
+static constexpr float HALF_GAP = UIGrid::GAP * 0.5f; // half the universal cell gap
 // Returns the pixel bounding box for text as ImGui's AddText would produce.
 // Origin = (x,y) passed to AddText; results relative to (0,0).
 static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font)
@@ -232,7 +233,7 @@ void UIRenderer::SetSectionValue(const std::string &panelId, const std::string &
     {
         if (sec.id == sectionId)
         {
-            assert(false && "SetSectionValue: target ID matches a Section; Sections hold no values directly");
+            LOG_FALSE("SetSectionValue: target ID matches a Section; Sections hold no values directly");
             return false;
         }
         for (auto &child : sec.children)
@@ -347,7 +348,7 @@ void UIRenderer::ResolveAnchors()
                 const auto &line = item.values[i];
                 ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont
                                    : (!line.bold && bodyImFont)  ? bodyImFont
-                                                                 : cachedTextImFont;
+                                                                 : heavyImFont;
                 PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont);
                 float scaledBearingPx = bearingPx * line.fontScale;
                 float inkH = line.imguiContent ? slotH
@@ -373,8 +374,8 @@ void UIRenderer::ResolveAnchors()
         if (!sec.header.has_value() || sec.header->para.values.empty())
             return 0.0f;
         float bearingPx = pixelImFont ? pixelImFont->FontSize : grid.cellSizeY;
-        float baseH     = bearingPx * sec.header->para.values[0].fontScale;
-        float s         = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+        float baseH = bearingPx * sec.header->para.values[0].fontScale;
+        float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
         return (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon + 3px gap
     };
 
@@ -459,21 +460,16 @@ void UIRenderer::ResolveAnchors()
     // Gap is applied automatically: screen edges push inward, panel edges push outward.
     auto resolveEdge = [&](const PanelAnchor &anchor) -> float
     {
-        // Each panel now owns its own margin (GAP/2), so:
-        //   screen edges push inward by GAP/2 — the panel's margin fills the rest.
-        //   panel-to-panel edges are raw outer edges — adjacent margins provide the gap.
-        const float halfGap = UIGrid::GAP * 0.5f;
-
         if (!anchor.panel)
         {
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return static_cast<float>(grid.columns) - halfGap;
+                return static_cast<float>(grid.columns) - HALF_GAP;
             case PanelAnchor::Bottom:
-                return static_cast<float>(grid.rows) - halfGap;
+                return static_cast<float>(grid.rows) - HALF_GAP;
             default: // Left, Top
-                return halfGap;
+                return HALF_GAP;
             }
         }
 
@@ -753,18 +749,16 @@ void UIRenderer::ComputeMinGridSize()
 
     auto resolveEdgeMin = [&](const PanelAnchor &anchor, float minExtentX, float minExtentY) -> float
     {
-        const float halfGap = gap * 0.5f;
-
         if (!anchor.panel)
         {
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return minExtentX - halfGap;
+                return minExtentX - HALF_GAP;
             case PanelAnchor::Bottom:
-                return minExtentY - halfGap;
+                return minExtentY - HALF_GAP;
             default:
-                return halfGap;
+                return HALF_GAP;
             }
         }
 
@@ -1087,8 +1081,6 @@ void UIRenderer::Render()
     if (panels.empty())
         return;
 
-    cachedTextImFont = ImGui::GetFont();
-
     if (dirty)
         BuildMesh();
 
@@ -1155,10 +1147,11 @@ void UIRenderer::Render()
             float btnH = baseH;
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
-            std::string winId = "##val" + itemPath + "_" + std::to_string(i);
+            char winId[256];
+            snprintf(winId, sizeof(winId), "##val%s_%zu", itemPath.c_str(), i);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-            if (ImGui::Begin(winId.c_str(), nullptr,
+            if (ImGui::Begin(winId, nullptr,
                              ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
             {
@@ -1175,7 +1168,9 @@ void UIRenderer::Render()
                     if (line.onClick)
                     {
                         ImGui::SetCursorPos(ImVec2(0, 0));
-                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, baseH)))
+                        char btnId[32];
+                        snprintf(btnId, sizeof(btnId), "##btn%zu", i);
+                        if (ImGui::InvisibleButton(btnId, ImVec2(btnW, baseH)))
                             line.onClick();
                         if (ImGui::IsItemHovered())
                             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -1240,8 +1235,8 @@ void UIRenderer::Render()
             {
                 // Chevron size — must match the s computed inside renderParagraph.
                 float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
-                float baseH    = bearingPx * hpara.values[0].fontScale;
-                float s        = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+                float baseH = bearingPx * hpara.values[0].fontScale;
+                float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
 
                 // Wire collapse toggle.
                 hpara.values[0].onClick = [&sec, this]()
@@ -1256,18 +1251,18 @@ void UIRenderer::Render()
                 hpara.leftIconWidthCells = (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon slot + 3px gap
                 hpara.leftIconDraw = [&sec, textDepth](ImDrawList *dl, float x, float midY, float s)
                 {
-                    glm::vec4 tc  = Color::GetUIText(textDepth);
+                    glm::vec4 tc = Color::GetUIText(textDepth);
                     ImU32 chevCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a * 0.7f));
 
                     // ▼ canonical triangle centered at (cx, cy), base = 2s (horizontal), depth = s.
                     // Points relative to centroid (at 1/3 from base): top-left, top-right, apex.
-                    float cx = x + s;          // horizontal centre of 2s-wide slot
+                    float cx = x + s; // horizontal centre of 2s-wide slot
                     float cy = midY;
                     // ▼ vertices (base up, apex down) centred at (cx, cy):
                     //   p0 = (-s,  -s/3)   p1 = (+s,  -s/3)   p2 = (0, +2s/3)
-                    const float t0x = -s,  t0y = -s / 3.0f;
-                    const float t1x = +s,  t1y = -s / 3.0f;
-                    const float t2x =  0,  t2y = +2.0f * s / 3.0f;
+                    const float t0x = -s, t0y = -s / 3.0f;
+                    const float t1x = +s, t1y = -s / 3.0f;
+                    const float t2x = 0, t2y = +2.0f * s / 3.0f;
 
                     if (sec.collapsed)
                     {

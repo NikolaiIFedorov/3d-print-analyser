@@ -36,7 +36,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     Color::IsDark() ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
     ImFontConfig avenirCfg;
     avenirCfg.FontNo = 4; // Avenir Heavy — used for headers (textDepth >= 3) and as ImGui default
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 19.0f, &avenirCfg);
+    ImFont *heavyFont = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 19.0f, &avenirCfg);
     ImFontConfig avenirBookCfg;
     avenirBookCfg.FontNo = 0; // Avenir Book — used for body text (textDepth <= 2)
     ImFont *bodyFont = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 17.0f, &avenirBookCfg);
@@ -45,6 +45,7 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     ImGui_ImplOpenGL3_Init("#version 330");
     uiRenderer.SetPixelImFont(pixelFont);
     uiRenderer.SetBodyImFont(bodyFont);
+    uiRenderer.SetHeavyImFont(heavyFont);
 
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
@@ -643,9 +644,11 @@ void Display::InitUI()
     // Parameter group
     uiConfig = &analysis.AddSection("Configs");
     uiConfig->header = Header{"Configs", 1.0f, 2};
+    uiConfig->collapsed = true;
     Section &config = *uiConfig;
 
     config.visible = false;
+    config.children.reserve(1);
     Paragraph &configParams = config.AddParagraph("ConfigParams");
     configParams.values.reserve(4);
     // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color

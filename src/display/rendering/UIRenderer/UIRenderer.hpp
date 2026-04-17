@@ -58,6 +58,7 @@ public:
     void SetPixelImFont(ImFont *font) { pixelImFont = font; }
     ImFont *GetPixelImFont() const { return pixelImFont; }
     void SetBodyImFont(ImFont *font) { bodyImFont = font; }
+    void SetHeavyImFont(ImFont *font) { heavyImFont = font; }
     void SetDebugLayout(bool v) { debugLayout = v; }
     bool GetDebugLayout() const { return debugLayout; }
 
@@ -77,8 +78,8 @@ private:
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     ImFont *pixelImFont = nullptr;
-    ImFont *bodyImFont = nullptr;       // lighter weight font for body text (textDepth <= 2)
-    ImFont *cachedTextImFont = nullptr; // context font captured each frame for layout measurement
+    ImFont *bodyImFont = nullptr;  // lighter weight font for body text (textDepth <= 2)
+    ImFont *heavyImFont = nullptr; // bold/header font; fallback for layout before first ImGui frame
     bool dirty = true;
     bool debugLayout = false;
 

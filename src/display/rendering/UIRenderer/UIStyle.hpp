@@ -11,17 +11,6 @@ namespace UIStyle
 {
     constexpr float FRAME_ROUNDING_RATIO = 0.3f;
 
-    inline ImVec4 FrameBgHoveredColor()
-    {
-        auto c = Color::GetAccent(3, 0.5f);
-        return {c.r, c.g, c.b, c.a};
-    }
-    inline ImVec4 FrameBgActiveColor()
-    {
-        auto c = Color::GetAccent(1, 0.5f);
-        return {c.r, c.g, c.b, c.a};
-    }
-
     // Push ImGui style for a DragFloat (or any framed widget).
     // h  = widget height in pixels (used to derive rounding)
     // tc = text color

@@ -134,8 +134,8 @@ struct UIElement
 struct Paragraph : UIElement
 {
     std::vector<SectionLine> values;
-    float leftIconWidthCells = 0.0f;                                            // cells reserved for left icon on the first value line
-    std::function<void(ImDrawList*, float, float, float)> leftIconDraw;         // draws the icon at (x, midY, size)
+    float leftIconWidthCells = 0.0f;                                     // cells reserved for left icon on the first value line
+    std::function<void(ImDrawList *, float, float, float)> leftIconDraw; // draws the icon at (x, midY, size)
 
     Paragraph()
     {
@@ -187,7 +187,7 @@ struct Section : UIElement
 
     Paragraph &AddParagraph(const std::string &paragraphId)
     {
-        assert(children.capacity() == 0 || children.size() < children.capacity());
+        assert(children.size() < children.capacity());
         Paragraph &p = children.emplace_back();
         p.id = paragraphId;
         return p;
@@ -227,7 +227,7 @@ struct RootPanel : UIElement
 
     Section &AddSection(const std::string &sectionId)
     {
-        assert(children.capacity() == 0 || children.size() < children.capacity());
+        assert(children.size() < children.capacity());
         Section &s = std::get<Section>(children.emplace_back(Section{}));
         s.id = sectionId;
         return s;
@@ -235,7 +235,7 @@ struct RootPanel : UIElement
 
     Paragraph &AddParagraph(const std::string &paragraphId)
     {
-        assert(children.capacity() == 0 || children.size() < children.capacity());
+        assert(children.size() < children.capacity());
         Paragraph &p = std::get<Paragraph>(children.emplace_back(Paragraph{}));
         p.id = paragraphId;
         return p;
