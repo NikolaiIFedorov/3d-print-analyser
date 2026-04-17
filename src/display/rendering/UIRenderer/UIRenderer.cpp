@@ -355,7 +355,7 @@ void UIRenderer::ResolveAnchors()
                 // ink.x1 is the visual right edge of the last glyph; +1px absorbs fp roundtrip loss in cell-division
                 float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
-                contentW = std::max(contentW, inkW / grid.cellSizeX);
+                contentW = std::max(contentW, inkW / grid.cellSizeX + (i == 0 ? item.leftIconWidthCells : 0.0f));
             }
             contentH += maxBottom / grid.cellSizeY;
         }
@@ -366,14 +366,23 @@ void UIRenderer::ResolveAnchors()
         item.box.outerHeight = 2.0f * mar + 2.0f * pad + contentH;
     };
 
+    // Returns the horizontal grid-cell slot occupied by the section chevron icon.
+    // Used to align child content with the header text body in both layout passes.
+    auto chevronSlotCells = [&](const Section &sec) -> float
+    {
+        if (!sec.header.has_value() || sec.header->para.values.empty())
+            return 0.0f;
+        float bearingPx = pixelImFont ? pixelImFont->FontSize : grid.cellSizeY;
+        float baseH     = bearingPx * sec.header->para.values[0].fontScale;
+        float s         = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+        return (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon + 3px gap
+    };
+
     // Compute box for a Section (label + Paragraph children).
     auto computeSectionBox = [&](Section &item) -> void
     {
         float pad = item.padding;
         float mar = item.margin;
-
-        for (auto &child : item.children)
-            computeParagraphBox(child);
 
         float contentH = 0.0f;
         float contentW = 0.0f;
@@ -381,18 +390,25 @@ void UIRenderer::ResolveAnchors()
         if (item.header.has_value())
         {
             computeParagraphBox(item.header->para);
+            // Header contributes its full height; the first visible child's top margin is cancelled instead.
             contentH = item.header->para.box.outerHeight;
             contentW = item.header->para.box.outerWidth;
         }
 
         if (!item.collapsed)
         {
+            const float childIndent = chevronSlotCells(item);
+            // When a header is present, cancel the first visible child's top margin — the header's
+            // bottom margin already provides the gap.
+            bool cancelNextTopMargin = item.header.has_value();
             for (auto &child : item.children)
             {
+                computeParagraphBox(child);
                 if (!child.visible)
                     continue;
-                contentH += child.box.outerHeight;
-                contentW = std::max(contentW, child.box.outerWidth);
+                contentH += child.box.outerHeight - (cancelNextTopMargin ? child.margin : 0.0f);
+                contentW = std::max(contentW, child.box.outerWidth + childIndent);
+                cancelNextTopMargin = false;
             }
         }
 
@@ -500,19 +516,23 @@ void UIRenderer::ResolveAnchors()
             hpara.row = cursor;
             hpara.rowSpan = hpara.box.outerHeight;
             updateLocalGrid(hpara, hpara.padding);
-            cursor += hpara.box.outerHeight;
+            cursor += hpara.box.outerHeight; // header contributes its full height
         }
 
         if (parent.collapsed)
             return;
 
+        // When a header is present, cancel the first visible child's top margin — the header's
+        // bottom margin already provides the gap, and indent children past the chevron icon.
+        const float childIndent = chevronSlotCells(parent);
+        bool cancelNextTopMargin = parent.header.has_value();
         for (auto &child : parent.children)
         {
             if (!child.visible)
                 continue;
 
-            child.col = parent.col + insetX;
-            child.colSpan = parent.colSpan - 2.0f * insetX;
+            child.col = parent.col + insetX + childIndent;
+            child.colSpan = parent.colSpan - 2.0f * insetX - childIndent;
 
             if (!child.stretch && child.box.outerWidth < child.colSpan)
             {
@@ -521,11 +541,12 @@ void UIRenderer::ResolveAnchors()
                 child.col += (availW - child.colSpan) * 0.5f;
             }
 
-            child.row = cursor;
+            child.row = cursor - (cancelNextTopMargin ? child.margin : 0.0f);
             child.rowSpan = child.box.outerHeight;
             updateLocalGrid(child, child.padding);
 
-            cursor += child.box.outerHeight;
+            cursor = child.row + child.box.outerHeight;
+            cancelNextTopMargin = false;
         }
     };
 
@@ -1176,7 +1197,15 @@ void UIRenderer::Render()
                                               ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
                         }
                     }
-                    float tx = btnX;
+                    float tx = vpx;
+                    // Left icon (first line only): drawn at the content left edge (vpx),
+                    // inside the window. Para.margin provides the left gap from the panel bg.
+                    if (i == 0 && item.leftIconDraw)
+                    {
+                        float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+                        item.leftIconDraw(dl, vpx, btnY + baseH * 0.5f, s);
+                        tx += 2.0f * s + 3.0f; // skip past icon (2s wide) + 3px gap
+                    }
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
@@ -1196,7 +1225,7 @@ void UIRenderer::Render()
         }
     };
 
-    // Render label for a Section header, chevron toggle, and children.
+    // Render label for a Section header (with chevron icon) and children.
     auto renderSection = [&](Section &sec, const std::string &parentPath) -> void
     {
         if (!sec.visible)
@@ -1205,49 +1234,66 @@ void UIRenderer::Render()
 
         if (sec.header.has_value())
         {
-            // Wire collapse toggle onto the header line so renderParagraph handles
-            // the hover tint and hand cursor for free.
-            if (!sec.header->para.values.empty())
-                sec.header->para.values[0].onClick = [&sec, this]() {
+            Paragraph &hpara = sec.header->para;
+
+            if (!hpara.values.empty())
+            {
+                // Chevron size — must match the s computed inside renderParagraph.
+                float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
+                float baseH    = bearingPx * hpara.values[0].fontScale;
+                float s        = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+
+                // Wire collapse toggle.
+                hpara.values[0].onClick = [&sec, this]()
+                {
                     sec.collapsed = !sec.collapsed;
                     dirty = true;
                 };
 
-            renderParagraph(sec.header->para, secPath + "_header");
+                // Chevron is the section header's left icon, drawn inside the margin space by
+                // renderParagraph. para.margin (~8.8px) provides clearance between icon and text.
+                int textDepth = hpara.values[0].textDepth;
+                hpara.leftIconWidthCells = (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon slot + 3px gap
+                hpara.leftIconDraw = [&sec, textDepth](ImDrawList *dl, float x, float midY, float s)
+                {
+                    glm::vec4 tc  = Color::GetUIText(textDepth);
+                    ImU32 chevCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a * 0.7f));
 
-            // Draw chevron to the left of the header text via the foreground draw list.
-            const Paragraph &hpara = sec.header->para;
-            if (!hpara.values.empty())
+                    // ▼ canonical triangle centered at (cx, cy), base = 2s (horizontal), depth = s.
+                    // Points relative to centroid (at 1/3 from base): top-left, top-right, apex.
+                    float cx = x + s;          // horizontal centre of 2s-wide slot
+                    float cy = midY;
+                    // ▼ vertices (base up, apex down) centred at (cx, cy):
+                    //   p0 = (-s,  -s/3)   p1 = (+s,  -s/3)   p2 = (0, +2s/3)
+                    const float t0x = -s,  t0y = -s / 3.0f;
+                    const float t1x = +s,  t1y = -s / 3.0f;
+                    const float t2x =  0,  t2y = +2.0f * s / 3.0f;
+
+                    if (sec.collapsed)
+                    {
+                        // Rotate ▼ by +90° (CW): (px, py) → (py, -px) — gives ▶
+                        dl->AddTriangleFilled(
+                            ImVec2(cx + t0y, cy - t0x),
+                            ImVec2(cx + t1y, cy - t1x),
+                            ImVec2(cx + t2y, cy - t2x),
+                            chevCol);
+                    }
+                    else
+                    {
+                        // ▼ as-is
+                        dl->AddTriangleFilled(
+                            ImVec2(cx + t0x, cy + t0y),
+                            ImVec2(cx + t1x, cy + t1y),
+                            ImVec2(cx + t2x, cy + t2y),
+                            chevCol);
+                    }
+                };
+
+                renderParagraph(hpara, secPath + "_header");
+            }
+            else
             {
-                float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
-                float baseH = bearingPx * hpara.values[0].fontScale;
-                float textY  = grid.ToPixelsY(hpara.row + hpara.margin);
-                float midY   = textY + baseH * 0.5f;
-                float textLeftPx = grid.ToPixelsX(hpara.col + hpara.margin);
-                float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
-                float cx = textLeftPx - 3.0f - s; // 3px gap between chevron right edge and text
-
-                glm::vec4 tc = Color::GetUIText(hpara.values[0].textDepth);
-                ImU32 chevCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a * 0.7f));
-                ImDrawList *dl = ImGui::GetForegroundDrawList();
-                if (sec.collapsed)
-                {
-                    // Pointing right ▶
-                    dl->AddTriangleFilled(
-                        ImVec2(cx,       midY - s),
-                        ImVec2(cx,       midY + s),
-                        ImVec2(cx + s,   midY),
-                        chevCol);
-                }
-                else
-                {
-                    // Pointing down ▼
-                    dl->AddTriangleFilled(
-                        ImVec2(cx - s,   midY - s * 0.55f),
-                        ImVec2(cx + s,   midY - s * 0.55f),
-                        ImVec2(cx,       midY + s * 0.75f),
-                        chevCol);
-                }
+                renderParagraph(hpara, secPath + "_header");
             }
         }
 

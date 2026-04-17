@@ -13,6 +13,8 @@
 
 #include "PanelGrid.hpp"
 
+struct ImDrawList; // forward declaration for leftIconDraw callback
+
 // Pixel-space bounding box built from actual or simulated vertex positions.
 // Call expand() for every point (vertex corner, line endpoint, etc.) that gets drawn.
 struct PixelBounds
@@ -132,6 +134,8 @@ struct UIElement
 struct Paragraph : UIElement
 {
     std::vector<SectionLine> values;
+    float leftIconWidthCells = 0.0f;                                            // cells reserved for left icon on the first value line
+    std::function<void(ImDrawList*, float, float, float)> leftIconDraw;         // draws the icon at (x, midY, size)
 
     Paragraph()
     {
