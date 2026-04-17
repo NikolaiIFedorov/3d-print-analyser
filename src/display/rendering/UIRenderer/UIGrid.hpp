@@ -4,7 +4,7 @@
 
 struct UIGrid
 {
-    static constexpr float CELL_SIZE = 32.0f; // fixed cell size in pixels
+    static constexpr float CELL_SIZE = 40.0f; // fixed cell size in pixels
     static constexpr float GAP = 0.5f;        // universal spacing in cells
 
     float cellSizeX = CELL_SIZE;

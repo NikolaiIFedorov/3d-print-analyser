@@ -9,12 +9,12 @@
 static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
 static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
 static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
-
-// Returns the pixel bounding box for text as ImGui's AddText would produce, plus optionally
-// the underline drawn by onClick lines. Origin = (x,y) passed to AddText; results relative to (0,0).
-// Underline is drawn 1px below the font baseline (font->Ascent). Center snapped to floor(Ascent+1)+0.5,
-// thickness 1 → worst-case bottom = Ascent + 2.0 (relative to the AddText origin).
-static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font, bool includeUnderline = false)
+static constexpr float ACCENT_SAT_MULT = 0.35f;      // structural accents: splitters, resize handle
+static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
+static constexpr float CHEVRON_SIZE_RATIO = 0.22f;   // chevron half-size as fraction of line height
+// Returns the pixel bounding box for text as ImGui's AddText would produce.
+// Origin = (x,y) passed to AddText; results relative to (0,0).
+static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font)
 {
     PixelBounds b;
     if (!font || text.empty())
@@ -29,8 +29,6 @@ static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font, 
         b.expand(cx + g->X1, g->Y1);
         cx += g->AdvanceX;
     }
-    if (includeUnderline && b.valid())
-        b.expand(b.x0, std::max(b.y1, font->Ascent + 2.0f)); // underline at baseline+1px; worst-case bottom = Ascent+2
     return b;
 }
 
@@ -327,7 +325,8 @@ void UIRenderer::ResolveAnchors()
 
         if (!item.values.empty())
         {
-            float bearingPx = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
+            float bearingPx = pixelImFont ? pixelImFont->FontSize
+                                          : grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
             float lineGapPx = item.lineGap * grid.cellSizeY;
             // imguiContent lines (e.g. DragFloat) need at least GetFrameHeight() of vertical space.
             float slotH = bearingPx;
@@ -346,12 +345,15 @@ void UIRenderer::ResolveAnchors()
             for (size_t i = 0; i < item.values.size(); i++)
             {
                 const auto &line = item.values[i];
-                ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont : cachedTextImFont;
-                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont, bool(line.onClick));
+                ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont
+                                   : (!line.bold && bodyImFont)  ? bodyImFont
+                                                                 : cachedTextImFont;
+                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont);
+                float scaledBearingPx = bearingPx * line.fontScale;
                 float inkH = line.imguiContent ? slotH
-                                               : (ink.valid() ? std::max(ink.height(), bearingPx) : bearingPx);
-                // ink.x1 is the visual right edge of the last glyph (includes overhang past AdvanceX)
-                float inkW = ink.valid() ? ink.x1 : textRenderer.MeasureWidth(line.prefix + line.text, textScale);
+                                               : (ink.valid() ? std::max(ink.height() * line.fontScale, scaledBearingPx) : scaledBearingPx);
+                // ink.x1 is the visual right edge of the last glyph; +1px absorbs fp roundtrip loss in cell-division
+                float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
                 contentW = std::max(contentW, inkW / grid.cellSizeX);
             }
@@ -383,18 +385,21 @@ void UIRenderer::ResolveAnchors()
             contentW = item.header->para.box.outerWidth;
         }
 
-        for (auto &child : item.children)
+        if (!item.collapsed)
         {
-            if (!child.visible)
-                continue;
-            contentH += child.box.outerHeight;
-            contentW = std::max(contentW, child.box.outerWidth);
+            for (auto &child : item.children)
+            {
+                if (!child.visible)
+                    continue;
+                contentH += child.box.outerHeight;
+                contentW = std::max(contentW, child.box.outerWidth);
+            }
         }
 
         item.box.contentWidth = contentW;
         item.box.contentHeight = contentH;
-        item.box.outerWidth = 2.0f * mar + 2.0f * pad + contentW;
-        item.box.outerHeight = 2.0f * mar + 2.0f * pad + contentH;
+        item.box.outerWidth = 2.0f * mar + contentW;        // Section has no background: padding is vertical-only
+        item.box.outerHeight = 2.0f * mar + pad + contentH; // only top padding; last child's bottom margin provides bottom spacing
     };
 
     // Compute box for a RootPanel — dispatches into Section/Paragraph children.
@@ -485,7 +490,7 @@ void UIRenderer::ResolveAnchors()
     // Place Paragraph children within a Section (vertical stacking).
     auto placeSectionChildren = [&](Section &parent) -> void
     {
-        float insetX = parent.margin + parent.padding;
+        float insetX = parent.margin; // horizontal only: Section has no background, padding is vertical-only
         float cursor = parent.row + parent.margin + parent.padding;
         if (parent.header.has_value())
         {
@@ -497,6 +502,9 @@ void UIRenderer::ResolveAnchors()
             updateLocalGrid(hpara, hpara.padding);
             cursor += hpara.box.outerHeight;
         }
+
+        if (parent.collapsed)
+            return;
 
         for (auto &child : parent.children)
         {
@@ -934,29 +942,32 @@ void UIRenderer::BuildMesh()
             if (std::holds_alternative<Section>(child))
                 childVisualTop = el.row + el.margin + el.padding;
             if (needsSplitter)
-                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetAccent(colorLevel));
+                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetAccent(colorLevel, 1.0f, ACCENT_SAT_MULT));
 
             // Emit Section children (Paragraphs inside a Section)
             if (std::holds_alternative<Section>(child))
             {
                 const Section &sec = std::get<Section>(child);
-                float secMx = sec.margin;
-                float secBgX0 = grid.ToPixelsX(sec.col) + grid.ToPixelsX(secMx);
-                float secBgX1 = grid.ToPixelsX(sec.col + sec.colSpan) - grid.ToPixelsX(secMx);
-                float secPrevBottom = sec.row + sec.margin + sec.padding;
-                if (sec.header.has_value())
-                    secPrevBottom = sec.header->para.row + sec.header->para.rowSpan - sec.header->para.margin;
-
-                int secVisibleIdx = 0;
-                for (const auto &para : sec.children)
+                if (!sec.collapsed)
                 {
-                    if (!para.visible)
-                        continue;
-                    // No splitter before the first paragraph — the section label acts as the header.
-                    if (secVisibleIdx > 0)
-                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetAccent(colorLevel + 1));
-                    secPrevBottom = para.row + para.box.outerHeight - para.margin;
-                    secVisibleIdx++;
+                    float secMx = sec.margin;
+                    float secBgX0 = grid.ToPixelsX(sec.col) + grid.ToPixelsX(secMx);
+                    float secBgX1 = grid.ToPixelsX(sec.col + sec.colSpan) - grid.ToPixelsX(secMx);
+                    float secPrevBottom = sec.row + sec.margin + sec.padding;
+                    if (sec.header.has_value())
+                        secPrevBottom = sec.header->para.row + sec.header->para.rowSpan - sec.header->para.margin;
+
+                    int secVisibleIdx = 0;
+                    for (const auto &para : sec.children)
+                    {
+                        if (!para.visible)
+                            continue;
+                        // No splitter before the first paragraph — the section label acts as the header.
+                        if (secVisibleIdx > 0)
+                            emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetAccent(colorLevel + 1, 1.0f, ACCENT_SAT_MULT));
+                        secPrevBottom = para.row + para.box.outerHeight - para.margin;
+                        secVisibleIdx++;
+                    }
                 }
             }
 
@@ -1004,7 +1015,7 @@ void UIRenderer::BuildMesh()
                 float rsy0 = std::round(y0 + halfPadPx);
                 float rsy1 = std::round(y1 - halfPadPx);
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2));
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2, 1.0f, ACCENT_SAT_MULT));
             }
         }
         else
@@ -1081,7 +1092,8 @@ void UIRenderer::Render()
             return;
 
         const auto &slg = item.localGrid;
-        float bearingY = slg.cellSizeY;
+        float bearingY = pixelImFont ? pixelImFont->FontSize
+                                     : slg.cellSizeY;
         // imguiContent lines need a slot tall enough for GetFrameHeight().
         float slotH = bearingY;
         if (pixelImFont)
@@ -1101,10 +1113,15 @@ void UIRenderer::Render()
         {
             const auto &line = item.values[i];
             // Measure actual glyph ink bounds at add-text origin (0,0).
-            ImFont *font = (line.onClick && pixelImFont) ? pixelImFont : ImGui::GetFont();
-            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, font, false);
-            float inkH = ink.valid() ? ink.height() : bearingY;
-            float inkY0 = ink.valid() ? ink.y0 : 0.0f;
+            // onClick lines use pixelImFont; bold lines use the heavy context font;
+            // body lines use the lighter bodyImFont if available.
+            ImFont *font = (line.onClick && pixelImFont) ? pixelImFont
+                           : (!line.bold && bodyImFont)  ? bodyImFont
+                                                         : ImGui::GetFont();
+            float renderSize = font->FontSize * line.fontScale;
+            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, font);
+            float inkH = (ink.valid() ? ink.height() : bearingY) * line.fontScale;
+            float inkY0 = (ink.valid() ? ink.y0 : 0.0f) * line.fontScale;
 
             float vpx = contentPx;
             float vpy = contentPy + bearingY + lineStepPx * static_cast<float>(i);
@@ -1112,8 +1129,9 @@ void UIRenderer::Render()
             float btnX = vpx;
             float btnY = vpy - bearingY;
             float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-            // Slot height: use frame height for imguiContent, at least text bearing otherwise
-            float btnH = line.imguiContent ? slotH : std::max(inkH, bearingY);
+            // Slot height: use frame height for imguiContent, at least text bearing otherwise.
+            float baseH = line.imguiContent ? slotH : std::max(inkH, bearingY);
+            float btnH = baseH;
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
             std::string winId = "##val" + itemPath + "_" + std::to_string(i);
@@ -1127,7 +1145,7 @@ void UIRenderer::Render()
                 {
                     if (pixelImFont)
                         ImGui::PushFont(pixelImFont);
-                    line.imguiContent(btnW, btnH);
+                    line.imguiContent(btnW, baseH); // pass visual height, not the extended window height
                     if (pixelImFont)
                         ImGui::PopFont();
                 }
@@ -1136,13 +1154,13 @@ void UIRenderer::Render()
                     if (line.onClick)
                     {
                         ImGui::SetCursorPos(ImVec2(0, 0));
-                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
+                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, baseH)))
                             line.onClick();
                         if (ImGui::IsItemHovered())
                             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
                     }
-                    // Centre the ink region in the slot; account for glyph y0 inset
-                    float ty = btnY + (btnH - inkH) * 0.5f - inkY0;
+                    // Centre the ink region in the visual slot (baseH, not the underline-extended btnH)
+                    float ty = btnY + (baseH - inkH) * 0.5f - inkY0;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
                     // Hover/active background tint for clickable lines
                     if (line.onClick)
@@ -1152,9 +1170,9 @@ void UIRenderer::Render()
                         if (hovered || active)
                         {
                             int d = active ? item.layer + 2 : item.layer + 1;
-                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f);
-                            float radius = btnH * UIStyle::FRAME_ROUNDING_RATIO;
-                            dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, ACCENT_SAT_MULT_HOVER);
+                            float radius = baseH * UIStyle::FRAME_ROUNDING_RATIO;
+                            dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + baseH),
                                               ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
                         }
                     }
@@ -1162,29 +1180,14 @@ void UIRenderer::Render()
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                        dl->AddText(font, font->FontSize, ImVec2(tx, ty), pc, line.prefix.c_str());
-                        tx += font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f, line.prefix.c_str()).x;
+                        dl->AddText(font, renderSize, ImVec2(tx, ty), pc, line.prefix.c_str());
+                        tx += font->CalcTextSizeA(renderSize, FLT_MAX, 0.0f, line.prefix.c_str()).x;
                     }
                     if (!line.text.empty())
                     {
-                        glm::vec4 tc = Color::GetUIText(1);
+                        glm::vec4 tc = Color::GetUIText(line.textDepth);
                         ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                        dl->AddText(font, font->FontSize, ImVec2(tx, ty), textCol, line.text.c_str());
-                    }
-                    // Underline for clickable lines: accent color, drawn below the ink baseline
-                    if (line.onClick && ink.valid())
-                    {
-                        int restDepth = item.layer;
-                        bool hovered = ImGui::IsItemHovered();
-                        bool active = ImGui::IsItemActive();
-                        int d = active ? restDepth + 2 : (hovered ? restDepth + 1 : restDepth);
-                        glm::vec4 ac = Color::GetAccent(d);
-                        ImU32 ulCol = ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a));
-                        float ulY = std::round(ty + ink.y1) + 1.5f;
-                        float ulX1 = btnX + font->CalcTextSizeA(font->FontSize, FLT_MAX, 0.0f,
-                                                                (line.prefix + line.text).c_str())
-                                                .x;
-                        dl->AddLine(ImVec2(btnX, ulY), ImVec2(ulX1, ulY), ulCol, 2.0f);
+                        dl->AddText(font, renderSize, ImVec2(tx, ty), textCol, line.text.c_str());
                     }
                 }
             }
@@ -1193,22 +1196,70 @@ void UIRenderer::Render()
         }
     };
 
-    // Render label for a Section header.
-    auto renderSection = [&](const Section &sec, const std::string &parentPath) -> void
+    // Render label for a Section header, chevron toggle, and children.
+    auto renderSection = [&](Section &sec, const std::string &parentPath) -> void
     {
         if (!sec.visible)
             return;
         std::string secPath = parentPath + "_" + sec.id;
 
         if (sec.header.has_value())
+        {
+            // Wire collapse toggle onto the header line so renderParagraph handles
+            // the hover tint and hand cursor for free.
+            if (!sec.header->para.values.empty())
+                sec.header->para.values[0].onClick = [&sec, this]() {
+                    sec.collapsed = !sec.collapsed;
+                    dirty = true;
+                };
+
             renderParagraph(sec.header->para, secPath + "_header");
 
-        for (const auto &para : sec.children)
-            renderParagraph(para, secPath + "_" + para.id);
+            // Draw chevron to the left of the header text via the foreground draw list.
+            const Paragraph &hpara = sec.header->para;
+            if (!hpara.values.empty())
+            {
+                float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
+                float baseH = bearingPx * hpara.values[0].fontScale;
+                float textY  = grid.ToPixelsY(hpara.row + hpara.margin);
+                float midY   = textY + baseH * 0.5f;
+                float textLeftPx = grid.ToPixelsX(hpara.col + hpara.margin);
+                float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+                float cx = textLeftPx - 3.0f - s; // 3px gap between chevron right edge and text
+
+                glm::vec4 tc = Color::GetUIText(hpara.values[0].textDepth);
+                ImU32 chevCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a * 0.7f));
+                ImDrawList *dl = ImGui::GetForegroundDrawList();
+                if (sec.collapsed)
+                {
+                    // Pointing right ▶
+                    dl->AddTriangleFilled(
+                        ImVec2(cx,       midY - s),
+                        ImVec2(cx,       midY + s),
+                        ImVec2(cx + s,   midY),
+                        chevCol);
+                }
+                else
+                {
+                    // Pointing down ▼
+                    dl->AddTriangleFilled(
+                        ImVec2(cx - s,   midY - s * 0.55f),
+                        ImVec2(cx + s,   midY - s * 0.55f),
+                        ImVec2(cx,       midY + s * 0.75f),
+                        chevCol);
+                }
+            }
+        }
+
+        if (!sec.collapsed)
+        {
+            for (const auto &para : sec.children)
+                renderParagraph(para, secPath + "_" + para.id);
+        }
     };
 
     // Render text for all panels.
-    for (const auto &panel : panels)
+    for (auto &panel : panels)
     {
         if (!panel.visible)
             continue;
@@ -1218,9 +1269,9 @@ void UIRenderer::Render()
         // Render RootPanel header (anonymous containers have no header)
         if (panel.header.has_value())
             renderParagraph(panel.header->para, panelPath + "_header");
-        for (const auto &child : panel.children)
+        for (auto &child : panel.children)
         {
-            std::visit([&](const auto &el)
+            std::visit([&](auto &el)
                        {
                 using T = std::decay_t<decltype(el)>;
                 if constexpr (std::is_same_v<T, Section>)

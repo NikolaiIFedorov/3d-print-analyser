@@ -82,17 +82,18 @@ struct Color
     }
     static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
     {
-        float v = s_darkMode ? s_uiBase + STEP * (depth + 5)
-                             : s_uiBase - STEP * (depth + 5);
+        float v = s_darkMode ? s_uiBase + STEP * (depth + 6)
+                             : s_uiBase - STEP * (depth + 6);
         return glm::vec4(v, v, v, alpha);
     }
     // Accent color: same luminance progression as GetUI but with accent hue/saturation applied.
-    // Use for structural elements (splitters) and interactive state feedback (hover, active, underlines).
-    static glm::vec4 GetAccent(int depth, float alpha = 1.0f)
+    // Use for structural elements (splitters) and interactive state feedback (hover, active).
+    // satMult scales the system saturation (0=neutral grey, 1=full system saturation).
+    static glm::vec4 GetAccent(int depth, float alpha = 1.0f, float satMult = 1.0f)
     {
-        float l = s_darkMode ? s_uiBase + STEP * depth + UI_ACCENT_L_BOOST
-                             : s_uiBase - STEP * depth - UI_ACCENT_L_BOOST;
-        return glm::vec4(HslToRgb(s_accentHue, s_accentSat, l), alpha);
+        float l = s_darkMode ? s_uiBase + STEP * depth + UI_ACCENT_L_BOOST * satMult
+                             : s_uiBase - STEP * depth - UI_ACCENT_L_BOOST * satMult;
+        return glm::vec4(HslToRgb(s_accentHue, s_accentSat * satMult, l), alpha);
     }
 
     static glm::vec3 GetEdge()

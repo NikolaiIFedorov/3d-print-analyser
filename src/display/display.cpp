@@ -34,11 +34,17 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     Color::IsDark() ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
-    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Helvetica.ttc", 16.0f);
+    ImFontConfig avenirCfg;
+    avenirCfg.FontNo = 4; // Avenir Heavy — used for headers (textDepth >= 3) and as ImGui default
+    io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 19.0f, &avenirCfg);
+    ImFontConfig avenirBookCfg;
+    avenirBookCfg.FontNo = 0; // Avenir Book — used for body text (textDepth <= 2)
+    ImFont *bodyFont = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 17.0f, &avenirBookCfg);
     ImFont *pixelFont = io.Fonts->AddFontDefault();
     ImGui_ImplSDL3_InitForOpenGL(window, glContext);
     ImGui_ImplOpenGL3_Init("#version 330");
     uiRenderer.SetPixelImFont(pixelFont);
+    uiRenderer.SetBodyImFont(bodyFont);
 
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
@@ -360,13 +366,13 @@ void Display::Frame()
 
             std::vector<SectionLine> lines;
             if (overhangs > 0)
-                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, makeFrameCallback(overhangMin, overhangMax)});
+                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, 1.0f, 1, makeFrameCallback(overhangMin, overhangMax)});
             if (thinSections > 0)
-                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, makeFrameCallback(thinMin, thinMax)});
+                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(thinMin, thinMax)});
             if (smallFeatures > 0)
-                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, makeFrameCallback(smallMin, smallMax)});
+                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(smallMin, smallMax)});
             if (sharpEdges > 0)
-                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, makeFrameCallback(sharpMin, sharpMax)});
+                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, 1.0f, 1, makeFrameCallback(sharpMin, sharpMax)});
             if (uiResult)
             {
                 uiResult->visible = !lines.empty();
@@ -605,7 +611,7 @@ void Display::InitUI()
     RootPanel &analysis = uiRenderer.AddPanel(analysisDef);
 
 #if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
-    analysis.header = Header{"Analysis"};
+    analysis.header = Header{"Analysis", 1.0f, 2};
     analysis.children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
     uiResult = &analysis.AddParagraph("Result");
     uiResult->visible = false;
@@ -636,7 +642,7 @@ void Display::InitUI()
 
     // Parameter group
     uiConfig = &analysis.AddSection("Configs");
-    uiConfig->header = Header{"Configs"};
+    uiConfig->header = Header{"Configs", 1.0f, 2};
     Section &config = *uiConfig;
 
     config.visible = false;
@@ -711,7 +717,6 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
@@ -783,7 +788,6 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
@@ -855,7 +859,6 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 
@@ -923,7 +926,6 @@ void Display::InitUI()
             RebuildAnalysis();
             UpdateScene();
         }
-        UIStyle::DrawInputUnderline(restDepth);
         UIStyle::PopInputStyle();
     };
 

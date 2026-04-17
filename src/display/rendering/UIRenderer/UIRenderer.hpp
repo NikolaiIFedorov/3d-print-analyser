@@ -57,6 +57,7 @@ public:
     void ComputeMinGridSize();
     void SetPixelImFont(ImFont *font) { pixelImFont = font; }
     ImFont *GetPixelImFont() const { return pixelImFont; }
+    void SetBodyImFont(ImFont *font) { bodyImFont = font; }
     void SetDebugLayout(bool v) { debugLayout = v; }
     bool GetDebugLayout() const { return debugLayout; }
 
@@ -76,6 +77,7 @@ private:
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     ImFont *pixelImFont = nullptr;
+    ImFont *bodyImFont = nullptr;       // lighter weight font for body text (textDepth <= 2)
     ImFont *cachedTextImFont = nullptr; // context font captured each frame for layout measurement
     bool dirty = true;
     bool debugLayout = false;

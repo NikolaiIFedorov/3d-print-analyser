@@ -39,17 +39,4 @@ namespace UIStyle
         ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
     }
-
-    // Draw an accent underline below the last ImGui item.
-    // restDepth should match the parent element's nesting level; hover/active step up from there.
-    inline void DrawInputUnderline(int restDepth)
-    {
-        ImVec2 rmin = ImGui::GetItemRectMin();
-        ImVec2 rmax = ImGui::GetItemRectMax();
-        float ulY = std::round(rmax.y) + 1.5f;
-        int depth = ImGui::IsItemActive() ? restDepth + 2 : (ImGui::IsItemHovered() ? restDepth + 1 : restDepth);
-        glm::vec4 ac = Color::GetAccent(depth);
-        ImU32 ulCol = ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a));
-        ImGui::GetWindowDrawList()->AddLine(ImVec2(rmin.x, ulY), ImVec2(rmax.x, ulY), ulCol, 2.0f);
-    }
 }

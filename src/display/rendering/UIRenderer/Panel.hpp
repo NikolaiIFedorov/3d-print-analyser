@@ -69,8 +69,11 @@ struct SectionLine
     std::string prefix;                             // colored portion (e.g. the number)
     std::string text;                               // default-colored portion (e.g. the label)
     glm::vec4 prefixColor{0};                       // color for the prefix
+    float fontScale = 1.0f;                         // multiplier on font size (1.0 = body, 1.1 = section header, 1.25 = panel header)
+    int textDepth = 1;                              // Color::GetUIText depth (higher = brighter in dark, darker in light)
     std::function<void()> onClick;                  // button attachment: underlined text, pointer cursor
     std::function<void(float, float)> imguiContent; // input attachment: custom ImGui widget (w, h)
+    bool bold = false;                              // true = use heavy/title font; false = use body font if available
 };
 
 // Box model for UI elements (CSS-like). Each element has:
@@ -100,8 +103,8 @@ struct UIElement
     static constexpr float LINE_GAP_RATIO = 0.35f;
 
     static constexpr float RadiusForLayer(int /*layer*/) { return BASE_RADIUS; }
-    static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : 0.25f; }
-    static constexpr float MarginForLayer(int /*layer*/) { return 0.25f; }
+    static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : 0.22f; }
+    static constexpr float MarginForLayer(int /*layer*/) { return 0.22f; }
 
     std::string id;
     int layer = 0;
@@ -146,9 +149,19 @@ struct Header
 {
     Paragraph para;
 
-    Header(const std::string &text)
+    // fontScale: 1.0 = body, 1.1 = section header, 1.25 = panel header
+    // textDepth: passed to Color::GetUIText — higher = brighter in dark mode
+    Header(const std::string &text, float fontScale = 1.0f, int textDepth = 1)
     {
-        para.values.emplace_back().text = text;
+        std::string upper;
+        upper.reserve(text.size());
+        for (unsigned char c : text)
+            upper += static_cast<char>(std::toupper(c));
+        SectionLine &sl = para.values.emplace_back();
+        sl.text = upper;
+        sl.fontScale = fontScale;
+        sl.textDepth = textDepth;
+        sl.bold = true;
     }
 };
 
@@ -158,6 +171,7 @@ struct Section : UIElement
 {
     std::optional<Header> header; // present = render a title row above children
     std::vector<Paragraph> children;
+    bool collapsed = false; // true = children hidden, only header row rendered
 
     Section()
     {
