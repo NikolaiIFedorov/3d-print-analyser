@@ -6,22 +6,10 @@
 #include "glm/glm.hpp"
 #include "logic/Analysis/AnalysisTypes.hpp"
 
-static const float BASE = 0.1;
-static const float UI_BASE = BASE / 2.0f;
-static const float STEP = 0.1f;
-static const float UI_ACCENT_L_BOOST = 0.10f; // luminance offset applied in GetAccent to compensate for perceived darkening from saturation
-static const float GRID_EXTENT = 256.0f;
-
-static const float FACE = BASE + STEP;
-static const float EDGE = FACE + STEP;
-static const float POINT = EDGE + STEP;
-
-static const glm::vec3 FACE_DEFAULT = glm::vec3(FACE, FACE, FACE);
-static const glm::vec3 EDGE_DEFAULT = glm::vec3(EDGE, EDGE, EDGE);
-static const glm::vec3 POINT_DEFAULT = glm::vec3(POINT, POINT, POINT);
-
 struct Color
 {
+    static constexpr float GRID_EXTENT = 256.0f; // world-space grid half-extent in scene units
+
     // Convert HSL (h in degrees 0–360, s and l in 0–1) to linear RGB.
     // Only L is intended to vary across UI depth levels; H and S stay constant.
     static glm::vec3 HslToRgb(float h, float s, float l)
@@ -72,8 +60,8 @@ struct Color
     }
     static glm::vec4 GetUI(int depth, float alpha = 1.0f)
     {
-        float v = s_darkMode ? s_uiBase + STEP * depth
-                             : s_uiBase - STEP * depth;
+        float v = s_darkMode ? s_uiBase + kStep * depth
+                             : s_uiBase - kStep * depth;
         return glm::vec4(v, v, v, alpha);
     }
     static glm::vec4 GetInputBg(int layer, float alpha = 1.0f)
@@ -82,8 +70,8 @@ struct Color
     }
     static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
     {
-        float v = s_darkMode ? s_uiBase + STEP * (depth + 6)
-                             : s_uiBase - STEP * (depth + 6);
+        float v = s_darkMode ? s_uiBase + kStep * (depth + 6)
+                             : s_uiBase - kStep * (depth + 6);
         return glm::vec4(v, v, v, alpha);
     }
     // Accent color: same luminance progression as GetUI but with accent hue/saturation applied.
@@ -91,24 +79,24 @@ struct Color
     // satMult scales the system saturation (0=neutral grey, 1=full system saturation).
     static glm::vec4 GetAccent(int depth, float alpha = 1.0f, float satMult = 1.0f)
     {
-        float l = s_darkMode ? s_uiBase + STEP * depth + UI_ACCENT_L_BOOST * satMult
-                             : s_uiBase - STEP * depth - UI_ACCENT_L_BOOST * satMult;
+        float l = s_darkMode ? s_uiBase + kStep * depth + kAccentLBoost * satMult
+                             : s_uiBase - kStep * depth - kAccentLBoost * satMult;
         return glm::vec4(HslToRgb(s_accentHue, s_accentSat * satMult, l), alpha);
     }
 
     static glm::vec3 GetEdge()
     {
-        float v = s_darkMode ? 0.30f : 0.70f;
+        float v = s_darkMode ? kEdgeL : 1.0f - kEdgeL;
         return glm::vec3(v, v, v);
     }
     static glm::vec3 GetPoint()
     {
-        float v = s_darkMode ? 0.40f : 0.60f;
+        float v = s_darkMode ? kPointL : 1.0f - kPointL;
         return glm::vec3(v, v, v);
     }
     static glm::vec3 GetFace()
     {
-        float v = s_darkMode ? 0.20f : 0.80f;
+        float v = s_darkMode ? kFaceL : 1.0f - kFaceL;
         return glm::vec3(v, v, v);
     }
 
@@ -134,8 +122,15 @@ struct Color
     static glm::vec4 GetEdge(EdgeFlawKind flaw);
 
 private:
-    inline static bool s_darkMode = true;     // dark by default
-    inline static float s_uiBase = 0.05f;     // starting luminance (adjusted by SetAppearance)
-    inline static float s_accentHue = 220.0f; // default: blue-gray
-    inline static float s_accentSat = 0.35f;  // default saturation
+    static constexpr float kBase = 0.1f;
+    static constexpr float kStep = 0.1f;
+    static constexpr float kFaceL  = kBase + kStep;        // default luminance for scene faces
+    static constexpr float kEdgeL  = kFaceL + kStep;       // default luminance for scene edges
+    static constexpr float kPointL = kEdgeL + kStep;       // default luminance for scene points
+    static constexpr float kAccentLBoost = 0.10f;          // luminance offset in GetAccent to compensate for perceived darkening from saturation
+
+    inline static bool  s_darkMode  = true;
+    inline static float s_uiBase    = 0.05f;
+    inline static float s_accentHue = 220.0f;
+    inline static float s_accentSat = 0.35f;
 };

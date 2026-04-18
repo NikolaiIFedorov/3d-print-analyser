@@ -653,6 +653,11 @@ void Display::InitUI()
     configParams.values.reserve(4);
     // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color
     SectionLine &overhangContent = configParams.values.emplace_back();
+    overhangContent.getMinContentWidthPx = []()
+    {
+        float p = ImGui::GetStyle().FramePadding.x;
+        return ImGui::CalcTextSize("Overhang:  ").x + ImGui::CalcTextSize("90°").x + 2.0f * p;
+    };
     overhangContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
@@ -682,6 +687,7 @@ void Display::InitUI()
             ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##overhang", &overhangAngle, 0.5f, 0.0f, 90.0f,
                                         showEdit ? "%.0f" : "");
+        UIStyle::DrawInputHoverTint(restDepth);
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
         if (editing)
             focusPending = false;
@@ -724,6 +730,11 @@ void Display::InitUI()
     };
 
     SectionLine &sharpContent = configParams.values.emplace_back();
+    sharpContent.getMinContentWidthPx = []()
+    {
+        float p = ImGui::GetStyle().FramePadding.x;
+        return ImGui::CalcTextSize("Sharp corner:  ").x + ImGui::CalcTextSize("180°").x + 2.0f * p;
+    };
     sharpContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
@@ -753,6 +764,7 @@ void Display::InitUI()
             ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##sharp", &sharpCornerAngle, 0.5f, 0.0f, 180.0f,
                                         showEdit ? "%.0f" : "");
+        UIStyle::DrawInputHoverTint(restDepth);
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
         if (editing)
             focusPending = false;
@@ -795,6 +807,11 @@ void Display::InitUI()
     };
 
     SectionLine &featureContent = configParams.values.emplace_back();
+    featureContent.getMinContentWidthPx = []()
+    {
+        float p = ImGui::GetStyle().FramePadding.x;
+        return ImGui::CalcTextSize("Min feature:  ").x + ImGui::CalcTextSize("10.0 mm").x + 2.0f * p;
+    };
     featureContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
@@ -824,6 +841,7 @@ void Display::InitUI()
             ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##feature", &minFeatureSize, 0.05f, 0.1f, 50.0f,
                                         showEdit ? "%.1f" : "");
+        UIStyle::DrawInputHoverTint(restDepth);
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
         if (editing)
             focusPending = false;
@@ -866,6 +884,11 @@ void Display::InitUI()
     };
 
     SectionLine &layerContent = configParams.values.emplace_back();
+    layerContent.getMinContentWidthPx = []()
+    {
+        float p = ImGui::GetStyle().FramePadding.x;
+        return ImGui::CalcTextSize("Layer height:  ").x + ImGui::CalcTextSize("0.200 mm").x + 2.0f * p;
+    };
     layerContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
@@ -892,6 +915,9 @@ void Display::InitUI()
             ImGui::SetNextItemWidth(w);
         bool changed = ImGui::DragFloat("##layer", &layerHeight, 0.01f, 0.01f, 5.0f,
                                         showEdit ? "%.2f" : "");
+        if (!ImGui::IsItemActive())
+            layerHeight = std::max(layerHeight, 0.01f); // clamp after text-input commits
+        UIStyle::DrawInputHoverTint(restDepth);
         editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
         if (editing)
             focusPending = false;

@@ -290,7 +290,7 @@ void OpenGLRenderer::DrawTriangles()
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);
-    shader.SetFloat("uBlueFar", GRID_EXTENT);
+    shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     // Force depth state

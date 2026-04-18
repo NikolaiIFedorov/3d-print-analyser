@@ -1386,8 +1386,8 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/PanelGrid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.h \

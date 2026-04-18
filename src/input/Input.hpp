@@ -55,4 +55,5 @@ private:
     void resetGestureState();
     void trackpadGestures();
     void mouseGestures(const SDL_Event &event);
+    bool processEvent(const SDL_Event &event);
 };

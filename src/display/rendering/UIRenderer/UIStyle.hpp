@@ -9,7 +9,8 @@
 // both widget types stay consistent.
 namespace UIStyle
 {
-    constexpr float FRAME_ROUNDING_RATIO = 0.3f;
+    constexpr float FRAME_ROUNDING_RATIO  = 0.3f;
+    constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
 
     // Push ImGui style for a DragFloat (or any framed widget).
     // h  = widget height in pixels (used to derive rounding)
@@ -27,5 +28,24 @@ namespace UIStyle
     {
         ImGui::PopStyleVar(1);
         ImGui::PopStyleColor(4);
+    }
+
+    // Draw a hover/active background tint for the last ImGui item (e.g. DragFloat).
+    // Call immediately after the widget. layer = UIElement::layer of the containing Paragraph.
+    inline void DrawInputHoverTint(int layer)
+    {
+        bool hovered = ImGui::IsItemHovered();
+        bool active  = ImGui::IsItemActive();
+        if (hovered)
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (!hovered && !active)
+            return;
+        int d = active ? layer + 2 : layer + 1;
+        glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, ACCENT_SAT_MULT_HOVER);
+        float radius = ImGui::GetItemRectSize().y * FRAME_ROUNDING_RATIO;
+        ImVec2 rMin = ImGui::GetItemRectMin();
+        ImVec2 rMax = ImGui::GetItemRectMax();
+        ImGui::GetWindowDrawList()->AddRectFilled(rMin, rMax,
+            ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
     }
 }

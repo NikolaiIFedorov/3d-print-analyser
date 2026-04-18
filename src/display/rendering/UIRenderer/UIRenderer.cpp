@@ -6,12 +6,14 @@
 #include <algorithm>
 #include <cmath>
 
-static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
-static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
-static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
+// SPLITTER_HALF_DP: half the splitter thickness in device-independent pixels.
+// Total thickness = 2 * SPLITTER_HALF_DP logical pixels (= 2 * SPLITTER_HALF_DP * displayScale physical px).
+static constexpr float SPLITTER_HALF_DP = 1.5f;
+// as (grid.cellSizeX / UIGrid::CELL_SIZE) so it scales with display DPI exactly like cell size.
+static constexpr float SPLITTER_PAD    = UIGrid::GAP * 0.25f;  // padding above and below the splitter (¼ gap)
+static constexpr float SPLITTER_TOTAL  = 2.0f * SPLITTER_PAD;  // reserved layout space in cells (height negligible)
 static constexpr float ACCENT_SAT_MULT = 0.35f;       // structural accents: splitters, resize handle
-static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f;  // interactive feedback: hover/active tint
-static constexpr float CHEVRON_SIZE_RATIO = 0.22f;    // chevron half-size as fraction of line height
+static constexpr float ICON_SIZE_RATIO = 0.22f;        // icon half-size as fraction of line height
 static constexpr float HALF_GAP = UIGrid::GAP * 0.5f; // half the universal cell gap
 // Returns the pixel bounding box for text as ImGui's AddText would produce.
 // Origin = (x,y) passed to AddText; results relative to (0,0).
@@ -357,6 +359,8 @@ void UIRenderer::ResolveAnchors()
                 float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
                 contentW = std::max(contentW, inkW / grid.cellSizeX + (i == 0 ? item.leftIconWidthCells : 0.0f));
+                if (line.getMinContentWidthPx)
+                    contentW = std::max(contentW, line.getMinContentWidthPx() / grid.cellSizeX);
             }
             contentH += maxBottom / grid.cellSizeY;
         }
@@ -375,7 +379,7 @@ void UIRenderer::ResolveAnchors()
             return 0.0f;
         float bearingPx = pixelImFont ? pixelImFont->FontSize : grid.cellSizeY;
         float baseH = bearingPx * sec.header->para.values[0].fontScale;
-        float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+        float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
         return (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon + 3px gap
     };
 
@@ -913,18 +917,18 @@ void UIRenderer::BuildMesh()
     };
 
     // Emit a horizontal splitter centered between gapTop and gapBottom (in cells).
-    // X extents span parentBgX0..parentBgX1 inset by half the parent's padding.
+    // X extents span parentBgX0..parentBgX1 inset by the full parent padding (stopping at the content edge).
     auto emitVerticalSplitter = [&](float gapTop, float gapBottom,
                                     float parentBgX0, float parentBgX1,
                                     float parentPadding, glm::vec4 color)
     {
-        float halfPadPx = grid.ToPixelsX(parentPadding) * 0.5f;
-        float halfSpl = SPLITTER_HEIGHT * 0.5f;
+        float padPx = grid.ToPixelsX(parentPadding);
+        float halfSplPx = (grid.cellSizeX / UIGrid::CELL_SIZE) * SPLITTER_HALF_DP;
         float splCenterY = (gapTop + gapBottom) * 0.5f;
-        float rsx0 = std::round(parentBgX0 + halfPadPx);
-        float rsy0 = std::round(grid.ToPixelsY(splCenterY - halfSpl));
-        float rsx1 = std::round(parentBgX1 - halfPadPx);
-        float rsy1 = std::round(grid.ToPixelsY(splCenterY + halfSpl));
+        float rsx0 = std::round(parentBgX0 + padPx);
+        float rsy0 = std::round(grid.ToPixelsY(splCenterY) - halfSplPx);
+        float rsx1 = std::round(parentBgX1 - padPx);
+        float rsy1 = std::round(grid.ToPixelsY(splCenterY) + halfSplPx);
         float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
         EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, color);
     };
@@ -1024,9 +1028,9 @@ void UIRenderer::BuildMesh()
                                                  { return e; }, panel.children[si]);
                 if (!el.visible)
                     continue;
-                float halfSpl = SPLITTER_HEIGHT * 0.5f;
-                float rsx0 = std::round(grid.ToPixelsX(el.col - halfSpl));
-                float rsx1 = std::round(grid.ToPixelsX(el.col + halfSpl));
+                float halfSplPx = (grid.cellSizeX / UIGrid::CELL_SIZE) * SPLITTER_HALF_DP;
+                float rsx0 = std::round(grid.ToPixelsX(el.col) - halfSplPx);
+                float rsx1 = std::round(grid.ToPixelsX(el.col) + halfSplPx);
                 float rsy0 = std::round(y0 + halfPadPx);
                 float rsy1 = std::round(y1 - halfPadPx);
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
@@ -1149,19 +1153,40 @@ void UIRenderer::Render()
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
             char winId[256];
             snprintf(winId, sizeof(winId), "##val%s_%zu", itemPath.c_str(), i);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(1.0f, 1.0f));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
             if (ImGui::Begin(winId, nullptr,
                              ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                 ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+                                 ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoBringToFrontOnFocus |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoScrollWithMouse))
             {
                 if (line.imguiContent)
                 {
                     if (pixelImFont)
                         ImGui::PushFont(pixelImFont);
+                    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
+                    // Centre the widget vertically in the slot so the interactive rect
+                    // matches the visual rect even when slotH > GetFrameHeight().
+                    float yOffset = std::max(0.0f, (baseH - ImGui::GetFrameHeight()) * 0.5f);
+                    ImGui::SetCursorPos(ImVec2(0, yOffset));
                     line.imguiContent(btnW, baseH); // pass visual height, not the extended window height
+                    ImGui::PopStyleVar(); // ItemSpacing
                     if (pixelImFont)
                         ImGui::PopFont();
+                    // Debug: amber = computed window slot, yellow = actual ImGui item rect
+                    if (debugLayout)
+                    {
+                        ImVec2 iMin = ImGui::GetItemRectMin();
+                        ImVec2 iMax = ImGui::GetItemRectMax();
+                        ImDrawList *fdl = ImGui::GetForegroundDrawList();
+                        fdl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+                                           IM_COL32(255, 160, 0, 40));
+                        fdl->AddRect(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + btnH),
+                                     IM_COL32(255, 160, 0, 220), 0, 0, 1.5f);
+                        fdl->AddRect(iMin, iMax, IM_COL32(255, 255, 0, 255), 0, 0, 1.5f);
+                    }
                 }
                 else
                 {
@@ -1186,7 +1211,7 @@ void UIRenderer::Render()
                         if (hovered || active)
                         {
                             int d = active ? item.layer + 2 : item.layer + 1;
-                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, ACCENT_SAT_MULT_HOVER);
+                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, UIStyle::ACCENT_SAT_MULT_HOVER);
                             float radius = baseH * UIStyle::FRAME_ROUNDING_RATIO;
                             dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + baseH),
                                               ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
@@ -1197,7 +1222,7 @@ void UIRenderer::Render()
                     // inside the window. Para.margin provides the left gap from the panel bg.
                     if (i == 0 && item.leftIconDraw)
                     {
-                        float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+                        float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
                         item.leftIconDraw(dl, vpx, btnY + baseH * 0.5f, s);
                         tx += 2.0f * s + 3.0f; // skip past icon (2s wide) + 3px gap
                     }
@@ -1216,7 +1241,7 @@ void UIRenderer::Render()
                 }
             }
             ImGui::End();
-            ImGui::PopStyleVar(2);
+            ImGui::PopStyleVar(3); // WindowBorderSize + WindowPadding + WindowMinSize
         }
     };
 
@@ -1236,7 +1261,7 @@ void UIRenderer::Render()
                 // Chevron size — must match the s computed inside renderParagraph.
                 float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
                 float baseH = bearingPx * hpara.values[0].fontScale;
-                float s = std::max(2.0f, std::round(baseH * CHEVRON_SIZE_RATIO));
+                float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
 
                 // Wire collapse toggle.
                 hpara.values[0].onClick = [&sec, this]()

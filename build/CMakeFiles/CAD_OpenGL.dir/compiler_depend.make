@@ -13320,6 +13320,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/TextRenderer.cpp.o: /
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/PanelGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /opt/homebrew/include/freetype2/freetype/config/ftconfig.h \
   /opt/homebrew/include/freetype2/freetype/config/ftheader.h \

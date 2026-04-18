@@ -72,7 +72,7 @@ void ViewportRenderer::Generate()
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
-    const float extent = GRID_EXTENT;
+    const float extent = Color::GRID_EXTENT;
     const float spacing = 1.0f;
 
     glm::vec3 gridColor = Color::GetGrid();

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "PanelGrid.hpp"
+#include "UIGrid.hpp"
 
 struct ImDrawList; // forward declaration for leftIconDraw callback
 
@@ -75,6 +76,7 @@ struct SectionLine
     int textDepth = 1;                              // Color::GetUIText depth (higher = brighter in dark, darker in light)
     std::function<void()> onClick;                  // button attachment: underlined text, pointer cursor
     std::function<void(float, float)> imguiContent; // input attachment: custom ImGui widget (w, h)
+    std::function<float()> getMinContentWidthPx;    // optional: called at layout time to enforce min content width (px)
     bool bold = false;                              // true = use heavy/title font; false = use body font if available
 };
 
@@ -103,10 +105,11 @@ struct UIElement
 {
     static constexpr float BASE_RADIUS = 0.5f;
     static constexpr float LINE_GAP_RATIO = 0.35f;
+    static constexpr float INSET_RATIO = 0.44f; // padding/margin as a fraction of UIGrid::GAP
 
     static constexpr float RadiusForLayer(int /*layer*/) { return BASE_RADIUS; }
-    static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : 0.22f; }
-    static constexpr float MarginForLayer(int /*layer*/) { return 0.22f; }
+    static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : UIGrid::GAP * INSET_RATIO; }
+    static constexpr float MarginForLayer(int /*layer*/) { return UIGrid::GAP * INSET_RATIO; }
 
     std::string id;
     int layer = 0;

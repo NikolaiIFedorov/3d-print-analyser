@@ -258,96 +258,117 @@ void Input::mouseGestures(const SDL_Event &event)
     }
 }
 
+bool Input::processEvent(const SDL_Event &event)
+{
+    ImGui_ImplSDL3_ProcessEvent(&event);
+    ImGuiIO &io = ImGui::GetIO();
+
+    switch (event.type)
+    {
+    case SDL_EVENT_QUIT:
+        return false;
+    case SDL_EVENT_WINDOW_RESIZED:
+    {
+        int width = event.window.data1;
+        int height = event.window.data2;
+        if (height > 0)
+        {
+            display->SetAspectRatio(width, height);
+        }
+        break;
+    }
+    case SDL_EVENT_KEY_DOWN:
+        if (io.WantCaptureKeyboard)
+            break;
+        if (event.key.scancode == SDL_SCANCODE_GRAVE)
+        {
+            UIRenderer *ui = display->GetUIRenderer();
+            ui->SetDebugLayout(!ui->GetDebugLayout());
+            break;
+        }
+        [[fallthrough]];
+    case SDL_EVENT_MOUSE_WHEEL:
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+    case SDL_EVENT_MOUSE_MOTION:
+        if (io.WantCaptureMouse)
+            break;
+        if (activeTouches.size() < 2)
+            mouseGestures(event);
+        break;
+    case SDL_EVENT_FINGER_DOWN:
+        activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
+        touchHistory[event.tfinger.fingerID].clear();
+        if (activeTouches.size() >= 2 && currentGesture != GestureType::Orbit)
+        {
+            currentGesture = GestureType::None;
+            gestureFrames = 0;
+            for (auto &[id, hist] : touchHistory)
+                hist.clear();
+        }
+        break;
+    case SDL_EVENT_FINGER_UP:
+        activeTouches.erase(event.tfinger.fingerID);
+        touchHistory.erase(event.tfinger.fingerID);
+        if (activeTouches.size() < 2)
+            resetGestureState();
+        break;
+    case SDL_EVENT_FINGER_MOTION:
+    {
+        activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
+        float fdx = event.tfinger.dx;
+        float fdy = event.tfinger.dy;
+        float fmag = std::sqrt(fdx * fdx + fdy * fdy);
+        if (fmag < TOUCH_DEADZONE)
+        {
+            fdx = 0.0f;
+            fdy = 0.0f;
+        }
+        auto &hist = touchHistory[event.tfinger.fingerID];
+        hist.push_back({fdx, fdy});
+        if (hist.size() > WINDOW_SIZE)
+            hist.pop_front();
+        trackpadGestures();
+        break;
+    }
+    case SDL_EVENT_FINGER_CANCELED:
+        activeTouches.clear();
+        resetGestureState();
+        break;
+    }
+    return true;
+}
+
 bool Input::handleEvents()
 {
-    bool hadEvents = false;
     SDL_Event event;
-    while (SDL_PollEvent(&event))
+    // Choose how long to block:
+    //  - Text input active  → 50 ms   (cursor blink ~20 fps)
+    //  - Mouse over UI      → 16 ms   (smooth hover tints ~60 fps)
+    //  - Otherwise          → forever (zero idle CPU)
+    const ImGuiIO &io = ImGui::GetIO();
+    const Sint32 timeoutMs = io.WantTextInput     ? 50
+                             : io.WantCaptureMouse ? 16
+                                                   : -1;
+    if (!SDL_WaitEventTimeout(&event, timeoutMs))
     {
-        hadEvents = true;
-        // Feed events to ImGui first
-        ImGui_ImplSDL3_ProcessEvent(&event);
-        ImGuiIO &io = ImGui::GetIO();
-
-        switch (event.type)
-        {
-        case SDL_EVENT_QUIT:
-            return false;
-        case SDL_EVENT_WINDOW_RESIZED:
-        {
-            int width = event.window.data1;
-            int height = event.window.data2;
-            if (height > 0)
-            {
-                display->SetAspectRatio(width, height);
-            }
-            break;
-        }
-        case SDL_EVENT_KEY_DOWN:
-            if (io.WantCaptureKeyboard)
-                break;
-            if (event.key.scancode == SDL_SCANCODE_GRAVE)
-            {
-                UIRenderer *ui = display->GetUIRenderer();
-                ui->SetDebugLayout(!ui->GetDebugLayout());
-                break;
-            }
-            [[fallthrough]];
-        case SDL_EVENT_MOUSE_WHEEL:
-            mouseGestures(event);
-            break;
-        case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        case SDL_EVENT_MOUSE_BUTTON_UP:
-        case SDL_EVENT_MOUSE_MOTION:
-            if (io.WantCaptureMouse)
-                break;
-            if (activeTouches.size() < 2)
-                mouseGestures(event);
-            break;
-        case SDL_EVENT_FINGER_DOWN:
-            activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            touchHistory[event.tfinger.fingerID].clear();
-            if (activeTouches.size() >= 2 && currentGesture != GestureType::Orbit)
-            {
-                currentGesture = GestureType::None;
-                gestureFrames = 0;
-                for (auto &[id, hist] : touchHistory)
-                    hist.clear();
-            }
-            break;
-        case SDL_EVENT_FINGER_UP:
-            activeTouches.erase(event.tfinger.fingerID);
-            touchHistory.erase(event.tfinger.fingerID);
-            if (activeTouches.size() < 2)
-                resetGestureState();
-            break;
-        case SDL_EVENT_FINGER_MOTION:
-        {
-            activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            float fdx = event.tfinger.dx;
-            float fdy = event.tfinger.dy;
-            float fmag = std::sqrt(fdx * fdx + fdy * fdy);
-            if (fmag < TOUCH_DEADZONE)
-            {
-                fdx = 0.0f;
-                fdy = 0.0f;
-            }
-            auto &hist = touchHistory[event.tfinger.fingerID];
-            hist.push_back({fdx, fdy});
-            if (hist.size() > WINDOW_SIZE)
-                hist.pop_front();
-            trackpadGestures();
-            break;
-        }
-        case SDL_EVENT_FINGER_CANCELED:
-            activeTouches.clear();
-            resetGestureState();
-            break;
-        }
+        // Timeout: keep rendering so hover/animation state stays fresh.
+        display->renderDirty = true;
+        return true;
     }
 
-    if (hadEvents)
-        display->renderDirty = true;
+    if (!processEvent(event))
+        return false;
 
+    // Drain any additional queued events.
+    while (SDL_PollEvent(&event))
+    {
+        if (!processEvent(event))
+            return false;
+    }
+
+    display->renderDirty = true;
     return true;
 }
