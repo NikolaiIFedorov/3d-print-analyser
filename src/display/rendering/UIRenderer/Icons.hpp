@@ -35,12 +35,12 @@ namespace Icons
         {
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx   = std::round(x + s);
-            float cy   = std::round(midY);
-            float r    = std::round(s * 0.70f);
-            float bar  = std::max(1.0f, std::round(s * 0.22f)); // half-thickness of each arm
-            dl->AddRectFilled(ImVec2(cx - r,   cy - bar), ImVec2(cx + r,   cy + bar), col); // horizontal
-            dl->AddRectFilled(ImVec2(cx - bar, cy - r),   ImVec2(cx + bar, cy + r),   col); // vertical
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = std::round(s * 0.70f);
+            float bar = std::max(1.0f, std::round(s * 0.22f));                          // half-thickness of each arm
+            dl->AddRectFilled(ImVec2(cx - r, cy - bar), ImVec2(cx + r, cy + bar), col); // horizontal
+            dl->AddRectFilled(ImVec2(cx - bar, cy - r), ImVec2(cx + bar, cy + r), col); // vertical
         };
     }
 
@@ -70,11 +70,11 @@ namespace Icons
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
             float cx = x + s;
-            float r  = s * 0.70f;
+            float r = s * 0.70f;
             float bar = r * 0.35f; // arm thickness
             // Two overlapping filled rects form the L
-            dl->AddRectFilled(ImVec2(cx - r, midY - r), ImVec2(cx + r,       midY - r + bar), col); // horizontal arm
-            dl->AddRectFilled(ImVec2(cx - r, midY - r), ImVec2(cx - r + bar, midY + r),       col); // vertical arm
+            dl->AddRectFilled(ImVec2(cx - r, midY - r), ImVec2(cx + r, midY - r + bar), col); // horizontal arm
+            dl->AddRectFilled(ImVec2(cx - r, midY - r), ImVec2(cx - r + bar, midY + r), col); // vertical arm
         };
     }
 
@@ -90,10 +90,10 @@ namespace Icons
             float stroke = std::max(0.8f, s * STROKE_RATIO);
             float cx = std::round(x + s);
             float cy = std::round(midY);
-            float r  = std::round(s * 0.70f);
+            float r = std::round(s * 0.70f);
             ImVec2 pts[3] = {
                 ImVec2(cx - r, cy - r),
-                ImVec2(cx,     cy + r),
+                ImVec2(cx, cy + r),
                 ImVec2(cx + r, cy - r),
             };
             dl->AddPolyline(pts, 3, col, 0, stroke);
@@ -108,13 +108,13 @@ namespace Icons
         {
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx   = std::round(x + s);
-            float cy   = std::round(midY);
-            float r    = std::round(s * 0.70f);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = std::round(s * 0.70f);
             float barW = std::max(1.0f, std::round(r * 0.30f)); // bar total width
             // Outer edges of each bar align with slot edges (cx ± r)
-            dl->AddRectFilled(ImVec2(cx - r,        cy - r), ImVec2(cx - r + barW, cy + r), col);
-            dl->AddRectFilled(ImVec2(cx + r - barW, cy - r), ImVec2(cx + r,        cy + r), col);
+            dl->AddRectFilled(ImVec2(cx - r, cy - r), ImVec2(cx - r + barW, cy + r), col);
+            dl->AddRectFilled(ImVec2(cx + r - barW, cy - r), ImVec2(cx + r, cy + r), col);
         };
     }
 
@@ -126,8 +126,8 @@ namespace Icons
         {
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx      = x + s;
-            float r       = s * 0.70f;
+            float cx = x + s;
+            float r = s * 0.70f;
             float spacing = r * 0.60f;
             float barHalf = r * 0.11f; // half-height of each band
             for (int i = -1; i <= 1; ++i)

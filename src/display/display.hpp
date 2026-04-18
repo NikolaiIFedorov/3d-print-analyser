@@ -70,7 +70,22 @@ private:
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
-    Section *uiConfig = nullptr;
+
+    // Per-flaw live state — written by UpdateScene, read by imguiContent lambdas each frame
+    struct FlawResult
+    {
+        size_t count = 0;
+        std::function<void()> frameCallback; // nullptr = no valid bounds
+        // Per-row interactive state (must NOT be static in lambdas — all rows share the same lambda body)
+        bool requestEdit  = false;
+        bool editing      = false;
+        bool tracking     = false;
+        bool navTracking  = false;
+        bool focusPending = false;
+        ImVec2 startPos   = {};
+        ImVec2 navStart   = {};
+    };
+    FlawResult flawOverhang, flawSharp, flawThin, flawSmall;
 
     bool lastVerdictWasPass = false;
     std::string cachedTip;
