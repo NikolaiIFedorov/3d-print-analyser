@@ -69,15 +69,16 @@ struct PanelAnchor
 
 struct SectionLine
 {
-    std::string prefix;                             // colored portion (e.g. the number)
-    std::string text;                               // default-colored portion (e.g. the label)
-    glm::vec4 prefixColor{0};                       // color for the prefix
-    float fontScale = 1.0f;                         // multiplier on font size (1.0 = body, 1.1 = section header, 1.25 = panel header)
-    int textDepth = 1;                              // Color::GetUIText depth (higher = brighter in dark, darker in light)
-    std::function<void()> onClick;                  // button attachment: underlined text, pointer cursor
-    std::function<void(float, float)> imguiContent; // input attachment: custom ImGui widget (w, h)
-    std::function<float()> getMinContentWidthPx;    // optional: called at layout time to enforce min content width (px)
-    bool bold = false;                              // true = use heavy/title font; false = use body font if available
+    std::string prefix;                                              // colored portion (e.g. the number)
+    std::string text;                                                // default-colored portion (e.g. the label)
+    glm::vec4 prefixColor{0};                                        // color for the prefix
+    float fontScale = 1.0f;                                          // multiplier on font size (1.0 = body, 1.1 = section header, 1.25 = panel header)
+    int textDepth = 1;                                               // Color::GetUIText depth (higher = brighter in dark, darker in light)
+    std::function<void()> onClick;                                   // button attachment: underlined text, pointer cursor
+    std::function<void(ImDrawList *, float, float, float)> iconDraw; // icon attachment: drawn left of text; layout reserves slot automatically
+    std::function<void(float, float)> imguiContent;                  // input attachment: custom ImGui widget (w, h)
+    std::function<float()> getMinContentWidthPx;                     // optional: called at layout time to enforce min content width (px)
+    bool bold = false;                                               // true = use heavy/title font; false = use body font if available
 };
 
 // Box model for UI elements (CSS-like). Each element has:
@@ -137,8 +138,6 @@ struct UIElement
 struct Paragraph : UIElement
 {
     std::vector<SectionLine> values;
-    float leftIconWidthCells = 0.0f;                                     // cells reserved for left icon on the first value line
-    std::function<void(ImDrawList *, float, float, float)> leftIconDraw; // draws the icon at (x, midY, size)
 
     Paragraph()
     {

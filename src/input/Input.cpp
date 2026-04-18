@@ -349,7 +349,7 @@ bool Input::handleEvents()
     //  - Mouse over UI      → 16 ms   (smooth hover tints ~60 fps)
     //  - Otherwise          → forever (zero idle CPU)
     const ImGuiIO &io = ImGui::GetIO();
-    const Sint32 timeoutMs = io.WantTextInput     ? 50
+    const Sint32 timeoutMs = io.WantTextInput      ? 50
                              : io.WantCaptureMouse ? 16
                                                    : -1;
     if (!SDL_WaitEventTimeout(&event, timeoutMs))

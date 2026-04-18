@@ -72,6 +72,9 @@ private:
     Paragraph *uiVerdict = nullptr;
     Section *uiConfig = nullptr;
 
+    bool lastVerdictWasPass = false;
+    std::string cachedTip;
+
     void RebuildAnalysis();
     void snapInput(float &x, float &y);
     void InitUI();

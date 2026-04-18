@@ -458,35 +458,41 @@ void Display::Frame()
                     tips[3].weight += 2.0f;
                 }
 
-                // Weighted random pick
-                float totalWeight = 0;
-                for (const auto &t : tips)
-                    totalWeight += t.weight;
-
-                static std::mt19937 rng(std::random_device{}());
-                std::uniform_real_distribution<float> dist(0.0f, totalWeight);
-                float r = dist(rng);
-                const char *tip = tips[0].text;
-                float cumulative = 0;
-                for (const auto &t : tips)
+                // Only re-roll the tip when transitioning from flawed → pass
+                if (!lastVerdictWasPass)
                 {
-                    cumulative += t.weight;
-                    if (r < cumulative)
+                    float totalWeight = 0;
+                    for (const auto &t : tips)
+                        totalWeight += t.weight;
+
+                    static std::mt19937 rng(std::random_device{}());
+                    std::uniform_real_distribution<float> dist(0.0f, totalWeight);
+                    float r = dist(rng);
+                    cachedTip = tips[0].text;
+                    float cumulative = 0;
+                    for (const auto &t : tips)
                     {
-                        tip = t.text;
-                        break;
+                        cumulative += t.weight;
+                        if (r < cumulative)
+                        {
+                            cachedTip = t.text;
+                            break;
+                        }
                     }
                 }
 
                 glm::vec4 tipColor(0.55f, 0.55f, 0.55f, 1.0f);
-                verdictLines.push_back({tip, "", tipColor});
+                verdictLines.push_back({cachedTip, "", tipColor});
             }
 
+            bool verdictIsPass = !hasVisual && !hasPrecision;
+            lastVerdictWasPass = verdictIsPass;
             if (uiVerdict)
                 uiVerdict->values = std::move(verdictLines);
         }
         else
         {
+            lastVerdictWasPass = false;
             analysisRenderer.Clear();
             if (uiResult)
                 uiResult->values = {};

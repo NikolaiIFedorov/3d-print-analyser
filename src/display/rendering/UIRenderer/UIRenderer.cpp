@@ -1,6 +1,7 @@
 #include "UIRenderer.hpp"
 #include "rendering/color.hpp"
 #include "UIStyle.hpp"
+#include "Icons.hpp"
 #include "utils/log.hpp"
 #include "imgui.h"
 #include <algorithm>
@@ -10,11 +11,11 @@
 // Total thickness = 2 * SPLITTER_HALF_DP logical pixels (= 2 * SPLITTER_HALF_DP * displayScale physical px).
 static constexpr float SPLITTER_HALF_DP = 1.5f;
 // as (grid.cellSizeX / UIGrid::CELL_SIZE) so it scales with display DPI exactly like cell size.
-static constexpr float SPLITTER_PAD    = UIGrid::GAP * 0.25f;  // padding above and below the splitter (¼ gap)
-static constexpr float SPLITTER_TOTAL  = 2.0f * SPLITTER_PAD;  // reserved layout space in cells (height negligible)
-static constexpr float ACCENT_SAT_MULT = 0.35f;       // structural accents: splitters, resize handle
-static constexpr float ICON_SIZE_RATIO = 0.22f;        // icon half-size as fraction of line height
-static constexpr float HALF_GAP = UIGrid::GAP * 0.5f; // half the universal cell gap
+static constexpr float SPLITTER_PAD = UIGrid::GAP * 0.25f;   // padding above and below the splitter (¼ gap)
+static constexpr float SPLITTER_TOTAL = 2.0f * SPLITTER_PAD; // reserved layout space in cells (height negligible)
+static constexpr float ACCENT_SAT_MULT = 0.35f;              // structural accents: splitters, resize handle
+static constexpr float ICON_SIZE_RATIO = 0.22f;              // icon half-size as fraction of line height
+static constexpr float HALF_GAP = UIGrid::GAP * 0.5f;        // half the universal cell gap
 // Returns the pixel bounding box for text as ImGui's AddText would produce.
 // Origin = (x,y) passed to AddText; results relative to (0,0).
 static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font)
@@ -358,7 +359,13 @@ void UIRenderer::ResolveAnchors()
                 // ink.x1 is the visual right edge of the last glyph; +1px absorbs fp roundtrip loss in cell-division
                 float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
                 maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(i) + inkH);
-                contentW = std::max(contentW, inkW / grid.cellSizeX + (i == 0 ? item.leftIconWidthCells : 0.0f));
+                float iconSlotCells = 0.0f;
+                if (line.iconDraw || line.onClick || line.imguiContent)
+                {
+                    float iconS = std::max(2.0f, std::round(bearingPx * line.fontScale * ICON_SIZE_RATIO));
+                    iconSlotCells = (2.0f * iconS + 3.0f) / grid.cellSizeX;
+                }
+                contentW = std::max(contentW, inkW / grid.cellSizeX + iconSlotCells);
                 if (line.getMinContentWidthPx)
                     contentW = std::max(contentW, line.getMinContentWidthPx() / grid.cellSizeX);
             }
@@ -1149,6 +1156,21 @@ void UIRenderer::Render()
             // Slot height: use frame height for imguiContent, at least text bearing otherwise.
             float baseH = line.imguiContent ? slotH : std::max(inkH, bearingY);
             float btnH = baseH;
+
+            // Icon for imguiContent lines: drawn on the background dl before the ImGui window,
+            // and btnW/btnX are adjusted so the widget occupies only the remaining space.
+            // Placeholder shown when no iconDraw is set, mirroring the onClick path.
+            if (line.imguiContent)
+            {
+                float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
+                ImDrawList *bgDl = ImGui::GetBackgroundDrawList();
+                const auto &drawIcon = line.iconDraw ? line.iconDraw : Icons::Placeholder(line.textDepth);
+                drawIcon(bgDl, vpx, btnY + baseH * 0.5f, s);
+                float iconSlotPx = 2.0f * s + 3.0f;
+                btnX += iconSlotPx;
+                btnW -= iconSlotPx;
+            }
+
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
             char winId[256];
@@ -1172,7 +1194,7 @@ void UIRenderer::Render()
                     float yOffset = std::max(0.0f, (baseH - ImGui::GetFrameHeight()) * 0.5f);
                     ImGui::SetCursorPos(ImVec2(0, yOffset));
                     line.imguiContent(btnW, baseH); // pass visual height, not the extended window height
-                    ImGui::PopStyleVar(); // ItemSpacing
+                    ImGui::PopStyleVar();           // ItemSpacing
                     if (pixelImFont)
                         ImGui::PopFont();
                     // Debug: amber = computed window slot, yellow = actual ImGui item rect
@@ -1218,12 +1240,12 @@ void UIRenderer::Render()
                         }
                     }
                     float tx = vpx;
-                    // Left icon (first line only): drawn at the content left edge (vpx),
-                    // inside the window. Para.margin provides the left gap from the panel bg.
-                    if (i == 0 && item.leftIconDraw)
+                    // Per-line icon: drawn when iconDraw is set, or placeholder when onClick has no icon.
+                    if (line.iconDraw || line.onClick)
                     {
                         float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
-                        item.leftIconDraw(dl, vpx, btnY + baseH * 0.5f, s);
+                        const auto &drawIcon = line.iconDraw ? line.iconDraw : Icons::Placeholder(line.textDepth);
+                        drawIcon(dl, vpx, btnY + baseH * 0.5f, s);
                         tx += 2.0f * s + 3.0f; // skip past icon (2s wide) + 3px gap
                     }
                     if (!line.prefix.empty())
@@ -1258,11 +1280,6 @@ void UIRenderer::Render()
 
             if (!hpara.values.empty())
             {
-                // Chevron size — must match the s computed inside renderParagraph.
-                float bearingPx = pixelImFont ? pixelImFont->FontSize : hpara.localGrid.cellSizeY;
-                float baseH = bearingPx * hpara.values[0].fontScale;
-                float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
-
                 // Wire collapse toggle.
                 hpara.values[0].onClick = [&sec, this]()
                 {
@@ -1270,11 +1287,10 @@ void UIRenderer::Render()
                     dirty = true;
                 };
 
-                // Chevron is the section header's left icon, drawn inside the margin space by
-                // renderParagraph. para.margin (~8.8px) provides clearance between icon and text.
+                // Chevron: wired directly as the line's icon — internal section control,
+                // not a user-facing icon. Draws inside the slot reserved by the layout pass.
                 int textDepth = hpara.values[0].textDepth;
-                hpara.leftIconWidthCells = (2.0f * s + 3.0f) / grid.cellSizeX; // 2s-wide icon slot + 3px gap
-                hpara.leftIconDraw = [&sec, textDepth](ImDrawList *dl, float x, float midY, float s)
+                hpara.values[0].iconDraw = [&sec, textDepth](ImDrawList *dl, float x, float midY, float s)
                 {
                     glm::vec4 tc = Color::GetUIText(textDepth);
                     ImU32 chevCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a * 0.7f));

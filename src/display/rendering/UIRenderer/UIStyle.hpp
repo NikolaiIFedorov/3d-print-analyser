@@ -9,7 +9,7 @@
 // both widget types stay consistent.
 namespace UIStyle
 {
-    constexpr float FRAME_ROUNDING_RATIO  = 0.3f;
+    constexpr float FRAME_ROUNDING_RATIO = 0.3f;
     constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
 
     // Push ImGui style for a DragFloat (or any framed widget).
@@ -35,7 +35,7 @@ namespace UIStyle
     inline void DrawInputHoverTint(int layer)
     {
         bool hovered = ImGui::IsItemHovered();
-        bool active  = ImGui::IsItemActive();
+        bool active = ImGui::IsItemActive();
         if (hovered)
             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
         if (!hovered && !active)
@@ -46,6 +46,6 @@ namespace UIStyle
         ImVec2 rMin = ImGui::GetItemRectMin();
         ImVec2 rMax = ImGui::GetItemRectMax();
         ImGui::GetWindowDrawList()->AddRectFilled(rMin, rMax,
-            ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
+                                                  ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
     }
 }
