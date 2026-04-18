@@ -76,7 +76,8 @@ struct SectionLine
     int textDepth = 1;                                               // Color::GetUIText depth (higher = brighter in dark, darker in light)
     std::function<void()> onClick;                                   // button attachment: underlined text, pointer cursor
     std::function<void(ImDrawList *, float, float, float)> iconDraw; // icon attachment: drawn left of text; layout reserves slot automatically
-    std::function<void(float, float)> imguiContent;                  // input attachment: custom ImGui widget (w, h)
+    float iconSizeRatio = 0.0f;                                      // 0 = use global ICON_SIZE_RATIO; >0 overrides (e.g. ICON_SIZE_RATIO_SMALL for chevron)
+    std::function<void(float, float, float)> imguiContent;           // input attachment: custom ImGui widget (w, h, iconOffsetPx)
     std::function<float()> getMinContentWidthPx;                     // optional: called at layout time to enforce min content width (px)
     bool bold = false;                                               // true = use heavy/title font; false = use body font if available
 };

@@ -1,6 +1,7 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
 #include "rendering/UIRenderer/UIStyle.hpp"
+#include "rendering/UIRenderer/Icons.hpp"
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
@@ -367,13 +368,13 @@ void Display::Frame()
 
             std::vector<SectionLine> lines;
             if (overhangs > 0)
-                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, 1.0f, 1, makeFrameCallback(overhangMin, overhangMax)});
+                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor, 1.0f, 1, makeFrameCallback(overhangMin, overhangMax), Icons::Overhang(overhangColor)});
             if (thinSections > 0)
-                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(thinMin, thinMax)});
+                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(thinMin, thinMax), Icons::SmallFeature(thinColor)});
             if (smallFeatures > 0)
-                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(smallMin, smallMax)});
+                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor, 1.0f, 1, makeFrameCallback(smallMin, smallMax), Icons::SmallFeature(thinColor)});
             if (sharpEdges > 0)
-                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, 1.0f, 1, makeFrameCallback(sharpMin, sharpMax)});
+                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor, 1.0f, 1, makeFrameCallback(sharpMin, sharpMax), Icons::SharpCorner(edgeColor)});
             if (uiResult)
             {
                 uiResult->visible = !lines.empty();
@@ -626,6 +627,7 @@ void Display::InitUI()
     Paragraph &importPara = *uiImportPara;
     SectionLine &importLine = importPara.values.emplace_back();
     importLine.text = "Import file";
+    importLine.iconDraw = Icons::ImportFile();
     importLine.onClick = [this]()
     {
         FileImport::OpenFileDialog(window, [this](const std::string &path)
@@ -659,12 +661,15 @@ void Display::InitUI()
     configParams.values.reserve(4);
     // layer=2 matches the nesting depth of paragraphs inside sections, used for input background color
     SectionLine &overhangContent = configParams.values.emplace_back();
+    overhangContent.iconDraw = Icons::Overhang({Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
+                                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f});
     overhangContent.getMinContentWidthPx = []()
     {
         float p = ImGui::GetStyle().FramePadding.x;
         return ImGui::CalcTextSize("Overhang:  ").x + ImGui::CalcTextSize("90°").x + 2.0f * p;
     };
-    overhangContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
+    overhangContent.imguiContent = [this, restDepth = configParams.layer](float w, float h, float iconOffset)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -686,8 +691,8 @@ void Display::InitUI()
         bool showEdit = editing || focusPending;
         if (showEdit)
         {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + iconOffset + labelW);
+            ImGui::SetNextItemWidth(w - iconOffset - labelW - unitW);
         }
         else
             ImGui::SetNextItemWidth(w);
@@ -713,7 +718,7 @@ void Display::InitUI()
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
         ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Overhang:");
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + iconOffset + normalPad, ty), col, "Overhang:");
         if (!showEdit)
         {
             char buf[32];
@@ -736,12 +741,15 @@ void Display::InitUI()
     };
 
     SectionLine &sharpContent = configParams.values.emplace_back();
+    sharpContent.iconDraw = Icons::SharpCorner({Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                                                Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                                                Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f});
     sharpContent.getMinContentWidthPx = []()
     {
         float p = ImGui::GetStyle().FramePadding.x;
         return ImGui::CalcTextSize("Sharp corner:  ").x + ImGui::CalcTextSize("180°").x + 2.0f * p;
     };
-    sharpContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
+    sharpContent.imguiContent = [this, restDepth = configParams.layer](float w, float h, float iconOffset)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -763,8 +771,8 @@ void Display::InitUI()
         bool showEdit = editing || focusPending;
         if (showEdit)
         {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + iconOffset + labelW);
+            ImGui::SetNextItemWidth(w - iconOffset - labelW - unitW);
         }
         else
             ImGui::SetNextItemWidth(w);
@@ -790,7 +798,7 @@ void Display::InitUI()
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
         ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Sharp corner:");
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + iconOffset + normalPad, ty), col, "Sharp corner:");
         if (!showEdit)
         {
             char buf[32];
@@ -813,12 +821,15 @@ void Display::InitUI()
     };
 
     SectionLine &featureContent = configParams.values.emplace_back();
+    featureContent.iconDraw = Icons::SmallFeature({Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                                                   Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
+                                                   Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f});
     featureContent.getMinContentWidthPx = []()
     {
         float p = ImGui::GetStyle().FramePadding.x;
         return ImGui::CalcTextSize("Min feature:  ").x + ImGui::CalcTextSize("10.0 mm").x + 2.0f * p;
     };
-    featureContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
+    featureContent.imguiContent = [this, restDepth = configParams.layer](float w, float h, float iconOffset)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -840,8 +851,8 @@ void Display::InitUI()
         bool showEdit = editing || focusPending;
         if (showEdit)
         {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + iconOffset + labelW);
+            ImGui::SetNextItemWidth(w - iconOffset - labelW - unitW);
         }
         else
             ImGui::SetNextItemWidth(w);
@@ -867,7 +878,7 @@ void Display::InitUI()
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(c.r, c.g, c.b, c.a));
         ImU32 valCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Min feature:");
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + iconOffset + normalPad, ty), col, "Min feature:");
         if (!showEdit)
         {
             char buf[32];
@@ -890,12 +901,13 @@ void Display::InitUI()
     };
 
     SectionLine &layerContent = configParams.values.emplace_back();
+    layerContent.iconDraw = Icons::LayerHeight();
     layerContent.getMinContentWidthPx = []()
     {
         float p = ImGui::GetStyle().FramePadding.x;
         return ImGui::CalcTextSize("Layer height:  ").x + ImGui::CalcTextSize("0.200 mm").x + 2.0f * p;
     };
-    layerContent.imguiContent = [this, restDepth = configParams.layer](float w, float h)
+    layerContent.imguiContent = [this, restDepth = configParams.layer](float w, float h, float iconOffset)
     {
         static bool requestEdit = false, editing = false, tracking = false, focusPending = false;
         static ImVec2 startPos;
@@ -914,8 +926,8 @@ void Display::InitUI()
         bool showEdit = editing || focusPending;
         if (showEdit)
         {
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + labelW);
-            ImGui::SetNextItemWidth(w - labelW - unitW);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + iconOffset + labelW);
+            ImGui::SetNextItemWidth(w - iconOffset - labelW - unitW);
         }
         else
             ImGui::SetNextItemWidth(w);
@@ -942,7 +954,7 @@ void Display::InitUI()
         }
         float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
         ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + normalPad, ty), col, "Layer height:");
+        ImGui::GetWindowDrawList()->AddText(ImVec2(originX + iconOffset + normalPad, ty), col, "Layer height:");
         if (!showEdit)
         {
             char buf[32];
