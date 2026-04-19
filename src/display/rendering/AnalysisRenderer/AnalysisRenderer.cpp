@@ -78,11 +78,6 @@ void AnalysisRenderer::SetCamera(Camera &camera)
 
 void AnalysisRenderer::Update(Scene *scene, const AnalysisResults &results)
 {
-    std::vector<AnalysisVertex> triVerts;
-    std::vector<uint32_t> triIndices;
-    GenerateFaceOverlays(scene, results, triVerts, triIndices);
-    UploadTriangles(triVerts, triIndices);
-
     std::vector<AnalysisVertex> lineVerts;
     std::vector<uint32_t> lineIndices;
     GenerateLayerLines(results, lineVerts, lineIndices);
@@ -607,42 +602,24 @@ void AnalysisRenderer::UploadLines(const std::vector<AnalysisVertex> &vertices,
 
 void AnalysisRenderer::Render()
 {
-    if (triangleIndexCount == 0 && lineIndexCount == 0)
+    if (lineIndexCount == 0)
         return;
-
-    shader.Use();
-    shader.SetMat4("uViewProjection", viewProjection);
-    shader.SetMat4("uModel", glm::mat4(1.0f));
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    if (triangleIndexCount > 0)
-    {
-        glBindVertexArray(triangleVAO);
-        glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-    }
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
 
-    if (lineIndexCount > 0)
-    {
-        GLint viewport[4];
-        glGetIntegerv(GL_VIEWPORT, viewport);
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", viewProjection);
+    lineShader.SetMat4("uModel", glm::mat4(1.0f));
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", lineWidth);
 
-        lineShader.Use();
-        lineShader.SetMat4("uViewProjection", viewProjection);
-        lineShader.SetMat4("uModel", glm::mat4(1.0f));
-        lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
-        lineShader.SetFloat("uLineWidth", lineWidth);
-
-        glBindVertexArray(lineVAO);
-        glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-    }
-
-    glDisable(GL_BLEND);
+    glBindVertexArray(lineVAO);
+    glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 }
 
 void AnalysisRenderer::Shutdown()

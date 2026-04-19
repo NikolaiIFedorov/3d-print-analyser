@@ -111,7 +111,6 @@ void Patch::AddFace(const Face *face,
         return;
 
     // Ensure consistent winding for earcut: outer loop CCW, inner loops CW
-    if (polygon.size() > 1)
     {
         auto signedArea2D = [](const std::vector<Point2D> &loop) -> double
         {
@@ -153,6 +152,32 @@ void Patch::AddFace(const Face *face,
         return;
     }
 
+    // Determine face color: use analysis flaw color if available, else default.
+    glm::vec3 faceColor = Color::GetFace();
+    if (results)
+    {
+        auto itFlat = results->faceFlaws.find(face);
+        if (itFlat != results->faceFlaws.end() && itFlat->second != FaceFlawKind::NONE)
+        {
+            faceColor = glm::vec3(Color::GetFace(itFlat->second));
+        }
+        else
+        {
+            for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
+            {
+                for (const auto &ff : faceFlawList)
+                {
+                    if (ff.face == face)
+                    {
+                        faceColor = glm::vec3(Color::GetFace(ff.flaw));
+                        goto colorResolved;
+                    }
+                }
+            }
+        colorResolved:;
+        }
+    }
+
     uint32_t baseVertexIndex = vertices.size();
 
     for (const auto &loopPositions : allLoopPositions)
@@ -161,7 +186,7 @@ void Patch::AddFace(const Face *face,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            v.color = Color::GetFace();
+            v.color = faceColor;
             v.normal = glm::vec3(faceNormal);
 
             vertices.push_back(v);
@@ -179,9 +204,7 @@ void Patch::AddSolid(const Solid *solid,
                      std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (const Face *face : solid->faces)
-    {
         AddFace(face, vertices, indices, true, results);
-    }
 }
 
 std::vector<glm::dvec3> Patch::TessellateCurveToPoints(

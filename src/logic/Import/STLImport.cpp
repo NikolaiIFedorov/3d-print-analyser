@@ -79,6 +79,16 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
         Edge *e3 = scene->CreateEdge(pts[2], pts[0]);
 
         Face *f = scene->CreateFace({{e1, e2, e3}});
+
+        // Use the stored STL normal to ensure the face normal is outward-pointing.
+        glm::dvec3 storedNormal(data[0], data[1], data[2]);
+        if (glm::length(storedNormal) > 0.5)
+        {
+            auto *planar = dynamic_cast<PlanarSurface *>(f->surface.get());
+            if (planar && glm::dot(planar->data.normal, storedNormal) < 0.0)
+                planar->data.normal = -planar->data.normal;
+        }
+
         faces.push_back(f);
     }
 
@@ -123,6 +133,17 @@ static bool ImportASCII(std::ifstream &file, Scene *scene)
         Edge *e3 = scene->CreateEdge(pts[2], pts[0]);
 
         Face *f = scene->CreateFace({{e1, e2, e3}});
+
+        // ASCII STL spec mandates CCW vertex order viewed from outside.
+        {
+            glm::dvec3 expectedNormal = glm::normalize(
+                glm::cross(pts[1]->position - pts[0]->position,
+                           pts[2]->position - pts[0]->position));
+            auto *planar = dynamic_cast<PlanarSurface *>(f->surface.get());
+            if (planar && glm::dot(planar->data.normal, expectedNormal) < 0.0)
+                planar->data.normal = -planar->data.normal;
+        }
+
         faces.push_back(f);
     }
 

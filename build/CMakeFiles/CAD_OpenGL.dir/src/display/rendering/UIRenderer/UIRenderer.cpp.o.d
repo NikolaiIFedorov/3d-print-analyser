@@ -1308,7 +1308,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/UIRenderer.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIStyle.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Icons.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \

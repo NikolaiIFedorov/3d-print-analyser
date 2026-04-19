@@ -203,6 +203,35 @@ void ViewportRenderer::Render()
     glBindVertexArray(0);
 }
 
+void ViewportRenderer::RenderAxes()
+{
+    if (lineIndexCount == 0)
+        return;
+
+    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
+    if (axisIndexCount == 0)
+        return;
+
+    shader.Use();
+    shader.SetMat4("uViewProjection", viewProjection);
+    shader.SetMat4("uModel", glm::mat4(1.0f));
+
+    // Only draw where stencil == 0 (open space, not covered by solid geometry)
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+    glDisable(GL_DEPTH_TEST);
+
+    glBindVertexArray(lineVAO);
+    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
+                   (void *)(gridIndexCount * sizeof(uint32_t)));
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
+    glDisable(GL_STENCIL_TEST);
+}
+
 void ViewportRenderer::Shutdown()
 {
     shader.Delete();

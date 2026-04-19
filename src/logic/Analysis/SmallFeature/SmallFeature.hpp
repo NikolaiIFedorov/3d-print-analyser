@@ -8,7 +8,7 @@ class SharpCorner;
 class SmallFeature : public ISolidAnalysis
 {
 public:
-    SmallFeature(double layerHeight = 0.2, double minFeatureSize = 1.5,
+    SmallFeature(double layerHeight = 0.2, double minFeatureSize = 0.4,
                  double heightToWidthRatio = 3.0, const SharpCorner *sharpCorner = nullptr)
         : layerHeight(layerHeight), minFeatureSize(minFeatureSize),
           heightToWidthRatio(heightToWidthRatio), sharpCorner(sharpCorner) {}

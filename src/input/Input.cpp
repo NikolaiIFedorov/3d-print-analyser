@@ -169,7 +169,7 @@ void Input::mouseGestures(const SDL_Event &event)
         float x = event.wheel.x;
         float y = event.wheel.y;
         bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
-        bool trackpadActive = activeTouches.size() >= 2;
+        bool trackpadActive = activeTouches.size() >= 1; // block wheel as soon as any finger is present
         if (hasModifier || !trackpadActive)
         {
             if (mod & SDL_KMOD_ALT)
@@ -267,6 +267,16 @@ bool Input::processEvent(const SDL_Event &event)
     {
     case SDL_EVENT_QUIT:
         return false;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        // Release any held mouse buttons so gestures don't stay locked
+        // when the user switches back to the window.
+        if (rightMouseDown || middleMouseDown)
+        {
+            rightMouseDown  = false;
+            middleMouseDown = false;
+            SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
+        }
+        break;
     case SDL_EVENT_WINDOW_RESIZED:
     {
         int width = event.window.data1;
@@ -295,7 +305,10 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_MOUSE_MOTION:
         if (io.WantCaptureMouse)
             break;
-        if (activeTouches.size() < 2)
+        // Allow new drags only when no trackpad gesture is active, but
+        // always deliver motion/up events to in-progress drags so a
+        // concurrent finger touch cannot orphan a held button.
+        if (activeTouches.size() < 2 || rightMouseDown || middleMouseDown)
             mouseGestures(event);
         break;
     case SDL_EVENT_FINGER_DOWN:
@@ -318,6 +331,22 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_FINGER_MOTION:
     {
         activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
+
+        // When a mouse button drag is active, SDL_HINT_TRACKPAD_IS_TOUCH_ONLY causes
+        // trackpad movement to arrive as FINGER_MOTION rather than MOUSE_MOTION.
+        // Feed the current finger's delta into the drag and skip gesture classification.
+        if (rightMouseDown || middleMouseDown)
+        {
+            if (activeTouches.size() == 1)
+            {
+                if (middleMouseDown)
+                    display->Orbit(event.tfinger.dx, -event.tfinger.dy);
+                else
+                    display->Pan(event.tfinger.dx, event.tfinger.dy, true);
+            }
+            break;
+        }
+
         float fdx = event.tfinger.dx;
         float fdy = event.tfinger.dy;
         float fmag = std::sqrt(fdx * fdx + fdy * fdy);

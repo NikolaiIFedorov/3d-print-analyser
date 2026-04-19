@@ -1380,7 +1380,6 @@ CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/rel_ops.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/as_const.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer/AnalysisRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer/ViewportRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \

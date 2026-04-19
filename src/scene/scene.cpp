@@ -166,16 +166,27 @@ void Scene::MergeCoplanarFaces(Solid *solid)
     // Find an adjacent coplanar face to merge with
     auto findMergePair = [&](Face *fi) -> Face *
     {
-        glm::dvec3 ni = glm::normalize(fi->GetSurface().GetNormal());
+        if (!fi->GetSurface().IsPlanar())
+            return nullptr;
+        const PlanarData &di = static_cast<const PlanarSurface *>(&fi->GetSurface())->data;
+        glm::dvec3 ni = glm::normalize(di.normal);
+
         for (const auto &loop : fi->loops)
             for (const auto &oe : loop)
                 for (Face *candidate : oe.edge->dependencies)
                 {
                     if (candidate == fi || candidate->dependency != solid)
                         continue;
-                    glm::dvec3 nj = glm::normalize(candidate->GetSurface().GetNormal());
-                    if (glm::dot(ni, nj) > 1.0 - normalTolerance)
-                        return candidate;
+                    if (!candidate->GetSurface().IsPlanar())
+                        continue;
+                    const PlanarData &dj = static_cast<const PlanarSurface *>(&candidate->GetSurface())->data;
+                    glm::dvec3 nj = glm::normalize(dj.normal);
+                    if (glm::dot(ni, nj) <= 1.0 - normalTolerance)
+                        continue;
+                    // Must also lie on the same plane (same d value)
+                    if (std::abs(di.d - dj.d) > 1e-4)
+                        continue;
+                    return candidate;
                 }
         return nullptr;
     };

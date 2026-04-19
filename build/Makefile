@@ -478,30 +478,6 @@ src/display/display.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.s
 .PHONY : src/display/display.cpp.s
 
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.o: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.o
-
-# target to build an object file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
-
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.i: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.i
-
-# target to preprocess a source file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
-
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.s: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.s
-
-# target to generate assembly for a file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
-
 src/display/rendering/Camera/camera.o: src/display/rendering/Camera/camera.cpp.o
 .PHONY : src/display/rendering/Camera/camera.o
 
@@ -1226,9 +1202,6 @@ help:
 	@echo "... src/display/display.o"
 	@echo "... src/display/display.i"
 	@echo "... src/display/display.s"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.o"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.i"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.s"
 	@echo "... src/display/rendering/Camera/camera.o"
 	@echo "... src/display/rendering/Camera/camera.i"
 	@echo "... src/display/rendering/Camera/camera.s"

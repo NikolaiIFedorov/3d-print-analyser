@@ -38,7 +38,7 @@ namespace Icons
             float cx = std::round(x + s);
             float cy = std::round(midY);
             float r = std::round(s * 0.70f);
-            float bar = std::max(1.0f, std::round(s * 0.22f));                          // half-thickness of each arm
+            float bar = std::max(0.8f, std::round(s * STROKE_RATIO));                   // half-thickness of each arm
             dl->AddRectFilled(ImVec2(cx - r, cy - bar), ImVec2(cx + r, cy + bar), col); // horizontal
             dl->AddRectFilled(ImVec2(cx - bar, cy - r), ImVec2(cx + bar, cy + r), col); // vertical
         };
@@ -79,8 +79,10 @@ namespace Icons
     }
 
     // --- SharpCorner ---
-    // V shape — wings span full slot width, apex at bottom centre.
-    // Uses AddPolyline so the apex gets a proper miter join (symmetric at all sizes).
+    // V rotated 45° CW: apex points bottom-right, wings extend left and upward.
+    // Reads as a corner angle rather than the letter 'v'.
+    // Derived by rotating (−r,−r),(0,+r),(+r,−r) by 45° CW then scaling by 1/√2
+    // to keep all points within ±r: gives (−r,0),(+0.5r,+0.5r),(0,−r).
     inline DrawFn SharpCorner(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
     {
         return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
@@ -92,29 +94,42 @@ namespace Icons
             float cy = std::round(midY);
             float r = std::round(s * 0.70f);
             ImVec2 pts[3] = {
-                ImVec2(cx - r, cy - r),
-                ImVec2(cx, cy + r),
-                ImVec2(cx + r, cy - r),
+                ImVec2(cx - r,        cy),             // left wing
+                ImVec2(cx + r * 0.5f, cy + r * 0.5f), // apex (bottom-right)
+                ImVec2(cx,            cy - r),          // top wing
             };
             dl->AddPolyline(pts, 3, col, 0, stroke);
         };
     }
 
+    // --- ThinSection ---
+    // Single filled horizontal bar — solid thin cross-section of material.
+    // Width spans the full slot; height is small to convey thinness.
+    inline DrawFn ThinSection(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float cx = x + s;
+            float r  = std::round(s * 0.70f);
+            float barH = std::max(1.5f, std::round(r * 0.28f)); // half-height of the bar
+            dl->AddRectFilled(ImVec2(cx - r, midY - barH), ImVec2(cx + r, midY + barH), col);
+        };
+    }
+
     // --- SmallFeature ---
-    // Two solid vertical bars flush with the slot edges — thin wall cross-section.
+    // Circle outline — represents a small hole or pinhole feature.
     inline DrawFn SmallFeature(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
     {
         return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
         {
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx = std::round(x + s);
-            float cy = std::round(midY);
-            float r = std::round(s * 0.70f);
-            float barW = std::max(1.0f, std::round(r * 0.30f)); // bar total width
-            // Outer edges of each bar align with slot edges (cx ± r)
-            dl->AddRectFilled(ImVec2(cx - r, cy - r), ImVec2(cx - r + barW, cy + r), col);
-            dl->AddRectFilled(ImVec2(cx + r - barW, cy - r), ImVec2(cx + r, cy + r), col);
+            float cx = x + s;
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float r = s * 0.58f; // circle radius — slightly inset from slot edge
+            dl->AddCircle(ImVec2(cx, midY), r, col, 0, stroke);
         };
     }
 

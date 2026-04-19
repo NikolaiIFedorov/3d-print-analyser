@@ -15,7 +15,7 @@ void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
     vertices.clear();
     indices.clear();
 
-    patch.Generate(scene, vertices, indices, viewPort, nullptr);
+    patch.Generate(scene, vertices, indices, viewPort, results);
     renderer.UploadTriangleMesh(vertices, indices);
 }
 

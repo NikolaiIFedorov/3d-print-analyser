@@ -6,6 +6,7 @@
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
 #include "logic/Analysis/SmallFeature/SmallFeature.hpp"
+#include "logic/Analysis/ThinSection/ThinSection.hpp"
 #include "logic/Import/STLImport.hpp"
 #include "utils/SystemAccent.hpp"
 #include "utils/SystemAppearance.hpp"
@@ -18,7 +19,7 @@
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
+Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
 {
     // Apply system appearance and accent color before any UI is constructed
     {
@@ -83,6 +84,7 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     windowWidth = width;
     windowHeight = height;
@@ -132,7 +134,6 @@ void Display::Shutdown()
 
     SDL_RemoveEventWatch(ResizeEventWatcher, this);
     uiRenderer.Shutdown();
-    analysisRenderer.Shutdown();
     viewportRenderer.Shutdown();
     renderer.Shutdown();
     if (glContext)
@@ -146,10 +147,9 @@ void Display::RebuildAnalysis()
 {
     Analysis::Instance().Clear();
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>(overhangAngle));
-    auto sharpCorner = std::make_unique<SharpCorner>(sharpCornerAngle);
-    const SharpCorner *sharpCornerPtr = sharpCorner.get();
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize, 3.0, sharpCornerPtr));
-    Analysis::Instance().AddEdgeAnalysis(std::move(sharpCorner));
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize));
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>(layerHeight, thinMinWidth));
+    Analysis::Instance().AddEdgeAnalysis(std::make_unique<SharpCorner>(sharpCornerAngle));
 }
 
 void Display::UpdateCamera()
@@ -162,11 +162,19 @@ void Display::Render()
 {
     auto bg = Color::GetBase();
     glClearColor(bg.r, bg.g, bg.b, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    viewportRenderer.Render();
-    renderer.Render();
-    analysisRenderer.Render();
+    viewportRenderer.Render();    // grid (depth-tested)
+
+    // Mark every pixel the solid covers in the stencil buffer (value = 1).
+    // Axes will only draw where stencil == 0 (open space).
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    renderer.Render();             // scene patches + edges
+    glDisable(GL_STENCIL_TEST);
+
+    viewportRenderer.RenderAxes(); // axes — occluded by solid via stencil
 
     // Start ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -193,7 +201,6 @@ void Display::Frame()
     if (cameraDirty)
     {
         renderer.SetCamera(camera);
-        analysisRenderer.SetCamera(camera);
         viewportRenderer.SetCamera(camera);
         cameraDirty = false;
     }
@@ -218,8 +225,6 @@ void Display::Frame()
         renderer.UpdateScene(scene, analysisEnabled ? &results : nullptr);
         if (analysisEnabled)
         {
-            analysisRenderer.Update(scene, results);
-
             // Count flaws per type and push to UI
             size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
 
@@ -263,6 +268,9 @@ void Display::Frame()
                 }
             }
 
+            // Collect thin-section and small-feature faces for BFS grouping
+            std::unordered_set<const Face *> thinSectionFaces;
+            std::unordered_set<const Face *> smallFeatureFaces;
             for (const auto &[solid, flaws] : results.faceFlawRanges)
             {
                 for (const auto &ff : flaws)
@@ -270,13 +278,81 @@ void Display::Frame()
                     switch (ff.flaw)
                     {
                     case FaceFlawKind::THIN_SECTION:
-                        thinSections++;
+                        if (ff.face && !ff.face->loops.empty())
+                            thinSectionFaces.insert(ff.face);
                         break;
                     case FaceFlawKind::SMALL_FEATURE:
-                        smallFeatures++;
+                        if (ff.face && !ff.face->loops.empty())
+                            smallFeatureFaces.insert(ff.face);
                         break;
                     default:
                         break;
+                    }
+                }
+            }
+
+            // Count connected components of adjacent thin-section faces
+            {
+                std::unordered_set<const Face *> visited;
+                for (const Face *seed : thinSectionFaces)
+                {
+                    if (visited.count(seed))
+                        continue;
+                    thinSections++;
+                    std::queue<const Face *> bfs;
+                    bfs.push(seed);
+                    visited.insert(seed);
+                    while (!bfs.empty())
+                    {
+                        const Face *current = bfs.front();
+                        bfs.pop();
+                        for (const auto &loop : current->loops)
+                        {
+                            for (const auto &oe : loop)
+                            {
+                                for (Face *neighbor : oe.edge->dependencies)
+                                {
+                                    if (thinSectionFaces.count(neighbor) && !visited.count(neighbor))
+                                    {
+                                        visited.insert(neighbor);
+                                        bfs.push(neighbor);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Count connected components of adjacent small-feature faces
+            {
+                std::unordered_set<const Face *> visited;
+                for (const Face *seed : smallFeatureFaces)
+                {
+                    if (visited.count(seed))
+                        continue;
+                    smallFeatures++;
+                    std::queue<const Face *> bfs;
+                    bfs.push(seed);
+                    visited.insert(seed);
+                    while (!bfs.empty())
+                    {
+                        const Face *current = bfs.front();
+                        bfs.pop();
+                        for (const auto &loop : current->loops)
+                        {
+                            for (const auto &oe : loop)
+                            {
+                                for (Face *neighbor : oe.edge->dependencies)
+                                {
+                                    if (smallFeatureFaces.count(neighbor) && !visited.count(neighbor))
+                                    {
+                                        visited.insert(neighbor);
+                                        bfs.push(neighbor);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -346,8 +422,8 @@ void Display::Frame()
                                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
             glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f);
             glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
@@ -365,14 +441,14 @@ void Display::Frame()
             };
 
             // Write live flaw state — read each frame by the imguiContent lambdas in uiResult
-            flawOverhang.count         = overhangs;
+            flawOverhang.count = overhangs;
             flawOverhang.frameCallback = makeFrameCallback(overhangMin, overhangMax);
-            flawSharp.count            = sharpEdges;
-            flawSharp.frameCallback    = makeFrameCallback(sharpMin, sharpMax);
-            flawThin.count             = thinSections;
-            flawThin.frameCallback     = makeFrameCallback(thinMin, thinMax);
-            flawSmall.count            = smallFeatures;
-            flawSmall.frameCallback    = makeFrameCallback(smallMin, smallMax);
+            flawSharp.count = sharpEdges;
+            flawSharp.frameCallback = makeFrameCallback(sharpMin, sharpMax);
+            flawThin.count = thinSections;
+            flawThin.frameCallback = makeFrameCallback(thinMin, thinMax);
+            flawSmall.count = smallFeatures;
+            flawSmall.frameCallback = makeFrameCallback(smallMin, smallMax);
 
             // Two-tier verdict
             bool hasVisual = (overhangs > 0) || (thinSections > 0);
@@ -424,7 +500,6 @@ void Display::Frame()
                     {"Remember to clean your build plate!", 1.0f},
                     {"A brim can help with bed adhesion", 1.0f},
                     {"Keep your filament dry", 1.0f},
-                    {"A retraction test can help reduce stringing", 0.5f},
                     {"Level your bed before printing", 1.0f},
                     {"Check your nozzle for wear", 0.5f},
                 };
@@ -438,19 +513,7 @@ void Display::Frame()
 
                 // Large footprint → level bed matters more
                 if (footprintArea > 2500.0) // > ~50x50 mm
-                    tips[4].weight += 3.0f;
-
-                // Many loops → complex geometry → stringing risk
-                if (totalLoops > 30)
-                {
-                    tips[2].weight += 2.0f; // dry filament
-                    tips[3].weight += 2.0f; // retraction test
-                }
-                if (totalLoops > 80)
-                {
-                    tips[2].weight += 2.0f;
-                    tips[3].weight += 2.0f;
-                }
+                    tips[3].weight += 3.0f;
 
                 // Only re-roll the tip when transitioning from flawed → pass
                 if (!lastVerdictWasPass)
@@ -487,11 +550,10 @@ void Display::Frame()
         else
         {
             lastVerdictWasPass = false;
-            analysisRenderer.Clear();
             flawOverhang = {};
-            flawSharp    = {};
-            flawThin     = {};
-            flawSmall    = {};
+            flawSharp = {};
+            flawThin = {};
+            flawSmall = {};
             if (uiVerdict)
                 uiVerdict->values = {};
         }
@@ -661,19 +723,19 @@ void Display::InitUI()
     // dragSpeed/min/max/fmt = DragFloat parameters
 
     auto makeFlawRow = [this](
-        SectionLine &line,
-        glm::vec4 flawColor,
-        Icons::DrawFn icon,
-        const char *countLabel,   // singular, e.g. " overhang"
-        const char *plural,       // suffix when count>1, e.g. "s"
-        FlawResult Display::*flawMember,
-        float &param,
-        float dragSpeed, float dragMin, float dragMax,
-        const char *unit,         // e.g. "°" or "mm"
-        const char *dragId,
-        const char *minWidthLabel, // e.g. "45°" for min width estimate
-        bool isAngle               // true = format "%.0f", false = "%.2f"/"%.1f" based on dragSpeed
-    )
+                           SectionLine &line,
+                           glm::vec4 flawColor,
+                           Icons::DrawFn icon,
+                           const char *countLabel, // singular, e.g. " overhang"
+                           const char *plural,     // suffix when count>1, e.g. "s"
+                           FlawResult Display::*flawMember,
+                           float &param,
+                           float dragSpeed, float dragMin, float dragMax,
+                           const char *unit, // e.g. "°" or "mm"
+                           const char *dragId,
+                           const char *minWidthLabel, // e.g. "45°" for min width estimate
+                           bool isAngle               // true = format "%.0f", false = "%.2f"/"%.1f" based on dragSpeed
+                       )
     {
         line.iconDraw = [this, flawMember, icon](ImDrawList *dl, float x, float midY, float s)
         {
@@ -686,17 +748,17 @@ void Display::InitUI()
         };
 
         line.imguiContent = [this, flawColor, countLabel, plural, flawMember,
-                              &param, dragSpeed, dragMin, dragMax,
-                              unit, dragId, isAngle](float w, float h, float iconOffset)
+                             &param, dragSpeed, dragMin, dragMax,
+                             unit, dragId, isAngle](float w, float h, float iconOffset)
         {
-            FlawResult &fr    = this->*flawMember;
+            FlawResult &fr = this->*flawMember;
             glm::vec4 dimColor = Color::GetUIText(1);
-            glm::vec4 dimLow   = Color::GetUIText(0);
+            glm::vec4 dimLow = Color::GetUIText(0);
 
             UIStyle::PushInputStyle(h, dimColor);
-            float normalPad  = ImGui::GetStyle().FramePadding.x;
+            float normalPad = ImGui::GetStyle().FramePadding.x;
             ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
-            float originX    = rowOrigin.x;
+            float originX = rowOrigin.x;
 
             // ── Left nav zone: InvisibleButton placed BEFORE DragFloat ──────────
             // Compute left zone width from count label (CalcTextSize valid here — inside a frame)
@@ -718,13 +780,13 @@ void Display::InitUI()
                 if (ImGui::IsItemActivated())
                 {
                     fr.navTracking = true;
-                    fr.navStart    = ImGui::GetIO().MousePos;
+                    fr.navStart = ImGui::GetIO().MousePos;
                 }
                 if (fr.navTracking && !ImGui::IsItemActive())
                 {
                     ImVec2 ep = ImGui::GetIO().MousePos;
-                    float d   = (ep.x - fr.navStart.x) * (ep.x - fr.navStart.x) +
-                                (ep.y - fr.navStart.y) * (ep.y - fr.navStart.y);
+                    float d = (ep.x - fr.navStart.x) * (ep.x - fr.navStart.x) +
+                              (ep.y - fr.navStart.y) * (ep.y - fr.navStart.y);
                     if (d < 9.0f && fr.count > 0 && fr.frameCallback)
                         navFired = true;
                     fr.navTracking = false;
@@ -747,7 +809,7 @@ void Display::InitUI()
             if (fr.requestEdit)
             {
                 ImGui::SetKeyboardFocusHere();
-                fr.requestEdit  = false;
+                fr.requestEdit = false;
                 fr.focusPending = true;
                 showEdit = true;
             }
@@ -758,7 +820,8 @@ void Display::InitUI()
             UIStyle::DrawInputHoverTint(1);
 
             fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-            if (fr.editing) fr.focusPending = false;
+            if (fr.editing)
+                fr.focusPending = false;
 
             if (ImGui::IsItemActivated())
             {
@@ -768,17 +831,17 @@ void Display::InitUI()
             if (fr.tracking && !ImGui::IsItemActive())
             {
                 ImVec2 ep = ImGui::GetIO().MousePos;
-                float d   = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
-                            (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
+                float d = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
+                          (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
                 if (d < 9.0f)
                     fr.requestEdit = true;
                 fr.tracking = false;
             }
 
             // ── Text overlay ─────────────────────────────────────────────────────
-            float ty         = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
-            ImU32 flawCol    = ImGui::GetColorU32(ImVec4(flawColor.r, flawColor.g, flawColor.b, flawColor.a));
-            ImU32 dimCol     = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a));
+            float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
+            ImU32 flawCol = ImGui::GetColorU32(ImVec4(flawColor.r, flawColor.g, flawColor.b, flawColor.a));
+            ImU32 dimCol = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a));
             ImU32 dimColZero = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a * 0.5f));
 
             // Left label — always visible (even during text edit)
@@ -802,7 +865,7 @@ void Display::InitUI()
                     snprintf(valBuf, sizeof(valBuf), "%.2f %s", param, unit);
                 else
                     snprintf(valBuf, sizeof(valBuf), "%.1f %s", param, unit);
-                ImVec2 vs    = ImGui::CalcTextSize(valBuf);
+                ImVec2 vs = ImGui::CalcTextSize(valBuf);
                 ImU32 valCol = (fr.count > 0) ? dimCol : dimColZero;
                 ImGui::GetWindowDrawList()->AddText(
                     ImVec2(originX + w - normalPad - vs.x, ty), valCol, valBuf);
@@ -828,12 +891,15 @@ void Display::InitUI()
     glm::vec4 overhangColor = {Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f};
-    glm::vec4 thinColor     = {Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                               Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
-                               Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f};
-    glm::vec4 edgeColor     = {Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
-                               Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
-                               Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f};
+    glm::vec4 thinColor = {Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                           Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
+                           Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f};
+    glm::vec4 smallColor = {Color::GetFace(FaceFlawKind::SMALL_FEATURE).r + 0.4f,
+                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).g + 0.4f,
+                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).b + 0.2f, 1.0f};
+    glm::vec4 edgeColor = {Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f};
     makeFlawRow(uiResult->values.emplace_back(), overhangColor,
                 Icons::Overhang(overhangColor),
                 " overhang", "s", &Display::flawOverhang,
@@ -845,12 +911,12 @@ void Display::InitUI()
                 sharpCornerAngle, 0.5f, 0.0f, 180.0f, "\u00b0", "##sharp", "180", true);
 
     makeFlawRow(uiResult->values.emplace_back(), thinColor,
-                Icons::SmallFeature(thinColor),
+                Icons::ThinSection(thinColor),
                 " thin section", "s", &Display::flawThin,
-                minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##feature", "10.0", false);
+                thinMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##thinsection", "2.0", false);
 
-    makeFlawRow(uiResult->values.emplace_back(), thinColor,
-                Icons::SmallFeature(thinColor),
+    makeFlawRow(uiResult->values.emplace_back(), smallColor,
+                Icons::SmallFeature(smallColor),
                 " small feature", "s", &Display::flawSmall,
                 minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", false);
 

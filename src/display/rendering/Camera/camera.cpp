@@ -36,7 +36,7 @@ glm::mat4 Camera::GetProjectionMatrix() const
     return glm::ortho(
         -halfWidth, halfWidth,
         -halfHeight, halfHeight,
-        -100000.0f, 100000.0f);
+        -10000.0f, 10000.0f);
 }
 
 void Camera::Orbit(float deltaX, float deltaY)

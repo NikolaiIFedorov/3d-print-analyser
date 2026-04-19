@@ -27,8 +27,6 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o.d"
-  "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o"
-  "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o"

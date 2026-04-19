@@ -5,7 +5,6 @@
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
-#include "rendering/AnalysisRenderer/AnalysisRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
 #include "imgui.h"
@@ -51,7 +50,6 @@ private:
     SDL_GLContext glContext = nullptr;
 
     SceneRenderer renderer;
-    AnalysisRenderer analysisRenderer;
     ViewportRenderer viewportRenderer;
     UIRenderer uiRenderer;
     Scene *scene = nullptr;
@@ -64,7 +62,8 @@ private:
 
     float overhangAngle = 45.0f;
     float sharpCornerAngle = 100.0f;
-    float minFeatureSize = 1.5f;
+    float minFeatureSize = 0.4f;
+    float thinMinWidth = 2.0f;
     float layerHeight = 0.2f;
 
     Paragraph *uiResult = nullptr;
@@ -77,13 +76,13 @@ private:
         size_t count = 0;
         std::function<void()> frameCallback; // nullptr = no valid bounds
         // Per-row interactive state (must NOT be static in lambdas — all rows share the same lambda body)
-        bool requestEdit  = false;
-        bool editing      = false;
-        bool tracking     = false;
-        bool navTracking  = false;
+        bool requestEdit = false;
+        bool editing = false;
+        bool tracking = false;
+        bool navTracking = false;
         bool focusPending = false;
-        ImVec2 startPos   = {};
-        ImVec2 navStart   = {};
+        ImVec2 startPos = {};
+        ImVec2 navStart = {};
     };
     FlawResult flawOverhang, flawSharp, flawThin, flawSmall;
 

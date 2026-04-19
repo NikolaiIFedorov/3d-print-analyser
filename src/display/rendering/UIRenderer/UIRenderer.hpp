@@ -78,8 +78,9 @@ private:
     TextRenderer textRenderer;
     SDL_Window *window = nullptr;
     ImFont *pixelImFont = nullptr;
-    ImFont *bodyImFont = nullptr;  // lighter weight font for body text (textDepth <= 2)
-    ImFont *heavyImFont = nullptr; // bold/header font; fallback for layout before first ImGui frame
+    ImFont *bodyImFont = nullptr;       // lighter weight font for body text (textDepth <= 2)
+    ImFont *heavyImFont = nullptr;      // bold/header font; fallback for layout before first ImGui frame
+    ImFont *cachedTextImFont = nullptr; // default ImGui font captured each frame in Render()
     bool dirty = true;
     bool debugLayout = false;
 
