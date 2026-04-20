@@ -13,6 +13,7 @@
 
 #include "PanelGrid.hpp"
 #include "UIGrid.hpp"
+#include "Icons.hpp"
 
 struct ImDrawList; // forward declaration for leftIconDraw callback
 
@@ -67,6 +68,23 @@ struct PanelAnchor
     Edge edge = Left;
 };
 
+// Segmented pill selector — two or more labelled options in a single row.
+// Rendered by UIRenderer as variable-width zones with an accent pill behind the active option.
+struct SelectOption
+{
+    std::string label;      // short text shown on the active zone; inactive zones show icon only
+    Icons::DrawFn iconDraw; // icon drawn in every zone
+};
+
+struct Select
+{
+    std::vector<SelectOption> options;   // ordered list of options
+    int activeIndex = 0;                 // which option is currently selected
+    std::function<void(int)> onChange;   // called with the new index when the user clicks a different zone
+    std::function<void()> onActiveClick; // called when the already-active zone is clicked again
+    std::function<void()> postDraw;      // called inside the row's ImGui window after all zones are drawn (e.g. popup hosting)
+};
+
 struct SectionLine
 {
     std::string prefix;                                              // colored portion (e.g. the number)
@@ -75,11 +93,13 @@ struct SectionLine
     float fontScale = 1.0f;                                          // multiplier on font size (1.0 = body, 1.1 = section header, 1.25 = panel header)
     int textDepth = 1;                                               // Color::GetUIText depth (higher = brighter in dark, darker in light)
     std::function<void()> onClick;                                   // button attachment: underlined text, pointer cursor
+    bool selected = false;                                           // persistent selected state — draws same background as hover
     std::function<void(ImDrawList *, float, float, float)> iconDraw; // icon attachment: drawn left of text; layout reserves slot automatically
     float iconSizeRatio = 0.0f;                                      // 0 = use global ICON_SIZE_RATIO; >0 overrides (e.g. ICON_SIZE_RATIO_SMALL for chevron)
     std::function<void(float, float, float)> imguiContent;           // input attachment: custom ImGui widget (w, h, iconOffsetPx)
     std::function<float()> getMinContentWidthPx;                     // optional: called at layout time to enforce min content width (px)
     bool bold = false;                                               // true = use heavy/title font; false = use body font if available
+    std::optional<Select> select;                                    // segmented pill selector — replaces imguiContent when set
 };
 
 // Box model for UI elements (CSS-like). Each element has:
@@ -178,7 +198,8 @@ struct Section : UIElement
 {
     std::optional<Header> header; // present = render a title row above children
     std::vector<Paragraph> children;
-    bool collapsed = false; // true = children hidden, only header row rendered
+    bool collapsed = false;   // true = children hidden, only header row rendered
+    bool tightHeader = false; // true = no gap between header title and first content row
 
     Section()
     {

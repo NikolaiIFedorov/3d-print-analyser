@@ -153,4 +153,154 @@ namespace Icons
         };
     }
 
+    // --- Chevron ---
+    // Right-pointing (collapsed) or down-pointing (expanded) chevron.
+    // Used by UIRenderer to indicate collapsible section state.
+    // iconSizeRatio should be set to ICON_SIZE_RATIO_SMALL on the owning SectionLine.
+    inline DrawFn Chevron(bool expanded, int textDepth = 1)
+    {
+        return [expanded, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = std::round(s * 0.60f);
+            ImVec2 pts[3];
+            if (expanded)
+            {
+                // Down-pointing V: left-top → apex-bottom → right-top
+                pts[0] = ImVec2(cx - r, cy - r * 0.55f);
+                pts[1] = ImVec2(cx, cy + r * 0.55f);
+                pts[2] = ImVec2(cx + r, cy - r * 0.55f);
+            }
+            else
+            {
+                // Right-pointing >: left-top → apex-right → left-bottom
+                pts[0] = ImVec2(cx - r * 0.55f, cy - r);
+                pts[1] = ImVec2(cx + r * 0.55f, cy);
+                pts[2] = ImVec2(cx - r * 0.55f, cy + r);
+            }
+            dl->AddPolyline(pts, 3, col, 0, stroke);
+        };
+    }
+
+    // --- ThemeSystem ---
+    // Monitor outline with a small stand — represents "follow system" mode.
+    inline DrawFn ThemeSystem(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float rw = std::round(s * 0.72f); // screen half-width
+            float rh = std::round(s * 0.52f); // screen half-height
+            float bot = cy + rh;
+            // Screen rect
+            dl->AddRect(ImVec2(cx - rw, cy - rh), ImVec2(cx + rw, bot), col, 0.0f, 0, stroke);
+            // Stand: short vertical nub + wider base
+            float nubH = std::round(s * 0.22f);
+            float baseW = std::round(s * 0.40f);
+            float baseH = std::max(0.8f, stroke * 0.85f);
+            dl->AddLine(ImVec2(cx, bot), ImVec2(cx, bot + nubH), col, stroke);
+            dl->AddRectFilled(ImVec2(cx - baseW, bot + nubH - baseH), ImVec2(cx + baseW, bot + nubH + baseH), col);
+        };
+    }
+
+    // --- ThemeLight ---
+    // Filled circle (sun disc) with eight short radiating strokes.
+    inline DrawFn ThemeLight(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float disc = std::round(s * 0.30f);
+            float r0 = std::round(s * 0.48f); // ray inner radius
+            float r1 = std::round(s * 0.68f); // ray outer radius
+            dl->AddCircleFilled(ImVec2(cx, cy), disc, col, 12);
+            for (int i = 0; i < 8; ++i)
+            {
+                float a = static_cast<float>(i) * 3.14159265f / 4.0f;
+                float ca = std::cos(a), sa = std::sin(a);
+                dl->AddLine(ImVec2(cx + ca * r0, cy + sa * r0),
+                            ImVec2(cx + ca * r1, cy + sa * r1), col, stroke);
+            }
+        };
+    }
+
+    // --- ThemeDark ---
+    // Crescent moon: large circle minus a smaller offset circle, drawn as a filled polygon.
+    inline DrawFn ThemeDark(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = s * 0.62f;
+            // Outer disc
+            dl->AddCircleFilled(ImVec2(cx, cy), r, col, 24);
+            // Cut-out: slightly smaller, offset up-right, using background color to punch the crescent.
+            glm::vec4 bg = Color::GetUI(1); // panel background depth
+            ImU32 bgCol = ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a));
+            float cutR = r * 0.72f;
+            float offX = r * 0.38f;
+            float offY = -r * 0.32f;
+            dl->AddCircleFilled(ImVec2(cx + offX, cy + offY), cutR, bgCol, 24);
+        };
+    }
+
+    // --- AccentCustom ---
+    // Pencil outline at 45° (eraser top-right, chisel tip bottom-left).
+    // Conveys "custom / user-defined" for the accent colour selector.
+    // Flat chisel tip instead of a sharp point so the icon reads cleanly at small sizes.
+    inline DrawFn AccentCustom(int textDepth = 1)
+    {
+        return [textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = s * 0.68f;
+
+            constexpr float k = 0.7071f; // 1/√2 — axis is 45°
+            float hw = r * 0.30f;        // body half-width
+            float hw_tip = r * 0.08f;    // chisel tip half-width (flat, not pointed)
+
+            // Axis: eraser top-right → tip bottom-left
+            float erx = cx + r * k, ery = cy - r * k;
+            float tx = cx - r * k, ty = cy + r * k;
+
+            // Shaft end: where body tapers toward tip (65% from tip to eraser)
+            float bex = tx + (erx - tx) * 0.65f;
+            float bey = ty + (ery - ty) * 0.65f;
+
+            // Perpendicular offset vectors (rotate axis 90° CW: (-k,+k) → (+k,+k))
+            float ox = k * hw, oy = k * hw;
+            float ox_t = k * hw_tip, oy_t = k * hw_tip;
+
+            // 6-point closed shape: eraser rect + tapered shaft + flat chisel tip
+            ImVec2 pts[6] = {
+                ImVec2(erx + ox, ery + oy),   // eraser A
+                ImVec2(erx - ox, ery - oy),   // eraser B
+                ImVec2(bex - ox, bey - oy),   // shaft B (near tip)
+                ImVec2(tx - ox_t, ty - oy_t), // chisel tip B
+                ImVec2(tx + ox_t, ty + oy_t), // chisel tip A
+                ImVec2(bex + ox, bey + oy),   // shaft A (near tip)
+            };
+            dl->AddPolyline(pts, 6, col, ImDrawFlags_Closed, stroke);
+        };
+    }
+
 } // namespace Icons

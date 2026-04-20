@@ -7,7 +7,6 @@
 #include "input/Input.hpp"
 #include "utils/SessionLogger.hpp"
 
-Scene scene;
 SDL_Window *window = nullptr;
 std::optional<Display> display;
 std::optional<Input> input;
@@ -51,7 +50,7 @@ void Shutdown()
 bool Init()
 {
     SessionLogger::Instance().Start();
-    display.emplace(1280, 720, "CAD OpenGL", &scene);
+    display.emplace(1280, 720, "CAD OpenGL");
     input.emplace(&display.value());
     window = display->GetWindow();
     if (window == nullptr)

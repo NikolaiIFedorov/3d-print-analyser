@@ -1,6 +1,7 @@
 #include "UIRenderer.hpp"
 #include "rendering/color.hpp"
 #include "UIStyle.hpp"
+#include "Icons.hpp"
 #include "utils/log.hpp"
 #include "imgui.h"
 #include <algorithm>
@@ -14,6 +15,7 @@ static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: ho
 // Icon slot: s = max(2, round(lineBearing * ICON_SIZE_RATIO)); slot = 2s + 3 px wide
 // lineBearing = slotH for imguiContent rows; font->FontSize * fontScale for text rows.
 static constexpr float ICON_SIZE_RATIO = 0.40f;
+static constexpr float ICON_SIZE_RATIO_SMALL = 0.28f; // chevron on collapsible section headers
 // Returns the pixel bounding box for text as ImGui's AddText would produce.
 // Origin = (x,y) passed to AddText; results relative to (0,0).
 static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font)
@@ -335,7 +337,7 @@ void UIRenderer::ResolveAnchors()
             if (pixelImFont)
             {
                 for (const auto &v : item.values)
-                    if (v.imguiContent)
+                    if (v.imguiContent || v.select.has_value())
                     {
                         slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
                         break;
@@ -352,11 +354,37 @@ void UIRenderer::ResolveAnchors()
                                                                  : cachedTextImFont;
                 PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont);
                 float scaledBearingPx = bearingPx * line.fontScale;
-                float inkH = line.imguiContent ? slotH
-                                               : (ink.valid() ? std::max(ink.height() * line.fontScale, scaledBearingPx) : scaledBearingPx);
+                float inkH = (line.imguiContent || line.select.has_value()) ? slotH
+                                                                            : (ink.valid() ? std::max(ink.height() * line.fontScale, scaledBearingPx) : scaledBearingPx);
                 // ink.x1 is the visual right edge of the last glyph; +1px absorbs fp roundtrip loss in cell-division
                 float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
                 float totalW = inkW / grid.cellSizeX;
+                // Enforce minimum content width BEFORE adding the icon slot so lambdas
+                // can return content-only widths and icon geometry stays encapsulated here.
+                if (line.getMinContentWidthPx)
+                    totalW = std::max(totalW, line.getMinContentWidthPx() / grid.cellSizeX);
+                else if (line.select.has_value())
+                {
+                    const Select &sel = *line.select;
+                    int n = static_cast<int>(sel.options.size());
+                    if (n > 0)
+                    {
+                        ImFont *lblFont = bodyImFont ? bodyImFont : cachedTextImFont;
+                        float selPad = ImGui::GetStyle().FramePadding.x;
+                        float s = std::max(2.0f, std::round(slotH * ICON_SIZE_RATIO));
+                        constexpr float iconGap = 3.0f;
+                        float maxLblW = 0.0f;
+                        for (const auto &opt : sel.options)
+                            if (!opt.label.empty())
+                                maxLblW = std::max(maxLblW, lblFont->CalcTextSizeA(lblFont->FontSize, FLT_MAX, 0.0f, opt.label.c_str()).x);
+                        float titlePadW = line.text.empty() ? 0.0f : selPad * 3.0f;
+                        // Only one zone (the active one) shows icon + label; the rest are icon-only.
+                        float iconOnlyZoneW = 2.0f * s + 4.0f;
+                        float maxLabelZoneW = 2.0f * s + (maxLblW > 0.0f ? iconGap + maxLblW : 0.0f) + 4.0f;
+                        float minPillW = static_cast<float>(n - 1) * iconOnlyZoneW + maxLabelZoneW;
+                        totalW = std::max(totalW, (inkW + titlePadW + minPillW) / grid.cellSizeX);
+                    }
+                }
                 if (line.iconDraw)
                 {
                     float sRatio = line.iconSizeRatio > 0.0f ? line.iconSizeRatio : ICON_SIZE_RATIO;
@@ -390,16 +418,24 @@ void UIRenderer::ResolveAnchors()
         if (item.header.has_value())
         {
             computeParagraphBox(item.header->para);
-            contentH = item.header->para.box.outerHeight;
+            contentH = item.header->para.box.outerHeight; // always full outerHeight: header margins unaffected
             contentW = item.header->para.box.outerWidth;
         }
 
-        for (auto &child : item.children)
+        if (!item.collapsed)
         {
-            if (!child.visible)
-                continue;
-            contentH += child.box.outerHeight;
-            contentW = std::max(contentW, child.box.outerWidth);
+            bool isFirst = true;
+            for (auto &child : item.children)
+            {
+                if (!child.visible)
+                    continue;
+                // tightHeader: absorb only the first child's top margin (header margins are kept intact).
+                float childH = (isFirst && item.tightHeader) ? child.box.outerHeight - child.margin
+                                                             : child.box.outerHeight;
+                contentH += childH;
+                contentW = std::max(contentW, child.box.outerWidth);
+                isFirst = false;
+            }
         }
 
         item.box.contentWidth = contentW;
@@ -429,14 +465,24 @@ void UIRenderer::ResolveAnchors()
             contentW = item.header->para.box.outerWidth;
         }
 
+        // Horizontal panels (spanning left-to-right anchor) lay children side-by-side:
+        // height = max of any child, NOT the sum.
+        // Only true when both anchors are screen edges — a panel-relative anchor is purely a width constraint.
+        bool horizontal = item.leftAnchor.has_value() && item.rightAnchor.has_value() &&
+                          !item.leftAnchor->panel && !item.rightAnchor->panel;
         for (auto &child : item.children)
         {
             const UIElement &el = std::visit([](auto &e) -> const UIElement &
                                              { return e; }, child);
             if (!el.visible)
                 continue;
-            contentH += el.box.outerHeight;
-            contentW = std::max(contentW, el.box.outerWidth);
+            if (horizontal)
+                contentH = std::max(contentH, el.box.outerHeight);
+            else
+            {
+                contentH += el.box.outerHeight;
+                contentW = std::max(contentW, el.box.outerWidth);
+            }
         }
 
         item.box.contentWidth = contentW;
@@ -506,9 +552,13 @@ void UIRenderer::ResolveAnchors()
             hpara.row = cursor;
             hpara.rowSpan = hpara.box.outerHeight;
             updateLocalGrid(hpara, hpara.padding);
-            cursor += hpara.box.outerHeight;
+            cursor += hpara.box.outerHeight; // always full outerHeight: header margins unaffected by tightHeader
         }
 
+        if (parent.collapsed)
+            return;
+
+        bool isFirst = true;
         for (auto &child : parent.children)
         {
             if (!child.visible)
@@ -524,11 +574,15 @@ void UIRenderer::ResolveAnchors()
                 child.col += (availW - child.colSpan) * 0.5f;
             }
 
-            child.row = cursor;
+            // tightHeader: back first child up by one margin so its content aligns with cursor.
+            child.row = (isFirst && parent.tightHeader) ? cursor - child.margin : cursor;
             child.rowSpan = child.box.outerHeight;
             updateLocalGrid(child, child.padding);
 
-            cursor += child.box.outerHeight;
+            // Advance cursor: when backed-up, net advance = outerHeight - margin.
+            cursor += (isFirst && parent.tightHeader) ? child.box.outerHeight - child.margin
+                                                      : child.box.outerHeight;
+            isFirst = false;
         }
     };
 
@@ -651,7 +705,8 @@ void UIRenderer::ResolveAnchors()
         // --- Resolve child positions ---
         if (!panel.children.empty() || panel.header.has_value())
         {
-            bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
+            bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value() &&
+                              !panel.leftAnchor->panel && !panel.rightAnchor->panel;
 
             if (horizontal)
             {
@@ -678,7 +733,7 @@ void UIRenderer::ResolveAnchors()
                                                      { return e; }, panel.children[i]);
                     if (!el.visible)
                         continue;
-                    totalWidth += SPLITTER_TOTAL + el.box.outerWidth;
+                    totalWidth += el.box.outerWidth;
                 }
 
                 if (!panel.rightAnchor && !panel.width)
@@ -691,13 +746,12 @@ void UIRenderer::ResolveAnchors()
                                                { return e; }, panel.children[i]);
                     if (!el.visible)
                         continue;
-                    currentCol += SPLITTER_TOTAL;
 
                     el.col = currentCol;
                     el.colSpan = el.box.outerWidth;
-                    el.row = panel.row;
-                    el.rowSpan = panel.rowSpan;
-                    updateLocalGrid(el, panel.padding);
+                    el.row = panel.row + panel.margin + panel.padding; // inset by margin+padding — mirrors placeChildrenVertical
+                    el.rowSpan = panel.rowSpan - 2.0f * (panel.margin + panel.padding);
+                    updateLocalGrid(el, el.padding); // use the tab's own padding, not the panel's
 
                     currentCol += el.box.outerWidth;
                 }
@@ -995,12 +1049,27 @@ void UIRenderer::BuildMesh()
             EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, Color::GetUI(panel.colorDepth));
         }
 
-        bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
+        bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value() &&
+                          !panel.leftAnchor->panel && !panel.rightAnchor->panel;
         if (horizontal)
         {
-            float y0 = grid.ToPixelsY(panel.row);
-            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan);
+            // Vertical separator lines between tabs: span the panel padding rect (margin+padding inset).
+            float y0 = grid.ToPixelsY(panel.row + panel.margin + panel.padding);
+            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - panel.margin - panel.padding);
             float halfPadPx = grid.ToPixelsX(panel.padding) * 0.5f;
+            // Splitter between header and first child.
+            if (panel.header.has_value() && !panel.children.empty())
+            {
+                float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                float splX = panel.header->para.col + panel.header->para.colSpan;
+                float rsx0 = std::round(grid.ToPixelsX(splX - halfSpl));
+                float rsx1 = std::round(grid.ToPixelsX(splX + halfSpl));
+                float rsy0 = std::round(y0 + halfPadPx);
+                float rsy1 = std::round(y1 - halfPadPx);
+                float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2, 1.0f, ACCENT_SAT_MULT));
+            }
+
             for (size_t si = 1; si < panel.children.size(); si++)
             {
                 const UIElement &el = std::visit([](const auto &e) -> const UIElement &
@@ -1084,7 +1153,7 @@ void UIRenderer::Render()
     glBindVertexArray(0);
 
     // Render text for a Paragraph's value lines (interactive ImGui overlay path).
-    auto renderParagraph = [&](const Paragraph &item, const std::string &itemPath) -> void
+    auto renderParagraph = [&](Paragraph &item, const std::string &itemPath) -> void
     {
         if (!item.visible)
             return;
@@ -1097,7 +1166,7 @@ void UIRenderer::Render()
         if (pixelImFont)
         {
             for (const auto &v : item.values)
-                if (v.imguiContent)
+                if (v.imguiContent || v.select.has_value())
                 {
                     slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
                     break;
@@ -1109,7 +1178,7 @@ void UIRenderer::Render()
 
         for (size_t i = 0; i < item.values.size(); i++)
         {
-            const auto &line = item.values[i];
+            auto &line = item.values[i];
             // Measure actual glyph ink bounds at add-text origin (0,0).
             // onClick lines use pixelImFont; bold lines use the heavy context font;
             // body lines use the lighter bodyImFont if available.
@@ -1133,7 +1202,7 @@ void UIRenderer::Render()
                 float sRatio = line.iconSizeRatio > 0.0f ? line.iconSizeRatio : ICON_SIZE_RATIO;
                 float s = std::max(2.0f, std::round(font->FontSize * line.fontScale * sRatio));
                 iconOffset = 2.0f * s + 3.0f;
-                float baseH = line.imguiContent ? slotH : std::max((ink.valid() ? ink.height() : bearingY) * line.fontScale, bearingY);
+                float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max((ink.valid() ? ink.height() : bearingY) * line.fontScale, bearingY);
                 float midY = vpy - bearingY + baseH * 0.5f;
                 ImDrawList *dl = ImGui::GetForegroundDrawList();
                 line.iconDraw(dl, vpx, midY, s);
@@ -1144,8 +1213,8 @@ void UIRenderer::Render()
             float btnX = vpx;
             float btnY = vpy - bearingY;
             float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-            // Slot height: use frame height for imguiContent, at least text bearing otherwise.
-            float baseH = line.imguiContent ? slotH : std::max(inkH, bearingY);
+            // Slot height: use frame height for imguiContent/select, at least text bearing otherwise.
+            float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max(inkH, bearingY);
             float btnH = baseH;
             ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
             ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
@@ -1156,7 +1225,145 @@ void UIRenderer::Render()
                              ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                                  ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
             {
-                if (line.imguiContent)
+                if (line.select.has_value())
+                {
+                    // Segmented pill selector: N equal zones, accent pill behind active zone.
+                    Select &sel = *line.select;
+                    int n = static_cast<int>(sel.options.size());
+                    if (n > 0)
+                    {
+                        float pad = ImGui::GetStyle().FramePadding.x;
+                        ImFont *lblFont = bodyImFont ? bodyImFont : ImGui::GetFont();
+                        ImDrawList *dl = ImGui::GetWindowDrawList();
+
+                        // Optional left-side row title stored in SectionLine::text
+                        float titleW = 0.0f;
+                        if (!line.text.empty())
+                        {
+                            float lblSz = lblFont->FontSize;
+                            ImVec2 ts = lblFont->CalcTextSizeA(lblSz, FLT_MAX, 0.0f, line.text.c_str());
+                            titleW = ts.x + pad * 3.0f; // label + right gap before pill
+                            glm::vec4 tc = Color::GetUIText(2);
+                            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                            float ty = btnY + (baseH - lblSz) * 0.5f;
+                            dl->AddText(lblFont, lblSz, ImVec2(btnX + iconOffset + pad, ty), col, line.text.c_str());
+                        }
+
+                        float pillAreaX = btnX + titleW; // zones start after title
+                        float pillAreaW = btnW - titleW;
+                        float pillR = std::round(baseH * 0.35f);
+                        float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
+                        constexpr float iconGap = 3.0f;
+                        constexpr float zoneInset = 2.0f; // per side (2×2 = 4px total, matching layout)
+                        float lblSize = lblFont->FontSize;
+
+                        // Variable-width zones: active = icon + label, inactive = icon only.
+                        // Any surplus width from the available pill area goes to the active zone.
+                        std::vector<float> zoneWidths(n);
+                        float totalNatural = 0.0f;
+                        for (int zi = 0; zi < n; ++zi)
+                        {
+                            bool isActive = (zi == sel.activeIndex);
+                            float lw = 0.0f;
+                            if (isActive && !sel.options[zi].label.empty())
+                                lw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+                            zoneWidths[zi] = 2.0f * s + (lw > 0.0f ? iconGap + lw : 0.0f) + 2.0f * zoneInset;
+                            totalNatural += zoneWidths[zi];
+                        }
+                        float surplus = pillAreaW - totalNatural;
+                        if (surplus > 0.0f)
+                        {
+                            // Distribute surplus only to inactive (icon-only) zones so the
+                            // active zone width is purely content-driven and stays the same
+                            // across rows that share the same column (e.g. Theme vs Accent).
+                            int nInactive = n - 1; // exactly one active zone
+                            if (nInactive > 0)
+                            {
+                                float perInactive = surplus / static_cast<float>(nInactive);
+                                for (int zi = 0; zi < n; ++zi)
+                                    if (zi != sel.activeIndex)
+                                        zoneWidths[zi] += perInactive;
+                            }
+                        }
+
+                        float cumX = 0.0f;
+                        for (int zi = 0; zi < n; ++zi)
+                        {
+                            float thisW = zoneWidths[zi];
+                            float zx0 = pillAreaX + cumX;
+                            float zx1 = zx0 + thisW;
+                            bool isActive = (zi == sel.activeIndex);
+
+                            // Invisible button for click detection (local window coords)
+                            ImGui::SetCursorPos(ImVec2(titleW + cumX, 0));
+                            std::string btnId = "##sel" + std::to_string(i) + "_" + std::to_string(zi);
+                            ImGui::InvisibleButton(btnId.c_str(), ImVec2(thisW, baseH));
+                            bool hovered = ImGui::IsItemHovered();
+                            bool clicked = ImGui::IsItemClicked();
+                            if (hovered)
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+                            // Pill fill: active = accent, hovered-inactive = subtle tint
+                            if (isActive)
+                            {
+                                glm::vec4 ac = Color::GetAccent(item.layer + 1, 1.0f, ACCENT_SAT_MULT_HOVER);
+                                dl->AddRectFilled(ImVec2(zx0 + 2.f, btnY + 2.f), ImVec2(zx1 - 2.f, btnY + baseH - 2.f),
+                                                  ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)), pillR);
+                            }
+                            else if (hovered)
+                            {
+                                glm::vec4 hc = Color::GetAccent(item.layer + 1, 0.12f, ACCENT_SAT_MULT_HOVER);
+                                dl->AddRectFilled(ImVec2(zx0 + 2.f, btnY + 2.f), ImVec2(zx1 - 2.f, btnY + baseH - 2.f),
+                                                  ImGui::GetColorU32(ImVec4(hc.r, hc.g, hc.b, hc.a)), pillR);
+                            }
+
+                            float midZone = (zx0 + zx1) * 0.5f;
+                            float midRow = btnY + baseH * 0.5f;
+                            int depth = isActive ? 2 : 0;
+
+                            float labelW = 0.0f;
+                            if (isActive && !sel.options[zi].label.empty())
+                                labelW = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+
+                            // Centre icon + label together within the zone
+                            float contentW = 2.0f * s + (labelW > 0.0f ? iconGap + labelW : 0.0f);
+                            float contentStartX = midZone - contentW * 0.5f;
+
+                            // Clip to zone interior so nothing overflows
+                            dl->PushClipRect(ImVec2(zx0 + 2.f, btnY), ImVec2(zx1 - 2.f, btnY + baseH), true);
+
+                            if (sel.options[zi].iconDraw)
+                                sel.options[zi].iconDraw(dl, contentStartX, midRow, s);
+
+                            if (isActive && labelW > 0.0f)
+                            {
+                                float ty = btnY + (baseH - lblSize) * 0.5f;
+                                glm::vec4 tc = Color::GetUIText(depth);
+                                ImU32 lblCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                                dl->AddText(lblFont, lblSize, ImVec2(contentStartX + 2.0f * s + iconGap, ty), lblCol, sel.options[zi].label.c_str());
+                            }
+
+                            dl->PopClipRect();
+
+                            if (clicked && !isActive)
+                            {
+                                sel.activeIndex = zi;
+                                if (sel.onChange)
+                                    sel.onChange(zi);
+                            }
+                            else if (clicked && isActive)
+                            {
+                                if (sel.onActiveClick)
+                                    sel.onActiveClick();
+                            }
+
+                            cumX += thisW;
+                        }
+                        if (sel.postDraw)
+                            sel.postDraw();
+                    }
+                }
+                else if (line.imguiContent)
                 {
                     if (pixelImFont)
                         ImGui::PushFont(pixelImFont);
@@ -1183,10 +1390,12 @@ void UIRenderer::Render()
                     {
                         bool hovered = ImGui::IsItemHovered();
                         bool active = ImGui::IsItemActive();
-                        if (hovered || active)
+                        if (hovered || active || line.selected)
                         {
                             int d = active ? item.layer + 2 : item.layer + 1;
-                            glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, ACCENT_SAT_MULT_HOVER);
+                            float alpha = active ? 0.18f : line.selected ? 0.36f
+                                                                         : 0.10f;
+                            glm::vec4 bg = Color::GetAccent(d, alpha, ACCENT_SAT_MULT_HOVER);
                             float radius = baseH * UIStyle::FRAME_ROUNDING_RATIO;
                             dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + baseH),
                                               ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), radius);
@@ -1213,21 +1422,36 @@ void UIRenderer::Render()
     };
 
     // Render label for a Section header.
-    auto renderSection = [&](const Section &sec, const std::string &parentPath) -> void
+    auto renderSection = [&](Section &sec, const std::string &parentPath) -> void
     {
         if (!sec.visible)
             return;
         std::string secPath = parentPath + "_" + sec.id;
 
         if (sec.header.has_value())
-            renderParagraph(sec.header->para, secPath + "_header");
+        {
+            // Wire chevron onto header line each frame (direction reflects current collapsed state).
+            Paragraph &hpara = sec.header->para;
+            if (!hpara.values.empty())
+            {
+                SectionLine &hl = hpara.values[0];
+                hl.iconSizeRatio = ICON_SIZE_RATIO_SMALL;
+                hl.iconDraw = Icons::Chevron(!sec.collapsed);
+                hl.onClick = [&sec, this]()
+                { sec.collapsed = !sec.collapsed; dirty = true; };
+            }
+            renderParagraph(hpara, secPath + "_header");
+        }
 
-        for (const auto &para : sec.children)
+        if (sec.collapsed)
+            return;
+
+        for (auto &para : sec.children)
             renderParagraph(para, secPath + "_" + para.id);
     };
 
     // Render text for all panels.
-    for (const auto &panel : panels)
+    for (auto &panel : panels)
     {
         if (!panel.visible)
             continue;
@@ -1237,9 +1461,9 @@ void UIRenderer::Render()
         // Render RootPanel header (anonymous containers have no header)
         if (panel.header.has_value())
             renderParagraph(panel.header->para, panelPath + "_header");
-        for (const auto &child : panel.children)
+        for (auto &child : panel.children)
         {
-            std::visit([&](const auto &el)
+            std::visit([&](auto &el)
                        {
                 using T = std::decay_t<decltype(el)>;
                 if constexpr (std::is_same_v<T, Section>)

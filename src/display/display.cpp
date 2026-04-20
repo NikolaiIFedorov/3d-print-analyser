@@ -11,6 +11,7 @@
 #include "utils/SystemAccent.hpp"
 #include "utils/SystemAppearance.hpp"
 
+#include <filesystem>
 #include <unordered_set>
 #include <queue>
 #include <cstdio>
@@ -20,15 +21,43 @@
 #include "input/FileImport.hpp"
 #include "utils/SessionLogger.hpp"
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
+void Display::ApplyTheme()
 {
-    // Apply system appearance and accent color before any UI is constructed
+    bool dark;
+    switch (themeMode)
     {
-        Color::SetAppearance(SystemAppearance::IsDark());
-        viewportRenderer.RegenerateGrid(); // grid was generated before SetAppearance; rebuild with correct mode
+    case ThemeMode::Light:
+        dark = false;
+        break;
+    case ThemeMode::Dark:
+        dark = true;
+        break;
+    default: // ThemeMode::System
+        dark = (SDL_GetSystemTheme() != SDL_SYSTEM_THEME_LIGHT);
+        break;
+    }
+    Color::SetAppearance(dark);
+    dark ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
+    uiRenderer.MarkDirty();
+    viewportRenderer.RegenerateGrid();
+    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+        UpdateScene();
+    renderDirty = true;
+}
+
+Display::Display(int16_t width, int16_t height, const char *title) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height)
+{
+    scene = &baseScene;
+    // Apply system appearance and accent color before any UI is constructed.
+    // themeMode defaults to System — SDL_GetSystemTheme() is called inside ApplyTheme().
+    {
         float hue, sat;
         if (SystemAccent::GetHueSat(hue, sat))
             Color::SetAccent(hue, sat);
+        // Bootstrap: set appearance directly so viewportRenderer gets the right colors before ApplyTheme.
+        bool dark = (SDL_GetSystemTheme() != SDL_SYSTEM_THEME_LIGHT);
+        Color::SetAppearance(dark);
+        viewportRenderer.RegenerateGrid();
     }
 
     // Initialize ImGui
@@ -52,19 +81,6 @@ Display::Display(int16_t width, int16_t height, const char *title, Scene *scene)
 
     InitUI();
     SDL_AddEventWatch(ResizeEventWatcher, this);
-
-    // Live appearance change: update colors and redraw
-    SystemAppearance::SetChangeCallback([this]()
-                                        {
-        bool dark = SystemAppearance::IsDark();
-        Color::SetAppearance(dark);
-        dark ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
-        uiRenderer.MarkDirty();
-        viewportRenderer.RegenerateGrid(); // grid/axis colors are baked — regenerate
-        // Geometry colors are baked into vertex buffers — rebuild if a model is loaded
-        if (!this->scene->solids.empty() || !this->scene->faces.empty())
-            UpdateScene();
-        renderDirty = true; });
 
     LOG_VOID("Initialized display");
 }
@@ -181,6 +197,12 @@ void Display::Render()
     viewportRenderer.RenderAxes(); // axes — occluded by solid via stencil
 
     // Start ImGui frame
+    if (pendingFileTabsRebuild)
+    {
+        pendingFileTabsRebuild = false;
+        RebuildFileTabs();
+    }
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
@@ -695,12 +717,17 @@ void Display::DoFileImport()
         std::string lower;
         for (char c : ext) lower += std::tolower(c);
 
+        // Each import gets its own independent scene.
+        ownedScenes.push_back(std::make_unique<Scene>());
+        activeSceneIndex = ownedScenes.size() - 1;
+        scene = ownedScenes.back().get();
+
         if (lower == "stl")
-            STLImport::Import(path, this->scene);
+            STLImport::Import(path, scene);
         else if (lower == "obj")
-            OBJImport::Import(path, this->scene);
+            OBJImport::Import(path, scene);
         else if (lower == "3mf")
-            ThreeMFImport::Import(path, this->scene);
+            ThreeMFImport::Import(path, scene);
 
         FrameScene();
         UpdateScene();
@@ -712,28 +739,41 @@ void Display::DoFileImport()
             auto &sl = SessionLogger::Instance();
             sl.state.lastFilename = filename;
             sl.state.lastFormat = lower;
-            sl.state.points = this->scene->points.size();
-            sl.state.edges  = this->scene->edges.size();
-            sl.state.faces  = this->scene->faces.size();
-            sl.state.solids = this->scene->solids.size();
+            sl.state.points = scene->points.size();
+            sl.state.edges  = scene->edges.size();
+            sl.state.faces  = scene->faces.size();
+            sl.state.solids = scene->solids.size();
             sl.LogFileImport(filename, lower);
         }
 
         openFiles.push_back(filename);
-        RebuildFileTabs();
-    });
+        RebuildFileTabs(); });
 }
 
 void Display::RebuildFileTabs()
 {
+    // Compact tab style: natural layer-2 paragraph defaults (margin=INSET, padding=0) — matches Analysis children.
+
     uiFiles->children.clear();
     uiFiles->children.reserve(openFiles.size() + 1); // file tabs + "+" button
 
-    for (const auto &name : openFiles)
+    for (size_t i = 0; i < openFiles.size(); i++)
     {
-        Paragraph &tab = uiFiles->AddParagraph(name);
+        // Use "file_N" as the paragraph id — unique even if two files share the same name.
+        // Visible label comes from line.text, not the id.
+        Paragraph &tab = uiFiles->AddParagraph("file_" + std::to_string(i));
         tab.values.reserve(1);
-        tab.values.emplace_back().text = name;
+        SectionLine &line = tab.values.emplace_back();
+        line.text = std::filesystem::path(openFiles[i]).stem().string();
+        line.selected = (i == activeSceneIndex);
+        line.onClick = [this, i]()
+        {
+            scene = ownedScenes[i].get();
+            activeSceneIndex = i;
+            UpdateScene();
+            FrameScene();
+            pendingFileTabsRebuild = true;
+        };
     }
 
     // "+" import button — always at the end
@@ -741,7 +781,8 @@ void Display::RebuildFileTabs()
     importTab.values.reserve(1);
     SectionLine &importLine = importTab.values.emplace_back();
     importLine.iconDraw = Icons::ImportFile();
-    importLine.onClick = [this]() { DoFileImport(); };
+    importLine.onClick = [this]()
+    { DoFileImport(); };
 
     uiRenderer.MarkDirty();
 }
@@ -768,26 +809,27 @@ void Display::InitUI()
     analysisDef.colorDepth = 1;
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
     analysisDef.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
-    RootPanel &analysis = uiRenderer.AddPanel(analysisDef);
+    uiAnalysis = &uiRenderer.AddPanel(analysisDef);
 
 #if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
-    analysis.header = Header{"Analysis", 1.0f, 2};
-    analysis.children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
-    uiResult = &analysis.AddParagraph("Result");
+    uiAnalysis->header = Header{"Analysis", 1.0f, 2};
+    uiAnalysis->children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
+    uiResult = &uiAnalysis->AddParagraph("Result");
     uiResult->visible = false;
-    uiImportPara = &analysis.AddParagraph("ImportAction");
+    uiImportPara = &uiAnalysis->AddParagraph("ImportAction");
     Paragraph &importPara = *uiImportPara;
     SectionLine &importLine = importPara.values.emplace_back();
     importLine.text = "Import file";
     importLine.iconDraw = Icons::ImportFile();
-    importLine.onClick = [this]() { DoFileImport(); };
-    uiVerdict = &analysis.AddParagraph("Verdict");
+    importLine.onClick = [this]()
+    { DoFileImport(); };
+    uiVerdict = &uiAnalysis->AddParagraph("Verdict");
     uiVerdict->visible = false;
 
     // Merged result+config rows — always present once a model is loaded.
     // Each row shows: [icon] [count label (flaw color)] · [param value (dim)] [unit]
     // DragFloat spans the full row; a left-zone InvisibleButton handles click-to-navigate.
-    uiResult = &analysis.AddParagraph("Result");
+    uiResult = &uiAnalysis->AddParagraph("Result");
     uiResult->visible = false;
     uiResult->values.reserve(4);
 
@@ -823,6 +865,22 @@ void Display::InitUI()
             icon(dl, x, midY, s);
             if (fr.count == 0)
                 ImGui::PopStyleVar();
+        };
+
+        // Minimum content width (excluding icon slot, which computeParagraphBox adds separately).
+        line.getMinContentWidthPx = [this, countLabel, plural, minWidthLabel, unit, isAngle]() -> float
+        {
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                return 0.0f;
+            float pad = ImGui::GetStyle().FramePadding.x;
+            std::string longestCount = std::string("No") + countLabel + plural;
+            float countW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestCount.c_str()).x;
+            std::string longestVal = isAngle ? std::string(minWidthLabel) + unit
+                                             : std::string(minWidthLabel) + " " + unit;
+            float valW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestVal.c_str()).x;
+            constexpr float gap = 24.0f;
+            return pad * 2.0f + countW + gap + valW;
         };
 
         line.imguiContent = [this, flawColor, countLabel, plural, flawMember,
@@ -1008,6 +1066,273 @@ void Display::InitUI()
     RebuildAnalysis();
 
 #endif // DEBUG: panel-only mode
+
+    // Settings panel — extends from bottom of Analysis to bottom of screen.
+    // Covers appearance, viewport, and navigation configuration.
+    settingsAccentHue = Color::GetAccentHue();
+    settingsAccentSat = Color::GetAccentSat();
+    ImFont *settingsBodyFont = uiRenderer.GetBodyImFont();
+
+    // Helper: builds a DragFloat row with a left label and right value overlay.
+    auto makeSettingsDrag = [this, settingsBodyFont](
+                                SectionLine &line,
+                                const char *label,
+                                float &param,
+                                float speed, float minVal, float maxVal,
+                                const char *valueFmt, // complete snprintf format, e.g. "%.0f\u00b0"
+                                const char *dragId,
+                                std::function<void()> onChange)
+    {
+        line.getMinContentWidthPx = [settingsBodyFont, label]() -> float
+        {
+            if (!settingsBodyFont)
+                return 0.0f;
+            float pad = ImGui::GetStyle().FramePadding.x;
+            float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x;
+            constexpr float minValueAreaW = 40.0f; // room for value text + drag affordance
+            constexpr float gap = 24.0f;
+            return pad * 2.0f + labelW + gap + minValueAreaW;
+        };
+
+        struct DragEditState
+        {
+            bool tracking = false;
+            bool requestEdit = false;
+            bool editing = false;
+            bool focusPending = false;
+            ImVec2 startPos{};
+        };
+        auto dragState = std::make_shared<DragEditState>();
+
+        line.imguiContent = [this, label, &param, speed, minVal, maxVal,
+                             valueFmt, dragId, onChange = std::move(onChange),
+                             settingsBodyFont, dragState](float w, float h, float iconOffset)
+        {
+            glm::vec4 tcLabel = Color::GetUIText(2); // label: prominent
+            glm::vec4 tcValue = Color::GetUIText(0); // value: subdued
+            float pad = ImGui::GetStyle().FramePadding.x;
+
+            UIStyle::PushInputStyle(h, tcLabel);
+            ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+            float originX = rowOrigin.x;
+
+            float labelFontSz = settingsBodyFont ? settingsBodyFont->FontSize : ImGui::GetFont()->FontSize;
+
+            bool showEdit = dragState->editing || dragState->focusPending;
+
+            if (dragState->requestEdit)
+            {
+                ImGui::SetKeyboardFocusHere();
+                dragState->requestEdit = false;
+                dragState->focusPending = true;
+                showEdit = true;
+            }
+
+            float dragW, dragOffsetX;
+            if (showEdit)
+            {
+                // Edit mode: right zone only so ImGui cursor text doesn't overlap the label.
+                float labelTextW = settingsBodyFont
+                    ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
+                    : ImGui::CalcTextSize(label).x;
+                float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
+                dragOffsetX = leftW;
+                dragW = w - leftW;
+            }
+            else
+            {
+                // Normal mode: full row width — label and value are painted on top.
+                dragOffsetX = 0.0f;
+                dragW = w;
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(originX + dragOffsetX, rowOrigin.y));
+            ImGui::SetNextItemWidth(dragW);
+            bool changed = ImGui::DragFloat(dragId, &param, speed, minVal, maxVal,
+                                            showEdit ? valueFmt : "");
+            UIStyle::DrawInputHoverTint(1);
+
+            dragState->editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+            if (dragState->editing)
+                dragState->focusPending = false;
+
+            if (ImGui::IsItemActivated())
+            {
+                dragState->tracking = true;
+                dragState->startPos = ImGui::GetIO().MousePos;
+            }
+            if (dragState->tracking && !ImGui::IsItemActive())
+            {
+                ImVec2 ep = ImGui::GetIO().MousePos;
+                float dx = ep.x - dragState->startPos.x;
+                float dy = ep.y - dragState->startPos.y;
+                if (dx * dx + dy * dy < 9.0f)
+                    dragState->requestEdit = true;
+                dragState->tracking = false;
+            }
+
+            ImDrawList *dl = ImGui::GetWindowDrawList();
+            float bottom = ImGui::GetItemRectMax().y - ImGui::GetStyle().FramePadding.y;
+
+            // Label: always drawn over the drag widget.
+            ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+            {
+                float ty_label = bottom - labelFontSz;
+                if (settingsBodyFont)
+                {
+                    ImGui::PushFont(settingsBodyFont);
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+                    ImGui::PopFont();
+                }
+                else
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+            }
+
+            // Value overlay: right edge, hidden during text edit (DragFloat renders it).
+            if (!showEdit)
+            {
+                char valBuf[32];
+                snprintf(valBuf, sizeof(valBuf), valueFmt, param);
+                ImVec2 vs = ImGui::CalcTextSize(valBuf);
+                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+            }
+
+            if (changed)
+                onChange();
+            UIStyle::PopInputStyle();
+        };
+    };
+
+    RootPanel settingsDef;
+    settingsDef.id = "Settings";
+    settingsDef.colorDepth = 1;
+    settingsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    settingsDef.topAnchor = PanelAnchor{uiAnalysis, PanelAnchor::Bottom};
+    settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+    settingsDef.header = Header{"Settings", 1.0f, 2};
+    uiSettings = &uiRenderer.AddPanel(settingsDef);
+    uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
+
+    // ── Appearance ────────────────────────────────────────────────────────────
+    Section &appearanceSection = uiSettings->AddSection("Appearance");
+    appearanceSection.header = Header{"Appearance", 1.0f, 2};
+    appearanceSection.tightHeader = true;
+    appearanceSection.children.reserve(1);
+
+    // All appearance rows in one paragraph — no splitters between them.
+    Paragraph &appearancePara = appearanceSection.AddParagraph("AppearanceRows");
+    appearancePara.values.reserve(2);
+
+    // Theme selector: System / Light / Dark pill
+    {
+        SectionLine &themeSelect = appearancePara.values.emplace_back();
+        themeSelect.text = "Theme";
+        Select sel;
+        sel.options = {
+            {"System", Icons::ThemeSystem()},
+            {"Light", Icons::ThemeLight()},
+            {"Dark", Icons::ThemeDark()},
+        };
+        sel.activeIndex = static_cast<int>(themeMode);
+        sel.onChange = [this](int i)
+        {
+            themeMode = static_cast<ThemeMode>(i);
+            ApplyTheme();
+            uiRenderer.MarkDirty();
+        };
+        themeSelect.select = std::move(sel);
+    }
+
+    // Accent selector: System / Color pill — native select, identical layout to Theme.
+    // onActiveClick on zone 1 (Color) opens the HSV picker popup; postDraw hosts it in the same window.
+    {
+        SectionLine &accentSel = appearancePara.values.emplace_back();
+        accentSel.text = "Accent";
+        Select sel;
+        sel.options = {
+            {"System", Icons::ThemeSystem()},
+            {"Custom", Icons::AccentCustom()},
+        };
+        sel.activeIndex = settingsAccentUseSystem ? 0 : 1;
+        sel.onChange = [this](int i)
+        {
+            settingsAccentUseSystem = (i == 0);
+            if (settingsAccentUseSystem)
+            {
+                float hue, sat;
+                if (SystemAccent::GetHueSat(hue, sat))
+                {
+                    settingsAccentHue = hue;
+                    settingsAccentSat = sat;
+                    Color::SetAccent(hue, sat);
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+            }
+        };
+        sel.onActiveClick = [this]()
+        {
+            if (!settingsAccentUseSystem) // only Custom zone can be active here
+                settingsOpenAccentPicker = true;
+        };
+        sel.postDraw = [this]()
+        {
+            if (settingsOpenAccentPicker)
+            {
+                ImGui::OpenPopup("##accentPicker");
+                settingsOpenAccentPicker = false;
+            }
+            if (ImGui::BeginPopup("##accentPicker"))
+            {
+                float hsv[3] = {settingsAccentHue / 360.0f, settingsAccentSat, 1.0f};
+                float col4[4] = {};
+                ImGui::ColorConvertHSVtoRGB(hsv[0], hsv[1], hsv[2], col4[0], col4[1], col4[2]);
+                col4[3] = 1.0f;
+                if (ImGui::ColorPicker4("##picker", col4,
+                                        ImGuiColorEditFlags_NoAlpha |
+                                            ImGuiColorEditFlags_DisplayHSV |
+                                            ImGuiColorEditFlags_InputRGB))
+                {
+                    float h2, s2, v2;
+                    ImGui::ColorConvertRGBtoHSV(col4[0], col4[1], col4[2], h2, s2, v2);
+                    settingsAccentHue = h2 * 360.0f;
+                    settingsAccentSat = s2;
+                    Color::SetAccent(settingsAccentHue, settingsAccentSat);
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+                ImGui::EndPopup();
+            }
+        };
+        accentSel.select = std::move(sel);
+    }
+    // ── Viewport ──────────────────────────────────────────────────────────────
+    Section &viewportSection = uiSettings->AddSection("Viewport");
+    viewportSection.header = Header{"Viewport", 1.0f, 2};
+    viewportSection.tightHeader = true;
+    viewportSection.children.reserve(1);
+
+    Paragraph &gridPara = viewportSection.AddParagraph("GridSize");
+    gridPara.values.reserve(1);
+    makeSettingsDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
+                     4.0f, 16.0f, 2048.0f, "%.0f", "##gridExtent",
+                     [this]()
+                     { viewportRenderer.RegenerateGrid(); renderDirty = true; });
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    Section &navSection = uiSettings->AddSection("Navigation");
+    navSection.header = Header{"Navigation", 1.0f, 2};
+    navSection.tightHeader = true;
+    navSection.children.reserve(1);
+
+    Paragraph &sensPara = navSection.AddParagraph("MouseSens");
+    sensPara.values.reserve(1);
+    makeSettingsDrag(sensPara.values.emplace_back(), "Sensitivity", mouseSensitivity,
+                     1.0f, 1.0f, 500.0f, "%.0f", "##mouseSens",
+                     [this]()
+                     { renderDirty = true; });
 
     // Compute minimum grid extent and enforce as SDL minimum window size
     uiRenderer.ComputeMinGridSize();

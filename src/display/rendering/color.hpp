@@ -8,7 +8,7 @@
 
 struct Color
 {
-    static constexpr float GRID_EXTENT = 256.0f; // world-space grid half-extent in scene units
+    inline static float GRID_EXTENT = 256.0f; // world-space grid half-extent in scene units
 
     // Convert HSL (h in degrees 0–360, s and l in 0–1) to linear RGB.
     // Only L is intended to vary across UI depth levels; H and S stay constant.
@@ -50,6 +50,8 @@ struct Color
     }
 
     static bool IsDark() { return s_darkMode; }
+    static float GetAccentHue() { return s_accentHue; }
+    static float GetAccentSat() { return s_accentSat; }
 
     static glm::vec3 GetBase()
     {

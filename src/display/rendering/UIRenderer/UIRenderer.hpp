@@ -58,7 +58,9 @@ public:
     void SetPixelImFont(ImFont *font) { pixelImFont = font; }
     ImFont *GetPixelImFont() const { return pixelImFont; }
     void SetBodyImFont(ImFont *font) { bodyImFont = font; }
+    ImFont *GetBodyImFont() const { return bodyImFont; }
     void SetHeavyImFont(ImFont *font) { heavyImFont = font; }
+    ImFont *GetHeavyImFont() const { return heavyImFont; }
     void SetDebugLayout(bool v) { debugLayout = v; }
     bool GetDebugLayout() const { return debugLayout; }
 

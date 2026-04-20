@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include <SDL3/SDL.h>
+#include <memory>
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
@@ -14,7 +15,7 @@
 class Display
 {
 public:
-    Display(int16_t width, int16_t height, const char *title, Scene *scene);
+    Display(int16_t width, int16_t height, const char *title);
     void Shutdown();
 
     SDL_Window *GetWindow() { return window; }
@@ -42,6 +43,19 @@ public:
     void MarkBug();
 
     bool renderDirty = true;
+    float mouseSensitivity = 30.0f; // display units: raw value × 10000 (1–500); Input.cpp compensates
+
+    enum class ThemeMode
+    {
+        System,
+        Light,
+        Dark
+    };
+    ThemeMode themeMode = ThemeMode::System;
+
+    // Apply the resolved appearance (dark/light) from themeMode + current system theme.
+    // Call at startup, on ThemeMode change, and on SDL_EVENT_SYSTEM_THEME_CHANGED.
+    void ApplyTheme();
 
 private:
     int16_t windowWidth;
@@ -53,7 +67,10 @@ private:
     SceneRenderer renderer;
     ViewportRenderer viewportRenderer;
     UIRenderer uiRenderer;
-    Scene *scene = nullptr;
+    Scene baseScene;                                 // empty base — active when no file is loaded
+    std::vector<std::unique_ptr<Scene>> ownedScenes; // one per imported file
+    size_t activeSceneIndex = SIZE_MAX;              // SIZE_MAX = base scene active
+    Scene *scene = nullptr;                          // pointer to active scene
 
     Camera camera;
 
@@ -66,8 +83,14 @@ private:
     float minFeatureSize = 0.4f;
     float thinMinWidth = 2.0f;
     float layerHeight = 0.2f;
+    float settingsAccentHue = 220.0f;
+    float settingsAccentSat = 0.35f;
+    bool settingsAccentUseSystem = true;
+    bool settingsOpenAccentPicker = false;
 
     RootPanel *uiFiles = nullptr;
+    RootPanel *uiAnalysis = nullptr;
+    RootPanel *uiSettings = nullptr;
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
@@ -98,4 +121,5 @@ private:
     void InitUI();
     void DoFileImport();
     void RebuildFileTabs();
+    bool pendingFileTabsRebuild = false;
 };

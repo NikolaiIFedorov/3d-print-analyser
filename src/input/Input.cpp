@@ -104,10 +104,11 @@ void Input::trackpadGestures()
         if (currentGesture == GestureType::None)
             return;
 
+        const float sensMult = display->mouseSensitivity / 30.0f;
         switch (currentGesture)
         {
         case GestureType::Pan:
-            display->Pan(c.dx, c.dy, true);
+            display->Pan(c.dx * sensMult, c.dy * sensMult, true);
             break;
         case GestureType::Orbit:
         {
@@ -131,7 +132,7 @@ void Input::trackpadGestures()
             if (movingIt != activeTouches.end())
             {
                 Touch &moving = movingIt->second;
-                display->Orbit(moving.dx * 1.0f, -moving.dy * 1.0f);
+                display->Orbit(moving.dx * sensMult, -moving.dy * sensMult);
             }
             break;
         }
@@ -247,11 +248,11 @@ void Input::mouseGestures(const SDL_Event &event)
         break;
     case SDL_EVENT_MOUSE_MOTION:
         if (middleMouseDown)
-            display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
-                           event.motion.yrel * MOUSE_SENSITIVITY);
+            display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
+                           event.motion.yrel * display->mouseSensitivity * 1e-4f);
         else if (rightMouseDown)
-            display->Pan(event.motion.xrel * MOUSE_SENSITIVITY,
-                         event.motion.yrel * MOUSE_SENSITIVITY, false);
+            display->Pan(event.motion.xrel * display->mouseSensitivity * 1e-4f,
+                         event.motion.yrel * display->mouseSensitivity * 1e-4f, false);
         break;
     default:
         break;
@@ -287,6 +288,11 @@ bool Input::processEvent(const SDL_Event &event)
         }
         break;
     }
+    case SDL_EVENT_SYSTEM_THEME_CHANGED:
+        // Only react when following system — user-explicit Light/Dark modes are unaffected.
+        if (display->themeMode == Display::ThemeMode::System)
+            display->ApplyTheme();
+        break;
     case SDL_EVENT_KEY_DOWN:
         if (io.WantCaptureKeyboard)
             break;
@@ -348,10 +354,11 @@ bool Input::processEvent(const SDL_Event &event)
         {
             if (activeTouches.size() == 1)
             {
+                const float sm = display->mouseSensitivity / 30.0f;
                 if (middleMouseDown)
-                    display->Orbit(event.tfinger.dx, -event.tfinger.dy);
+                    display->Orbit(event.tfinger.dx * sm, -event.tfinger.dy * sm);
                 else
-                    display->Pan(event.tfinger.dx, event.tfinger.dy, true);
+                    display->Pan(event.tfinger.dx * sm, event.tfinger.dy * sm, true);
             }
             break;
         }
