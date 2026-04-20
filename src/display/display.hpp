@@ -67,9 +67,12 @@ private:
     float thinMinWidth = 2.0f;
     float layerHeight = 0.2f;
 
+    RootPanel *uiFiles = nullptr;
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
+
+    std::vector<std::string> openFiles;
 
     // Per-flaw live state — written by UpdateScene, read by imguiContent lambdas each frame
     struct FlawResult
@@ -93,4 +96,6 @@ private:
     void RebuildAnalysis();
     void snapInput(float &x, float &y);
     void InitUI();
+    void DoFileImport();
+    void RebuildFileTabs();
 };

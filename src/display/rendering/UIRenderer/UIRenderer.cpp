@@ -649,59 +649,57 @@ void UIRenderer::ResolveAnchors()
         updateLocalGrid(panel, panel.padding);
 
         // --- Resolve child positions ---
-        if (!panel.children.empty())
+        if (!panel.children.empty() || panel.header.has_value())
         {
             bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
 
             if (horizontal)
             {
-                float secPadding = UIElement::PaddingForLayer(1);
-
-                // First child is always the title paragraph; place it inside the panel's content area.
-                UIElement &titleEl = std::visit([](auto &e) -> UIElement &
-                                                { return e; }, panel.children[0]);
                 float panelInset = panel.margin + panel.padding;
-                titleEl.col = panel.col + panelInset;
-                titleEl.colSpan = titleEl.box.outerWidth;
-                titleEl.row = panel.row + panelInset;
-                titleEl.rowSpan = panel.rowSpan - 2.0f * panelInset;
-                updateLocalGrid(titleEl, titleEl.padding);
 
-                // Remaining children are tab sections stacked rightward (splitter between each)
-                float headerWidth = panelInset + titleEl.box.outerWidth;
+                // Place the header label on the left (natural width, vertically centred).
+                float headerWidth = panelInset;
+                if (panel.header.has_value())
+                {
+                    Paragraph &hpara = panel.header->para;
+                    hpara.col = panel.col + panelInset;
+                    hpara.colSpan = hpara.box.outerWidth;
+                    hpara.row = panel.row + panelInset;
+                    hpara.rowSpan = panel.rowSpan - 2.0f * panelInset;
+                    updateLocalGrid(hpara, hpara.padding);
+                    headerWidth += hpara.box.outerWidth;
+                }
+
+                // All children are tab sections stacked rightward from the header.
                 float totalWidth = headerWidth;
-                for (size_t i = 1; i < panel.children.size(); i++)
+                for (size_t i = 0; i < panel.children.size(); i++)
                 {
                     const UIElement &el = std::visit([](const auto &e) -> const UIElement &
                                                      { return e; }, panel.children[i]);
                     if (!el.visible)
                         continue;
-                    float secTextW = textRenderer.MeasureWidth(el.id, textScale);
-                    float secW = 2.0f * secPadding + secTextW / grid.cellSizeX;
-                    totalWidth += SPLITTER_TOTAL + secW;
+                    totalWidth += SPLITTER_TOTAL + el.box.outerWidth;
                 }
 
                 if (!panel.rightAnchor && !panel.width)
                     panel.colSpan = std::max(panel.colSpan, totalWidth + panelInset);
 
                 float currentCol = panel.col + headerWidth;
-                for (size_t i = 1; i < panel.children.size(); i++)
+                for (size_t i = 0; i < panel.children.size(); i++)
                 {
                     UIElement &el = std::visit([](auto &e) -> UIElement &
                                                { return e; }, panel.children[i]);
                     if (!el.visible)
                         continue;
                     currentCol += SPLITTER_TOTAL;
-                    float secTextW = textRenderer.MeasureWidth(el.id, textScale);
-                    float secW = 2.0f * secPadding + secTextW / grid.cellSizeX;
 
                     el.col = currentCol;
-                    el.colSpan = secW;
+                    el.colSpan = el.box.outerWidth;
                     el.row = panel.row;
                     el.rowSpan = panel.rowSpan;
                     updateLocalGrid(el, panel.padding);
 
-                    currentCol += secW;
+                    currentCol += el.box.outerWidth;
                 }
             }
             else

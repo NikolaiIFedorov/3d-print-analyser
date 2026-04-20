@@ -687,11 +687,70 @@ void Display::MarkBug()
     sl.LogBugMarker();
 }
 
+void Display::DoFileImport()
+{
+    FileImport::OpenFileDialog(window, [this](const std::string &path)
+                               {
+        auto ext = path.substr(path.find_last_of('.') + 1);
+        std::string lower;
+        for (char c : ext) lower += std::tolower(c);
+
+        if (lower == "stl")
+            STLImport::Import(path, this->scene);
+        else if (lower == "obj")
+            OBJImport::Import(path, this->scene);
+        else if (lower == "3mf")
+            ThreeMFImport::Import(path, this->scene);
+
+        FrameScene();
+        UpdateScene();
+
+        std::string filename = path.substr(path.find_last_of("/\\") + 1);
+
+        // Log the import event to the session
+        {
+            auto &sl = SessionLogger::Instance();
+            sl.state.lastFilename = filename;
+            sl.state.lastFormat = lower;
+            sl.state.points = this->scene->points.size();
+            sl.state.edges  = this->scene->edges.size();
+            sl.state.faces  = this->scene->faces.size();
+            sl.state.solids = this->scene->solids.size();
+            sl.LogFileImport(filename, lower);
+        }
+
+        openFiles.push_back(filename);
+        RebuildFileTabs();
+    });
+}
+
+void Display::RebuildFileTabs()
+{
+    uiFiles->children.clear();
+    uiFiles->children.reserve(openFiles.size() + 1); // file tabs + "+" button
+
+    for (const auto &name : openFiles)
+    {
+        Paragraph &tab = uiFiles->AddParagraph(name);
+        tab.values.reserve(1);
+        tab.values.emplace_back().text = name;
+    }
+
+    // "+" import button — always at the end
+    Paragraph &importTab = uiFiles->AddParagraph("+");
+    importTab.values.reserve(1);
+    SectionLine &importLine = importTab.values.emplace_back();
+    importLine.iconDraw = Icons::ImportFile();
+    importLine.onClick = [this]() { DoFileImport(); };
+
+    uiRenderer.MarkDirty();
+}
+
 void Display::InitUI()
 {
     float sidebarWidth = 10.0f;
 
-    // Header
+    // Files tab bar — full-width header with dynamic file tabs
     RootPanel filesDef;
     filesDef.id = "Files";
     filesDef.colorDepth = 1;
@@ -699,16 +758,16 @@ void Display::InitUI()
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
-    RootPanel &files = uiRenderer.AddPanel(filesDef);
-    files.children.reserve(1);
-    files.AddParagraph("Files").values.emplace_back().text = "Files";
+    filesDef.header = Header{"Files", 1.0f, 2};
+    uiFiles = &uiRenderer.AddPanel(filesDef);
+    RebuildFileTabs();
 
     // Analysis panel with sections
     RootPanel analysisDef;
     analysisDef.id = "Analysis";
     analysisDef.colorDepth = 1;
     analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
-    analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
+    analysisDef.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
     RootPanel &analysis = uiRenderer.AddPanel(analysisDef);
 
 #if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
@@ -721,36 +780,7 @@ void Display::InitUI()
     SectionLine &importLine = importPara.values.emplace_back();
     importLine.text = "Import file";
     importLine.iconDraw = Icons::ImportFile();
-    importLine.onClick = [this]()
-    {
-        FileImport::OpenFileDialog(window, [this](const std::string &path)
-                                   {
-                auto ext = path.substr(path.find_last_of('.') + 1);
-                std::string lower;
-                for (char c : ext) lower += std::tolower(c);
-
-                if (lower == "stl")
-                    STLImport::Import(path, this->scene);
-                else if (lower == "obj")
-                    OBJImport::Import(path, this->scene);
-                else if (lower == "3mf")
-                    ThreeMFImport::Import(path, this->scene);
-
-                FrameScene();
-                UpdateScene();
-
-                // Log the import event to the session
-                {
-                    auto &sl = SessionLogger::Instance();
-                    sl.state.lastFilename = path.substr(path.find_last_of("/\\") + 1);
-                    sl.state.lastFormat = lower;
-                    sl.state.points = this->scene->points.size();
-                    sl.state.edges  = this->scene->edges.size();
-                    sl.state.faces  = this->scene->faces.size();
-                    sl.state.solids = this->scene->solids.size();
-                    sl.LogFileImport(sl.state.lastFilename, lower);
-                } });
-    };
+    importLine.onClick = [this]() { DoFileImport(); };
     uiVerdict = &analysis.AddParagraph("Verdict");
     uiVerdict->visible = false;
 

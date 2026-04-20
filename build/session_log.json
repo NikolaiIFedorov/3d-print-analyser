@@ -1,8 +1,11 @@
 {
-  "session_start": "2026-04-20T01:11:23Z",
+  "session_start": "2026-04-20T01:37:39Z",
   "events": [
     { "t_ms": 0, "type": "app_start" },
-    { "t_ms": 148, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
-    { "t_ms": 2193, "type": "bug_marker", "data": { "points": 0, "edges": 0, "faces": 0, "solids": 0, "last_file": "", "format": "", "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20, "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "camera_target": "[0.00, 0.00, 0.00]", "camera_ortho_size": 2.50 } }
+    { "t_ms": 164, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
+    { "t_ms": 4295, "type": "file_import", "data": { "filename": "Analysis.stl", "format": "stl", "points": 284, "edges": 870, "faces": 1009, "solids": 1 } },
+    { "t_ms": 4745, "type": "analysis_run", "data": { "overhangs": 1, "sharp_edges": 4, "thin_sections": 2, "small_features": 9, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
+    { "t_ms": 51036, "type": "file_import", "data": { "filename": "OrganizerLock2.stl", "format": "stl", "points": 835, "edges": 2529, "faces": 2447, "solids": 2 } },
+    { "t_ms": 52162, "type": "analysis_run", "data": { "overhangs": 1, "sharp_edges": 4, "thin_sections": 5, "small_features": 13, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } }
   ]
 }
