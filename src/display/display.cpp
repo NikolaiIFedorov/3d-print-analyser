@@ -1133,8 +1133,8 @@ void Display::InitUI()
             {
                 // Edit mode: right zone only so ImGui cursor text doesn't overlap the label.
                 float labelTextW = settingsBodyFont
-                    ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
-                    : ImGui::CalcTextSize(label).x;
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
+                                       : ImGui::CalcTextSize(label).x;
                 float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
                 dragOffsetX = leftW;
                 dragW = w - leftW;
