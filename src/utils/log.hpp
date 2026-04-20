@@ -17,6 +17,7 @@ enum class Level
     INFO,
     DESC,
     BACKGROUND,
+    SESSION,
 };
 
 enum class BoolType
@@ -50,6 +51,7 @@ public:
     static void Description(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);
     static void Info(const std::string &msg, std::source_location loc = std::source_location::current(), bool returnLog = false);
     static void Background(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);
+    static void Session(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);
 
     static bool True(const std::string &msg, const std::source_location &loc = std::source_location::current());
     static bool False(const std::string &msg, const std::source_location &loc = std::source_location::current());
@@ -59,6 +61,34 @@ public:
 
     static std::string NumToStr(double douNum, bool format = true);
     static std::string DVec3ToStr(const glm::dvec3 &msg);
+
+    // ── Variadic message building ─────────────────────────────────────────────
+    // Converts a supported type to a display string (numbers are colored/underlined).
+    // Supported: std::string, const char*, bool, any arithmetic type, glm::vec2/vec3/dvec3.
+    static std::string ToStr(const std::string &v);
+    static std::string ToStr(const char *v);
+    static std::string ToStr(bool v);
+    static std::string ToStr(const glm::vec2 &v);
+    static std::string ToStr(const glm::vec3 &v);
+    static std::string ToStr(const glm::dvec3 &v);
+
+    template <typename T>
+        requires(std::is_arithmetic_v<T> && !std::is_same_v<std::remove_cvref_t<T>, bool>)
+    static std::string ToStr(T v)
+    {
+        return NumToStr(static_cast<double>(v));
+    }
+
+    // Joins all arguments as space-separated strings using ToStr.
+    // Usage:  Log::BuildMsg("pos:", position, velocity)
+    template <typename First, typename... Rest>
+    static std::string BuildMsg(First &&first, Rest &&...rest)
+    {
+        std::string result = ToStr(std::forward<First>(first));
+        ((result += " " + ToStr(std::forward<Rest>(rest))), ...);
+        return result;
+    }
+    static std::string BuildMsg() { return ""; }
 
     static void SetBackgroundFilter(bool state);
     static void SetDebugFilter(bool state);
@@ -89,16 +119,20 @@ private:
     static void CleanString(std::string &msg);
 };
 
-#define LOG_DEBU(msg, ...) Log::Debug(msg);
-#define LOG_ERROR(msg) Log::Error(msg);
-#define LOG_WARN(msg) Log::Warn(msg);
-#define LOG_DESC(msg) Log::Description(msg);
-#define LOG_INFO(msg) Log::Info(msg);
-#define LOG_BACK(msg) Log::Background(msg);
+// Variadic log macros — accepts a label string followed by any number of values:
+//   LOG_INFO("pos:", position, velocity)  →  "pos: (1.00, 2.00, 3.00) (0.50, 0.00, 0.10)"
+// source_location is captured at the call site via the macro.
+#define LOG_DEBU(...) Log::Debug(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_ERROR(...) Log::Error(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_WARN(...) Log::Warn(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_DESC(...) Log::Description(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_INFO(...) Log::Info(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_BACK(...) Log::Background(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_SESSION(...) Log::Session(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
 
-#define LOG_FALSE(msg) Log::False(msg);
-#define LOG_TRUE(msg) Log::True(msg);
-#define LOG_VOID(msg) Log::Void(msg);
+#define LOG_FALSE(...) Log::False(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_TRUE(...) Log::True(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
+#define LOG_VOID(...) Log::Void(Log::BuildMsg(__VA_ARGS__), std::source_location::current());
 #define LOG_MSG(msg, loc, level, returnType) Log::Msg(msg, loc, level, returnType);
 
 #define LOG_FILTER_BACK(state) Log::SetBackgroundFilter(state);

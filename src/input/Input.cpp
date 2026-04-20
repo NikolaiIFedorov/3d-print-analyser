@@ -296,6 +296,11 @@ bool Input::processEvent(const SDL_Event &event)
             ui->SetDebugLayout(!ui->GetDebugLayout());
             break;
         }
+        if (event.key.scancode == SDL_SCANCODE_SLASH)
+        {
+            display->MarkBug();
+            break;
+        }
         [[fallthrough]];
     case SDL_EVENT_MOUSE_WHEEL:
         mouseGestures(event);

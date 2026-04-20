@@ -77,6 +77,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.o"
+  "CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o"
   "CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o"

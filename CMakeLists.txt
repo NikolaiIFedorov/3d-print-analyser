@@ -39,6 +39,7 @@ include_directories(include/earcut.hpp-2.2.4/include/)
 add_executable(CAD_OpenGL
     src/main.cpp
     src/utils/log.cpp
+    src/utils/SessionLogger.cpp
     src/utils/SystemAccent.mm
     src/utils/SystemAppearance.mm  
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp

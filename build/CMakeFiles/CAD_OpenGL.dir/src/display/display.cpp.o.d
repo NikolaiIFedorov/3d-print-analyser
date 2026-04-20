@@ -1452,4 +1452,5 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/weibull_distribution.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/input/FileImport.hpp
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/input/FileImport.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp

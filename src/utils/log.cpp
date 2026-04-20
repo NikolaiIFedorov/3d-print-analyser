@@ -74,6 +74,10 @@ std::string Log::GetLevelTag(Level level, std::string &msg)
         level_str = ">BACK";
         color = "\033[90m"; // Gray
         break;
+    case Level::SESSION:
+        level_str = "$SESS";
+        color = "\033[36m"; // Cyan
+        break;
     default:
         level_str = "?info";
         break;
@@ -336,7 +340,7 @@ void Log::Write(const std::string &msg, const std::source_location &loc, Level l
 {
     if (allFilter)
         return;
-    if (debugFilter == true && level != Level::DEBUG)
+    if (debugFilter == true && level != Level::DEBUG && level != Level::SESSION)
         return;
 
     double duration = GetDuration();
@@ -377,6 +381,40 @@ void Log::Info(const std::string &msg, std::source_location loc, bool returnLog)
 void Log::Background(const std::string &msg, const std::source_location &loc, bool returnLog)
 {
     Write(msg, loc, Level::BACKGROUND, returnLog);
+}
+
+void Log::Session(const std::string &msg, const std::source_location &loc, bool returnLog)
+{
+    Write(msg, loc, Level::SESSION, returnLog);
+}
+
+// ── ToStr overloads ─────────────────────────────────────────────────────────
+
+std::string Log::ToStr(const std::string &v) { return v; }
+std::string Log::ToStr(const char *v) { return v ? std::string(v) : ""; }
+std::string Log::ToStr(bool v) { return v ? "true" : "false"; }
+
+std::string Log::ToStr(const glm::vec2 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m)\033[0m";
+}
+
+std::string Log::ToStr(const glm::vec3 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m, \033[0m" + NumToStr(v.z) +
+           "\033[90m)\033[0m";
+}
+
+std::string Log::ToStr(const glm::dvec3 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m, \033[0m" + NumToStr(v.z) +
+           "\033[90m)\033[0m";
 }
 
 bool Log::Erase(std::string &str, std::string start, char end)

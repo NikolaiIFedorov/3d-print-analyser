@@ -1078,6 +1078,30 @@ src/scene/scene.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
 .PHONY : src/scene/scene.cpp.s
 
+src/utils/SessionLogger.o: src/utils/SessionLogger.cpp.o
+.PHONY : src/utils/SessionLogger.o
+
+# target to build an object file
+src/utils/SessionLogger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.o
+.PHONY : src/utils/SessionLogger.cpp.o
+
+src/utils/SessionLogger.i: src/utils/SessionLogger.cpp.i
+.PHONY : src/utils/SessionLogger.i
+
+# target to preprocess a source file
+src/utils/SessionLogger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.i
+.PHONY : src/utils/SessionLogger.cpp.i
+
+src/utils/SessionLogger.s: src/utils/SessionLogger.cpp.s
+.PHONY : src/utils/SessionLogger.s
+
+# target to generate assembly for a file
+src/utils/SessionLogger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.s
+.PHONY : src/utils/SessionLogger.cpp.s
+
 src/utils/SystemAccent.o: src/utils/SystemAccent.mm.o
 .PHONY : src/utils/SystemAccent.o
 
@@ -1277,6 +1301,9 @@ help:
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"
+	@echo "... src/utils/SessionLogger.o"
+	@echo "... src/utils/SessionLogger.i"
+	@echo "... src/utils/SessionLogger.s"
 	@echo "... src/utils/SystemAccent.o"
 	@echo "... src/utils/SystemAccent.i"
 	@echo "... src/utils/SystemAccent.s"

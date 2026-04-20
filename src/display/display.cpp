@@ -18,6 +18,7 @@
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
+#include "utils/SessionLogger.hpp"
 
 Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height), scene(scene)
 {
@@ -453,6 +454,16 @@ void Display::Frame()
             flawSmall.count = smallFeatures;
             flawSmall.frameCallback = makeFrameCallback(smallMin, smallMax);
 
+            // Log analysis results to session
+            {
+                auto &sl = SessionLogger::Instance();
+                sl.state.overhangs = overhangs;
+                sl.state.sharpEdges = sharpEdges;
+                sl.state.thinSections = thinSections;
+                sl.state.smallFeatures = smallFeatures;
+                sl.LogAnalysisRun();
+            }
+
             // Two-tier verdict
             bool hasVisual = (overhangs > 0) || (thinSections > 0);
             bool hasPrecision = (smallFeatures > 0) || (sharpEdges > 0);
@@ -668,6 +679,14 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
     return uiRenderer.HitTest(pixelX, pixelY);
 }
 
+void Display::MarkBug()
+{
+    auto &sl = SessionLogger::Instance();
+    sl.state.cameraTarget = camera.target;
+    sl.state.cameraOrthoSize = camera.orthoSize;
+    sl.LogBugMarker();
+}
+
 void Display::InitUI()
 {
     float sidebarWidth = 10.0f;
@@ -718,7 +737,19 @@ void Display::InitUI()
                     ThreeMFImport::Import(path, this->scene);
 
                 FrameScene();
-                UpdateScene(); });
+                UpdateScene();
+
+                // Log the import event to the session
+                {
+                    auto &sl = SessionLogger::Instance();
+                    sl.state.lastFilename = path.substr(path.find_last_of("/\\") + 1);
+                    sl.state.lastFormat = lower;
+                    sl.state.points = this->scene->points.size();
+                    sl.state.edges  = this->scene->edges.size();
+                    sl.state.faces  = this->scene->faces.size();
+                    sl.state.solids = this->scene->solids.size();
+                    sl.LogFileImport(sl.state.lastFilename, lower);
+                } });
     };
     uiVerdict = &analysis.AddParagraph("Verdict");
     uiVerdict->visible = false;
@@ -898,6 +929,13 @@ void Display::InitUI()
                 fr.frameCallback();
             if (changed)
             {
+                auto &sl = SessionLogger::Instance();
+                sl.state.overhangAngle = this->overhangAngle;
+                sl.state.sharpCornerAngle = this->sharpCornerAngle;
+                sl.state.thinMinWidth = this->thinMinWidth;
+                sl.state.minFeatureSize = this->minFeatureSize;
+                sl.state.layerHeight = this->layerHeight;
+                sl.LogParamChange(std::string(dragId + 2), param);
                 RebuildAnalysis();
                 UpdateScene();
             }

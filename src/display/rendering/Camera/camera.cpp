@@ -14,7 +14,7 @@ Camera::Camera(uint16_t width, uint16_t height)
     // Orthographic depth precision is linear, so ±100 000 world units still
     // gives ~12 µm per depth step with a 24-bit buffer — more than enough.
     nearPlane = -100000.0f;
-    farPlane  =  100000.0f;
+    farPlane = 100000.0f;
 }
 
 glm::vec3 Camera::GetPosition() const

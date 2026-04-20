@@ -5,6 +5,7 @@
 #include "scene.hpp"
 #include "display/display.hpp"
 #include "input/Input.hpp"
+#include "utils/SessionLogger.hpp"
 
 Scene scene;
 SDL_Window *window = nullptr;
@@ -42,12 +43,14 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
 
 void Shutdown()
 {
+    SessionLogger::Instance().Flush("session_log.json");
     if (display)
         display->Shutdown();
 }
 
 bool Init()
 {
+    SessionLogger::Instance().Start();
     display.emplace(1280, 720, "CAD OpenGL", &scene);
     input.emplace(&display.value());
     window = display->GetWindow();
