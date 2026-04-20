@@ -23,8 +23,8 @@ public:
     ViewportRenderer &operator=(ViewportRenderer &&other) noexcept;
 
     void SetCamera(Camera &camera);
-    void Render();      // draws grid (with depth test)
-    void RenderAxes();  // draws axes without depth test — call AFTER scene geometry
+    void Render();         // draws grid (with depth test)
+    void RenderAxes();     // draws axes without depth test — call AFTER scene geometry
     void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
     void Shutdown();
 

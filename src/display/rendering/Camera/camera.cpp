@@ -10,8 +10,11 @@ Camera::Camera(uint16_t width, uint16_t height)
     orthoSize = 2.5f;
     aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     fov = 45.0f;
-    nearPlane = -10000.0f;
-    farPlane = 10000.0f;
+    // Large symmetric range so nothing is near-clipped during orbit/pan.
+    // Orthographic depth precision is linear, so ±100 000 world units still
+    // gives ~12 µm per depth step with a 24-bit buffer — more than enough.
+    nearPlane = -100000.0f;
+    farPlane  =  100000.0f;
 }
 
 glm::vec3 Camera::GetPosition() const
@@ -36,7 +39,7 @@ glm::mat4 Camera::GetProjectionMatrix() const
     return glm::ortho(
         -halfWidth, halfWidth,
         -halfHeight, halfHeight,
-        -10000.0f, 10000.0f);
+        nearPlane, farPlane);
 }
 
 void Camera::Orbit(float deltaX, float deltaY)
@@ -49,7 +52,7 @@ void Camera::Orbit(float deltaX, float deltaY)
     glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
-    glm::vec3 axis = glm::normalize(right * -deltaY + up * deltaX);
+    glm::vec3 axis = glm::normalize(right * deltaY + up * deltaX);
 
     glm::quat rotation = glm::angleAxis(-angle, axis);
     orientation = glm::normalize(rotation * orientation);
@@ -104,8 +107,16 @@ void Camera::FrameBounds(const glm::vec3 &min, const glm::vec3 &max)
 
     glm::vec3 size = max - min;
     float maxDim = std::max({size.x, size.y, size.z});
+    float halfDiag = glm::length(size) * 0.5f;
 
     orthoSize = maxDim * 0.6f;
+
+    // Place camera just outside the bounding sphere so all geometry is in front.
+    // (Distance has no effect on ortho zoom.)
+    distance = halfDiag + 10.0f;
+
+    // Keep near/far at their generous defaults so the world axes (±10000)
+    // and grid are never clipped regardless of model size or zoom level.
 }
 
 void Camera::SetTarget(const glm::vec3 &t)

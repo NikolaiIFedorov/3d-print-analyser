@@ -276,17 +276,15 @@ void OpenGLRenderer::DrawTriangles()
 
     shader.Use();
 
-    GLint currentProgram;
-    glGetIntegerv(GL_CURRENT_PROGRAM, &currentProgram);
     glm::mat4 viewProj = projectionMatrix * viewMatrix;
     shader.SetMat4("uViewProjection", viewProj);
 
     shader.SetMat4("uModel", modelMatrix);
 
-    // Lighting uniforms — asymmetric diagonal so cube faces differ
-    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 0.8f, 0.5f)));
+    // Light from positive XYZ corner, matching the axis indicator colors
+    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f)));
     shader.SetVec3("uViewPos", viewPos);
-    shader.SetFloat("uBrightenAmount", 0.5f);
+    shader.SetFloat("uBrightenAmount", 1.0f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);
@@ -298,17 +296,12 @@ void OpenGLRenderer::DrawTriangles()
     glDepthFunc(GL_LEQUAL);
     glDepthMask(GL_TRUE);
 
-    // Push triangles slightly back so edges render on top
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(1.0f, 1.0f);
-
     glBindVertexArray(triangleVAO);
 
     glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
 
-    glDisable(GL_POLYGON_OFFSET_FILL);
     GetGLError();
 }
 

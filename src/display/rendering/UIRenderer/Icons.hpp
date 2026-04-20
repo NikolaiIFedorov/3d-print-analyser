@@ -94,9 +94,9 @@ namespace Icons
             float cy = std::round(midY);
             float r = std::round(s * 0.70f);
             ImVec2 pts[3] = {
-                ImVec2(cx - r,        cy),             // left wing
+                ImVec2(cx - r, cy),                   // left wing
                 ImVec2(cx + r * 0.5f, cy + r * 0.5f), // apex (bottom-right)
-                ImVec2(cx,            cy - r),          // top wing
+                ImVec2(cx, cy - r),                   // top wing
             };
             dl->AddPolyline(pts, 3, col, 0, stroke);
         };
@@ -112,7 +112,7 @@ namespace Icons
             glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
             ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
             float cx = x + s;
-            float r  = std::round(s * 0.70f);
+            float r = std::round(s * 0.70f);
             float barH = std::max(1.5f, std::round(r * 0.28f)); // half-height of the bar
             dl->AddRectFilled(ImVec2(cx - r, midY - barH), ImVec2(cx + r, midY + barH), col);
         };

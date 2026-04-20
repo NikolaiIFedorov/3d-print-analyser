@@ -190,15 +190,8 @@ void ViewportRenderer::Render()
 
     glBindVertexArray(lineVAO);
 
-    // Draw grid
+    // Draw grid only — axes are handled by RenderAxes() after the scene
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
-
-    // Draw axes on top of grid
-    glDisable(GL_DEPTH_TEST);
-    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
-    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
-                   (void *)(gridIndexCount * sizeof(uint32_t)));
-    glEnable(GL_DEPTH_TEST);
 
     glBindVertexArray(0);
 }

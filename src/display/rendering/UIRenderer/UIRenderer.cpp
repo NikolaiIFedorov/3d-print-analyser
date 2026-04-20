@@ -1162,7 +1162,7 @@ void UIRenderer::Render()
                 {
                     if (pixelImFont)
                         ImGui::PushFont(pixelImFont);
-                    ImGui::SetCursorPos(ImVec2(0, 0)); // ensure cursor starts at top-left of slot window
+                    ImGui::SetCursorPos(ImVec2(0, 0));          // ensure cursor starts at top-left of slot window
                     line.imguiContent(btnW, baseH, iconOffset); // pass visual height and icon slot offset
                     if (pixelImFont)
                         ImGui::PopFont();

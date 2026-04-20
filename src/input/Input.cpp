@@ -169,7 +169,7 @@ void Input::mouseGestures(const SDL_Event &event)
         float x = event.wheel.x;
         float y = event.wheel.y;
         bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
-        bool trackpadActive = activeTouches.size() >= 1; // block wheel as soon as any finger is present
+        bool trackpadActive = gestureLocked; // block wheel only when a trackpad gesture is confirmed
         if (hasModifier || !trackpadActive)
         {
             if (mod & SDL_KMOD_ALT)
@@ -248,7 +248,7 @@ void Input::mouseGestures(const SDL_Event &event)
     case SDL_EVENT_MOUSE_MOTION:
         if (middleMouseDown)
             display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
-                           -event.motion.yrel * MOUSE_SENSITIVITY);
+                           event.motion.yrel * MOUSE_SENSITIVITY);
         else if (rightMouseDown)
             display->Pan(event.motion.xrel * MOUSE_SENSITIVITY,
                          event.motion.yrel * MOUSE_SENSITIVITY, false);
@@ -272,7 +272,7 @@ bool Input::processEvent(const SDL_Event &event)
         // when the user switches back to the window.
         if (rightMouseDown || middleMouseDown)
         {
-            rightMouseDown  = false;
+            rightMouseDown = false;
             middleMouseDown = false;
             SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
         }
@@ -305,10 +305,14 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_MOUSE_MOTION:
         if (io.WantCaptureMouse)
             break;
-        // Allow new drags only when no trackpad gesture is active, but
-        // always deliver motion/up events to in-progress drags so a
-        // concurrent finger touch cannot orphan a held button.
-        if (activeTouches.size() < 2 || rightMouseDown || middleMouseDown)
+        // Allow mouse button/motion events unless a trackpad gesture has been
+        // confirmed and locked. Using the finger count alone would block right-
+        // click drags on macOS: a 2-finger tap fires two FINGER_DOWNs before
+        // MOUSE_BUTTON_DOWN, making activeTouches.size() == 2 and swallowing
+        // the click. gestureLocked is only true once the gesture is identified.
+        // Always let through in-progress drags so a concurrent touch can't
+        // orphan a held button mid-motion.
+        if (!gestureLocked || rightMouseDown || middleMouseDown)
             mouseGestures(event);
         break;
     case SDL_EVENT_FINGER_DOWN:

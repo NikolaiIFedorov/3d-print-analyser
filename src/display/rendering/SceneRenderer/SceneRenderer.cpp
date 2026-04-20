@@ -28,9 +28,13 @@ void SceneRenderer::SetCamera(Camera &camera)
     renderer.SetViewPos(camera.GetPosition());
 }
 
-void SceneRenderer::Render()
+void SceneRenderer::RenderPatches()
 {
     renderer.DrawTriangles();
+}
+
+void SceneRenderer::RenderWireframe()
+{
     renderer.DrawLines();
 }
 

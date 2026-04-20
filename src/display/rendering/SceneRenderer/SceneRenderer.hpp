@@ -28,11 +28,11 @@ public:
 
     void SetCamera(Camera &camera);
 
-    void Render();
+    void RenderPatches();
+    void RenderWireframe();
 
     void Shutdown();
 
 private:
     OpenGLRenderer renderer;
-    SDL_Window *window = nullptr;
 };

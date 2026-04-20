@@ -122,12 +122,12 @@ struct Color
     static glm::vec4 GetEdge(EdgeFlawKind flaw);
 
 private:
-    static constexpr float kBase   = 0.1f;
-    static constexpr float kStep   = 0.1f;
-    static constexpr float kFaceL  = kBase + kStep;          // default luminance for scene faces
-    static constexpr float kEdgeL  = kFaceL + kStep * 0.5f;  // edges: half-step above faces (less bright than before)
-    static constexpr float kPointL = kEdgeL + kStep;          // default luminance for scene points
-    static constexpr float kAccentLBoost = 0.10f;    // luminance offset in GetAccent to compensate for perceived darkening from saturation
+    static constexpr float kBase = 0.1f;
+    static constexpr float kStep = 0.1f;
+    static constexpr float kFaceL = kBase + kStep;         // default luminance for scene faces
+    static constexpr float kEdgeL = kFaceL + kStep * 0.5f; // edges: half-step above faces (less bright than before)
+    static constexpr float kPointL = kEdgeL + kStep;       // default luminance for scene points
+    static constexpr float kAccentLBoost = 0.10f;          // luminance offset in GetAccent to compensate for perceived darkening from saturation
 
     inline static bool s_darkMode = true;
     inline static float s_uiBase = 0.05f;

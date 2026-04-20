@@ -164,14 +164,17 @@ void Display::Render()
     glClearColor(bg.r, bg.g, bg.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    viewportRenderer.Render();    // grid (depth-tested)
+    viewportRenderer.Render(); // grid (depth-tested)
 
-    // Mark every pixel the solid covers in the stencil buffer (value = 1).
-    // Axes will only draw where stencil == 0 (open space).
+    // Mark only the solid surface pixels in the stencil buffer (value = 1).
+    // Lines are excluded — their geometry-shader quads extend beyond silhouettes
+    // and would bleed into the stencil, incorrectly clipping axes.
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    renderer.Render();             // scene patches + edges
+    renderer.RenderPatches();
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
+    renderer.RenderWireframe();
     glDisable(GL_STENCIL_TEST);
 
     viewportRenderer.RenderAxes(); // axes — occluded by solid via stencil
@@ -569,11 +572,25 @@ void Display::Frame()
 
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 {
-    glViewport(0, 0, width, height);
+    windowWidth = static_cast<int16_t>(width);
+    windowHeight = static_cast<int16_t>(height);
+
+    // Use physical pixels for the GL viewport so Retina/HiDPI framebuffers
+    // are covered correctly. Logical dimensions are still used for the camera
+    // and UI (aspect ratio is identical; UI uses its own coordinate space).
+    int physW, physH;
+    SDL_GetWindowSizeInPixels(window, &physW, &physH);
+    glViewport(0, 0, physW, physH);
+
     camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
     uiRenderer.SetScreenSize(width, height);
 
-    UpdateCamera();
+    // Push updated matrices to the renderers immediately. ResizeEventWatcher
+    // calls Render() before Frame() has a chance to process cameraDirty, so
+    // the renderer must have the fresh projection before that Render() runs.
+    renderer.SetCamera(camera);
+    viewportRenderer.SetCamera(camera);
+
     renderDirty = true;
 }
 
@@ -606,9 +623,9 @@ void Display::snapInput(float &x, float &y)
         y = 0;
 }
 
-void Display::Orbit(float offsetY, float offsetX)
+void Display::Orbit(float offsetX, float offsetY)
 {
-    camera.Orbit(offsetY, offsetX);
+    camera.Orbit(offsetX, offsetY);
 
     UpdateCamera();
 }
