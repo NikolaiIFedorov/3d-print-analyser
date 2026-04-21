@@ -1,5 +1,6 @@
 #include "display.hpp"
 #include "rendering/color.hpp"
+#include <algorithm>
 #include "rendering/UIRenderer/UIStyle.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
 #include "logic/Analysis/Analysis.hpp"
@@ -80,6 +81,7 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
     uiRenderer.SetHeavyImFont(heavyFont);
 
     InitUI();
+    LoadSettings();
     SDL_AddEventWatch(ResizeEventWatcher, this);
 
     LOG_VOID("Initialized display");
@@ -144,6 +146,7 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    SaveSettings();
     SystemAppearance::ClearChangeCallback();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
@@ -158,6 +161,57 @@ void Display::Shutdown()
     if (window)
         SDL_DestroyWindow(window);
     SDL_Quit();
+}
+
+void Display::LoadSettings()
+{
+    Settings loaded;
+    if (!loaded.Load(Settings::DefaultPath()))
+        return; // No file yet — keep all defaults.
+
+    // Analysis
+    overhangAngle    = loaded.overhangAngle;
+    sharpCornerAngle = loaded.sharpCornerAngle;
+    minFeatureSize   = loaded.minFeatureSize;
+    thinMinWidth     = loaded.thinMinWidth;
+    layerHeight      = loaded.layerHeight;
+
+    // Appearance
+    settingsAccentHue       = loaded.accentHue;
+    settingsAccentSat       = loaded.accentSat;
+    settingsAccentUseSystem = loaded.accentUseSystem;
+    if (!settingsAccentUseSystem)
+        Color::SetAccent(settingsAccentHue, settingsAccentSat);
+
+    themeMode = static_cast<ThemeMode>(std::clamp(loaded.themeMode, 0, 2));
+    ApplyTheme();
+
+    // Viewport
+    Color::GRID_EXTENT = loaded.gridExtent;
+    viewportRenderer.RegenerateGrid();
+
+    // Navigation
+    mouseSensitivity = loaded.mouseSensitivity;
+
+    // Re-run analysis with restored parameters.
+    RebuildAnalysis();
+    renderDirty = true;
+}
+
+void Display::SaveSettings()
+{
+    settings.overhangAngle    = overhangAngle;
+    settings.sharpCornerAngle = sharpCornerAngle;
+    settings.minFeatureSize   = minFeatureSize;
+    settings.thinMinWidth     = thinMinWidth;
+    settings.layerHeight      = layerHeight;
+    settings.accentHue        = settingsAccentHue;
+    settings.accentSat        = settingsAccentSat;
+    settings.accentUseSystem  = settingsAccentUseSystem;
+    settings.themeMode        = static_cast<int>(themeMode);
+    settings.gridExtent       = Color::GRID_EXTENT;
+    settings.mouseSensitivity = mouseSensitivity;
+    settings.Save(Settings::DefaultPath());
 }
 
 void Display::RebuildAnalysis()

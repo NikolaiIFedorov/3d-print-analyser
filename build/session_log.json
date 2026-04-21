@@ -1,9 +1,7 @@
 {
-  "session_start": "2026-04-20T23:47:31Z",
+  "session_start": "2026-04-21T00:02:52Z",
   "events": [
     { "t_ms": 0, "type": "app_start" },
-    { "t_ms": 136, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
-    { "t_ms": 57962, "type": "file_import", "data": { "filename": "Analysis.stl", "format": "stl", "points": 284, "edges": 870, "faces": 1009, "solids": 1 } },
-    { "t_ms": 58426, "type": "analysis_run", "data": { "overhangs": 1, "sharp_edges": 4, "thin_sections": 2, "small_features": 6, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } }
+    { "t_ms": 128, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } }
   ]
 }

@@ -3154,6 +3154,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.hpp \
@@ -3193,6 +3194,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: /Users/nikolnotai/Documents
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAccent.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAppearance.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
@@ -17979,6 +17981,7 @@ CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o: /Users/nikolnotai/Documents/CAD
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.hpp \
@@ -18007,6 +18010,7 @@ CMakeFiles/CAD_OpenGL.dir/src/input/Input.cpp.o: /Users/nikolnotai/Documents/CAD
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp \
   /opt/homebrew/include/SDL3/SDL.h \
@@ -29825,6 +29829,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/OpenGLRenderer.hpp \
@@ -29854,6 +29859,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/scene.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/utils.hpp \
   /opt/homebrew/include/SDL3/SDL.h \
@@ -39539,6 +39545,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSRunningApplication.h:
 
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSRulerView.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSRuleEditor.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSRotationGestureRecognizer.h:
@@ -39919,6 +39927,8 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer/ViewportRenderer.hpp:
 
+/Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp:
+
 /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp:
@@ -40298,8 +40308,6 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/CFNetwork.framework/Headers/CFNetworkDefs.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/type_vec4.hpp:
-
-/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/AppKit.framework/Headers/NSRulerView.h:
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/trigonometric.hpp:
 

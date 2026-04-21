@@ -11,6 +11,7 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
+#include "utils/Settings.hpp"
 
 class Display
 {
@@ -45,12 +46,15 @@ public:
     bool renderDirty = true;
     float mouseSensitivity = 30.0f; // display units: raw value × 10000 (1–500); Input.cpp compensates
 
+    Settings settings;
+
     enum class ThemeMode
     {
         System,
         Light,
         Dark
     };
+    // themeMode mirrors settings.themeMode as a typed enum.
     ThemeMode themeMode = ThemeMode::System;
 
     // Apply the resolved appearance (dark/light) from themeMode + current system theme.
@@ -78,15 +82,15 @@ private:
     bool cameraDirty = true;
     bool sceneDirty = true;
 
-    float overhangAngle = 45.0f;
-    float sharpCornerAngle = 100.0f;
-    float minFeatureSize = 0.4f;
-    float thinMinWidth = 2.0f;
-    float layerHeight = 0.2f;
+    float overhangAngle     = 45.0f;
+    float sharpCornerAngle  = 100.0f;
+    float minFeatureSize    = 0.4f;
+    float thinMinWidth      = 2.0f;
+    float layerHeight       = 0.2f;
     float settingsAccentHue = 220.0f;
     float settingsAccentSat = 0.35f;
-    bool settingsAccentUseSystem = true;
-    bool settingsOpenAccentPicker = false;
+    bool  settingsAccentUseSystem  = true;
+    bool  settingsOpenAccentPicker = false;
 
     RootPanel *uiFiles = nullptr;
     RootPanel *uiAnalysis = nullptr;
@@ -121,5 +125,7 @@ private:
     void InitUI();
     void DoFileImport();
     void RebuildFileTabs();
+    void LoadSettings();
+    void SaveSettings();
     bool pendingFileTabsRebuild = false;
 };

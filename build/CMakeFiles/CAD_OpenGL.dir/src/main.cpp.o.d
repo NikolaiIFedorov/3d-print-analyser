@@ -1392,5 +1392,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp
