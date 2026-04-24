@@ -94,12 +94,15 @@ struct SectionLine
     int textDepth = 1;                                               // Color::GetUIText depth (higher = brighter in dark, darker in light)
     std::function<void()> onClick;                                   // button attachment: underlined text, pointer cursor
     bool selected = false;                                           // persistent selected state — draws same background as hover
+    bool accentBar = false;                                          // draws a left-edge accent bar (active step indicator)
+    bool dimFill = false;                                            // draws a subtle neutral fill (completed step)
     std::function<void(ImDrawList *, float, float, float)> iconDraw; // icon attachment: drawn left of text; layout reserves slot automatically
     float iconSizeRatio = 0.0f;                                      // 0 = use global ICON_SIZE_RATIO; >0 overrides (e.g. ICON_SIZE_RATIO_SMALL for chevron)
     std::function<void(float, float, float)> imguiContent;           // input attachment: custom ImGui widget (w, h, iconOffsetPx)
     std::function<float()> getMinContentWidthPx;                     // optional: called at layout time to enforce min content width (px)
     bool bold = false;                                               // true = use heavy/title font; false = use body font if available
     std::optional<Select> select;                                    // segmented pill selector — replaces imguiContent when set
+    bool visible = true;                                             // false = skipped in layout and render
 };
 
 // Box model for UI elements (CSS-like). Each element has:
@@ -126,11 +129,16 @@ struct ContentBox
 struct UIElement
 {
     static constexpr float BASE_RADIUS = 0.5f;
+    static constexpr float RADIUS_STEP = 0.1f; // radius reduction per nesting layer
     static constexpr float LINE_GAP_RATIO = 0.35f;
     static constexpr float INSET_RATIO = 0.44f; // padding/margin as a fraction of UIGrid::GAP
+    // Icon slot: s = max(2, round(lineBearing * ICON_SIZE_RATIO)); slot = 2s + 3 px wide
+    static constexpr float ICON_SIZE_RATIO = 0.40f;
+    static constexpr float ICON_SIZE_RATIO_SMALL = 0.28f; // chevron on collapsible section headers
 
-    static constexpr float RadiusForLayer(int /*layer*/) { return BASE_RADIUS; }
+    static constexpr float RadiusForLayer(int layer) { return BASE_RADIUS - RADIUS_STEP * layer; }
     static constexpr float PaddingForLayer(int layer) { return layer == 2 ? 0.0f : UIGrid::GAP * INSET_RATIO; }
+    // Use uniform margin across layers for consistent inter-element gap visuals.
     static constexpr float MarginForLayer(int /*layer*/) { return UIGrid::GAP * INSET_RATIO; }
 
     std::string id;
@@ -159,6 +167,13 @@ struct UIElement
 struct Paragraph : UIElement
 {
     std::vector<SectionLine> values;
+    int bgParentDepth = -1; // >= 0 draws a rounded-rect background; pass the parent element's depth (renderer adds +1)
+    bool accentBar = false; // draws a left-edge accent bar spanning the full paragraph height
+    bool dimFill = false;   // draws a subtle neutral fill over the full paragraph background
+    bool selected = false;  // draws a persistent accent tint over the full paragraph background
+    std::function<void(ImDrawList *, float, float, float, float)> leadingDraw; // optional full-height leading slot (x0,y0,x1,y1)
+    float leadingWidth = 0.0f; // grid-cell width reserved left of all content lines (0 = no slot)
+    std::function<void()> onClick; // optional: makes the leading slot a clickable button (hand cursor, InvisibleButton)
 
     Paragraph()
     {
@@ -198,8 +213,9 @@ struct Section : UIElement
 {
     std::optional<Header> header; // present = render a title row above children
     std::vector<Paragraph> children;
-    bool collapsed = false;   // true = children hidden, only header row rendered
-    bool tightHeader = false; // true = no gap between header title and first content row
+    bool collapsed = false;        // true = children hidden, only header row rendered
+    bool tightHeader = false;      // true = no gap between header title and first content row
+    bool noChildSplitters = false; // true = suppress splitter lines between children (e.g. visually separated by their own backgrounds)
 
     Section()
     {
@@ -222,8 +238,10 @@ struct Section : UIElement
 // Owns anchor constraints and a local grid. Children are Sections or Paragraphs.
 struct RootPanel : UIElement
 {
-    int colorDepth{-1};           // >= 0 means draw a background via Color::GetUI(colorDepth)
-    std::optional<Header> header; // present = render a title row above children
+    int bgParentDepth{-1};             // >= 0 draws a background; set to parent element's depth (renderer adds +1 to get this panel's depth)
+    std::optional<Header> header;      // present = render a title row above children
+    std::optional<Paragraph> subtitle; // present = render a description row below the header with no splitter between them
+    bool horizontal = false;           // true = lay children side-by-side (tab bar layout)
 
     // Horizontal constraints
     std::optional<PanelAnchor> leftAnchor;
@@ -247,7 +265,7 @@ struct RootPanel : UIElement
         padding = PaddingForLayer(0);
     }
 
-    bool HasBackground() const { return colorDepth >= 0; }
+    bool HasBackground() const { return bgParentDepth >= 0; }
 
     Section &AddSection(const std::string &sectionId)
     {
