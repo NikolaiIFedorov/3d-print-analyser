@@ -6,6 +6,7 @@
 #include "rendering/OpenGL/OpenGLRenderer.hpp"
 #include "rendering/Camera/camera.hpp"
 #include "rendering/color.hpp"
+#include "rendering/ScenePick.hpp"
 
 #include "Wireframe/Wireframe.hpp"
 #include "Patch/patch.hpp"
@@ -29,10 +30,20 @@ public:
     void SetCamera(Camera &camera);
 
     void RenderPatches();
+    void RenderPickHighlight();
+    void RenderPickHighlightLines(float lineWidthPx);
     void RenderWireframe();
+
+    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+
+    const std::vector<PickTriangle> &GetPickTriangles() const { return pickTriangles; }
+    const std::vector<PickSegment> &GetPickSegments() const { return pickSegments; }
 
     void Shutdown();
 
 private:
     OpenGLRenderer renderer;
+    std::vector<PickTriangle> pickTriangles;
+    std::vector<PickSegment> pickSegments;
 };

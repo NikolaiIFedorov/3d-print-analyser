@@ -24,7 +24,7 @@ CAD_OpenGL is a 3D-printability analysis tool built on a B-Rep geometry kernel, 
 - Model B-Rep geometry (points, edges, curves, faces, solids) with support for planar and NURBS surfaces.
 - Render wireframe + shaded patches with depth-correct edge overlay.
 - Detect additive-manufacturing flaws: overhang angles, thin sections, sharp corners, unsupported bridges, and small features.
-- Navigate the 3D viewport via mouse (orbit, pan, zoom, roll) and trackpad gestures.
+- Navigate the 3D viewport via mouse (orbit, pan, zoom, roll); scroll wheel with modifiers.
 
 ### Non-Functional Requirements
 - Real-time interactive frame rates for small-to-medium models.
@@ -46,7 +46,7 @@ CAD_OpenGL is a 3D-printability analysis tool built on a B-Rep geometry kernel, 
 | **Scene** | `Scene`, `Point`, `Edge`, `Face`, `Solid`, `Curve`, `Surface`, `OrientedEdge` | B-Rep topology & geometry ownership. `std::deque` stores entities; raw pointers form the dependency graph. |
 | **Analysis** | `Analysis` (singleton), `IFaceAnalysis`, `ISolidAnalysis`, `Overhang`, `ThinSection`, `SharpCorner`, `Bridging`, `SmallFeature`, `Slice` | Stateless flaw-detection algorithms registered at startup. Per-face and per-solid analysis pipelines. |
 | **Rendering** | `Display`, `SceneRenderer`, `Patch`, `Wireframe`, `OpenGLRenderer`, `OpenGLShader`, `Camera`, `Color` | Earcut triangulation, curve tessellation, GPU upload (VBO/VAO/IBO), orthographic camera, depth-correct edge rendering. |
-| **Input** | `Input` | SDL3 event dispatch; mouse and multi-finger trackpad gesture classification (pan vs zoom vs orbit). |
+| **Input** | `Input` | SDL3 event dispatch; mouse and scroll wheel to camera. |
 
 ### Data Flow
 
@@ -99,7 +99,7 @@ Display::UpdateScene()  →  SceneRenderer::UpdateScene()
 | **Entity storage** | `std::deque` per type + raw `*` graph | ECS (entt), or `std::vector<unique_ptr>` | Deque gives pointer stability for free; raw pointers are fine since Scene owns lifetimes. ECS would be over-engineering at this scale. **Current approach is appropriate.** |
 | **Analysis invocation** | Singleton `Analysis::Instance()` called from rendering | Pass analysis results as a parameter to `Generate()` | Decouples rendering from analysis; enables unit testing without a singleton. **Recommended change.** |
 | **Triangulation** | Earcut (2D polygon earclipping) | CGAL constrained Delaunay, libtess2 | Earcut is header-only, fast, handles holes. Correct choice for planar faces. NURBS faces will need parametric-domain tessellation — Earcut won't generalize there. |
-| **Windowing** | SDL3 | GLFW (already vendored in `include/`) | SDL3 gives better touch/trackpad support and is more actively maintained. Good choice. The vendored GLFW headers are unused dead weight. |
+| **Windowing** | SDL3 | GLFW (already vendored in `include/`) | SDL3 is a good fit for cross-platform windowing and input. The vendored GLFW headers are unused dead weight. |
 | **Slicing** | Each analysis independently scans Z-bounds and calls `Slice::Range()` | Pre-compute slices once per solid, share across analyses | Would eliminate 3× redundant vertex scans and slice computations. **Recommended change.** |
 
 ---

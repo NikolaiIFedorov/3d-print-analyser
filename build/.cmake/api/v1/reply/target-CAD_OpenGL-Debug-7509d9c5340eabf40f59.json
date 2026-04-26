@@ -33,13 +33,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 116,
+				"line" : 124,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 124,
+				"line" : 132,
 				"parent" : 0
 			},
 			{
@@ -69,7 +69,7 @@
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 97,
+				"line" : 104,
 				"parent" : 0
 			}
 		]
@@ -100,7 +100,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -std=c++2b -arch arm64"
+					"fragment" : "-g -std=c++2b"
 				}
 			],
 			"includes" : 
@@ -144,6 +144,10 @@
 				{
 					"backtrace" : 8,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic"
+				},
+				{
+					"backtrace" : 8,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate"
 				},
 				{
 					"backtrace" : 8,
@@ -232,21 +236,28 @@
 				27,
 				28,
 				29,
+				30,
+				31,
+				32,
+				33,
 				34,
 				35,
 				36,
-				37,
-				38,
-				39,
-				40,
-				41
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48
 			]
 		},
 		{
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -arch arm64"
+					"fragment" : "-g"
 				}
 			],
 			"includes" : 
@@ -290,6 +301,10 @@
 				{
 					"backtrace" : 8,
 					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic"
+				},
+				{
+					"backtrace" : 8,
+					"path" : "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate"
 				},
 				{
 					"backtrace" : 8,
@@ -340,10 +355,10 @@
 			"language" : "C",
 			"sourceIndexes" : 
 			[
-				30,
-				31,
-				32,
-				33
+				37,
+				38,
+				39,
+				40
 			]
 		}
 	],
@@ -476,7 +491,14 @@
 				38,
 				39,
 				40,
-				41
+				41,
+				42,
+				43,
+				44,
+				45,
+				46,
+				47,
+				48
 			]
 		}
 	],
@@ -498,6 +520,12 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/utils/SessionLogger.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/utils/Settings.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
@@ -563,6 +591,12 @@
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
+			"path" : "src/display/rendering/UIRenderer/ToolPanel.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
 			"path" : "src/display/rendering/ViewportRenderer/ViewportRenderer.cpp",
 			"sourceGroupIndex" : 0
 		},
@@ -570,6 +604,18 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/display/rendering/Camera/camera.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/display/rendering/ScenePick.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/display/rendering/CalibPickSegments.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{
@@ -642,6 +688,24 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "src/logic/Analysis/utils/Slice.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Calibrate/CalibDistanceType.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Calibrate/CalibNominal.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Calibrate/CalibCompensation.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{

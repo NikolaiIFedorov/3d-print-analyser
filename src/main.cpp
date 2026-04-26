@@ -42,6 +42,9 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
 
 void Shutdown()
 {
+    if (display)
+        display->FillSessionReproState(SessionLogger::Instance().state);
+    SessionLogger::Instance().LogSessionEndSnapshot();
     SessionLogger::Instance().Flush("session_log.json");
     if (display)
         display->Shutdown();

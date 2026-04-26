@@ -8,10 +8,17 @@
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
+#include "rendering/UIRenderer/Icons.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_opengl3.h"
 #include "utils/Settings.hpp"
+#include "utils/SessionLogger.hpp"
+#include "rendering/ScenePick.hpp"
+#include "Geometry/Geometry.hpp"
+#include "Calibrate/CalibDistanceType.hpp"
+
+struct Edge;
 
 class Display
 {
@@ -40,8 +47,18 @@ public:
     void Roll(float delta);
     void Pan(float offsetX, float offsetY, bool scroll = true);
     void FrameScene();
+    void ResetCameraView();
     glm::vec3 ScreenToWorld(float pixelX, float pixelY) const;
     void MarkBug();
+
+    /// Fills `out` with scene counts, analysis params, camera pose, clip planes, window sizes, and tool flags for logging.
+    void FillSessionReproState(SessionState &out) const;
+
+    /// Face/edge hover for tools that use `GetActivePickFilter()` (e.g. Calibrate). Respects UI hit-test and ImGui capture.
+    void UpdatePickHover(float pixelX, float pixelY);
+    /// Left-click in viewport: commits hovered face or edge to the active Calibrate point prerequisite when applicable.
+    void TryCommitCalibrateFacePick(float pixelX, float pixelY);
+    PickFilter GetActivePickFilter() const;
 
     bool renderDirty = true;
     float mouseSensitivity = 30.0f; // display units: raw value × 10000 (1–500); Input.cpp compensates
@@ -56,6 +73,13 @@ public:
     };
     // themeMode mirrors settings.themeMode as a typed enum.
     ThemeMode themeMode = ThemeMode::System;
+
+    enum class ActiveTool
+    {
+        Analysis,
+        Calibrate
+    };
+    ActiveTool activeTool = ActiveTool::Analysis;
 
     // Apply the resolved appearance (dark/light) from themeMode + current system theme.
     // Call at startup, on ThemeMode change, and on SDL_EVENT_SYSTEM_THEME_CHANGED.
@@ -82,22 +106,52 @@ private:
     bool cameraDirty = true;
     bool sceneDirty = true;
 
-    float overhangAngle     = 45.0f;
-    float sharpCornerAngle  = 100.0f;
-    float minFeatureSize    = 0.4f;
-    float thinMinWidth      = 2.0f;
-    float layerHeight       = 0.2f;
+    float overhangAngle = 45.0f;
+    float sharpCornerAngle = 100.0f;
+    float minFeatureSize = 0.4f;
+    float thinMinWidth = 2.0f;
+    float layerHeight = 0.2f;
     float settingsAccentHue = 220.0f;
     float settingsAccentSat = 0.35f;
-    bool  settingsAccentUseSystem  = true;
-    bool  settingsOpenAccentPicker = false;
+    bool settingsAccentUseSystem = true;
+
+    // Calibration tool — unified face-pick flow; `calibWorkflow` from CalibrateDistance rules (see CalibDistanceType.hpp).
+    CalibWorkflow calibWorkflow = CalibWorkflow::None;
+    float calibNominal = 0.0f;    // auto-detected from geometry (mm)
+    float calibMeasured = 100.0f; // user-entered printed measurement (mm)
+    /// Derived from workflow + nominal + measured (see RefreshCalibCompensation).
+    float calibContourScale = 1.0f;
+    float calibHoleOffsetMm = 0.0f;
+    float calibElephantFootMm = 0.0f;
+    bool calibCompensationValid = false;
+
+    // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
+    Icons::StepState calibStepImport    = Icons::StepState::Active;
+    Icons::StepState calibStepPoint1    = Icons::StepState::Active;
+    Icons::StepState calibStepPoint2    = Icons::StepState::Active;
+    Icons::StepState calibStepMeasure   = Icons::StepState::Active;
+    Icons::StepState analysisStepImport = Icons::StepState::Active;
+
+    bool settingsOpenAccentPicker = false;
 
     RootPanel *uiFiles = nullptr;
     RootPanel *uiAnalysis = nullptr;
+    RootPanel *uiCalibrate = nullptr;
     RootPanel *uiSettings = nullptr;
+    RootPanel *uiToolbar = nullptr;
+    SectionLine *toolbarAnalysisLine = nullptr;
+    SectionLine *toolbarCalibrateLine = nullptr;
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
+    // Calibrate step-flow pointers — updated when picking is wired
+    Paragraph *calibPara_Import = nullptr;          // hidden after file import
+    Paragraph *calibPara_Point1 = nullptr;          // shown/activated after import
+    Paragraph *calibPara_Point2 = nullptr;          // shown after point1 is plotted
+    Section *calibSec_Parameters = nullptr;       // hidden until import (contains Print measurement)
+    Paragraph *calibPara_Derived = nullptr;       // second Parameters row (span / compensation); hidden when unused
+    SectionLine *calibLine_Point1Primary = nullptr; // for per-line state (textDepth etc.)
+    SectionLine *calibLine_Point2Primary = nullptr;
 
     std::vector<std::string> openFiles;
 
@@ -128,4 +182,32 @@ private:
     void LoadSettings();
     void SaveSettings();
     bool pendingFileTabsRebuild = false;
+    bool pendingToolSwitch = false;
+
+    const Face *hoverPickFace = nullptr;
+    const Edge *hoverPickEdge = nullptr;
+    std::vector<Vertex> pickHighlightVertices;
+    std::vector<uint32_t> pickHighlightIndices;
+    std::vector<Vertex> pickHighlightLineVertices;
+    std::vector<uint32_t> pickHighlightLineIndices;
+
+    void ClearPickHover();
+    void ClearCalibrateFacePicks();
+    void SetHoverCalibPick(const Face *face, const Edge *edge);
+    void RebuildPickHighlightMesh();
+    void RefreshCalibWorkflow();
+    void RefreshCalibCompensation();
+    void RefreshCalibDerivedRowVisible();
+
+    struct CalibPickHit
+    {
+        const Face *face = nullptr;
+        const Edge *edge = nullptr;
+    };
+    CalibPickHit PickCalibrateAtPixel(float pixelX, float pixelY) const;
+
+    const Face *calibFacePoint1 = nullptr;
+    const Face *calibFacePoint2 = nullptr;
+    const Edge *calibEdgePoint1 = nullptr;
+    const Edge *calibEdgePoint2 = nullptr;
 };

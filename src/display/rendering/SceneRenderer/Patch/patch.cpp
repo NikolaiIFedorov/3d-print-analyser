@@ -30,18 +30,20 @@ static glm::dvec2 ProjectPointToPlane(const glm::dvec3 &point3D,
         glm::dot(relativePos, vAxis));
 }
 
-void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4], const AnalysisResults *results) const
+void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4],
+                     const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices, results);
+        AddSolid(&solid, vertices, indices, results, pickOut);
 
     for (const Face &face : scene->faces)
-        AddFace(&face, vertices, indices, false, results);
+        AddFace(&face, vertices, indices, false, results, pickOut);
 }
 
 void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
-                    std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results) const
+                    std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results,
+                    std::vector<PickTriangle> *pickOut) const
 {
     if (face->dependency != nullptr && !isSolid)
         return;
@@ -141,6 +143,13 @@ void Patch::AddFace(const Face *face,
         }
     }
 
+    std::vector<glm::dvec3> flatPositions;
+    for (const auto &loopPositions : allLoopPositions)
+    {
+        for (const glm::dvec3 &pos : loopPositions)
+            flatPositions.push_back(pos);
+    }
+
     std::vector<uint32_t> triangleIndices = mapbox::earcut<uint32_t>(polygon);
 
     if (triangleIndices.empty())
@@ -197,14 +206,26 @@ void Patch::AddFace(const Face *face,
     {
         indices.push_back(baseVertexIndex + idx);
     }
+
+    if (pickOut != nullptr)
+    {
+        for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3)
+        {
+            const uint32_t ia = triangleIndices[i];
+            const uint32_t ib = triangleIndices[i + 1];
+            const uint32_t ic = triangleIndices[i + 2];
+            pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
+        }
+    }
 }
 
 void Patch::AddSolid(const Solid *solid,
                      std::vector<Vertex> &vertices,
-                     std::vector<uint32_t> &indices, const AnalysisResults *results) const
+                     std::vector<uint32_t> &indices, const AnalysisResults *results,
+                     std::vector<PickTriangle> *pickOut) const
 {
     for (const Face *face : solid->faces)
-        AddFace(face, vertices, indices, true, results);
+        AddFace(face, vertices, indices, true, results, pickOut);
 }
 
 std::vector<glm::dvec3> Patch::TessellateCurveToPoints(

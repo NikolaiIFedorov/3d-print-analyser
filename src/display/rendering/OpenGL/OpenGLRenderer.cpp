@@ -1,6 +1,7 @@
 #include "OpenGLRenderer.hpp"
 #include "utils/log.hpp"
 #include "rendering/color.hpp"
+#include "ViewportDepthExperiments.hpp"
 
 OpenGLRenderer::~OpenGLRenderer()
 {
@@ -12,6 +13,10 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
       glContext(other.glContext),
       triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO), triangleIBO(other.triangleIBO), triangleIndexCount(other.triangleIndexCount),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO), lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      pickHighlightVAO(other.pickHighlightVAO), pickHighlightVBO(other.pickHighlightVBO),
+      pickHighlightIBO(other.pickHighlightIBO), pickHighlightIndexCount(other.pickHighlightIndexCount),
+      pickHighlightLineVAO(other.pickHighlightLineVAO), pickHighlightLineVBO(other.pickHighlightLineVBO),
+      pickHighlightLineIBO(other.pickHighlightLineIBO), pickHighlightLineIndexCount(other.pickHighlightLineIndexCount),
       viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
       shader(std::move(other.shader)),
       lineShader(std::move(other.lineShader))
@@ -20,7 +25,10 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     other.glContext = nullptr;
     other.triangleVAO = other.triangleVBO = other.triangleIBO = 0;
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
-    other.triangleIndexCount = other.lineIndexCount = 0;
+    other.pickHighlightVAO = other.pickHighlightVBO = other.pickHighlightIBO = 0;
+    other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
+    other.triangleIndexCount = other.lineIndexCount = other.pickHighlightIndexCount =
+        other.pickHighlightLineIndexCount = 0;
 }
 
 OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
@@ -38,6 +46,14 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         lineVBO = other.lineVBO;
         lineIBO = other.lineIBO;
         lineIndexCount = other.lineIndexCount;
+        pickHighlightVAO = other.pickHighlightVAO;
+        pickHighlightVBO = other.pickHighlightVBO;
+        pickHighlightIBO = other.pickHighlightIBO;
+        pickHighlightIndexCount = other.pickHighlightIndexCount;
+        pickHighlightLineVAO = other.pickHighlightLineVAO;
+        pickHighlightLineVBO = other.pickHighlightLineVBO;
+        pickHighlightLineIBO = other.pickHighlightLineIBO;
+        pickHighlightLineIndexCount = other.pickHighlightLineIndexCount;
         viewMatrix = other.viewMatrix;
         projectionMatrix = other.projectionMatrix;
         modelMatrix = other.modelMatrix;
@@ -47,7 +63,10 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         other.glContext = nullptr;
         other.triangleVAO = other.triangleVBO = other.triangleIBO = 0;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
-        other.triangleIndexCount = other.lineIndexCount = 0;
+        other.pickHighlightVAO = other.pickHighlightVBO = other.pickHighlightIBO = 0;
+        other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
+        other.triangleIndexCount = other.lineIndexCount = other.pickHighlightIndexCount =
+            other.pickHighlightLineIndexCount = 0;
     }
     return *this;
 }
@@ -125,6 +144,24 @@ void OpenGLRenderer::Shutdown()
         glDeleteVertexArrays(1, &triangleVAO);
     if (triangleIBO)
         glDeleteBuffers(1, &triangleIBO);
+
+    if (pickHighlightVBO)
+        glDeleteBuffers(1, &pickHighlightVBO);
+    if (pickHighlightVAO)
+        glDeleteVertexArrays(1, &pickHighlightVAO);
+    if (pickHighlightIBO)
+        glDeleteBuffers(1, &pickHighlightIBO);
+    pickHighlightVAO = pickHighlightVBO = pickHighlightIBO = 0;
+    pickHighlightIndexCount = 0;
+
+    if (pickHighlightLineVBO)
+        glDeleteBuffers(1, &pickHighlightLineVBO);
+    if (pickHighlightLineVAO)
+        glDeleteVertexArrays(1, &pickHighlightLineVAO);
+    if (pickHighlightLineIBO)
+        glDeleteBuffers(1, &pickHighlightLineIBO);
+    pickHighlightLineVAO = pickHighlightLineVBO = pickHighlightLineIBO = 0;
+    pickHighlightLineIndexCount = 0;
 
     if (lineVBO)
         glDeleteBuffers(1, &lineVBO);
@@ -266,6 +303,44 @@ void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
     GetGLError();
 }
 
+void OpenGLRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices,
+                                                 const std::vector<uint32_t> &indices)
+{
+    pickHighlightLineIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (pickHighlightLineVAO == 0)
+        glGenVertexArrays(1, &pickHighlightLineVAO);
+
+    glBindVertexArray(pickHighlightLineVAO);
+
+    if (pickHighlightLineVBO == 0)
+        glGenBuffers(1, &pickHighlightLineVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, pickHighlightLineVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (pickHighlightLineIBO == 0)
+        glGenBuffers(1, &pickHighlightLineIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pickHighlightLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
 void OpenGLRenderer::DrawTriangles()
 {
     LOG_DESC("Drawing triangles with index count: " + std::to_string(triangleIndexCount));
@@ -305,6 +380,109 @@ void OpenGLRenderer::DrawTriangles()
     GetGLError();
 }
 
+void OpenGLRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+{
+    pickHighlightIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (pickHighlightVAO == 0)
+        glGenVertexArrays(1, &pickHighlightVAO);
+
+    glBindVertexArray(pickHighlightVAO);
+
+    if (pickHighlightVBO == 0)
+        glGenBuffers(1, &pickHighlightVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, pickHighlightVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (pickHighlightIBO == 0)
+        glGenBuffers(1, &pickHighlightIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pickHighlightIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawPickHighlight()
+{
+    if (pickHighlightIndexCount == 0)
+        return;
+
+    shader.Use();
+
+    glm::mat4 viewProj = projectionMatrix * viewMatrix;
+    shader.SetMat4("uViewProjection", viewProj);
+    shader.SetMat4("uModel", modelMatrix);
+    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f)));
+    shader.SetVec3("uViewPos", viewPos);
+    shader.SetFloat("uBrightenAmount", 0.85f);
+    shader.SetFloat("uBlueMin", 0.0f);
+    shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
+    shader.SetFloat("uBlueNear", 0.0f);
+    shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
+    shader.SetFloat("uLightingEnabled", 1.0f);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+
+    if (!ViewportDepthExperiments::IsNoPickPolygonOffset())
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+    }
+
+    glBindVertexArray(pickHighlightVAO);
+    glDrawElements(GL_TRIANGLES, pickHighlightIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (!ViewportDepthExperiments::IsNoPickPolygonOffset())
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
+{
+    if (pickHighlightLineIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZBias", ViewportDepthExperiments::IsNoWireZBias() ? 0.0f : 1.0f);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+
+    glBindVertexArray(pickHighlightLineVAO);
+    glDrawElements(GL_LINES, pickHighlightLineIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    GetGLError();
+}
+
 void OpenGLRenderer::DrawLines()
 {
     LOG_DESC("Drawing lines with index count: " + std::to_string(lineIndexCount));
@@ -319,6 +497,7 @@ void OpenGLRenderer::DrawLines()
     lineShader.SetMat4("uModel", modelMatrix);
     lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
     lineShader.SetFloat("uLineWidth", lineWidth);
+    lineShader.SetFloat("uWireZBias", ViewportDepthExperiments::IsNoWireZBias() ? 0.0f : 1.0f);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);

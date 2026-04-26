@@ -121,6 +121,18 @@ Guidelines for writing code in this project.
 
 ---
 
+## Mini retrospective
+
+**When:** After a successful implementation — the change builds, behaves as intended, and the post-implementation review is done. Spend a few minutes on a **mini retro** while context is still warm. This is not a full team ceremony — it is a short capture of learning for you and for future sessions (including agent-assisted work).
+
+- **What worked well** — Which approaches, docs (`documentation/`, implementation logs), tools, or **Cursor skills** actually helped? What would you repeat next time?
+- **What did not work** — Wrong assumptions, rabbit holes, missing context, unclear requirements, or friction in the codebase or workflow.
+- **How to improve skills or this file** — If a skill was misleading, too vague, or missing a step, note a concrete edit to that skill or rule. If these best practices missed something important (a checklist item, a workflow gap), **update this file** in the same spirit: short bullets, no bloat.
+
+Optional: append a one-paragraph “retro” to the relevant implementation log in `documentation/implementations/` so the next person (or future you) inherits the lesson without re-learning it.
+
+---
+
 ## Consistency
 
 - When a pattern or approach is established for one piece of functionality, related code should follow the same approach.
@@ -134,3 +146,62 @@ Guidelines for writing code in this project.
 - Place the qualifying part at the beginning of the name (e.g., `patchIndices`, `wireframeIndices`, `surfaceNormals`).
 - Avoid redundant context — if a variable lives inside a `Wireframe` class, name it `indices` rather than `wireframeIndices`.
 - Use camelCase for variables and functions, PascalCase for types and classes.
+
+---
+
+## Development Workflow
+
+This workflow applies whenever a change to functionality is requested — whether a new feature, a bug fix, or a behavioural adjustment.
+
+### Stage 1 — Understand the Problem
+
+Before any code changes:
+- **Question the idea.** Clarify what the expected vs. actual behaviour is. This catches cases where a feature is mistaken for a bug, or where the problem context is misunderstood.
+- **Critique the idea.** Identify oversights, edge cases, and at least one alternative approach.
+- **Scan the TODO.** Check the relevant section of `documentation/TODO` for the module being touched. Small, isolated items (remove a duplicate call, extract a constant, fix a naming inconsistency) should be addressed in the same change. Larger items (replace a singleton, redesign an interface) are noted but left for a dedicated task.
+- **Goal:** Both sides fully understand the problem and the proposed solution before anything is implemented.
+
+Repeat Stage 1 until there is shared, clear understanding of the problem and approach.
+
+### Stage 2 — Documentation
+
+Before implementing, check `documentation/implementations/` for an existing log of this problem or idea.
+
+- **If a log exists:** Read it for context — prior attempts, bugs hit, and outcomes.
+- **If no log exists:** Create one. Each log is a running record (append, never overwrite) and should capture:
+  - **Idea** — what is being changed and why
+  - **Implementation plan** — the chosen approach
+  - **Bugs encountered** — issues that arose during implementation
+  - **Patch attempts** — theories tried and whether they worked
+  - **Outcome** — final result and any lingering considerations
+
+### Stage 3 — Implementation
+
+Apply the following checklist when writing or changing code:
+
+1. **Critique the approach first** — identify edge cases, silent behaviour changes, and at least one alternative.
+2. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)?
+3. **Check performance** — are there unnecessary allocations, copies, or per-frame heap allocations? Are OpenGL calls batched?
+4. **Check portability** — are paths handled with `std::filesystem`? Are there platform-specific assumptions?
+5. **Check naming** — camelCase/PascalCase conventions, concise and unambiguous.
+6. **Check consistency** — does the new code match existing patterns in the codebase?
+7. **Check DRY** — is any logic duplicated? Could a helper or recursive approach replace copy-pasted blocks?
+8. **Post-implementation review** — re-read the diff. Remove dead code, extract duplicates, unify divergent patterns.
+
+When a trade-off arises between SOLID purity and performance, choose performance and explain why.
+
+### Stage 4 — Post-Implementation
+
+**If it works:**
+- Verify the build passes cleanly.
+- Run through the Stage 3 checklist as a review pass.
+- Run the **mini retrospective** (see [Mini retrospective](#mini-retrospective)): what worked, what did not, and whether any **skills** or **this file** deserve a small update.
+- Commit the code to maintain a consistent version history.
+- Update the implementation log in `documentation/implementations/` with the outcome (and optionally the retro notes).
+
+**If it does not work:**
+- Log the failure and any theories in the implementation log.
+- Propose theories as to why it does not work; test each one.
+- If all theories are exhausted without resolution, return to Stage 1 — treat it as a fresh problem and question whether the original approach was correct.
+
+The cycle then repeats from Stage 1.

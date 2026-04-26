@@ -10,8 +10,7 @@
 static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
 static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
 static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
-static constexpr float ACCENT_SAT_MULT = 0.35f;      // structural accents: splitters, resize handle
-static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
+static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // muted accent strength for hover/active row tint
 // Icon slot: s = max(2, round(lineBearing * ICON_SIZE_RATIO)); slot = 2s + 3 px wide
 // ICON_SIZE_RATIO and ICON_SIZE_RATIO_SMALL are defined in UIElement (Panel.hpp).
 static constexpr float ICON_SIZE_RATIO = UIElement::ICON_SIZE_RATIO;
@@ -1045,7 +1044,7 @@ void UIRenderer::BuildMesh()
                 childVisualTop = hasHeader ? el.row + el.margin + el.padding : el.row;
             }
             if (needsSplitter)
-                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetAccent(colorLevel, 1.0f, ACCENT_SAT_MULT));
+                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetUI(colorLevel));
 
             // Background rect for Paragraphs that opt into one
             if (std::holds_alternative<Paragraph>(child))
@@ -1082,7 +1081,10 @@ void UIRenderer::BuildMesh()
                         continue;
                     // No splitter before the first paragraph — the section label acts as the header.
                     if (secVisibleIdx > 0 && !sec.noChildSplitters)
-                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding, Color::GetAccent(colorLevel + 1, 1.0f, ACCENT_SAT_MULT));
+                        // Same depth as splitters between top-level panel children so nested parameter rows
+                        // do not read as a brighter “second layer” than the row above.
+                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding,
+                                             Color::GetUI(colorLevel));
                     // Background rect for section-child Paragraphs that opt into one
                     if (para.bgParentDepth >= 0)
                     {
@@ -1146,7 +1148,7 @@ void UIRenderer::BuildMesh()
                 float rsy0 = std::round(y0 + halfPadPx);
                 float rsy1 = std::round(y1 - halfPadPx);
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2, 1.0f, ACCENT_SAT_MULT));
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
             }
 
             for (size_t si = 1; si < panel.children.size(); si++)
@@ -1161,7 +1163,7 @@ void UIRenderer::BuildMesh()
                 float rsy0 = std::round(y0 + halfPadPx);
                 float rsy1 = std::round(y1 - halfPadPx);
                 float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetAccent(2, 1.0f, ACCENT_SAT_MULT));
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
             }
         }
         else

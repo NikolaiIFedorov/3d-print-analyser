@@ -1,4 +1,5 @@
 #include "SceneRenderer.hpp"
+#include "rendering/CalibPickSegments.hpp"
 #include "utils/log.hpp"
 
 void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
@@ -15,8 +16,32 @@ void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
     vertices.clear();
     indices.clear();
 
-    patch.Generate(scene, vertices, indices, viewPort, results);
+    pickTriangles.clear();
+    patch.Generate(scene, vertices, indices, viewPort, results, &pickTriangles);
     renderer.UploadTriangleMesh(vertices, indices);
+
+    CalibPickSegments::Build(scene, pickSegments);
+}
+
+void SceneRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+{
+    renderer.UploadPickHighlightMesh(vertices, indices);
+}
+
+void SceneRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices,
+                                                const std::vector<uint32_t> &indices)
+{
+    renderer.UploadPickHighlightLineMesh(vertices, indices);
+}
+
+void SceneRenderer::RenderPickHighlight()
+{
+    renderer.DrawPickHighlight();
+}
+
+void SceneRenderer::RenderPickHighlightLines(float lineWidthPx)
+{
+    renderer.DrawPickHighlightLines(lineWidthPx);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)

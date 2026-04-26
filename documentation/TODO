@@ -1,4 +1,142 @@
-1. Run architector to document/check each of the four layers in a separate doc each
-2. Scene re-upload on every dirty frame re-generates *all* geometry CPU-side and re-uploads to the GPU, which will not scale beyond small models.
-3. Learn more about O(V) and o(V)
-4. Understand pathway to testing - what tests to use, how to create, if anything needs refactoring for testability
+# Documentation TODO
+Last updated: 2026-04-24
+
+---
+
+## Architecture Documents
+
+### Written
+- [x] Architecture_FullSystem.md       — Full system review & layer overview
+- [x] Architecture_Scene.md            — B-Rep geometry kernel
+- [x] Architecture_Analysis.md         — 3D-printability flaw-detection framework
+- [x] Architecture_Renderer.md         — Display & three-pass rendering pipeline
+- [x] Architecture_Input.md            — Event handling (mouse / wheel)
+- [x] Architecture_TouchTrackpad_Gestures.md — Archive: removed 2-f touch navigation
+- [x] Architecture_UI.md               — Hierarchical panel layout system
+- [x] Architecture_UIDirectAccess.md   — UI direct-access refactor (string API removal)
+- [x] debug/Architecture_SessionLogger.md — Structured session event log
+
+### Still To Write
+- [ ] implementations/                 — Implementation notes for any non-trivial algorithms
+                                         (e.g. Slice pairing, Earcut usage, NURBS evaluation)
+
+### Written (this session)
+- [x] Architecture_FileImport.md       — STL / 3MF / OBJ import pipeline
+- [x] Architecture_Camera.md           — Orthographic camera: orbit, pan, zoom, roll, framing
+
+---
+
+## Known Issues (from architecture reviews)
+
+### Scene
+- [ ] Remove dead code: `renderBuffer` / `lockedBuffer` declared but never used
+- [ ] Add entity deletion / modification API (currently create-only)
+- [ ] Document / validate `NurbsSurface::GetNormal()` midpoint assumption for highly curved surfaces
+
+### Analysis
+- [ ] Fix `Slice::At()` sequential pairing — incorrect for non-convex cross-sections
+      or faces with more than 2 edge crossings per loop
+- [ ] Consolidate Z-bounds scan shared by ThinSection, SmallFeature, Stringing
+      into a single pre-pass to eliminate redundant O(V) vertex scans per solid
+- [ ] Replace `Analysis` Meyer's singleton with dependency-injected instance
+
+### Renderer
+- [ ] Remove duplicated triangulation logic between `Patch::AddFace` and
+      `AnalysisRenderer::TriangulateFace` (~60 lines duplicated)
+- [ ] Investigate incremental / dirty-only GPU upload to replace full
+      CPU rebuild + re-upload on every scene change
+- [ ] Break `Display::InitUI()` out of Display — hardcoded UI layout couples
+      display to UI structure
+
+### Input
+- [ ] Introduce `IDisplay` interface so Input can be tested without a real Display
+- [ ] Design keyboard shortcut system (currently modifier keys checked inline)
+
+### UI
+- [ ] Split `UIRenderer::Render()` — decouple GL mesh building from ImGui draw calls
+- [ ] Remove legacy string-based `SetSectionVisible` / `SetSectionValue` after
+      direct `Panel*` access is fully adopted everywhere
+- [ ] Move `Section::collapsed` expand/collapse control onto the element itself
+      (currently driven externally by the renderer)
+
+### SessionLogger
+- [ ] Replace Meyer's singleton with injected instance for testability
+- [ ] Make flush path configurable (currently hardcoded to `"session_log.json"`)
+- [ ] Add automatic `SessionState` sync so callers cannot write stale state silently
+
+---
+
+## Cross-Cutting
+- [ ] Set up a CI pipeline (no automated build/test currently)
+- [ ] Add unit tests for Analysis algorithms (blocked by Analysis singleton)
+- [ ] Add unit tests for Slice pairing logic
+
+---
+
+## [2026-04-22] File Import Pipeline
+Source: documentation/Architecture_FileImport.md
+
+### Must-Have
+- Remove STEP and PLY from the SDL_DialogFileFilter until their importers exist,
+  or implement minimal parsers; selecting them currently produces a silent empty scene
+- Move scene creation (ownedScenes.push_back / activeSceneIndex update) to after a
+  successful Import() return; roll back on failure or unsupported format
+
+### Should-Have
+- Replace `new FileCallback` with `unique_ptr<FileCallback>::release()` + re-wrap inside
+  the SDL lambda for RAII-safe cleanup
+- Call `scene->MergeCoplanarFaces(solid)` in OBJImport and ThreeMFImport for consistency
+  with STLImport
+- Surface import errors to the user in the Files panel (e.g., brief error line under tab bar)
+
+### Nice-to-Have
+- Replace `std::map<dvec3, Point*, Vec3Compare>` with a spatial-hash deduplicator for
+  large STL meshes (O(1) average vs O(log n))
+- Add a basic PLY importer (binary + ASCII)
+- Investigate a format-registry architecture for DoFileImport (Open/Closed extension)
+
+---
+
+## [2026-04-22] Camera
+Source: documentation/Architecture_Camera.md
+
+### Should-Have
+- Make Camera members private; expose const accessors (GetOrthoSize, GetOrientation,
+  GetTarget, GetAspectRatio); direct mutation currently bypasses cameraDirty
+- Replace magic constants in Camera constructor with static constexpr members
+  (DEFAULT_DISTANCE, DEFAULT_ORTHO_SIZE, DEPTH_RANGE)
+
+### Nice-to-Have
+- Move ScreenToWorld from Display into Camera (depends only on camera state; improves
+  cohesion and testability)
+- Change Display::GetCamera() to return `const Camera&` to avoid an unnecessary copy
+- Add named-view presets (Top, Front, Right, Isometric)
+
+---
+
+## [2026-04-24] Settings (future expansion)
+Source: discussion — persist more tuning knobs in `Settings` / `settings.xml`
+
+### Appearance / color (high value)
+- [ ] Expose UI depth luminance step (`Color::kStep`, currently `0.1f`) as a user setting
+      (e.g. “UI contrast” or “depth step”); clamp to a safe range; wire Save/Load and UI
+- [ ] Later: optional separate knobs for `kAccentLBoost`, scene greys (`kFaceL` / edge /
+      point chain), `GetGrid()` / axis colours, flaw overlay alpha — only if product need
+
+### Analysis (already parameterized in code, not in Settings)
+- [ ] `ThinSection` / `SmallFeature` `heightToWidthRatio` (default `3.0`)
+- [ ] `Stringing` `maxContourCount` (default `1`)
+
+### Input / navigation
+- [ ] `Input.hpp` gesture constants: `LOCK_FRAMES`, `ORBIT_RATIO_THRESHOLD`, `TOUCH_DEADZONE`
+      (and related) as optional advanced settings if users want orbit/pan feel tuning
+
+### Viewport / consistency
+- [ ] Single source of truth for grid half-extent: `Settings::gridExtent` vs `Color::GRID_EXTENT`
+      (avoid drift between the two)
+
+### UI layout (lower priority)
+- [ ] Optional “compact UI” / density: `UIGrid::CELL_SIZE`, `GAP`, panel radii / icon ratios,
+      or fixed pixel gaps in `UIRenderer` — only if we want accessibility or power-user prefs
+
+---

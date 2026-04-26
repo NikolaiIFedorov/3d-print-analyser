@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <functional>
 #include <imgui.h>
 #include <glm/glm.hpp>
@@ -300,6 +301,131 @@ namespace Icons
                 ImVec2(bex + ox, bey + oy),   // shaft A (near tip)
             };
             dl->AddPolyline(pts, 6, col, ImDrawFlags_Closed, stroke);
+        };
+    }
+
+    // --- ToolAnalysis ---
+    // Magnifying glass: circle outline with a diagonal handle extending to bottom-right.
+    // Represents scanning/inspecting a model for printability flaws.
+    inline DrawFn ToolAnalysis(int textDepth = 1)
+    {
+        return [textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO * 1.2f);
+            // Lens: slightly offset toward top-left so handle has room on the right
+            float cx = std::round(x + s * 0.82f);
+            float cy = std::round(midY - s * 0.18f);
+            float r = std::round(s * 0.50f);
+            dl->AddCircle(ImVec2(cx, cy), r, col, 12, stroke);
+            // Handle: from lens edge at ~135° (bottom-right) to corner of slot
+            float hx0 = std::round(cx + r * 0.72f);
+            float hy0 = std::round(cy + r * 0.72f);
+            float hx1 = std::round(x + s * 1.72f);
+            float hy1 = std::round(midY + s * 0.72f);
+            dl->AddLine(ImVec2(hx0, hy0), ImVec2(hx1, hy1), col, stroke * 1.4f);
+        };
+    }
+
+    // --- ToolCalibrate ---
+    // Ruler: a rounded rectangle with two internal tick marks on the top edge.
+    // Represents dimensional calibration and shrink-factor measurement.
+    inline DrawFn ToolCalibrate(int textDepth = 1)
+    {
+        return [textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float rw = std::round(s * 0.78f); // half-width
+            float rh = std::round(s * 0.28f); // half-height
+            dl->AddRect(ImVec2(cx - rw, cy - rh), ImVec2(cx + rw, cy + rh), col, 0.0f, 0, stroke);
+            // Two tick marks on the top edge, at ±40% of half-width
+            float tickH = std::round(rh * 0.65f);
+            float tx1 = std::round(cx - rw * 0.40f);
+            float tx2 = std::round(cx + rw * 0.40f);
+            dl->AddLine(ImVec2(tx1, cy - rh), ImVec2(tx1, cy - rh + tickH), col, stroke);
+            dl->AddLine(ImVec2(tx2, cy - rh), ImVec2(tx2, cy - rh + tickH), col, stroke);
+        };
+    }
+
+    // --- StepState / StepDot ---
+    // Sequential workflow step indicator. Active state is conveyed by row background shading
+    // (SectionLine::selected); Done by dimmed text. No circle is drawn for any state —
+    // the icon slot is kept purely for text indentation consistency.
+    // The factory captures a raw pointer so state changes are free (no rebuild needed).
+    // Prerequisites are hidden until actionable, so Waiting is never needed — steps are
+    // either Active (visible, actionable) or Done (completed).
+    enum class StepState
+    {
+        Active,
+        Done
+    };
+
+    inline DrawFn StepDot(const StepState *state)
+    {
+        return [state](ImDrawList *, float, float, float)
+        {
+            (void)state; // slot reserved for alignment; nothing drawn
+        };
+    }
+
+    // --- CheckBox ---
+    // Full-height paragraph-level leading slot: rounded-rect checkbox spanning title + subtitle.
+    // Active → accent fill + border
+    // Done   → accent outline + inset fill (same accent); gap shows panel behind
+    // The factory captures a raw pointer so state changes are free (no rebuild needed).
+    using LeadingDrawFn = std::function<void(ImDrawList *, float, float, float, float)>; // x0, y0, x1, y1
+
+    inline LeadingDrawFn CheckBox(const StepState *state)
+    {
+        return [state](ImDrawList *dl, float x0, float y0, float x1, float y1)
+        {
+            const float w = x1 - x0;
+            const float h = y1 - y0;
+            const float insetX = std::max(1.5f, w * 0.10f);
+            const float insetY = std::max(1.5f, h * 0.10f);
+            const float bx0 = x0 + insetX, by0 = y0 + insetY;
+            const float bx1 = x1 - insetX, by1 = y1 - insetY;
+            const float r = std::min(w, h) * 0.20f;
+            // Heavier outline reads better at small leading sizes (Active border + Done ring).
+            const float stroke = std::max(1.05f, std::min(w, h) * 0.12f);
+
+            switch (*state)
+            {
+            case StepState::Active:
+            {
+                glm::vec4 fill = Color::GetAccent(3, 0.15f, 0.6f);
+                glm::vec4 border = Color::GetAccent(3, 0.55f, 0.6f);
+                dl->AddRectFilled(ImVec2(bx0, by0), ImVec2(bx1, by1),
+                                  ImGui::GetColorU32(ImVec4(fill.r, fill.g, fill.b, fill.a)), r);
+                dl->AddRect(ImVec2(bx0, by0), ImVec2(bx1, by1),
+                            ImGui::GetColorU32(ImVec4(border.r, border.g, border.b, border.a)), r, 0, stroke);
+                break;
+            }
+            case StepState::Done:
+            {
+                const float gap = std::max(1.75f, stroke * 2.15f);
+                // Same accent for ring and interior; inset fill is smaller so the panel shows through the gap.
+                const glm::vec4 accent = Color::GetAccentSteps(1.0f, 0.92f, 0.82f);
+                const ImU32 accentCol = ImGui::GetColorU32(ImVec4(accent.r, accent.g, accent.b, accent.a));
+
+                const float ix0 = bx0 + gap;
+                const float iy0 = by0 + gap;
+                const float ix1 = bx1 - gap;
+                const float iy1 = by1 - gap;
+                if (ix1 > ix0 + 0.5f && iy1 > iy0 + 0.5f)
+                {
+                    const float innerR = std::max(1.0f, r - gap * 0.85f);
+                    dl->AddRectFilled(ImVec2(ix0, iy0), ImVec2(ix1, iy1), accentCol, innerR);
+                }
+                dl->AddRect(ImVec2(bx0, by0), ImVec2(bx1, by1), accentCol, r, 0, stroke);
+                break;
+            }
+            }
         };
     }
 

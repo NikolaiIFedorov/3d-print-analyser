@@ -40,6 +40,7 @@ add_executable(CAD_OpenGL
     src/main.cpp
     src/utils/log.cpp
     src/utils/SessionLogger.cpp
+    src/utils/Settings.cpp
     src/utils/SystemAccent.mm
     src/utils/SystemAppearance.mm  
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
@@ -50,8 +51,11 @@ add_executable(CAD_OpenGL
     src/display/rendering/color.cpp
     src/display/rendering/UIRenderer/UIRenderer.cpp
     src/display/rendering/UIRenderer/TextRenderer.cpp
+    src/display/rendering/UIRenderer/ToolPanel.cpp
     src/display/rendering/ViewportRenderer/ViewportRenderer.cpp
     src/display/rendering/Camera/camera.cpp
+    src/display/rendering/ScenePick.cpp
+    src/display/rendering/CalibPickSegments.cpp
     src/display/display.cpp
     src/input/Input.cpp
     src/input/FileImport.cpp
@@ -64,6 +68,9 @@ add_executable(CAD_OpenGL
     src/logic/Analysis/SharpCorner/SharpCorner.cpp
     src/logic/Analysis/SmallFeature/SmallFeature.cpp
     src/logic/Analysis/utils/Slice.cpp
+    src/logic/Calibrate/CalibDistanceType.cpp
+    src/logic/Calibrate/CalibNominal.cpp
+    src/logic/Calibrate/CalibCompensation.cpp
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp
@@ -100,6 +107,7 @@ target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/logic
+    ${CMAKE_SOURCE_DIR}/src/logic/Calibrate
     ${CMAKE_SOURCE_DIR}/src/display
     ${CMAKE_SOURCE_DIR}/src/display/window
     ${CMAKE_SOURCE_DIR}/src/display/rendering/Camera

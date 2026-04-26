@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <utility>
 #include <vector>
 #include <chrono>
 #include <glm/glm.hpp>
@@ -32,9 +33,26 @@ struct SessionState
     size_t thinSections = 0;
     size_t smallFeatures = 0;
 
-    // Camera
+    // Camera & viewport (curated repro — filled by `Display::FillSessionReproState`)
     glm::vec3 cameraTarget{0.0f};
     float cameraOrthoSize = 1.0f;
+    glm::vec3 cameraPosition{0.0f};
+    float cameraDistance = 5.0f;
+    float cameraQuatW = 1.0f;
+    float cameraQuatX = 0.0f;
+    float cameraQuatY = 0.0f;
+    float cameraQuatZ = 0.0f;
+    float cameraNearPlane = -100000.0f;
+    float cameraFarPlane = 100000.0f;
+    int windowLogicalW = 0;
+    int windowLogicalH = 0;
+    int windowPixelsW = 0;
+    int windowPixelsH = 0;
+    /// 0 = Analysis tool, 1 = Calibrate tool (matches `Display::ActiveTool`).
+    uint8_t activeToolOrdinal = 0;
+    bool viewportAnalysisEnabled = true;
+    /// `ViewportDepthExperiment` as integer when that header is used; otherwise 0.
+    uint8_t depthExperimentOrdinal = 0;
 };
 
 // Singleton session logger.
@@ -62,6 +80,9 @@ public:
     void LogParamChange(const std::string &param, float value);
     void LogBugMarker();
 
+    /// Last-frame viewport + camera repro (call after `Display::FillSessionReproState`).
+    void LogSessionEndSnapshot();
+
 private:
     SessionLogger() = default;
 
@@ -83,4 +104,6 @@ private:
 
     static std::string EscapeStr(const std::string &s);
     static std::string Fmt(float v);
+
+    static std::vector<std::pair<std::string, std::string>> BuildFullSessionSnapshotFields(const SessionState &s);
 };

@@ -26,6 +26,9 @@ public:
     void SetDistance(const float distance);
     void SetAspectRatio(const float aspect);
 
+    /// Target at origin, identity orientation (view toward XY from +Z), default distance and ortho zoom.
+    void ResetHomeView();
+
     glm::vec3 *GetTarget() { return &target; }
     float GetDistance() const { return distance; }
 

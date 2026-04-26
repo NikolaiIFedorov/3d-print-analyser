@@ -1374,6 +1374,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ScenePick.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Patch/patch.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp \
@@ -1394,5 +1395,6 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibDistanceType.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.hpp

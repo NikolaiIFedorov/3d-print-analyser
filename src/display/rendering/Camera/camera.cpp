@@ -44,18 +44,43 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    float angle = std::sqrt(deltaX * deltaX + deltaY * deltaY);
-    if (angle < 1e-6f)
+    // Turntable + tilt (Plasticity-style):
+    //  - Horizontal → yaw about fixed world +Z (part spins on the table).
+    //  - Vertical → pitch about a horizontal axis (view tilts, Z can lean on screen).
+    constexpr float kEps = 1e-6f;
+    if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
-    // Rotation axis is perpendicular to the drag direction in screen space
-    glm::vec3 right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
-    glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+    // Build / printer up — matches world axes used by the grid and modeling convention.
+    const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
 
-    glm::vec3 axis = glm::normalize(right * deltaY + up * deltaX);
+    if (std::abs(deltaX) > kEps)
+    {
+        glm::quat qYaw = glm::angleAxis(-deltaX, kWorldUp);
+        orientation = glm::normalize(qYaw * orientation);
+    }
 
-    glm::quat rotation = glm::angleAxis(-angle, axis);
-    orientation = glm::normalize(rotation * orientation);
+    if (std::abs(deltaY) > kEps)
+    {
+        glm::vec3 forwardFromTarget = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+        glm::vec3 viewIntoScene = -forwardFromTarget;
+        // Pitch axis: horizontal in world, perpendicular to world Z and view. Vanishes
+        // when the view is straight down or up; then use camera local +X in world
+        // so vertical drag still tilts off the pole.
+        glm::vec3 right = glm::cross(kWorldUp, viewIntoScene);
+        float rlen = glm::length(right);
+        if (rlen < 1e-4f)
+        {
+            right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+            rlen = glm::length(right);
+        }
+        if (rlen > 1e-4f)
+        {
+            right *= 1.0f / rlen;
+            glm::quat qPitch = glm::angleAxis(-deltaY, right);
+            orientation = glm::normalize(qPitch * orientation);
+        }
+    }
 }
 
 void Camera::Roll(float delta)
@@ -132,4 +157,12 @@ void Camera::SetDistance(float d)
 void Camera::SetAspectRatio(float aspect)
 {
     aspectRatio = aspect;
+}
+
+void Camera::ResetHomeView()
+{
+    target = glm::vec3(0.0f, 0.0f, 0.0f);
+    distance = 5.0f;
+    orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    orthoSize = 2.5f;
 }

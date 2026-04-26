@@ -1,7 +1,6 @@
 #pragma once
 
 #include <filesystem>
-#include <SDL3/SDL.h>
 #include "tinyxml2.h"
 
 // All user-configurable settings that persist between sessions.
@@ -9,38 +8,27 @@
 struct Settings
 {
     // Analysis
-    float overhangAngle     = 45.0f;
-    float sharpCornerAngle  = 100.0f;
-    float minFeatureSize    = 0.4f;
-    float thinMinWidth      = 2.0f;
-    float layerHeight       = 0.2f;
+    float overhangAngle = 45.0f;
+    float sharpCornerAngle = 100.0f;
+    float minFeatureSize = 0.4f;
+    float thinMinWidth = 2.0f;
+    float layerHeight = 0.2f;
 
     // Appearance
-    float accentHue         = 220.0f;
-    float accentSat         = 0.35f;
-    bool  accentUseSystem   = true;
-    int   themeMode         = 0; // 0=System, 1=Light, 2=Dark
+    float accentHue = 220.0f;
+    float accentSat = 0.35f;
+    bool accentUseSystem = true;
+    int themeMode = 0; // 0=System, 1=Light, 2=Dark
 
     // Viewport
-    float gridExtent        = 256.0f;
+    float gridExtent = 256.0f;
 
     // Navigation
-    float mouseSensitivity  = 30.0f;
+    float mouseSensitivity = 30.0f;
 
     // Returns the platform-appropriate path to settings.xml.
     // Uses SDL_GetPrefPath so the directory is created if it doesn't exist.
-    static std::filesystem::path DefaultPath()
-    {
-        // SDL_GetPrefPath returns a heap-allocated C string — free with SDL_free.
-        char *sdlPath = SDL_GetPrefPath("CAD_OpenGL", "CAD_OpenGL");
-        std::filesystem::path result;
-        if (sdlPath)
-        {
-            result = std::filesystem::path(sdlPath) / "settings.xml";
-            SDL_free(sdlPath);
-        }
-        return result;
-    }
+    static std::filesystem::path DefaultPath();
 
     // Persist to disk. Returns true on success.
     bool Save(const std::filesystem::path &path) const
@@ -69,16 +57,16 @@ struct Settings
             root->InsertEndChild(el);
         };
 
-        writeFloat("overhangAngle",    overhangAngle);
+        writeFloat("overhangAngle", overhangAngle);
         writeFloat("sharpCornerAngle", sharpCornerAngle);
-        writeFloat("minFeatureSize",   minFeatureSize);
-        writeFloat("thinMinWidth",     thinMinWidth);
-        writeFloat("layerHeight",      layerHeight);
-        writeFloat("accentHue",        accentHue);
-        writeFloat("accentSat",        accentSat);
-        writeBool ("accentUseSystem",  accentUseSystem);
-        writeInt  ("themeMode",        themeMode);
-        writeFloat("gridExtent",       gridExtent);
+        writeFloat("minFeatureSize", minFeatureSize);
+        writeFloat("thinMinWidth", thinMinWidth);
+        writeFloat("layerHeight", layerHeight);
+        writeFloat("accentHue", accentHue);
+        writeFloat("accentSat", accentSat);
+        writeBool("accentUseSystem", accentUseSystem);
+        writeInt("themeMode", themeMode);
+        writeFloat("gridExtent", gridExtent);
         writeFloat("mouseSensitivity", mouseSensitivity);
 
         return doc.SaveFile(path.c_str()) == tinyxml2::XML_SUCCESS;
@@ -114,16 +102,16 @@ struct Settings
                 el->QueryBoolAttribute("value", &out);
         };
 
-        readFloat("overhangAngle",    overhangAngle);
+        readFloat("overhangAngle", overhangAngle);
         readFloat("sharpCornerAngle", sharpCornerAngle);
-        readFloat("minFeatureSize",   minFeatureSize);
-        readFloat("thinMinWidth",     thinMinWidth);
-        readFloat("layerHeight",      layerHeight);
-        readFloat("accentHue",        accentHue);
-        readFloat("accentSat",        accentSat);
-        readBool ("accentUseSystem",  accentUseSystem);
-        readInt  ("themeMode",        themeMode);
-        readFloat("gridExtent",       gridExtent);
+        readFloat("minFeatureSize", minFeatureSize);
+        readFloat("thinMinWidth", thinMinWidth);
+        readFloat("layerHeight", layerHeight);
+        readFloat("accentHue", accentHue);
+        readFloat("accentSat", accentSat);
+        readBool("accentUseSystem", accentUseSystem);
+        readInt("themeMode", themeMode);
+        readFloat("gridExtent", gridExtent);
         readFloat("mouseSensitivity", mouseSensitivity);
 
         return true;

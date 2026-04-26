@@ -65,38 +65,14 @@ void SessionLogger::LogParamChange(const std::string &param, float value)
 
 void SessionLogger::LogBugMarker()
 {
-    auto fmtVec3 = [](const glm::vec3 &v)
-    {
-        std::ostringstream ss;
-        ss << std::fixed << std::setprecision(2)
-           << "[" << v.x << ", " << v.y << ", " << v.z << "]";
-        return ss.str();
-    };
-
-    PushEvent("bug_marker", {
-                                // Scene
-                                {"points", std::to_string(state.points)},
-                                {"edges", std::to_string(state.edges)},
-                                {"faces", std::to_string(state.faces)},
-                                {"solids", std::to_string(state.solids)},
-                                {"last_file", "\"" + EscapeStr(state.lastFilename) + "\""},
-                                {"format", "\"" + state.lastFormat + "\""},
-                                // Analysis params
-                                {"overhang_angle", Fmt(state.overhangAngle)},
-                                {"sharp_corner_angle", Fmt(state.sharpCornerAngle)},
-                                {"thin_min_width", Fmt(state.thinMinWidth)},
-                                {"min_feature_size", Fmt(state.minFeatureSize)},
-                                {"layer_height", Fmt(state.layerHeight)},
-                                // Flaw counts
-                                {"overhangs", std::to_string(state.overhangs)},
-                                {"sharp_edges", std::to_string(state.sharpEdges)},
-                                {"thin_sections", std::to_string(state.thinSections)},
-                                {"small_features", std::to_string(state.smallFeatures)},
-                                // Camera
-                                {"camera_target", "\"" + fmtVec3(state.cameraTarget) + "\""},
-                                {"camera_ortho_size", Fmt(state.cameraOrthoSize)},
-                            });
+    PushEvent("bug_marker", BuildFullSessionSnapshotFields(state));
     Log::Session("BUG MARKER — full state snapshot recorded");
+}
+
+void SessionLogger::LogSessionEndSnapshot()
+{
+    PushEvent("session_end", BuildFullSessionSnapshotFields(state));
+    Log::Session("Session end snapshot recorded");
 }
 
 void SessionLogger::Flush(const std::string &path)
@@ -204,4 +180,58 @@ std::string SessionLogger::Fmt(float v)
     std::ostringstream ss;
     ss << std::fixed << std::setprecision(2) << v;
     return ss.str();
+}
+
+static std::string Fmt6(float v)
+{
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(6) << v;
+    return ss.str();
+}
+
+std::vector<std::pair<std::string, std::string>> SessionLogger::BuildFullSessionSnapshotFields(const SessionState &s)
+{
+    auto fmtVec3 = [](const glm::vec3 &v)
+    {
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(4) << "[" << v.x << ", " << v.y << ", " << v.z << "]";
+        return ss.str();
+    };
+
+    const char *toolStr = (s.activeToolOrdinal == 1) ? "calibrate" : "analysis";
+
+    return {
+        {"points", std::to_string(s.points)},
+        {"edges", std::to_string(s.edges)},
+        {"faces", std::to_string(s.faces)},
+        {"solids", std::to_string(s.solids)},
+        {"last_file", "\"" + EscapeStr(s.lastFilename) + "\""},
+        {"format", "\"" + s.lastFormat + "\""},
+        {"overhang_angle", Fmt(s.overhangAngle)},
+        {"sharp_corner_angle", Fmt(s.sharpCornerAngle)},
+        {"thin_min_width", Fmt(s.thinMinWidth)},
+        {"min_feature_size", Fmt(s.minFeatureSize)},
+        {"layer_height", Fmt(s.layerHeight)},
+        {"overhangs", std::to_string(s.overhangs)},
+        {"sharp_edges", std::to_string(s.sharpEdges)},
+        {"thin_sections", std::to_string(s.thinSections)},
+        {"small_features", std::to_string(s.smallFeatures)},
+        {"camera_target", "\"" + fmtVec3(s.cameraTarget) + "\""},
+        {"camera_ortho_size", Fmt(s.cameraOrthoSize)},
+        {"camera_position", "\"" + fmtVec3(s.cameraPosition) + "\""},
+        {"camera_distance", Fmt(s.cameraDistance)},
+        {"camera_quat_w", Fmt6(s.cameraQuatW)},
+        {"camera_quat_x", Fmt6(s.cameraQuatX)},
+        {"camera_quat_y", Fmt6(s.cameraQuatY)},
+        {"camera_quat_z", Fmt6(s.cameraQuatZ)},
+        {"camera_near_plane", Fmt(s.cameraNearPlane)},
+        {"camera_far_plane", Fmt(s.cameraFarPlane)},
+        {"window_logical_w", std::to_string(s.windowLogicalW)},
+        {"window_logical_h", std::to_string(s.windowLogicalH)},
+        {"window_pixels_w", std::to_string(s.windowPixelsW)},
+        {"window_pixels_h", std::to_string(s.windowPixelsH)},
+        {"active_tool", "\"" + std::string(toolStr) + "\""},
+        {"viewport_analysis_enabled", s.viewportAnalysisEnabled ? "true" : "false"},
+        {"depth_experiment_ordinal", std::to_string(static_cast<int>(s.depthExperimentOrdinal))},
+    };
 }

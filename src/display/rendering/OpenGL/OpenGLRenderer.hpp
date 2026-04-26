@@ -32,6 +32,16 @@ private:
     GLuint lineIBO = 0;
     uint32_t lineIndexCount = 0;
 
+    GLuint pickHighlightVAO = 0;
+    GLuint pickHighlightVBO = 0;
+    GLuint pickHighlightIBO = 0;
+    uint32_t pickHighlightIndexCount = 0;
+
+    GLuint pickHighlightLineVAO = 0;
+    GLuint pickHighlightLineVBO = 0;
+    GLuint pickHighlightLineIBO = 0;
+    uint32_t pickHighlightLineIndexCount = 0;
+
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     glm::mat4 modelMatrix = glm::mat4(1.0f);
@@ -67,9 +77,14 @@ public:
     void SetViewPos(const glm::vec3 &pos);
 
     void UploadTriangleMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
     void DrawTriangles();
+    void DrawPickHighlight();
+    /// Screen-space thick lines (same pipeline as wireframe); `pixelWidth` is in framebuffer pixels.
+    void DrawPickHighlightLines(float pixelWidth);
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);

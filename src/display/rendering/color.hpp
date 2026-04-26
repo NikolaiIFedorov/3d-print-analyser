@@ -77,13 +77,19 @@ struct Color
         return glm::vec4(v, v, v, alpha);
     }
     // Accent color: same luminance progression as GetUI but with accent hue/saturation applied.
-    // Use for structural elements (splitters) and interactive state feedback (hover, active).
-    // satMult scales the system saturation (0=neutral grey, 1=full system saturation).
+    // Use for interactive state feedback (hover, active), selection, and accent bars — not neutral dividers.
+    // `depthSteps` uses the same kStep as GetUI (e.g. 0.5f = half a UI depth step); satMult scales saturation.
+    static glm::vec4 GetAccentSteps(float depthSteps, float alpha = 1.0f, float satMult = 1.0f)
+    {
+        float l = s_darkMode ? s_uiBase + kStep * depthSteps + kAccentLBoost * satMult
+                             : s_uiBase - kStep * depthSteps - kAccentLBoost * satMult;
+        return glm::vec4(HslToRgb(s_accentHue, s_accentSat * satMult, l), alpha);
+    }
+
+    // Integer depth — forwards to GetAccentSteps for a consistent scale.
     static glm::vec4 GetAccent(int depth, float alpha = 1.0f, float satMult = 1.0f)
     {
-        float l = s_darkMode ? s_uiBase + kStep * depth + kAccentLBoost * satMult
-                             : s_uiBase - kStep * depth - kAccentLBoost * satMult;
-        return glm::vec4(HslToRgb(s_accentHue, s_accentSat * satMult, l), alpha);
+        return GetAccentSteps(static_cast<float>(depth), alpha, satMult);
     }
 
     static glm::vec3 GetEdge()

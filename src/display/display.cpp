@@ -3,6 +3,7 @@
 #include <algorithm>
 #include "rendering/UIRenderer/UIStyle.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
+#include "rendering/UIRenderer/ToolPanel.hpp"
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
@@ -20,7 +21,102 @@
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
-#include "utils/SessionLogger.hpp"
+#include "rendering/ScenePick.hpp"
+#include "Geometry/Edge.hpp"
+#include "CalibNominal.hpp"
+#include "CalibCompensation.hpp"
+#include <cmath>
+#include <limits>
+
+#include "ViewportDepthExperiments.hpp"
+#include "scene/scene.hpp"
+
+namespace
+{
+
+const Face *ResolveCalibFaceForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
+{
+    if (pickedFace != nullptr)
+        return pickedFace;
+    if (pickedEdge == nullptr || pickedEdge->dependencies.empty())
+        return nullptr;
+    const Face *best = nullptr;
+    for (Face *fp : pickedEdge->dependencies)
+    {
+        const Face *f = fp;
+        if (best == nullptr || f < best)
+            best = f;
+    }
+    return best;
+}
+
+bool CalibSlotHasPick(const Face *f, const Edge *e)
+{
+    return f != nullptr || e != nullptr;
+}
+
+} // namespace
+
+namespace
+{
+// Set false to restore legacy ±100000 ortho depth (wider slab, coarser depth steps).
+inline constexpr bool kTightenOrthoClipPlanes = true;
+
+void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene)
+{
+    if (!kTightenOrthoClipPlanes)
+    {
+        camera.nearPlane = -100000.0f;
+        camera.farPlane = 100000.0f;
+        return;
+    }
+
+    glm::mat4 V = camera.GetViewMatrix();
+    float minZ = std::numeric_limits<float>::infinity();
+    float maxZ = -std::numeric_limits<float>::infinity();
+
+    auto addWorld = [&](const glm::vec3 &p)
+    {
+        glm::vec4 v = V * glm::vec4(p, 1.0f);
+        const float w = std::max(1e-12f, std::abs(v.w));
+        const float z = v.z / w;
+        minZ = std::min(minZ, z);
+        maxZ = std::max(maxZ, z);
+    };
+
+    if (scene != nullptr)
+    {
+        for (const auto &pt : scene->points)
+            addWorld(glm::vec3(pt.position));
+    }
+
+    const float ext = Color::GRID_EXTENT;
+    addWorld(glm::vec3(-ext, -ext, 0.0f));
+    addWorld(glm::vec3(ext, ext, 0.0f));
+    addWorld(glm::vec3(-ext, ext, 0.0f));
+    addWorld(glm::vec3(ext, -ext, 0.0f));
+
+    constexpr float kAxisExtent = 10000.0f;
+    addWorld(glm::vec3(kAxisExtent, 0.0f, 0.0f));
+    addWorld(glm::vec3(-kAxisExtent, 0.0f, 0.0f));
+    addWorld(glm::vec3(0.0f, kAxisExtent, 0.0f));
+    addWorld(glm::vec3(0.0f, -kAxisExtent, 0.0f));
+    addWorld(glm::vec3(0.0f, 0.0f, kAxisExtent));
+    addWorld(glm::vec3(0.0f, 0.0f, -kAxisExtent));
+
+    if (!std::isfinite(minZ) || !std::isfinite(maxZ) || minZ >= maxZ)
+    {
+        camera.nearPlane = -100000.0f;
+        camera.farPlane = 100000.0f;
+        return;
+    }
+
+    const float span = maxZ - minZ;
+    const float pad = std::max(50.0f, span * 0.1f);
+    camera.nearPlane = minZ - pad;
+    camera.farPlane = maxZ + pad;
+}
+} // namespace
 
 void Display::ApplyTheme()
 {
@@ -89,6 +185,8 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
 
 SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title)
 {
+    // macOS: built-in trackpad reports 2-finger drags as touch, not as mouse wheel, so we can
+    // map them to pan. Physical scroll wheels still use SDL_EVENT_MOUSE_WHEEL.
     SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
@@ -170,15 +268,15 @@ void Display::LoadSettings()
         return; // No file yet — keep all defaults.
 
     // Analysis
-    overhangAngle    = loaded.overhangAngle;
+    overhangAngle = loaded.overhangAngle;
     sharpCornerAngle = loaded.sharpCornerAngle;
-    minFeatureSize   = loaded.minFeatureSize;
-    thinMinWidth     = loaded.thinMinWidth;
-    layerHeight      = loaded.layerHeight;
+    minFeatureSize = loaded.minFeatureSize;
+    thinMinWidth = loaded.thinMinWidth;
+    layerHeight = loaded.layerHeight;
 
     // Appearance
-    settingsAccentHue       = loaded.accentHue;
-    settingsAccentSat       = loaded.accentSat;
+    settingsAccentHue = loaded.accentHue;
+    settingsAccentSat = loaded.accentSat;
     settingsAccentUseSystem = loaded.accentUseSystem;
     if (!settingsAccentUseSystem)
         Color::SetAccent(settingsAccentHue, settingsAccentSat);
@@ -200,16 +298,16 @@ void Display::LoadSettings()
 
 void Display::SaveSettings()
 {
-    settings.overhangAngle    = overhangAngle;
+    settings.overhangAngle = overhangAngle;
     settings.sharpCornerAngle = sharpCornerAngle;
-    settings.minFeatureSize   = minFeatureSize;
-    settings.thinMinWidth     = thinMinWidth;
-    settings.layerHeight      = layerHeight;
-    settings.accentHue        = settingsAccentHue;
-    settings.accentSat        = settingsAccentSat;
-    settings.accentUseSystem  = settingsAccentUseSystem;
-    settings.themeMode        = static_cast<int>(themeMode);
-    settings.gridExtent       = Color::GRID_EXTENT;
+    settings.minFeatureSize = minFeatureSize;
+    settings.thinMinWidth = thinMinWidth;
+    settings.layerHeight = layerHeight;
+    settings.accentHue = settingsAccentHue;
+    settings.accentSat = settingsAccentSat;
+    settings.accentUseSystem = settingsAccentUseSystem;
+    settings.themeMode = static_cast<int>(themeMode);
+    settings.gridExtent = Color::GRID_EXTENT;
     settings.mouseSensitivity = mouseSensitivity;
     settings.Save(Settings::DefaultPath());
 }
@@ -235,6 +333,15 @@ void Display::Render()
     glClearColor(bg.r, bg.g, bg.b, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+    if (ViewportDepthExperiments::IsBackFaceCull())
+    {
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
+    else
+        glDisable(GL_CULL_FACE);
+
     viewportRenderer.Render(); // grid (depth-tested)
 
     // Mark only the solid surface pixels in the stencil buffer (value = 1).
@@ -244,8 +351,11 @@ void Display::Render()
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     renderer.RenderPatches();
+    renderer.RenderPickHighlight();
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     renderer.RenderWireframe();
+    // Calibrate edge picks: thick accent lines on top of wireframe (same GS line pipeline).
+    renderer.RenderPickHighlightLines(6.0f);
     glDisable(GL_STENCIL_TEST);
 
     viewportRenderer.RenderAxes(); // axes — occluded by solid via stencil
@@ -255,6 +365,29 @@ void Display::Render()
     {
         pendingFileTabsRebuild = false;
         RebuildFileTabs();
+    }
+
+    if (pendingToolSwitch)
+    {
+        pendingToolSwitch = false;
+        ClearPickHover();
+        ClearCalibrateFacePicks();
+        calibStepPoint1 = Icons::StepState::Active;
+        calibStepPoint2 = Icons::StepState::Active;
+        if (calibPara_Point1)
+            calibPara_Point1->selected = true;
+        if (calibPara_Point2)
+            calibPara_Point2->selected = false;
+        uiRenderer.MarkDirty();
+        bool nowAnalysis = (activeTool == ActiveTool::Analysis);
+        uiAnalysis->visible = nowAnalysis;
+        uiCalibrate->visible = !nowAnalysis;
+        if (analysisEnabled != nowAnalysis)
+        {
+            analysisEnabled = nowAnalysis;
+            UpdateScene();
+        }
+        uiRenderer.MarkDirty();
     }
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -278,6 +411,10 @@ void Display::UpdateScene()
 
 void Display::Frame()
 {
+    ApplyOrthoClipFromViewBounds(camera, scene);
+
+    const bool cameraMovedForPick = cameraDirty;
+
     if (cameraDirty)
     {
         renderer.SetCamera(camera);
@@ -303,6 +440,77 @@ void Display::Frame()
             results = Analysis::Instance().AnalyzeScene(scene);
 
         renderer.UpdateScene(scene, analysisEnabled ? &results : nullptr);
+
+        auto stillPickable = [&](const Face *f) -> bool
+        {
+            if (f == nullptr)
+                return true;
+            for (const PickTriangle &tri : renderer.GetPickTriangles())
+            {
+                if (tri.face == f)
+                    return true;
+            }
+            return false;
+        };
+
+        auto stillPickableEdge = [&](const Edge *e) -> bool
+        {
+            if (e == nullptr)
+                return true;
+            for (const PickSegment &ps : renderer.GetPickSegments())
+            {
+                if (ps.edge == e)
+                    return true;
+            }
+            return false;
+        };
+
+        if (hoverPickFace != nullptr && !stillPickable(hoverPickFace))
+            hoverPickFace = nullptr;
+        if (hoverPickEdge != nullptr && !stillPickableEdge(hoverPickEdge))
+            hoverPickEdge = nullptr;
+
+        bool calibPickInvalidated = false;
+        if (calibFacePoint1 != nullptr && !stillPickable(calibFacePoint1))
+        {
+            calibFacePoint1 = nullptr;
+            calibStepPoint1 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+        }
+        if (calibEdgePoint1 != nullptr && !stillPickableEdge(calibEdgePoint1))
+        {
+            calibEdgePoint1 = nullptr;
+            calibStepPoint1 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+        }
+        if (calibFacePoint2 != nullptr && !stillPickable(calibFacePoint2))
+        {
+            calibFacePoint2 = nullptr;
+            calibStepPoint2 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+        }
+        if (calibEdgePoint2 != nullptr && !stillPickableEdge(calibEdgePoint2))
+        {
+            calibEdgePoint2 = nullptr;
+            calibStepPoint2 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+        }
+        if (calibPickInvalidated)
+        {
+            uiRenderer.MarkDirty();
+            RefreshCalibWorkflow();
+        }
+        else if (CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) &&
+                 CalibSlotHasPick(calibFacePoint2, calibEdgePoint2))
+        {
+            RefreshCalibCompensation();
+            uiRenderer.MarkDirty();
+        }
+
+        if (hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
+            calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr)
+            RebuildPickHighlightMesh();
+
         if (analysisEnabled)
         {
             // Count flaws per type and push to UI
@@ -650,6 +858,13 @@ void Display::Frame()
         sceneDirty = false;
     }
 
+    if (cameraMovedForPick)
+    {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        UpdatePickHover(mx, my);
+    }
+
     if (renderDirty)
     {
         Render();
@@ -671,6 +886,8 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 
     camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
     uiRenderer.SetScreenSize(width, height);
+
+    ApplyOrthoClipFromViewBounds(camera, scene);
 
     // Push updated matrices to the renderers immediately. ResizeEventWatcher
     // calls Render() before Frame() has a chance to process cameraDirty, so
@@ -700,6 +917,328 @@ glm::vec3 Display::ScreenToWorld(float pixelX, float pixelY) const
     glm::vec3 up = camera.orientation * glm::vec3(0.0f, 1.0f, 0.0f);
 
     return camera.target + right * ndcX * camera.orthoSize * camera.aspectRatio + up * ndcY * camera.orthoSize;
+}
+
+PickFilter Display::GetActivePickFilter() const
+{
+    if (activeTool != ActiveTool::Calibrate)
+        return PickFilter::None;
+    if (!calibPara_Point1 || !calibPara_Point1->visible)
+        return PickFilter::None;
+    if (!scene || (scene->solids.empty() && scene->faces.empty()))
+        return PickFilter::None;
+
+    const bool awaitingPoint1Pick = calibPara_Point1->selected;
+    const bool awaitingPoint2Pick =
+        calibPara_Point2 && calibPara_Point2->selected && calibStepPoint1 == Icons::StepState::Done;
+    if (!awaitingPoint1Pick && !awaitingPoint2Pick)
+        return PickFilter::None;
+
+    return PickFilter::Faces;
+}
+
+void Display::ClearPickHover()
+{
+    hoverPickFace = nullptr;
+    hoverPickEdge = nullptr;
+    RebuildPickHighlightMesh();
+    renderDirty = true;
+}
+
+void Display::ClearCalibrateFacePicks()
+{
+    calibFacePoint1 = nullptr;
+    calibFacePoint2 = nullptr;
+    calibEdgePoint1 = nullptr;
+    calibEdgePoint2 = nullptr;
+    RefreshCalibWorkflow();
+    RebuildPickHighlightMesh();
+    renderDirty = true;
+}
+
+void Display::SetHoverCalibPick(const Face *face, const Edge *edge)
+{
+    if (hoverPickFace == face && hoverPickEdge == edge)
+    {
+        if (face != nullptr || edge != nullptr)
+            return;
+        if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
+            calibEdgePoint2 != nullptr)
+            return;
+        if (pickHighlightIndices.empty())
+            return;
+    }
+    hoverPickFace = face;
+    hoverPickEdge = edge;
+    RebuildPickHighlightMesh();
+    renderDirty = true;
+}
+
+void Display::RebuildPickHighlightMesh()
+{
+    pickHighlightVertices.clear();
+    pickHighlightIndices.clear();
+    pickHighlightLineVertices.clear();
+    pickHighlightLineIndices.clear();
+
+    const std::vector<PickTriangle> &tris = renderer.GetPickTriangles();
+    uint32_t nextVert = 0;
+
+    auto appendFaceTris = [&](const Face *face, float accentDepthSteps, float satMult)
+    {
+        if (face == nullptr)
+            return;
+        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
+        for (const PickTriangle &tri : tris)
+        {
+            if (tri.face != face)
+                continue;
+            const glm::dvec3 e1 = tri.v1 - tri.v0;
+            const glm::dvec3 e2 = tri.v2 - tri.v0;
+            glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+            if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                n = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            pickHighlightVertices.push_back({glm::vec3(tri.v0), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v1), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v2), accent, n});
+            pickHighlightIndices.push_back(nextVert);
+            pickHighlightIndices.push_back(nextVert + 1);
+            pickHighlightIndices.push_back(nextVert + 2);
+            nextVert += 3;
+        }
+    };
+
+    appendFaceTris(calibFacePoint1, 1.0f, 0.72f);
+    appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
+
+    const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
+    const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
+    auto appendEdgeLines = [&](const Edge *edge, float accentDepthSteps, float satMult)
+    {
+        if (edge == nullptr)
+            return;
+        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
+        for (const PickSegment &ps : segPick)
+        {
+            if (ps.edge != edge)
+                continue;
+            const uint32_t base = static_cast<uint32_t>(pickHighlightLineVertices.size());
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v0), accent, lineNormal});
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v1), accent, lineNormal});
+            pickHighlightLineIndices.push_back(base);
+            pickHighlightLineIndices.push_back(base + 1);
+        }
+    };
+
+    appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
+    appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
+
+    const Face *hoverDraw = hoverPickFace;
+    if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
+        hoverDraw = nullptr;
+    appendFaceTris(hoverDraw, 0.5f, 0.5f);
+
+    const Edge *hoverEdgeDraw = hoverPickEdge;
+    if (hoverEdgeDraw == calibEdgePoint1 || hoverEdgeDraw == calibEdgePoint2)
+        hoverEdgeDraw = nullptr;
+    appendEdgeLines(hoverEdgeDraw, 0.5f, 0.5f);
+
+    renderer.UploadPickHighlightMesh(pickHighlightVertices, pickHighlightIndices);
+    renderer.UploadPickHighlightLineMesh(pickHighlightLineVertices, pickHighlightLineIndices);
+}
+
+Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const
+{
+    CalibPickHit out;
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    glm::dvec3 ro, rd;
+    ScenePick::OrthoPickRay(camera, w, h, pixelX, pixelY, ro, rd);
+
+    double faceT = 0.0;
+    const Face *face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces, &faceT);
+
+    const double halfH = static_cast<double>(camera.orthoSize);
+    const double worldPerPx =
+        std::max(2.0 * halfH / std::max(1, h), 2.0 * halfH * static_cast<double>(camera.aspectRatio) / std::max(1, w));
+    const double tol = 10.0 * worldPerPx;
+    const double maxDistSq = tol * tol;
+
+    double edgeT = 0.0;
+    double edgeDistSq = 0.0;
+    const Edge *edge = ScenePick::PickClosestEdgeAlongRay(renderer.GetPickSegments(), ro, rd, maxDistSq, &edgeT,
+                                                           &edgeDistSq);
+
+    if (face == nullptr && edge == nullptr)
+        return out;
+
+    if (face == nullptr)
+    {
+        out.edge = edge;
+        return out;
+    }
+    if (edge == nullptr)
+    {
+        out.face = face;
+        return out;
+    }
+
+    constexpr double kRayEps = 1e-4;
+    constexpr double kTightEdgeFrac = 0.04;
+    if (edgeDistSq < maxDistSq * kTightEdgeFrac && edgeT < faceT + kRayEps * (1.0 + std::abs(faceT)))
+    {
+        out.edge = edge;
+        return out;
+    }
+    if (edgeT + kRayEps < faceT)
+    {
+        out.edge = edge;
+        return out;
+    }
+    out.face = face;
+    return out;
+}
+
+void Display::UpdatePickHover(float pixelX, float pixelY)
+{
+    ImGuiIO &io = ImGui::GetIO();
+    const SDL_MouseButtonFlags buttons = SDL_GetMouseState(nullptr, nullptr);
+    const bool viewportNav = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0 ||
+                             (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
+
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || viewportNav)
+    {
+        SetHoverCalibPick(nullptr, nullptr);
+        return;
+    }
+    if (GetActivePickFilter() == PickFilter::None)
+    {
+        SetHoverCalibPick(nullptr, nullptr);
+        return;
+    }
+
+    const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    SetHoverCalibPick(hit.face, hit.edge);
+}
+
+void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
+{
+    if (activeTool != ActiveTool::Calibrate)
+        return;
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY))
+        return;
+    if (!calibPara_Point1 || !calibPara_Point1->visible)
+        return;
+
+    const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    if (hit.face == nullptr && hit.edge == nullptr)
+        return;
+
+    if (calibPara_Point1->selected)
+    {
+        calibFacePoint1 = hit.face;
+        calibEdgePoint1 = hit.edge;
+        calibStepPoint1 = Icons::StepState::Done;
+        calibPara_Point1->selected = false;
+        calibPara_Point2->selected = true;
+    }
+    else if (calibPara_Point2 && calibPara_Point2->selected)
+    {
+        if (calibStepPoint1 != Icons::StepState::Done)
+            return;
+        calibFacePoint2 = hit.face;
+        calibEdgePoint2 = hit.edge;
+        calibStepPoint2 = Icons::StepState::Done;
+        calibPara_Point2->selected = false;
+    }
+    else
+        return;
+
+    RefreshCalibWorkflow();
+    uiRenderer.MarkDirty();
+    RebuildPickHighlightMesh();
+    renderDirty = true;
+}
+
+void Display::RefreshCalibWorkflow()
+{
+    if (!scene)
+    {
+        calibWorkflow = CalibWorkflow::None;
+        RefreshCalibCompensation();
+        RefreshCalibDerivedRowVisible();
+        return;
+    }
+    std::unordered_set<const Edge *> holeEdges;
+    CalibrateDistance::RebuildHoleEdgeSet(*scene, holeEdges);
+    const double layerMm = static_cast<double>(layerHeight);
+    const Face *r1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const Face *r2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (r1 != nullptr && r2 != nullptr)
+        calibWorkflow = CalibrateDistance::CombinePickedFaces(r1, r2, scene, layerMm, holeEdges);
+    else if (r1 != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(r1, scene, layerMm, holeEdges);
+    else if (r2 != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(r2, scene, layerMm, holeEdges);
+    else
+        calibWorkflow = CalibWorkflow::None;
+
+    RefreshCalibCompensation();
+    RefreshCalibDerivedRowVisible();
+}
+
+void Display::RefreshCalibDerivedRowVisible()
+{
+    if (!calibPara_Derived)
+        return;
+
+    bool next = false;
+    if (calibSec_Parameters && calibSec_Parameters->visible)
+    {
+        const bool importDone = calibStepImport == Icons::StepState::Done;
+        const bool firstFaceDone = calibStepPoint1 == Icons::StepState::Done;
+        next = importDone && firstFaceDone;
+    }
+
+    if (calibPara_Derived->visible != next)
+    {
+        calibPara_Derived->visible = next;
+        uiRenderer.MarkDirty();
+    }
+}
+
+void Display::RefreshCalibCompensation()
+{
+    calibContourScale = 1.0f;
+    calibHoleOffsetMm = 0.0f;
+    calibElephantFootMm = 0.0f;
+    calibCompensationValid = false;
+    calibNominal = 0.0f;
+
+    const Face *spanA = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const Face *spanB = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (scene == nullptr || spanA == nullptr || spanB == nullptr)
+        return;
+
+    const CalibrateNominal::SpanResult span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
+    if (!span.valid)
+        return;
+
+    calibNominal = span.nominalMm;
+    if (calibWorkflow == CalibWorkflow::None)
+        return;
+
+    const CalibrateCompensation::Values vals =
+        CalibrateCompensation::Compute(calibWorkflow, calibNominal, calibMeasured);
+    if (!vals.valid)
+        return;
+
+    calibContourScale = vals.contourScale;
+    calibHoleOffsetMm = vals.holeRadiusOffsetMm;
+    calibElephantFootMm = vals.elephantFootExcessMm;
+    calibCompensationValid = true;
 }
 
 void Display::snapInput(float &x, float &y)
@@ -750,6 +1289,12 @@ void Display::FrameScene()
     UpdateCamera();
 }
 
+void Display::ResetCameraView()
+{
+    camera.ResetHomeView();
+    UpdateCamera();
+}
+
 bool Display::HitTestUI(float pixelX, float pixelY) const
 {
     return uiRenderer.HitTest(pixelX, pixelY);
@@ -758,9 +1303,50 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
 void Display::MarkBug()
 {
     auto &sl = SessionLogger::Instance();
-    sl.state.cameraTarget = camera.target;
-    sl.state.cameraOrthoSize = camera.orthoSize;
+    FillSessionReproState(sl.state);
     sl.LogBugMarker();
+}
+
+void Display::FillSessionReproState(SessionState &s) const
+{
+    if (scene != nullptr)
+    {
+        s.points = scene->points.size();
+        s.edges = scene->edges.size();
+        s.faces = scene->faces.size();
+        s.solids = scene->solids.size();
+    }
+
+    s.overhangAngle = overhangAngle;
+    s.sharpCornerAngle = sharpCornerAngle;
+    s.thinMinWidth = thinMinWidth;
+    s.minFeatureSize = minFeatureSize;
+    s.layerHeight = layerHeight;
+
+    s.cameraTarget = camera.target;
+    s.cameraOrthoSize = camera.orthoSize;
+    s.cameraPosition = camera.GetPosition();
+    s.cameraDistance = camera.distance;
+    s.cameraQuatW = camera.orientation.w;
+    s.cameraQuatX = camera.orientation.x;
+    s.cameraQuatY = camera.orientation.y;
+    s.cameraQuatZ = camera.orientation.z;
+    s.cameraNearPlane = camera.nearPlane;
+    s.cameraFarPlane = camera.farPlane;
+
+    s.windowLogicalW = static_cast<int>(windowWidth);
+    s.windowLogicalH = static_cast<int>(windowHeight);
+    if (window != nullptr)
+        SDL_GetWindowSizeInPixels(window, &s.windowPixelsW, &s.windowPixelsH);
+    else
+    {
+        s.windowPixelsW = 0;
+        s.windowPixelsH = 0;
+    }
+
+    s.activeToolOrdinal = (activeTool == ActiveTool::Calibrate) ? 1u : 0u;
+    s.viewportAnalysisEnabled = analysisEnabled;
+    s.depthExperimentOrdinal = static_cast<uint8_t>(ViewportDepthExperiments::Active());
 }
 
 void Display::DoFileImport()
@@ -801,7 +1387,22 @@ void Display::DoFileImport()
         }
 
         openFiles.push_back(filename);
-        RebuildFileTabs(); });
+        RebuildFileTabs();
+
+        // Hide import prereq; reveal both point prerequisites with Point1 active.
+        calibStepImport = Icons::StepState::Done;
+        ClearCalibrateFacePicks();
+        calibPara_Import->visible  = false;
+        calibPara_Point1->visible  = true;
+        calibPara_Point1->selected = true;
+        calibStepPoint1            = Icons::StepState::Active;
+        calibPara_Point2->visible  = true;
+        calibStepPoint2            = Icons::StepState::Active;
+        if (calibSec_Parameters)
+            calibSec_Parameters->visible = true;
+        RefreshCalibDerivedRowVisible();
+        uiRenderer.MarkDirty();
+        renderDirty = true; });
 }
 
 void Display::RebuildFileTabs()
@@ -822,11 +1423,21 @@ void Display::RebuildFileTabs()
         line.selected = (i == activeSceneIndex);
         line.onClick = [this, i]()
         {
+            ClearPickHover();
+            ClearCalibrateFacePicks();
+            calibStepPoint1 = Icons::StepState::Active;
+            calibStepPoint2 = Icons::StepState::Active;
+            if (calibPara_Point1)
+                calibPara_Point1->selected = true;
+            if (calibPara_Point2)
+                calibPara_Point2->selected = false;
+
             scene = ownedScenes[i].get();
             activeSceneIndex = i;
             UpdateScene();
             FrameScene();
             pendingFileTabsRebuild = true;
+            uiRenderer.MarkDirty();
         };
     }
 
@@ -843,13 +1454,77 @@ void Display::RebuildFileTabs()
 
 void Display::InitUI()
 {
+    float toolbarWidth = 2.0f;
     float sidebarWidth = 10.0f;
 
-    // Files tab bar — full-width header with dynamic file tabs
+    // ── Toolbar (column 1: tool selector) ────────────────────────────────────
+    {
+        RootPanel toolbarDef;
+        toolbarDef.id = "Toolbar";
+        toolbarDef.bgParentDepth = 0;
+        toolbarDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+        toolbarDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        toolbarDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+        toolbarDef.width = toolbarWidth;
+        uiToolbar = &uiRenderer.AddPanel(toolbarDef);
+        uiToolbar->children.reserve(2);
+
+        {
+            Paragraph &p = uiToolbar->AddParagraph("ToolAnalysis");
+            p.values.reserve(1);
+            SectionLine &line = p.values.emplace_back();
+            line.iconDraw = Icons::ToolAnalysis();
+            line.fontScale = 1.4f;
+            line.selected = true; // Analysis is the default active tool
+            line.onClick = [this]()
+            {
+                activeTool = ActiveTool::Analysis;
+                toolbarAnalysisLine->selected = true;
+                toolbarCalibrateLine->selected = false;
+                pendingToolSwitch = true;
+                renderDirty = true;
+            };
+            toolbarAnalysisLine = &line;
+        }
+        {
+            Paragraph &p = uiToolbar->AddParagraph("ToolCalibrate");
+            p.values.reserve(1);
+            SectionLine &line = p.values.emplace_back();
+            line.iconDraw = Icons::ToolCalibrate();
+            line.fontScale = 1.4f;
+            line.onClick = [this]()
+            {
+                activeTool = ActiveTool::Calibrate;
+                toolbarAnalysisLine->selected = false;
+                toolbarCalibrateLine->selected = true;
+                pendingToolSwitch = true;
+                renderDirty = true;
+            };
+            toolbarCalibrateLine = &line;
+        }
+    }
+
+    // ── Settings panel (column 2: persistent app settings) ───────────────────
+    // Created here so Files and Analysis can anchor their left edge to its right edge.
+    // Sections (Appearance, Viewport, Navigation) are populated further below.
+    {
+        RootPanel settingsDef;
+        settingsDef.id = "Settings";
+        settingsDef.bgParentDepth = 0;
+        settingsDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+        settingsDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+        settingsDef.header = Header{"Settings", 1.0f, 2};
+        uiSettings = &uiRenderer.AddPanel(settingsDef);
+        uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
+    }
+
+    // Files tab bar — spans from settings right edge to screen right
     RootPanel filesDef;
     filesDef.id = "Files";
-    filesDef.colorDepth = 1;
-    filesDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    filesDef.bgParentDepth = 0;
+    filesDef.horizontal = true;
+    filesDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
@@ -860,23 +1535,33 @@ void Display::InitUI()
     // Analysis panel with sections
     RootPanel analysisDef;
     analysisDef.id = "Analysis";
-    analysisDef.colorDepth = 1;
-    analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    analysisDef.bgParentDepth = 0;
+    analysisDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
     analysisDef.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
     uiAnalysis = &uiRenderer.AddPanel(analysisDef);
 
 #if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
     uiAnalysis->header = Header{"Analysis", 1.0f, 2};
+    {
+        Paragraph &sub = uiAnalysis->subtitle.emplace();
+        sub.values.reserve(1);
+        SectionLine &line = sub.values.emplace_back();
+        line.text = "Detect possible 3D printing issues by analyzing geometry";
+        line.textDepth = 1;
+    }
     uiAnalysis->children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
     uiResult = &uiAnalysis->AddParagraph("Result");
     uiResult->visible = false;
-    uiImportPara = &uiAnalysis->AddParagraph("ImportAction");
-    Paragraph &importPara = *uiImportPara;
-    SectionLine &importLine = importPara.values.emplace_back();
-    importLine.text = "Import file";
-    importLine.iconDraw = Icons::ImportFile();
-    importLine.onClick = [this]()
-    { DoFileImport(); };
+    {
+        PrerequisiteDef importDef;
+        importDef.id          = "ImportAction";
+        importDef.title       = "Import a file";
+        importDef.leadingDraw = Icons::CheckBox(&analysisStepImport);
+        importDef.active      = true;
+        importDef.onClick     = [this]() { DoFileImport(); };
+        uiAnalysis->AddParagraph(importDef.id) = BuildPrerequisiteParagraph(importDef);
+        uiImportPara = &std::get<Paragraph>(uiAnalysis->children.back());
+    }
     uiVerdict = &uiAnalysis->AddParagraph("Verdict");
     uiVerdict->visible = false;
 
@@ -1259,15 +1944,8 @@ void Display::InitUI()
         };
     };
 
-    RootPanel settingsDef;
-    settingsDef.id = "Settings";
-    settingsDef.colorDepth = 1;
-    settingsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
-    settingsDef.topAnchor = PanelAnchor{uiAnalysis, PanelAnchor::Bottom};
-    settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
-    settingsDef.header = Header{"Settings", 1.0f, 2};
-    uiSettings = &uiRenderer.AddPanel(settingsDef);
-    uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
+    // Settings panel was created early in InitUI (anchored right of toolbar).
+    // Add sections to the existing uiSettings panel here.
 
     // ── Appearance ────────────────────────────────────────────────────────────
     Section &appearanceSection = uiSettings->AddSection("Appearance");
@@ -1387,6 +2065,259 @@ void Display::InitUI()
                      1.0f, 1.0f, 500.0f, "%.0f", "##mouseSens",
                      [this]()
                      { renderDirty = true; });
+
+    // ── Calibrate panel ───────────────────────────────────────────────────────
+    {
+        ToolPanelDef calibDef;
+        calibDef.id = "Calibrate";
+        calibDef.name = "Calibrate";
+        calibDef.description = "Calibrate your 3d printer through measurements";
+
+        // ── Prerequisites ──────────────────────────────────────────────────
+        calibDef.prerequisites.reserve(3);
+        calibDef.prerequisites.push_back({"CalibImport", "Import a file", "",
+                                          Icons::CheckBox(&calibStepImport), false, true,
+                                          [this]()
+                                          { DoFileImport(); }});
+        calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
+                                          "to calibrate against",
+                                          Icons::CheckBox(&calibStepPoint1), false, false});
+        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point", "",
+                                          Icons::CheckBox(&calibStepPoint2), false, false});
+
+        // ── Parameters — print measurement InputFloat ──────────────────────
+        // TODO(Calibrate): Inline CAD nominal span (and pick/span status when needed) on this row so
+        // CalibDerived can stay compensation-only; see CalibDerived for messages still on the row below.
+        {
+            ParameterDef pm;
+            pm.id = "CalibMeasure";
+            pm.line.iconDraw = Icons::StepDot(&calibStepMeasure);
+            pm.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            {
+                if (!settingsBodyFont)
+                    return 0.0f;
+                float pad = ImGui::GetStyle().FramePadding.x;
+                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x;
+                return pad * 2.0f + labelW + 24.0f + 48.0f;
+            };
+            auto pmEditing = std::make_shared<bool>(false);
+            pm.line.imguiContent = [this, settingsBodyFont, pmEditing](float w, float h, float iconOffset)
+            {
+                glm::vec4 tcLabel = Color::GetUIText(2);
+                glm::vec4 tcValue = Color::GetUIText(0);
+                float pad = ImGui::GetStyle().FramePadding.x;
+
+                UIStyle::PushInputStyle(h, tcLabel);
+                ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+
+                float labelTextW = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x
+                                       : ImGui::CalcTextSize("Print measurement").x;
+                // Keep the input visually closer to the label (was too far right).
+                float leftW = pad + labelTextW + pad * 1.25f;
+                float inputW = w - leftW;
+
+                ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
+                ImGui::SetNextItemWidth(inputW);
+                bool showEdit = *pmEditing;
+                if (!showEdit)
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 0));
+                bool changed = ImGui::InputFloat("##calibMeasured", &calibMeasured, 0.0f, 0.0f, "%.2f");
+                if (!showEdit)
+                    ImGui::PopStyleColor();
+                UIStyle::DrawInputHoverTint(1);
+                *pmEditing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+
+                ImDrawList *dl = ImGui::GetWindowDrawList();
+                float itemBottom = ImGui::GetItemRectMax().y;
+                float labelTextH = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").y
+                                       : ImGui::CalcTextSize("Print measurement").y;
+                ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+                if (settingsBodyFont)
+                    ImGui::PushFont(settingsBodyFont);
+                dl->AddText(ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
+                if (settingsBodyFont)
+                    ImGui::PopFont();
+
+                // Unit/value suffix — value is right-aligned and sits directly left of unit.
+                {
+                    const char *unit = "mm";
+                    ImVec2 us = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, unit);
+                    ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                    dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x, itemBottom - us.y), unitCol, unit);
+
+                    if (!*pmEditing)
+                    {
+                        char valueBuf[32];
+                        std::snprintf(valueBuf, sizeof(valueBuf), "%.2f", calibMeasured);
+                        ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
+                        constexpr float valueUnitGap = 10.0f;
+                        dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x - valueUnitGap - vs.x, itemBottom - vs.y), unitCol, valueBuf);
+                    }
+                }
+
+                if (changed)
+                {
+                    RefreshCalibCompensation();
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+                UIStyle::PopInputStyle();
+            };
+            calibDef.parameters.push_back(std::move(pm));
+        }
+
+        {
+            ParameterDef pmDer;
+            pmDer.id = "CalibDerived";
+            pmDer.line.iconDraw = Icons::StepDot(&calibStepMeasure);
+            pmDer.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            {
+                if (!settingsBodyFont)
+                    return 0.0f;
+                float pad = ImGui::GetStyle().FramePadding.x;
+                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f,
+                                                                "First-layer excess (printed − CAD)").x;
+                return pad * 2.0f + labelW + 72.0f;
+            };
+            pmDer.line.imguiContent = [this, settingsBodyFont](float w, float h, float iconOffset)
+            {
+                (void)h;
+                (void)iconOffset;
+                glm::vec4 tcLabel = Color::GetUIText(2);
+                glm::vec4 tcValue = Color::GetUIText(0);
+                float pad = ImGui::GetStyle().FramePadding.x;
+                ImVec2 row0 = ImGui::GetCursorScreenPos();
+                ImDrawList *dl = ImGui::GetWindowDrawList();
+
+                auto drawLine = [&](float y, const char *label, const char *valueStr)
+                {
+                    ImU32 lc = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+                    ImU32 vc = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                    if (settingsBodyFont)
+                        ImGui::PushFont(settingsBodyFont);
+                    ImVec2 ls = ImGui::CalcTextSize(label);
+                    dl->AddText(ImVec2(row0.x + pad, y), lc, label);
+                    ImVec2 vs = ImGui::CalcTextSize(valueStr);
+                    dl->AddText(ImVec2(row0.x + w - pad - vs.x, y), vc, valueStr);
+                    if (settingsBodyFont)
+                        ImGui::PopFont();
+                };
+
+                float lh = settingsBodyFont
+                               ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Mg").y
+                               : ImGui::GetTextLineHeight();
+                const float y0 = row0.y + pad * 0.25f;
+
+                const bool missingFaces =
+                    !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) ||
+                    !CalibSlotHasPick(calibFacePoint2, calibEdgePoint2);
+                const bool spanBad = !missingFaces && calibNominal <= 1e-5f;
+                const bool importDone = calibStepImport == Icons::StepState::Done;
+                const bool firstFaceDone = calibStepPoint1 == Icons::StepState::Done;
+
+                if (missingFaces)
+                {
+                    // No span text until import and first face pick are done — avoids "pick two faces" while
+                    // prerequisite rows still describe the first measurement point.
+                    if (!importDone || !firstFaceDone)
+                    {
+                        ImGui::Dummy(ImVec2(w, pad));
+                        return;
+                    }
+                    drawLine(y0, "Pick second face or edge for CAD span.", "");
+                    ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                    return;
+                }
+                if (spanBad)
+                {
+                    drawLine(y0, "Could not estimate span (try parallel faces).", "");
+                    ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                    return;
+                }
+
+                float y = y0;
+                if (calibCompensationValid && calibWorkflow != CalibWorkflow::None)
+                {
+                    char valB[48] = {};
+                    const char *lab = "";
+                    switch (calibWorkflow)
+                    {
+                    case CalibWorkflow::Contour:
+                        lab = "shrinkage";
+                        std::snprintf(valB, sizeof(valB), "%.4f", calibContourScale);
+                        break;
+                    case CalibWorkflow::Hole:
+                        lab = "Hole radius offset";
+                        std::snprintf(valB, sizeof(valB), "%.3f mm", calibHoleOffsetMm);
+                        break;
+                    case CalibWorkflow::ElephantFoot:
+                        lab = "First-layer excess (printed − CAD)";
+                        std::snprintf(valB, sizeof(valB), "%.3f mm", calibElephantFootMm);
+                        break;
+                    default:
+                        break;
+                    }
+                    if (lab[0] != '\0')
+                        drawLine(y, lab, valB);
+                }
+                else
+                {
+                    drawLine(y, "Adjust print measurement to compute compensation.", "");
+                }
+
+                ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+            };
+            calibDef.parameters.push_back(std::move(pmDer));
+        }
+
+        RootPanel calibPanel = BuildToolPanel(calibDef);
+        calibPanel.visible = false;
+        calibPanel.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
+        calibPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
+        uiCalibrate = &uiRenderer.AddPanel(calibPanel);
+
+        // ── Paragraph pointers for live state mutation ──────────────────────
+        Section *prereqs = FindSection(*uiCalibrate, "Prerequisites");
+        calibPara_Import = &prereqs->children[0];
+        calibPara_Point1 = &prereqs->children[1];
+        calibPara_Point2 = &prereqs->children[2];
+        calibLine_Point1Primary = &prereqs->children[1].values[0];
+        calibLine_Point2Primary = &prereqs->children[2].values[0];
+
+        calibSec_Parameters = FindSection(*uiCalibrate, "Parameters");
+        if (calibSec_Parameters && calibSec_Parameters->children.size() >= 2)
+            calibPara_Derived = &calibSec_Parameters->children[1];
+
+        // Click handlers — selecting a point prerequisite deselects the other.
+        auto selectPoint1 = [this]()
+        {
+            calibPara_Point1->selected = true;
+            calibPara_Point2->selected = false;
+        };
+        auto selectPoint2 = [this]()
+        {
+            calibPara_Point2->selected = true;
+            calibPara_Point1->selected = false;
+        };
+        calibPara_Point1->onClick        = selectPoint1;
+        calibLine_Point1Primary->onClick = selectPoint1;
+        if (calibPara_Point1->values.size() > 1)
+            calibPara_Point1->values[1].onClick = selectPoint1;
+        calibPara_Point2->onClick        = selectPoint2;
+        calibLine_Point2Primary->onClick = selectPoint2;
+        if (calibPara_Point2->values.size() > 1)
+            calibPara_Point2->values[1].onClick = selectPoint2;
+
+        // Point1 and Point2 are hidden until a file is imported
+        calibPara_Point1->visible = false;
+        calibPara_Point2->visible = false;
+        if (calibSec_Parameters)
+            calibSec_Parameters->visible = false;
+
+        RefreshCalibDerivedRowVisible();
+    }
 
     // Compute minimum grid extent and enforce as SDL minimum window size
     uiRenderer.ComputeMinGridSize();

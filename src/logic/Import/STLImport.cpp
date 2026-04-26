@@ -1,4 +1,5 @@
 #include "STLImport.hpp"
+#include "GeometryExperiments.hpp"
 #include "scene/scene.hpp"
 #include "utils/log.hpp"
 
@@ -95,7 +96,8 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
     if (!faces.empty())
     {
         Solid *solid = scene->CreateSolid(faces);
-        scene->MergeCoplanarFaces(solid);
+        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
+            scene->MergeCoplanarFaces(solid);
     }
 
     return true;
@@ -150,7 +152,8 @@ static bool ImportASCII(std::ifstream &file, Scene *scene)
     if (!faces.empty())
     {
         Solid *solid = scene->CreateSolid(faces);
-        scene->MergeCoplanarFaces(solid);
+        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
+            scene->MergeCoplanarFaces(solid);
     }
 
     return true;

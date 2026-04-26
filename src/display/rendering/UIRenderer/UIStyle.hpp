@@ -9,6 +9,37 @@
 // both widget types stay consistent.
 namespace UIStyle
 {
+    // ── Text roles ────────────────────────────────────────────────────────────
+    // Describes the semantic purpose of a SectionLine, driving font and scale.
+    // Color is controlled separately via SectionLine::textDepth.
+    //   Title       — panel/section headers; uses bodyImFont at its given fontScale
+    //   Normal      — body text, paragraph content; bodyImFont, 1.0x scale
+    //   Small       — subtitles, contextual "why" lines; bodyImFont, 0.85x scale (owned by role)
+    //   Value       — numeric readouts, units; bodyImFont, 1.0x scale
+    //
+    // Interactive override: if SectionLine::onClick or ::imguiContent is set, the
+    // renderer replaces the resolved font with pixelImFont regardless of role.
+    enum class TextRole
+    {
+        Title,
+        Normal,
+        Small,
+        Value
+    };
+
+    struct TextStyle
+    {
+        TextRole role = TextRole::Normal;
+    };
+
+    constexpr float SmallScale() { return 0.85f; }
+
+    // Returns the role-driven scale multiplier. Combined with SectionLine::fontScale.
+    constexpr float RoleScale(TextRole role)
+    {
+        return role == TextRole::Small ? SmallScale() : 1.0f;
+    }
+
     constexpr float FRAME_ROUNDING_RATIO = 0.3f;
     constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // interactive feedback: hover/active tint
 

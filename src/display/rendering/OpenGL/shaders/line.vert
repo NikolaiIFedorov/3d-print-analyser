@@ -6,6 +6,7 @@ layout(location = 2) in vec3 aNormal;
 
 uniform mat4 uViewProjection;
 uniform mat4 uModel;
+uniform float uWireZBias;
 
 out VS_OUT {
     vec3 color;
@@ -20,6 +21,7 @@ void main()
     // enough not to pull back-face edges through thin-walled geometry.
     // 1e-6 NDC ≈ 0.1 world units = ~8 depth steps.  Features thicker than
     // 0.1 mm will never have back edges bleed through.
-    gl_Position.z -= 0.000001 * gl_Position.w;
+    // uWireZBias: set to 0 in `NoWireZBias` experiment to test without this nudge.
+    gl_Position.z -= 0.000001 * gl_Position.w * uWireZBias;
     vs_out.color = aColor;
 }

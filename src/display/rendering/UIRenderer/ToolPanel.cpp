@@ -68,6 +68,8 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
 
     // ── Parameters section ────────────────────────────────────────────────
     Section &paramSec = panel.AddSection("Parameters");
+    // Stack measurement + derived rows without an inner rail (one visual block).
+    paramSec.noChildSplitters = true;
     if (def.showSectionHeaders)
     {
         paramSec.header = Header{"Parameters", 1.0f, 2};
