@@ -16,3 +16,7 @@ Naming matches the idea: **azimuthZ** = yaw about +Z away from poles; **azimuthX
 ## Follow-up (same day)
 
 Threshold was wrong: `cos(80°)` gates on `f·Z > 0.17`, so almost all “camera above the bed” views used **Rx** for horizontal drag and felt alien. Intended gate is a **small cone** around ±Z (e.g. `f·Z > cos(10°)` ≈ within 10° of straight over/under) where **Rz** truly does almost nothing to `f`.
+
+## Follow-up 2 — dual chart removed
+
+With a **correct** narrow cone (`cos(10°)`), the Rx path almost never runs: until `f` is essentially `(0,0,±1)`, horizontal **Rz** still changes `(f.x, f.y)` and the view spins on screen, so users perceived no benefit. The dual-chart branch was removed; orbit stays **Rz** + pitch + explicit `M_p * M_horizontal * M_ori` + small polar snap.

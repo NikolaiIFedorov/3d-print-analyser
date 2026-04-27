@@ -51,44 +51,24 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Turntable: default yaw about world +Z (azimuthZ). Near ±Z, Rz leaves f unchanged, so use
-    // world +X for horizontal drag (azimuthX / X-chart) so orbit still moves f on the sphere.
-    // Build R = R_pitch * R_horizontal * R_current; roll stays in R_current between frames.
+    // Turntable: yaw about world +Z, pitch about cross(worldUp, fAfterYaw).
+    // R = R_pitch * R_yaw * R_current (explicit mat3); roll stays in R_current between frames.
+    // A dual-chart (Rx near ±Z) was tried but with a correct narrow pole cone it almost never
+    // differs from Rz in practice—Rz still spins azimuth until f is essentially (0,0,±1).
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
-    const glm::vec3 kWorldX(1.0f, 0.0f, 0.0f);
 
     const glm::mat3 M_ori = glm::mat3_cast(orientation);
     const glm::vec3 f0 = glm::normalize(M_ori * glm::vec3(0.0f, 0.0f, 1.0f));
     if (!std::isfinite(f0.x) || glm::length(f0) < 1e-12f)
         return;
 
-    // X-chart only inside a narrow cone around ±Z (colatitude θ from +Z: use when cos θ > this).
-    // BUGFIX: was cos(80°)≈0.17, which matched almost the whole upper hemisphere and made
-    // horizontal drag use Rx most of the time. Use ~10° from pole: cos(10°)≈0.985.
-    const float kPoleChartCos = glm::cos(glm::radians(10.0f));
-
     glm::mat3 M_horizontal(1.0f);
     if (std::abs(deltaX) > kEps)
-    {
-        if (f0.z > kPoleChartCos)
-        {
-            // North cap: horizontal drag → Rx so f moves in the YZ plane (Rz would fix +Z).
-            M_horizontal = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldX));
-        }
-        else if (f0.z < -kPoleChartCos)
-        {
-            // South cap: opposite handedness so the same mouse motion curls f off −Z similarly.
-            M_horizontal = glm::mat3_cast(glm::angleAxis(deltaX, kWorldX));
-        }
-        else
-        {
-            M_horizontal = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldUp));
-        }
-    }
+        M_horizontal = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldUp));
 
     const glm::vec3 fAfterYaw = glm::normalize(M_horizontal * f0);
 
