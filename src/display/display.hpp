@@ -36,6 +36,8 @@ public:
     void Frame();
 
     bool HitTestUI(float pixelX, float pixelY) const;
+    /// True if (pixelX, pixelY) lies over a Dear ImGui window that accepts mouse input (uses last frame rects).
+    bool HitTestImGui(float pixelX, float pixelY) const;
 
     void SetAspectRatio(uint16_t width, uint16_t height);
 

@@ -68,6 +68,19 @@ void Input::applyBatchedTwoFingerPan()
     {
         return;
     }
+    int w = 0, h = 0;
+    SDL_GetWindowSize(display->GetWindow(), &w, &h);
+    if (w > 0 && h > 0)
+    {
+        ImGuiIO &imguiIo = ImGui::GetIO();
+        for (const auto &kv : activeTouches)
+        {
+            const float px = kv.second.x * static_cast<float>(w);
+            const float py = kv.second.y * static_cast<float>(h);
+            if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
+                return;
+        }
+    }
     const float n = static_cast<float>(touchPanEventCount);
     const float cdx = touchPanAccDx / n;
     const float cdy = touchPanAccDy / n;
@@ -128,6 +141,10 @@ void Input::mouseGestures(const SDL_Event &event)
     {
     case SDL_EVENT_MOUSE_WHEEL:
     {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        if (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my))
+            break;
         SDL_Keymod mod = SDL_GetModState();
         float x = event.wheel.x;
         float y = event.wheel.y;
@@ -174,7 +191,9 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
-            if (!io.WantCaptureMouse && !display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 rightMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -182,7 +201,9 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
-            if (!io.WantCaptureMouse && !display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 middleMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -213,7 +234,7 @@ void Input::mouseGestures(const SDL_Event &event)
         // so a click + drag on widgets never moves the camera once the cursor is over the UI stack.
         float mx, my;
         SDL_GetMouseState(&mx, &my);
-        const bool blockNav = io.WantCaptureMouse || display->HitTestUI(mx, my);
+        const bool blockNav = io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my);
         if (middleMouseDown && !blockNav)
             display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                            event.motion.yrel * display->mouseSensitivity * 1e-4f);
@@ -302,7 +323,14 @@ bool Input::processEvent(const SDL_Event &event)
         const size_t nContacts = activeTouches.size();
         if (nContacts == 1U && (rightMouseDown || middleMouseDown))
         {
-            if (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone)
+            int w = 0, h = 0;
+            SDL_GetWindowSize(display->GetWindow(), &w, &h);
+            const float px = (w > 0) ? tf.x * static_cast<float>(w) : 0.0f;
+            const float py = (h > 0) ? tf.y * static_cast<float>(h) : 0.0f;
+            const bool blockTouchNav =
+                io.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py);
+            if (!blockTouchNav &&
+                (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone))
             {
                 twoFingerOrMouseBridgePanOrbit(event);
             }
@@ -362,8 +390,11 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_MOUSE_WHEEL:
         pendingMouseWheel.push_back(event);
         break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
+        // Always release navigation buttons even when ImGui has capture (otherwise RMB stays "down").
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_MOTION:
         if (io.WantCaptureMouse)
             break;

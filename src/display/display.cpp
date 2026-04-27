@@ -1,4 +1,5 @@
 #include "display.hpp"
+#include "imgui_internal.h"
 #include "rendering/color.hpp"
 #include <algorithm>
 #include "rendering/UIRenderer/UIStyle.hpp"
@@ -1171,7 +1172,7 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     const bool viewportNav = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0 ||
                              (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
 
-    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || viewportNav)
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY) || viewportNav)
     {
         SetHoverCalibPick(nullptr, nullptr);
         return;
@@ -1191,7 +1192,7 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
     if (activeTool != ActiveTool::Calibrate)
         return;
     ImGuiIO &io = ImGui::GetIO();
-    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY))
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY))
         return;
     if (!calibPara_Point1 || !calibPara_Point1->visible)
         return;
@@ -1364,6 +1365,17 @@ bool Display::HitTestUI(float pixelX, float pixelY) const
     return uiRenderer.HitTest(pixelX, pixelY);
 }
 
+bool Display::HitTestImGui(float pixelX, float pixelY) const
+{
+    ImGuiContext *ctx = ImGui::GetCurrentContext();
+    if (ctx == nullptr)
+        return false;
+    ImGuiWindow *hovered = nullptr;
+    ImGuiWindow *hoveredUnderMoving = nullptr;
+    ImGui::FindHoveredWindowEx(ImVec2(pixelX, pixelY), false, &hovered, &hoveredUnderMoving);
+    return hovered != nullptr;
+}
+
 void Display::MarkBug()
 {
     auto &sl = SessionLogger::Instance();
@@ -1521,12 +1533,26 @@ void Display::InitUI()
     float toolbarWidth = 2.0f;
     float sidebarWidth = 10.0f;
 
-    // ── Toolbar (column 1: tool selector) ────────────────────────────────────
+    // ── Settings panel (left column: persistent app settings) ───────────────
+    // Sections (Appearance, Viewport, Navigation) are populated further below.
+    {
+        RootPanel settingsDef;
+        settingsDef.id = "Settings";
+        settingsDef.bgParentDepth = 0;
+        settingsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+        settingsDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+        settingsDef.header = Header{"Settings", 1.0f, 2};
+        uiSettings = &uiRenderer.AddPanel(settingsDef);
+        uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
+    }
+
+    // ── Toolbar (column 2: tool selector) ────────────────────────────────────
     {
         RootPanel toolbarDef;
         toolbarDef.id = "Toolbar";
         toolbarDef.bgParentDepth = 0;
-        toolbarDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+        toolbarDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
         toolbarDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
         toolbarDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
         toolbarDef.width = toolbarWidth;
@@ -1584,27 +1610,12 @@ void Display::InitUI()
         }
     }
 
-    // ── Settings panel (column 2: persistent app settings) ───────────────────
-    // Created here so Files and Analysis can anchor their left edge to its right edge.
-    // Sections (Appearance, Viewport, Navigation) are populated further below.
-    {
-        RootPanel settingsDef;
-        settingsDef.id = "Settings";
-        settingsDef.bgParentDepth = 0;
-        settingsDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
-        settingsDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-        settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
-        settingsDef.header = Header{"Settings", 1.0f, 2};
-        uiSettings = &uiRenderer.AddPanel(settingsDef);
-        uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
-    }
-
-    // Files tab bar — spans from settings right edge to screen right
+    // Files tab bar — spans from toolbar right edge to screen right
     RootPanel filesDef;
     filesDef.id = "Files";
     filesDef.bgParentDepth = 0;
     filesDef.horizontal = true;
-    filesDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
+    filesDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
@@ -1616,7 +1627,7 @@ void Display::InitUI()
     RootPanel analysisDef;
     analysisDef.id = "Analysis";
     analysisDef.bgParentDepth = 0;
-    analysisDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
+    analysisDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
     analysisDef.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
     uiAnalysis = &uiRenderer.AddPanel(analysisDef);
 
@@ -1886,7 +1897,7 @@ void Display::InitUI()
 
 #endif // DEBUG: panel-only mode
 
-    // Settings panel — extends from bottom of Analysis to bottom of screen.
+    // Settings panel — left column; extends from bottom of Analysis to bottom of screen.
     // Covers appearance, viewport, and navigation configuration.
     settingsAccentHue = Color::GetAccentHue();
     settingsAccentSat = Color::GetAccentSat();
@@ -2024,7 +2035,7 @@ void Display::InitUI()
         };
     };
 
-    // Settings panel was created early in InitUI (anchored right of toolbar).
+    // Settings panel was created early in InitUI (left edge; toolbar sits to its right).
     // Add sections to the existing uiSettings panel here.
 
     // ── Appearance ────────────────────────────────────────────────────────────
@@ -2365,7 +2376,7 @@ void Display::InitUI()
 
         RootPanel calibPanel = BuildToolPanel(calibDef);
         calibPanel.visible = false;
-        calibPanel.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
+        calibPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         calibPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiCalibrate = &uiRenderer.AddPanel(calibPanel);
 

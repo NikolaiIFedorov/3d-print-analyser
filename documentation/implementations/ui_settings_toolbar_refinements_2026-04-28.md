@@ -39,3 +39,13 @@ Committed as `39ccec9` on `imgui-refactor` (amended from earlier hash).
 - **Custom accent after System:** `onChange` for Custom (`i == 1`) now calls `Color::SetAccent(settingsAccentHue, settingsAccentSat)` so the swatch-applied values show immediately without opening the picker again.
 - **Pan after UI interaction:** `mouseGestures` now treats `ImGui::GetIO().WantCaptureMouse` like `processEvent` does for down, and on **motion** blocks orbit/pan when `WantCaptureMouse || HitTestUI` at the current cursor so drags starting or continuing over ImGui/custom UI do not move the camera.
 - **Edge/face z-fighting:** increased `RenderingExperiments::kWireframeClipZNudgeScale` (clip-space Z nudge in `line.vert`) so wireframe lines sit slightly in front of coplanar filled patches in ortho.
+
+---
+
+## Follow-up 2 — ImGui hit + stuck RMB + layout
+
+- **Pan over ImGui:** `io.WantCaptureMouse` can lag one frame; custom `HitTestUI` does not cover Dear ImGui. Added `Display::HitTestImGui()` using `ImGui::FindHoveredWindowEx` (last-frame window rects) and folded it into navigation blocking with mouse and touch.
+- **Stuck pan:** `processEvent` skipped `MOUSE_BUTTON_UP` when `WantCaptureMouse`, so `rightMouseDown` / `middleMouseDown` never cleared — split so **button-up always** runs `mouseGestures`.
+- **Wheel over UI:** `pendingMouseWheel` path now skips camera zoom/orbit/roll when over ImGui or custom UI or `WantCaptureMouse` (same idea as pan; explains modifier+wheel not firing over widgets).
+- **Touch:** two-finger batch pan and one-finger bridge pan/orbit respect the same overlay hit tests.
+- **Layout:** Settings column is left of the toolbar (`[Settings][Toolbar][Files…]`).
