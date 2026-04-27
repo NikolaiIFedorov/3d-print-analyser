@@ -69,3 +69,10 @@ Committed as `39ccec9` on `imgui-refactor` (amended from earlier hash).
 ## Outcome (follow-up 4)
 
 Clean build; wheel inertia guard committed separately from earlier UI commits.
+
+---
+
+## Follow-up 5 — Pan lead-in + status strip layering
+
+- **Pan delay:** Two-finger pan ignored `FINGER_MOTION` until per-event `|dx|` or `|dy|` exceeded `kTouchDeadzone` (was 0.0005), which felt like a dead zone before motion. Lowered to `0.00012f`. Removed erroneous `pendingMouseWheel.clear()` from `beginTouchPanAccumForFrame` (wheel queue is drained after processing only).
+- **Status strip:** Confirmed it is **not** a `Panel` / UIRenderer widget; it uses `ImGui::GetForegroundDrawList()` and only uses Settings/Toolbar columns for horizontal span. Renders above normal ImGui and custom UI by design (import line stays visible).

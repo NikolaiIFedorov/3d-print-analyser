@@ -38,7 +38,8 @@ private:
     /// After RMB/MMB release or touch pan, ignore unmodified wheel zoom/roll briefly (trackpad inertia).
     Uint64 suppressCameraWheelUntilMs = 0;
 
-    static constexpr float kTouchDeadzone = 0.0005f;
+    /// Normalized finger deltas; keep low so two-finger pan starts without a noticeable “dead” lead-in.
+    static constexpr float kTouchDeadzone = 0.00012f;
 
     void clearTouchState();
     void beginTouchPanAccumForFrame();

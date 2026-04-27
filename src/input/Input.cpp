@@ -82,7 +82,6 @@ void Input::beginTouchPanAccumForFrame()
     touchPanAccDx = 0.0f;
     touchPanAccDy = 0.0f;
     touchPanEventCount = 0;
-    pendingMouseWheel.clear();
 }
 
 void Input::applyBatchedTwoFingerPan()
