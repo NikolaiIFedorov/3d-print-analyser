@@ -816,8 +816,9 @@ void UIRenderer::ResolveAnchors()
         RootPanel *tb = GetPanel("Toolbar");
         if (strip && strip->visible && st && tb && st->visible && tb->visible)
         {
-            const float gapBelowStripCells = UIGrid::GAP * 0.25f;
-            const float dy = strip->rowSpan + gapBelowStripCells;
+            // Touch outer row boxes: same rule as e.g. Files→Analysis (top = other.bottom). No extra
+            // cell gap — adjacent margins already give the only separation between GL backgrounds.
+            const float dy = strip->rowSpan;
             st->row += dy;
             tb->row += dy;
             updateLocalGrid(*st, st->padding);
