@@ -84,3 +84,4 @@ Clean build; wheel inertia guard committed separately from earlier UI commits.
 - Replaced foreground-only draw with a **`RootPanel` id `StatusStrip`**: same GL rounded card + ImGui row as other chrome; anchors `Settings` left → `Toolbar` right, fixed `height` in grid cells.
 - **`UIRenderer::ResolveAnchors`**: post-pass shifts `Settings` and `Toolbar` down by strip `rowSpan` + small gap so the strip does not overlap panel headers; re-runs `placeChildrenVertical` for both.
 - Content: one `Paragraph` / `SectionLine` with `imguiContent` (text + optional indeterminate pulse during import). `RefreshStatusStripIdleText` toggles `uiStatusStrip->visible` when line empty / scene null.
+- **Fix:** `RootPanel::AddParagraph` asserts `children.size() < children.capacity()` — `StatusStrip` must `children.reserve(1)` before the first `AddParagraph` (same pattern as Settings/Toolbar).

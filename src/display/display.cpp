@@ -1704,6 +1704,7 @@ void Display::InitUI()
         statusDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
         statusDef.height = 0.65f;
         uiStatusStrip = &uiRenderer.AddPanel(statusDef);
+        uiStatusStrip->children.reserve(1); // RootPanel::AddParagraph requires capacity > size (see Panel.hpp)
         Paragraph &stripPara = uiStatusStrip->AddParagraph("Line");
         stripPara.margin = 0.06f;
         stripPara.padding = 0.04f;
