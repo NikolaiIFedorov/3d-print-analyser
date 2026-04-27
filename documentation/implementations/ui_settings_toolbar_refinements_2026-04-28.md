@@ -30,4 +30,12 @@ Keeping a single ordered bootstrap (`InitUI` then `LoadSettings`) is fine if any
 
 ## Ship
 
-Committed as `9ed636a` on `imgui-refactor`.
+Committed as `39ccec9` on `imgui-refactor` (amended from earlier hash).
+
+---
+
+## Follow-up (same session, user feedback)
+
+- **Custom accent after System:** `onChange` for Custom (`i == 1`) now calls `Color::SetAccent(settingsAccentHue, settingsAccentSat)` so the swatch-applied values show immediately without opening the picker again.
+- **Pan after UI interaction:** `mouseGestures` now treats `ImGui::GetIO().WantCaptureMouse` like `processEvent` does for down, and on **motion** blocks orbit/pan when `WantCaptureMouse || HitTestUI` at the current cursor so drags starting or continuing over ImGui/custom UI do not move the camera.
+- **Edge/face z-fighting:** increased `RenderingExperiments::kWireframeClipZNudgeScale` (clip-space Z nudge in `line.vert`) so wireframe lines sit slightly in front of coplanar filled patches in ortho.

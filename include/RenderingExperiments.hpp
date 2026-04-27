@@ -34,7 +34,8 @@ inline constexpr bool kLineDrawsOmitDepthWrite = false;
 // --- Theory #2 (line vs patch depth): `line.vert` clip-space Z nudge. Shader uses 1e-6 × this;
 //     legacy implicit scale was 1. Larger values pull wire quads toward camera vs coplanar patches.
 //     `ViewportDepthExperiments::NoWireZBias` forces nudge to 0 on CPU.
-inline constexpr float kWireframeClipZNudgeScale = 1.0f;
+//     Bumped from 1 → 48 after reports of edge/face z-fighting in ortho (still subtle; tune if lines pop).
+inline constexpr float kWireframeClipZNudgeScale = 48.0f;
 
 // --- Theory #2b: `GL_POLYGON_OFFSET_FILL` on wireframe / pick-highlight *line* draws (GS emits
 //     filled tris). Default off — trial did not materially change ghosting; set true to re-test.

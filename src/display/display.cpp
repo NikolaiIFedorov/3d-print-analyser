@@ -2083,6 +2083,12 @@ void Display::InitUI()
                     renderDirty = true;
                 }
             }
+            else
+            {
+                Color::SetAccent(settingsAccentHue, settingsAccentSat);
+                uiRenderer.MarkDirty();
+                renderDirty = true;
+            }
         };
         sel.onActiveClick = [this]()
         {

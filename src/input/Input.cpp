@@ -123,6 +123,7 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
 
 void Input::mouseGestures(const SDL_Event &event)
 {
+    ImGuiIO &io = ImGui::GetIO();
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_WHEEL:
@@ -173,7 +174,7 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            if (!io.WantCaptureMouse && !display->HitTestUI(event.button.x, event.button.y))
             {
                 rightMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -181,7 +182,7 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            if (!io.WantCaptureMouse && !display->HitTestUI(event.button.x, event.button.y))
             {
                 middleMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -207,15 +208,22 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        if (middleMouseDown)
+    {
+        // ImGui may not have wanted capture on the mouse-down frame; also skip when over custom UI
+        // so a click + drag on widgets never moves the camera once the cursor is over the UI stack.
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        const bool blockNav = io.WantCaptureMouse || display->HitTestUI(mx, my);
+        if (middleMouseDown && !blockNav)
             display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                            event.motion.yrel * display->mouseSensitivity * 1e-4f);
-        else if (rightMouseDown)
+        else if (rightMouseDown && !blockNav)
             display->Pan(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                          event.motion.yrel * display->mouseSensitivity * 1e-4f, false);
         else
             display->UpdatePickHover(static_cast<float>(event.motion.x), static_cast<float>(event.motion.y));
         break;
+    }
     default:
         break;
     }
