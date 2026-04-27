@@ -75,4 +75,12 @@ Clean build; wheel inertia guard committed separately from earlier UI commits.
 ## Follow-up 5 — Pan lead-in + status strip layering
 
 - **Pan delay:** Two-finger pan ignored `FINGER_MOTION` until per-event `|dx|` or `|dy|` exceeded `kTouchDeadzone` (was 0.0005), which felt like a dead zone before motion. Lowered to `0.00012f`. Removed erroneous `pendingMouseWheel.clear()` from `beginTouchPanAccumForFrame` (wheel queue is drained after processing only).
-- **Status strip:** Confirmed it is **not** a `Panel` / UIRenderer widget; it uses `ImGui::GetForegroundDrawList()` and only uses Settings/Toolbar columns for horizontal span. Renders above normal ImGui and custom UI by design (import line stays visible).
+- **Status strip (superseded by follow-up 6):** Was `ImGui::GetForegroundDrawList()` only; now a real `RootPanel` (see follow-up 6).
+
+---
+
+## Follow-up 6 — Status strip as real `RootPanel`
+
+- Replaced foreground-only draw with a **`RootPanel` id `StatusStrip`**: same GL rounded card + ImGui row as other chrome; anchors `Settings` left → `Toolbar` right, fixed `height` in grid cells.
+- **`UIRenderer::ResolveAnchors`**: post-pass shifts `Settings` and `Toolbar` down by strip `rowSpan` + small gap so the strip does not overlap panel headers; re-runs `placeChildrenVertical` for both.
+- Content: one `Paragraph` / `SectionLine` with `imguiContent` (text + optional indeterminate pulse during import). `RefreshStatusStripIdleText` toggles `uiStatusStrip->visible` when line empty / scene null.

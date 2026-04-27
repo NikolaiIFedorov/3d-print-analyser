@@ -203,6 +203,7 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
 
     InitUI();
     LoadSettings();
+    RefreshStatusStripIdleText();
     SDL_AddEventWatch(ResizeEventWatcher, this);
 
     LOG_VOID("Initialized display");
@@ -932,6 +933,9 @@ void Display::Frame()
         UpdatePickHover(mx, my);
     }
 
+    if (!statusStripImportBusy)
+        RefreshStatusStripIdleText();
+
     if (renderDirty)
     {
         Render();
@@ -1440,52 +1444,43 @@ void Display::SyncToolbarToolVisualState()
     uiRenderer.MarkDirty();
 }
 
-void Display::RenderImportProgressSplash(const std::string &path)
+void Display::RefreshStatusStripIdleText()
 {
-    const std::string name = std::filesystem::path(path).filename().string();
-
-    auto bg = Color::GetBase();
-    glClearColor(bg.r, bg.g, bg.b, 1.0f);
-    if (RenderingExperiments::kReverseZDepth)
+    if (statusStripImportBusy)
     {
-        glClearDepth(0.0);
-        glDepthFunc(GL_GEQUAL);
+        if (uiStatusStrip)
+        {
+            uiStatusStrip->visible = true;
+            uiRenderer.MarkDirty();
+        }
+        return;
     }
+    if (scene == nullptr)
+    {
+        statusStripLine.clear();
+        if (uiStatusStrip)
+        {
+            uiStatusStrip->visible = false;
+            uiRenderer.MarkDirty();
+        }
+        return;
+    }
+    const size_t nFaces = scene->faces.size();
+    const size_t nEdges = scene->edges.size();
+    const size_t nPts = scene->points.size();
+    const size_t nSol = scene->solids.size();
+    char buf[160];
+    if (nFaces == 0 && nEdges == 0 && nPts == 0)
+        snprintf(buf, sizeof(buf), "Scene: empty");
     else
+        snprintf(buf, sizeof(buf), "Scene: %zu faces · %zu edges · %zu verts · %zu solids",
+                 nFaces, nEdges, nPts, nSol);
+    statusStripLine.assign(buf);
+    if (uiStatusStrip)
     {
-        glClearDepth(1.0);
-        glDepthFunc(GL_LEQUAL);
+        uiStatusStrip->visible = true;
+        uiRenderer.MarkDirty();
     }
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
-
-    ImGuiViewport *vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(vp->Pos);
-    ImGui::SetNextWindowSize(vp->Size);
-    ImGui::SetNextWindowBgAlpha(0.55f);
-    ImGui::Begin("##importSplash", nullptr,
-                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
-                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs);
-    const ImVec2 avail = ImGui::GetContentRegionAvail();
-    constexpr float boxW = 440.0f;
-    constexpr float boxH = 120.0f;
-    ImGui::SetCursorPos(ImVec2(std::max(0.0f, (avail.x - boxW) * 0.5f), std::max(0.0f, (avail.y - boxH) * 0.5f)));
-    ImGui::BeginChild("##importSplashInner", ImVec2(boxW, boxH), ImGuiChildFlags_Borders);
-    ImGui::TextUnformatted("Importing geometry");
-    ImGui::PushTextWrapPos(0.0f);
-    ImGui::TextWrapped("%s", name.c_str());
-    ImGui::PopTextWrapPos();
-    ImGui::Spacing();
-    ImGui::TextDisabled("Please wait…");
-    ImGui::EndChild();
-    ImGui::End();
-
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    SDL_GL_SwapWindow(window);
 }
 
 void Display::CompleteFileImport(const std::string &path)
@@ -1539,6 +1534,10 @@ void Display::CompleteFileImport(const std::string &path)
     RefreshCalibDerivedRowVisible();
     uiRenderer.MarkDirty();
     renderDirty = true;
+
+    statusStripImportBusy = false;
+    statusStripImportProgress01 = -1.0f;
+    RefreshStatusStripIdleText();
 }
 
 void Display::ProcessDeferredImportIfAny()
@@ -1547,7 +1546,16 @@ void Display::ProcessDeferredImportIfAny()
         return;
     std::string path = std::move(*deferredImportPath);
     deferredImportPath.reset();
-    RenderImportProgressSplash(path);
+
+    const std::string fname = std::filesystem::path(path).filename().string();
+    statusStripImportBusy = true;
+    statusStripImportProgress01 = -1.0f;
+    statusStripLine = "Importing " + fname + "…";
+    if (uiStatusStrip)
+        uiStatusStrip->visible = true;
+    uiRenderer.MarkDirty();
+    Render();
+
     CompleteFileImport(path);
 }
 
@@ -1683,6 +1691,50 @@ void Display::InitUI()
             };
             toolbarCalibrateLine = &line;
         }
+    }
+
+    // Status strip — same root-panel stack as Settings/Toolbar (GL card + ImGui row). Layout pass in
+    // UIRenderer::ResolveAnchors shifts Settings/Toolbar down by this panel's row span.
+    {
+        RootPanel statusDef;
+        statusDef.id = "StatusStrip";
+        statusDef.bgParentDepth = 0;
+        statusDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Left};
+        statusDef.rightAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+        statusDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        statusDef.height = 0.65f;
+        uiStatusStrip = &uiRenderer.AddPanel(statusDef);
+        Paragraph &stripPara = uiStatusStrip->AddParagraph("Line");
+        stripPara.margin = 0.06f;
+        stripPara.padding = 0.04f;
+        SectionLine &stripLine = stripPara.values.emplace_back();
+        stripLine.imguiContent = [this](float winW, float winH, float /*iconOffsetPx*/)
+        {
+            ImFont *pf = uiRenderer.GetPixelImFont();
+            if (pf != nullptr)
+                ImGui::PushFont(pf);
+            glm::vec4 tc = Color::GetUIText(1);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
+            ImGui::TextUnformatted(statusStripLine.c_str());
+            ImGui::PopStyleColor();
+            if (statusStripImportBusy && statusStripImportProgress01 < 0.0f && winW > 40.0f)
+            {
+                ImDrawList *dl = ImGui::GetWindowDrawList();
+                const ImVec2 wpos = ImGui::GetWindowPos();
+                const float innerL = wpos.x + 8.0f;
+                const float innerR = wpos.x + winW - 8.0f;
+                const float trackW = innerR - innerL;
+                const float stripBottom = wpos.y + winH - 2.0f;
+                const float t = static_cast<float>(SDL_GetTicks()) * 0.001f;
+                const float pulse = std::sin(t * 3.0f) * 0.5f + 0.5f;
+                const float segW = std::min(80.0f, trackW * 0.28f);
+                const float bx = innerL + (trackW - segW) * pulse;
+                dl->AddRectFilled(ImVec2(bx, stripBottom - 5.0f), ImVec2(bx + segW, stripBottom - 1.0f),
+                                  IM_COL32(90, 150, 255, 210), 2.0f);
+            }
+            if (pf != nullptr)
+                ImGui::PopFont();
+        };
     }
 
     // Files tab bar — spans from toolbar right edge to screen right

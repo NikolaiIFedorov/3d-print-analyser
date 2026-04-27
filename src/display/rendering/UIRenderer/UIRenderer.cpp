@@ -807,6 +807,25 @@ void UIRenderer::ResolveAnchors()
             updateLocalGrid(panel, panel.padding);
         }
     }
+
+    // StatusStrip spans Settings→Toolbar horizontally; it shares the top row with those panels until
+    // here, so we shift Settings + Toolbar down to free the strip band (avoids forward-anchor cycles).
+    {
+        RootPanel *strip = GetPanel("StatusStrip");
+        RootPanel *st = GetPanel("Settings");
+        RootPanel *tb = GetPanel("Toolbar");
+        if (strip && strip->visible && st && tb && st->visible && tb->visible)
+        {
+            const float gapBelowStripCells = UIGrid::GAP * 0.25f;
+            const float dy = strip->rowSpan + gapBelowStripCells;
+            st->row += dy;
+            tb->row += dy;
+            updateLocalGrid(*st, st->padding);
+            placeChildrenVertical(*st);
+            updateLocalGrid(*tb, tb->padding);
+            placeChildrenVertical(*tb);
+        }
+    }
 }
 
 void UIRenderer::ComputeMinGridSize()

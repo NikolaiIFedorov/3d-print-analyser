@@ -145,6 +145,7 @@ private:
     RootPanel *uiCalibrate = nullptr;
     RootPanel *uiSettings = nullptr;
     RootPanel *uiToolbar = nullptr;
+    RootPanel *uiStatusStrip = nullptr;
     SectionLine *toolbarAnalysisLine = nullptr;
     SectionLine *toolbarCalibrateLine = nullptr;
     Paragraph *uiResult = nullptr;
@@ -192,10 +193,15 @@ private:
     /// Set when the file dialog returns; consumed at the start of `Frame()` (splash + blocking import).
     std::optional<std::string> deferredImportPath;
 
+    /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
+    std::string statusStripLine;
+    bool statusStripImportBusy = false;
+    float statusStripImportProgress01 = -1.0f; // reserved: in [0,1] for real %; -1 = indeterminate
+
     void ProcessDeferredImportIfAny();
-    void RenderImportProgressSplash(const std::string &path);
     void CompleteFileImport(const std::string &path);
     void SyncToolbarToolVisualState();
+    void RefreshStatusStripIdleText();
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;
