@@ -51,63 +51,48 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Turntable (no roll): move on the sphere around `target`, then rebuild `orientation` so
-    // local +Y stays as close as possible to a stable world-up frame (yaw about +Z, pitch about
-    // horizontal axis cross(worldUp, view)). Incremental yaw*pitch on a quaternion drifted in
-    // roll and made Z-tilt feel stiff; integrating on `f` and orthonormalizing fixes both.
+    // Turntable: yaw about world +Z, pitch about the horizontal axis cross(worldUp, viewRay).
+    // Compose as quaternions so user roll is preserved between frames; rebuilding orientation
+    // from (r,u,f) alone would force canonical (zero) roll every orbit step and block continued
+    // tilt toward a plan view after rolling the view.
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
 
-    glm::vec3 f = glm::normalize(GetPosition() - target);
-    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
+    const glm::vec3 f0 = glm::normalize(GetPosition() - target);
+    if (!std::isfinite(f0.x) || glm::length(f0) < 1e-12f)
         return;
 
+    glm::quat qy(1.0f, 0.0f, 0.0f, 0.0f);
     if (std::abs(deltaX) > kEps)
-    {
-        const glm::mat3 Ry = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldUp));
-        f = Ry * f;
-        f = glm::normalize(f);
-    }
+        qy = glm::angleAxis(-deltaX, kWorldUp);
 
-    // After yaw, horizontal direction is still meaningful at the north pole (yaw spins f in XY
-    // when off-pole); if we later polar-clamp using only f.xy, near-pole noise can flip azimuth.
-    const glm::vec3 fAfterYaw = f;
+    const glm::vec3 fAfterYaw = glm::normalize(glm::mat3_cast(qy) * f0);
 
-    // Tiny offset from true ±Z for numeric stability; pitch gating (below) stops “fighting” the
-    // cap so the margin can stay small enough to read as a true plan view of the XY plane.
-    constexpr float kPolarMargin = glm::radians(0.35f);
-    constexpr float kPolarPitchGateSlop = glm::radians(0.3f);
-
+    glm::quat qp(1.0f, 0.0f, 0.0f, 0.0f);
     if (std::abs(deltaY) > kEps)
     {
-        const float polarBeforePitch = std::acos(std::clamp(f.z, -1.0f, 1.0f));
-
-        glm::vec3 pitchAxis = glm::cross(kWorldUp, f);
+        glm::vec3 pitchAxis = glm::cross(kWorldUp, fAfterYaw);
         const float paLen = glm::length(pitchAxis);
         if (paLen > 1e-6f)
             pitchAxis *= 1.0f / paLen;
         else
             pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f); // over the pole: pitch in XZ
 
-        const glm::mat3 Rp = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
-        const glm::vec3 fCandidate = glm::normalize(Rp * f);
-        const float polarCandidate = std::acos(std::clamp(fCandidate.z, -1.0f, 1.0f));
-
-        const float northGate = kPolarMargin + kPolarPitchGateSlop;
-        const float southGate = glm::pi<float>() - kPolarMargin - kPolarPitchGateSlop;
-        const bool atNorthCap = polarBeforePitch <= northGate;
-        const bool pitchTighterNorth = polarCandidate < polarBeforePitch - 1e-6f;
-        const bool atSouthCap = polarBeforePitch >= southGate;
-        const bool pitchTighterSouth = polarCandidate > polarBeforePitch + 1e-6f;
-
-        if (!(atNorthCap && pitchTighterNorth) && !(atSouthCap && pitchTighterSouth))
-            f = fCandidate;
+        qp = glm::angleAxis(-deltaY, pitchAxis);
     }
 
-    // Hard clamp to kPolarMargin if numerical drift still pushes past the cap.
+    const glm::quat qNew = glm::normalize(qp * qy * orientation);
+
+    // Tiny offset from true ±Z for stable view basis (look-at-free path in GetViewMatrix).
+    constexpr float kPolarMargin = glm::radians(0.35f);
+
+    glm::vec3 f = glm::normalize(glm::mat3_cast(qNew) * glm::vec3(0.0f, 0.0f, 1.0f));
+    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
+        return;
+
     float polar = std::acos(std::clamp(f.z, -1.0f, 1.0f));
     if (polar < kPolarMargin || polar > glm::pi<float>() - kPolarMargin)
     {
@@ -125,18 +110,20 @@ void Camera::Orbit(float deltaX, float deltaY)
         polar = glm::clamp(polar, kPolarMargin, glm::pi<float>() - kPolarMargin);
         const float sinP = std::sin(polar);
         f = glm::normalize(glm::vec3(hz.x * sinP, hz.y * sinP, std::cos(polar)));
+
+        glm::vec3 r = glm::cross(kWorldUp, f);
+        const float rLen = glm::length(r);
+        if (rLen > 1e-6f)
+            r *= 1.0f / rLen;
+        else
+            r = glm::vec3(1.0f, 0.0f, 0.0f);
+        const glm::vec3 u = glm::normalize(glm::cross(f, r));
+        orientation = glm::normalize(glm::quat_cast(glm::mat3(r, u, f)));
     }
-
-    glm::vec3 r = glm::cross(kWorldUp, f);
-    const float rLen = glm::length(r);
-    if (rLen > 1e-6f)
-        r *= 1.0f / rLen;
     else
-        r = glm::vec3(1.0f, 0.0f, 0.0f);
-    const glm::vec3 u = glm::normalize(glm::cross(f, r));
-
-    const glm::mat3 basis(r, u, f);
-    orientation = glm::normalize(glm::quat_cast(basis));
+    {
+        orientation = qNew;
+    }
 }
 
 void Camera::Roll(float delta)
