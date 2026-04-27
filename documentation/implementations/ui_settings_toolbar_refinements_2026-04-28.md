@@ -56,4 +56,16 @@ Committed as `39ccec9` on `imgui-refactor` (amended from earlier hash).
 
 - **Pan end → roll/zoom:** Trackpads often emit `MOUSE_WHEEL` right after RMB/MMB release or two-finger pan. Ignore **unmodified** wheel-driven camera moves for ~220 ms after those releases and after batched touch pan (`Input::suppressCameraWheelUntilMs`). Modifier + wheel is unchanged.
 - **Toolbar “active” vs hidden panel:** `SyncToolbarToolVisualState()` sets each tool row’s `selected` from `activeTool` **and** that tool’s panel `visible`; called after toggling visibility, and from `pendingToolSwitch` in `Render()`.
-- **Import progress:** File dialog callback only queues `deferredImportPath`; `Frame()` runs `RenderImportProgressSplash` (dim overlay + filename) then blocking `CompleteFileImport`. **Feasible** to add a real percentage later by moving parsers to a worker thread and reporting progress — would need thread-safe scene handoff and incremental parsers.
+- **Import progress:** File dialog callback only queues `deferredImportPath`; `Frame()` previously ran a full-screen splash, then **follow-up 4** replaced it with a top status strip + same blocking `CompleteFileImport`. **Feasible** to add a real percentage later by moving parsers to a worker thread and reporting progress — would need thread-safe scene handoff and incremental parsers.
+
+---
+
+## Follow-up 4 — Status strip (replacing splash) + wheel inertia vs finger contact
+
+- **Status strip:** Foreground ImGui draw spans the band above Settings through the toolbar (`DrawForegroundStatusStrip`); idle line from `RefreshStatusStripIdleText` (scene stats); import shows `Importing <file>…` with optional indeterminate/progress later (`statusStripImportProgress01`).
+- **Trackpad:** For `SDL_EVENT_MOUSE_WHEEL` with `which == SDL_TOUCH_MOUSEID`, if **no** SDL touch device reports any finger down (`anySdlTouchFingerDown`), skip unmodified camera zoom/roll — treats post-lift inertia as non-user intent. Modifier+wheel unchanged.
+- **Note:** With `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY` in `Display::InitWindow`, macOS trackpad exposes finger APIs; separation is coarse (contact vs inertia, multi-finger for pan), not per-resting-finger nuance.
+
+## Outcome (follow-up 4)
+
+Clean build; wheel inertia guard committed separately from earlier UI commits.

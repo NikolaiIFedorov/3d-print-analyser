@@ -11,6 +11,29 @@
 namespace
 {
 
+/// True if any SDL touch device currently reports ≥1 finger down (physical contact on trackpad / screen).
+static bool anySdlTouchFingerDown()
+{
+    int nDevices = 0;
+    SDL_TouchID *devices = SDL_GetTouchDevices(&nDevices);
+    if (devices == nullptr)
+        return false;
+    for (int i = 0; i < nDevices; ++i)
+    {
+        int nFingers = 0;
+        SDL_Finger **fgs = SDL_GetTouchFingers(devices[i], &nFingers);
+        if (fgs != nullptr)
+            SDL_free(fgs);
+        if (nFingers > 0)
+        {
+            SDL_free(devices);
+            return true;
+        }
+    }
+    SDL_free(devices);
+    return false;
+}
+
 /// True if SDL’s touch layer sees ≥2 fingers (e.g. trackpad; often still true when duplicate scroll arrives).
 static bool sdlHasMultiTouchContact()
 {
@@ -150,6 +173,9 @@ void Input::mouseGestures(const SDL_Event &event)
         const bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
         const Uint64 now = SDL_GetTicks();
         if (now < suppressCameraWheelUntilMs && !hasModifier)
+            break;
+        // Trackpad scroll synthesized as wheel with no finger contact is usually inertia after a gesture lift.
+        if (!hasModifier && event.wheel.which == SDL_TOUCH_MOUSEID && !anySdlTouchFingerDown())
             break;
         float x = event.wheel.x;
         float y = event.wheel.y;
