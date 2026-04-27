@@ -2,6 +2,7 @@
 #include "utils/log.hpp"
 #include "rendering/color.hpp"
 #include "ViewportDepthExperiments.hpp"
+#include "RenderingExperiments.hpp"
 
 OpenGLRenderer::~OpenGLRenderer()
 {
@@ -474,11 +475,13 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_TRUE);
+    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
 
     glBindVertexArray(pickHighlightLineVAO);
     glDrawElements(GL_LINES, pickHighlightLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
 
     GetGLError();
 }
@@ -501,11 +504,13 @@ void OpenGLRenderer::DrawLines()
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glDepthMask(GL_TRUE);
+    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
 
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
 
     GetGLError();
 }
