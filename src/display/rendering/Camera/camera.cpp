@@ -51,27 +51,27 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Turntable: yaw about world +Z, pitch about the horizontal axis cross(worldUp, viewRay).
-    // Compose as quaternions so user roll is preserved between frames; rebuilding orientation
-    // from (r,u,f) alone would force canonical (zero) roll every orbit step and block continued
-    // tilt toward a plan view after rolling the view.
+    // Turntable: yaw about world +Z, pitch about horizontal axis cross(worldUp, fAfterYaw).
+    // Build rotation as explicit R = R_pitch * R_yaw * R_current so it matches the vector path
+    // (no quaternion multiply-order ambiguity) and roll stays in R_current between frames.
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
 
-    const glm::vec3 f0 = glm::normalize(GetPosition() - target);
+    const glm::mat3 M_ori = glm::mat3_cast(orientation);
+    const glm::vec3 f0 = glm::normalize(M_ori * glm::vec3(0.0f, 0.0f, 1.0f));
     if (!std::isfinite(f0.x) || glm::length(f0) < 1e-12f)
         return;
 
-    glm::quat qy(1.0f, 0.0f, 0.0f, 0.0f);
+    glm::mat3 M_y(1.0f);
     if (std::abs(deltaX) > kEps)
-        qy = glm::angleAxis(-deltaX, kWorldUp);
+        M_y = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldUp));
 
-    const glm::vec3 fAfterYaw = glm::normalize(glm::mat3_cast(qy) * f0);
+    const glm::vec3 fAfterYaw = glm::normalize(M_y * f0);
 
-    glm::quat qp(1.0f, 0.0f, 0.0f, 0.0f);
+    glm::mat3 M_p(1.0f);
     if (std::abs(deltaY) > kEps)
     {
         glm::vec3 pitchAxis = glm::cross(kWorldUp, fAfterYaw);
@@ -81,15 +81,21 @@ void Camera::Orbit(float deltaX, float deltaY)
         else
             pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f); // over the pole: pitch in XZ
 
-        qp = glm::angleAxis(-deltaY, pitchAxis);
+        M_p = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
     }
 
-    const glm::quat qNew = glm::normalize(qp * qy * orientation);
+    const glm::mat3 M_new = M_p * M_y * M_ori;
 
-    // Tiny offset from true ±Z for stable view basis (look-at-free path in GetViewMatrix).
-    constexpr float kPolarMargin = glm::radians(0.35f);
+    glm::quat qNew = glm::normalize(glm::quat_cast(M_new));
+    if (!std::isfinite(qNew.x) || !std::isfinite(qNew.y) || !std::isfinite(qNew.z) || !std::isfinite(qNew.w) ||
+        glm::dot(qNew, qNew) < 0.25f)
+        return;
 
-    glm::vec3 f = glm::normalize(glm::mat3_cast(qNew) * glm::vec3(0.0f, 0.0f, 1.0f));
+    // Only snap near true ±Z for view-matrix stability (GetViewMatrix); margin is tiny so a real
+    // plan view of the XY plane (camera over +Z or under −Z) is still reachable.
+    constexpr float kPolarMargin = 1e-5f;
+
+    glm::vec3 f = glm::normalize(M_new * glm::vec3(0.0f, 0.0f, 1.0f));
     if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
         return;
 

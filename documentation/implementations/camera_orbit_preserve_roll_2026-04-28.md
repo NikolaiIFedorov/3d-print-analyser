@@ -22,3 +22,10 @@ After tilting the view (often with roll so world +Z reads ~45° on screen), furt
 ## Mini retro
 
 The old comment warned quaternion drift in roll; the real UX issue was **forced** zero roll every frame. If drift appears after long sessions, re-orthonormalize occasionally or document a reset.
+
+## Follow-up (same day)
+
+Still reported as “capped” away from a true plan view of the XY plane.
+
+- Replaced `qp * qy * orientation` with **explicit** `M_new = M_p * M_y * M_ori` and `quat_cast(M_new)` so the composition matches the intended `R_pitch * R_yaw * R_current` on column vectors (avoids any quaternion multiply-order ambiguity).
+- Reduced polar snap margin from **0.35°** to **1e-5 rad** so the “inside band” is essentially full top/bottom except for numerical poles; plan view is no longer artificially held ~0.35° off the pole.
