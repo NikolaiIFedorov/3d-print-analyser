@@ -1474,21 +1474,14 @@ void Display::RefreshStatusStripIdleText()
         }
         return;
     }
-    const size_t nFaces = scene->faces.size();
-    const size_t nEdges = scene->edges.size();
-    const size_t nPts = scene->points.size();
     const size_t nSol = scene->solids.size();
-    const unsigned triIdx = static_cast<unsigned>(renderer.UploadedTriangleIndexCount());
-    const unsigned lnIdx = static_cast<unsigned>(renderer.UploadedLineIndexCount());
-    const unsigned triV = static_cast<unsigned>(renderer.UploadedTriangleVertexCount());
-    const unsigned lnV = static_cast<unsigned>(renderer.UploadedLineVertexCount());
-    char buf[224];
-    if (nFaces == 0 && nEdges == 0 && nPts == 0)
-        snprintf(buf, sizeof(buf), "Mesh idx %u+%u vtx %u+%u · topo empty",
-                 triIdx, lnIdx, triV, lnV);
+    const unsigned renderedVerts = static_cast<unsigned>(renderer.UploadedTriangleVertexCount() +
+                                                          renderer.UploadedLineVertexCount());
+    char buf[96];
+    if (nSol == 1)
+        snprintf(buf, sizeof(buf), "1 solid, %u rendered vertices", renderedVerts);
     else
-        snprintf(buf, sizeof(buf), "Mesh idx %u+%u vtx %u+%u · F%zu E%zu · %zu pts · %zu sol",
-                 triIdx, lnIdx, triV, lnV, nFaces, nEdges, nPts, nSol);
+        snprintf(buf, sizeof(buf), "%zu solids, %u rendered vertices", nSol, renderedVerts);
     statusStripLine.assign(buf);
     if (uiStatusStrip)
         uiStatusStrip->visible = true;
