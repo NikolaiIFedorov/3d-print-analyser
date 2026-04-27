@@ -66,8 +66,10 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (!std::isfinite(f0.x) || glm::length(f0) < 1e-12f)
         return;
 
-    // Within ~10° of straight over/under the target, |f·Z| > cos(80°) ≈ 0.1736.
-    const float kPoleChartCos = glm::cos(glm::radians(80.0f));
+    // X-chart only inside a narrow cone around ±Z (colatitude θ from +Z: use when cos θ > this).
+    // BUGFIX: was cos(80°)≈0.17, which matched almost the whole upper hemisphere and made
+    // horizontal drag use Rx most of the time. Use ~10° from pole: cos(10°)≈0.985.
+    const float kPoleChartCos = glm::cos(glm::radians(10.0f));
 
     glm::mat3 M_horizontal(1.0f);
     if (std::abs(deltaX) > kEps)

@@ -12,3 +12,7 @@ With world +Z as the turntable yaw axis, `Rz(δ)` leaves the eye direction uncha
 ## Mini retro
 
 Naming matches the idea: **azimuthZ** = yaw about +Z away from poles; **azimuthX** = yaw about +X near ±Z where Rz is degenerate on `f`.
+
+## Follow-up (same day)
+
+Threshold was wrong: `cos(80°)` gates on `f·Z > 0.17`, so almost all “camera above the bed” views used **Rx** for horizontal drag and felt alien. Intended gate is a **small cone** around ±Z (e.g. `f·Z > cos(10°)` ≈ within 10° of straight over/under) where **Rz** truly does almost nothing to `f`.
