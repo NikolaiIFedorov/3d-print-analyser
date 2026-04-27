@@ -95,13 +95,19 @@ void Input::applyBatchedTwoFingerPan()
     if (w > 0 && h > 0)
     {
         ImGuiIO &imguiIo = ImGui::GetIO();
+        // Two fingers span a wide region; any-finger hit-test falsely drops pans when one contact
+        // sits over panels while the gesture centroid remains on the viewport.
+        float sx = 0.0f, sy = 0.0f;
         for (const auto &kv : activeTouches)
         {
-            const float px = kv.second.x * static_cast<float>(w);
-            const float py = kv.second.y * static_cast<float>(h);
-            if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
-                return;
+            sx += kv.second.x;
+            sy += kv.second.y;
         }
+        const float inv = 1.0f / static_cast<float>(activeTouches.size());
+        const float px = sx * inv * static_cast<float>(w);
+        const float py = sy * inv * static_cast<float>(h);
+        if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
+            return;
     }
     const float n = static_cast<float>(touchPanEventCount);
     const float cdx = touchPanAccDx / n;
@@ -300,20 +306,11 @@ bool Input::processEvent(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_FINGER_CANCELED:
-    {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
+        // Always sync hardware touch model; skipping here desyncs nContacts vs real fingers.
         clearTouchState();
         break;
-    }
     case SDL_EVENT_FINGER_DOWN:
     {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
         const SDL_TouchFingerEvent &tf = event.tfinger;
         if (std::find(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID) == fingerArrivalOrder.end())
         {
@@ -324,10 +321,6 @@ bool Input::processEvent(const SDL_Event &event)
     }
     case SDL_EVENT_FINGER_UP:
     {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
         const SDL_TouchFingerEvent &tf = event.tfinger;
         activeTouches.erase(tf.fingerID);
         fingerArrivalOrder.erase(
@@ -360,8 +353,7 @@ bool Input::processEvent(const SDL_Event &event)
             const float py = (h > 0) ? tf.y * static_cast<float>(h) : 0.0f;
             const bool blockTouchNav =
                 io.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py);
-            if (!blockTouchNav &&
-                (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone))
+            if (!blockTouchNav && std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
             {
                 twoFingerOrMouseBridgePanOrbit(event);
             }
@@ -372,8 +364,10 @@ bool Input::processEvent(const SDL_Event &event)
             const SDL_Keymod mod = SDL_GetModState();
             const bool wheelOverridesTwoFingerPan =
                 (mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0;
+            // Use hypot so brief reversals (both |dx| and |dy| tiny for a frame) still contribute when
+            // the vector magnitude is meaningful; skip (0,0) so a stationary second finger does not dilute the mean.
             if (!wheelOverridesTwoFingerPan &&
-                (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone))
+                std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
             {
                 touchPanAccDx += tf.dx;
                 touchPanAccDy += tf.dy;
