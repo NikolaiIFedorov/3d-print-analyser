@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
@@ -188,6 +189,13 @@ private:
     void SaveSettings();
     bool pendingFileTabsRebuild = false;
     bool pendingToolSwitch = false;
+    /// Set when the file dialog returns; consumed at the start of `Frame()` (splash + blocking import).
+    std::optional<std::string> deferredImportPath;
+
+    void ProcessDeferredImportIfAny();
+    void RenderImportProgressSplash(const std::string &path);
+    void CompleteFileImport(const std::string &path);
+    void SyncToolbarToolVisualState();
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;

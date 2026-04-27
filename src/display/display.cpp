@@ -450,6 +450,7 @@ void Display::Render()
             UpdateScene();
         }
         uiRenderer.MarkDirty();
+        SyncToolbarToolVisualState();
     }
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -473,6 +474,8 @@ void Display::UpdateScene()
 
 void Display::Frame()
 {
+    ProcessDeferredImportIfAny();
+
     const float axisH = SyncViewportAxisForDepthClip();
     ApplyOrthoClipFromViewBounds(camera, scene, axisH);
 
@@ -1425,60 +1428,136 @@ void Display::FillSessionReproState(SessionState &s) const
     s.depthExperimentOrdinal = static_cast<uint8_t>(ViewportDepthExperiments::Active());
 }
 
+void Display::SyncToolbarToolVisualState()
+{
+    if (toolbarAnalysisLine && toolbarCalibrateLine && uiAnalysis && uiCalibrate)
+    {
+        toolbarAnalysisLine->selected =
+            (activeTool == ActiveTool::Analysis && uiAnalysis->visible);
+        toolbarCalibrateLine->selected =
+            (activeTool == ActiveTool::Calibrate && uiCalibrate->visible);
+    }
+    uiRenderer.MarkDirty();
+}
+
+void Display::RenderImportProgressSplash(const std::string &path)
+{
+    const std::string name = std::filesystem::path(path).filename().string();
+
+    auto bg = Color::GetBase();
+    glClearColor(bg.r, bg.g, bg.b, 1.0f);
+    if (RenderingExperiments::kReverseZDepth)
+    {
+        glClearDepth(0.0);
+        glDepthFunc(GL_GEQUAL);
+    }
+    else
+    {
+        glClearDepth(1.0);
+        glDepthFunc(GL_LEQUAL);
+    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+
+    ImGuiViewport *vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(vp->Pos);
+    ImGui::SetNextWindowSize(vp->Size);
+    ImGui::SetNextWindowBgAlpha(0.55f);
+    ImGui::Begin("##importSplash", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoInputs);
+    const ImVec2 avail = ImGui::GetContentRegionAvail();
+    constexpr float boxW = 440.0f;
+    constexpr float boxH = 120.0f;
+    ImGui::SetCursorPos(ImVec2(std::max(0.0f, (avail.x - boxW) * 0.5f), std::max(0.0f, (avail.y - boxH) * 0.5f)));
+    ImGui::BeginChild("##importSplashInner", ImVec2(boxW, boxH), ImGuiChildFlags_Borders);
+    ImGui::TextUnformatted("Importing geometry");
+    ImGui::PushTextWrapPos(0.0f);
+    ImGui::TextWrapped("%s", name.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    ImGui::TextDisabled("Please wait…");
+    ImGui::EndChild();
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    SDL_GL_SwapWindow(window);
+}
+
+void Display::CompleteFileImport(const std::string &path)
+{
+    auto ext = path.substr(path.find_last_of('.') + 1);
+    std::string lower;
+    for (char c : ext)
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    // Each import gets its own independent scene.
+    ownedScenes.push_back(std::make_unique<Scene>());
+    activeSceneIndex = ownedScenes.size() - 1;
+    scene = ownedScenes.back().get();
+
+    if (lower == "stl")
+        STLImport::Import(path, scene);
+    else if (lower == "obj")
+        OBJImport::Import(path, scene);
+    else if (lower == "3mf")
+        ThreeMFImport::Import(path, scene);
+
+    FrameScene();
+    UpdateScene();
+
+    std::string filename = path.substr(path.find_last_of("/\\") + 1);
+
+    {
+        auto &sl = SessionLogger::Instance();
+        sl.state.lastFilename = filename;
+        sl.state.lastFormat = lower;
+        sl.state.points = scene->points.size();
+        sl.state.edges = scene->edges.size();
+        sl.state.faces = scene->faces.size();
+        sl.state.solids = scene->solids.size();
+        sl.LogFileImport(filename, lower);
+    }
+
+    openFiles.push_back(filename);
+    RebuildFileTabs();
+
+    calibStepImport = Icons::StepState::Done;
+    ClearCalibrateFacePicks();
+    calibPara_Import->visible = false;
+    calibPara_Point1->visible = true;
+    calibPara_Point1->selected = true;
+    calibStepPoint1 = Icons::StepState::Active;
+    calibPara_Point2->visible = true;
+    calibStepPoint2 = Icons::StepState::Active;
+    if (calibSec_Parameters)
+        calibSec_Parameters->visible = true;
+    RefreshCalibDerivedRowVisible();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+}
+
+void Display::ProcessDeferredImportIfAny()
+{
+    if (!deferredImportPath)
+        return;
+    std::string path = std::move(*deferredImportPath);
+    deferredImportPath.reset();
+    RenderImportProgressSplash(path);
+    CompleteFileImport(path);
+}
+
 void Display::DoFileImport()
 {
     FileImport::OpenFileDialog(window, [this](const std::string &path)
                                {
-        auto ext = path.substr(path.find_last_of('.') + 1);
-        std::string lower;
-        for (char c : ext) lower += std::tolower(c);
-
-        // Each import gets its own independent scene.
-        ownedScenes.push_back(std::make_unique<Scene>());
-        activeSceneIndex = ownedScenes.size() - 1;
-        scene = ownedScenes.back().get();
-
-        if (lower == "stl")
-            STLImport::Import(path, scene);
-        else if (lower == "obj")
-            OBJImport::Import(path, scene);
-        else if (lower == "3mf")
-            ThreeMFImport::Import(path, scene);
-
-        FrameScene();
-        UpdateScene();
-
-        std::string filename = path.substr(path.find_last_of("/\\") + 1);
-
-        // Log the import event to the session
-        {
-            auto &sl = SessionLogger::Instance();
-            sl.state.lastFilename = filename;
-            sl.state.lastFormat = lower;
-            sl.state.points = scene->points.size();
-            sl.state.edges  = scene->edges.size();
-            sl.state.faces  = scene->faces.size();
-            sl.state.solids = scene->solids.size();
-            sl.LogFileImport(filename, lower);
-        }
-
-        openFiles.push_back(filename);
-        RebuildFileTabs();
-
-        // Hide import prereq; reveal both point prerequisites with Point1 active.
-        calibStepImport = Icons::StepState::Done;
-        ClearCalibrateFacePicks();
-        calibPara_Import->visible  = false;
-        calibPara_Point1->visible  = true;
-        calibPara_Point1->selected = true;
-        calibStepPoint1            = Icons::StepState::Active;
-        calibPara_Point2->visible  = true;
-        calibStepPoint2            = Icons::StepState::Active;
-        if (calibSec_Parameters)
-            calibSec_Parameters->visible = true;
-        RefreshCalibDerivedRowVisible();
-        uiRenderer.MarkDirty();
-        renderDirty = true; });
+                                   deferredImportPath = path;
+                                   renderDirty = true;
+                               });
 }
 
 void Display::RebuildFileTabs()
@@ -1572,13 +1651,11 @@ void Display::InitUI()
                 if (activeTool == ActiveTool::Analysis)
                 {
                     uiAnalysis->visible = !uiAnalysis->visible;
-                    uiRenderer.MarkDirty();
+                    SyncToolbarToolVisualState();
                     renderDirty = true;
                     return;
                 }
                 activeTool = ActiveTool::Analysis;
-                toolbarAnalysisLine->selected = true;
-                toolbarCalibrateLine->selected = false;
                 pendingToolSwitch = true;
                 renderDirty = true;
             };
@@ -1596,13 +1673,11 @@ void Display::InitUI()
                 if (activeTool == ActiveTool::Calibrate)
                 {
                     uiCalibrate->visible = !uiCalibrate->visible;
-                    uiRenderer.MarkDirty();
+                    SyncToolbarToolVisualState();
                     renderDirty = true;
                     return;
                 }
                 activeTool = ActiveTool::Calibrate;
-                toolbarAnalysisLine->selected = false;
-                toolbarCalibrateLine->selected = true;
                 pendingToolSwitch = true;
                 renderDirty = true;
             };

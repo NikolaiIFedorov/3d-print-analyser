@@ -90,6 +90,7 @@ void Input::applyBatchedTwoFingerPan()
     }
     const float s = display->mouseSensitivity / 30.0f;
     display->Pan(cdx * s, cdy * s, true);
+    suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
 }
 
 void Input::twoFingerOrMouseBridgePanOrbit(const SDL_Event &event)
@@ -146,9 +147,12 @@ void Input::mouseGestures(const SDL_Event &event)
         if (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my))
             break;
         SDL_Keymod mod = SDL_GetModState();
+        const bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
+        const Uint64 now = SDL_GetTicks();
+        if (now < suppressCameraWheelUntilMs && !hasModifier)
+            break;
         float x = event.wheel.x;
         float y = event.wheel.y;
-        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
         if (hasModifier)
         {
             if (mod & SDL_KMOD_ALT)
@@ -218,12 +222,14 @@ void Input::mouseGestures(const SDL_Event &event)
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             rightMouseDown = false;
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
             syncWindowRelativeMouseMode();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
             middleMouseDown = false;
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
             syncWindowRelativeMouseMode();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }

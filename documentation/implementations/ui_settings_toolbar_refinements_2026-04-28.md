@@ -49,3 +49,11 @@ Committed as `39ccec9` on `imgui-refactor` (amended from earlier hash).
 - **Wheel over UI:** `pendingMouseWheel` path now skips camera zoom/orbit/roll when over ImGui or custom UI or `WantCaptureMouse` (same idea as pan; explains modifier+wheel not firing over widgets).
 - **Touch:** two-finger batch pan and one-finger bridge pan/orbit respect the same overlay hit tests.
 - **Layout:** Settings column is left of the toolbar (`[Settings][Toolbar][Files…]`).
+
+---
+
+## Follow-up 3 — Pan/wheel, toolbar vs panel, import splash
+
+- **Pan end → roll/zoom:** Trackpads often emit `MOUSE_WHEEL` right after RMB/MMB release or two-finger pan. Ignore **unmodified** wheel-driven camera moves for ~220 ms after those releases and after batched touch pan (`Input::suppressCameraWheelUntilMs`). Modifier + wheel is unchanged.
+- **Toolbar “active” vs hidden panel:** `SyncToolbarToolVisualState()` sets each tool row’s `selected` from `activeTool` **and** that tool’s panel `visible`; called after toggling visibility, and from `pendingToolSwitch` in `Render()`.
+- **Import progress:** File dialog callback only queues `deferredImportPath`; `Frame()` runs `RenderImportProgressSplash` (dim overlay + filename) then blocking `CompleteFileImport`. **Feasible** to add a real percentage later by moving parsers to a worker thread and reporting progress — would need thread-safe scene handoff and incremental parsers.
