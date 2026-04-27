@@ -322,8 +322,9 @@ namespace Icons
             // Handle: from lens edge at ~135° (bottom-right) to corner of slot
             float hx0 = std::round(cx + r * 0.72f);
             float hy0 = std::round(cy + r * 0.72f);
-            float hx1 = std::round(x + s * 1.72f);
-            float hy1 = std::round(midY + s * 0.72f);
+            // Keep handle inside ~2s slot so the glyph reads square with the toolbar hit target.
+            float hx1 = std::round(x + s * 1.58f);
+            float hy1 = std::round(midY + s * 0.55f);
             dl->AddLine(ImVec2(hx0, hy0), ImVec2(hx1, hy1), col, stroke * 1.4f);
         };
     }
@@ -340,9 +341,10 @@ namespace Icons
             float stroke = std::max(0.8f, s * STROKE_RATIO);
             float cx = std::round(x + s);
             float cy = std::round(midY);
-            float rw = std::round(s * 0.78f); // half-width
-            float rh = std::round(s * 0.28f); // half-height
-            dl->AddRect(ImVec2(cx - rw, cy - rh), ImVec2(cx + rw, cy + rh), col, 0.0f, 0, stroke);
+            float rw = std::round(s * 0.62f); // half-width — balanced vs height for a squarer silhouette
+            float rh = std::round(s * 0.38f); // half-height
+            float rr = std::max(1.0f, rh * 0.35f);
+            dl->AddRect(ImVec2(cx - rw, cy - rh), ImVec2(cx + rw, cy + rh), col, rr, 0, stroke);
             // Two tick marks on the top edge, at ±40% of half-width
             float tickH = std::round(rh * 0.65f);
             float tx1 = std::round(cx - rw * 0.40f);

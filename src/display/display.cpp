@@ -331,6 +331,13 @@ void Display::LoadSettings()
     // Re-run analysis with restored parameters.
     RebuildAnalysis();
     renderDirty = true;
+
+    // Settings UI was built before load — sync pill indices to restored state.
+    if (uiAppearanceThemeSelect)
+        uiAppearanceThemeSelect->activeIndex = static_cast<int>(themeMode);
+    if (uiAppearanceAccentSelect)
+        uiAppearanceAccentSelect->activeIndex = settingsAccentUseSystem ? 0 : 1;
+    uiRenderer.MarkDirty();
 }
 
 void Display::SaveSettings()
@@ -1532,9 +1539,17 @@ void Display::InitUI()
             SectionLine &line = p.values.emplace_back();
             line.iconDraw = Icons::ToolAnalysis();
             line.fontScale = 1.4f;
+            line.squareIconHit = true;
             line.selected = true; // Analysis is the default active tool
             line.onClick = [this]()
             {
+                if (activeTool == ActiveTool::Analysis)
+                {
+                    uiAnalysis->visible = !uiAnalysis->visible;
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                    return;
+                }
                 activeTool = ActiveTool::Analysis;
                 toolbarAnalysisLine->selected = true;
                 toolbarCalibrateLine->selected = false;
@@ -1549,8 +1564,16 @@ void Display::InitUI()
             SectionLine &line = p.values.emplace_back();
             line.iconDraw = Icons::ToolCalibrate();
             line.fontScale = 1.4f;
+            line.squareIconHit = true;
             line.onClick = [this]()
             {
+                if (activeTool == ActiveTool::Calibrate)
+                {
+                    uiCalibrate->visible = !uiCalibrate->visible;
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                    return;
+                }
                 activeTool = ActiveTool::Calibrate;
                 toolbarAnalysisLine->selected = false;
                 toolbarCalibrateLine->selected = true;
@@ -2032,6 +2055,7 @@ void Display::InitUI()
             uiRenderer.MarkDirty();
         };
         themeSelect.select = std::move(sel);
+        uiAppearanceThemeSelect = &themeSelect.select.value();
     }
 
     // Accent selector: System / Color pill — native select, identical layout to Theme.
@@ -2053,8 +2077,7 @@ void Display::InitUI()
                 float hue, sat;
                 if (SystemAccent::GetHueSat(hue, sat))
                 {
-                    settingsAccentHue = hue;
-                    settingsAccentSat = sat;
+                    // Keep saved custom hue/sat for when user switches back to Custom — only drive live color from OS.
                     Color::SetAccent(hue, sat);
                     uiRenderer.MarkDirty();
                     renderDirty = true;
@@ -2096,6 +2119,7 @@ void Display::InitUI()
             }
         };
         accentSel.select = std::move(sel);
+        uiAppearanceAccentSelect = &accentSel.select.value();
     }
     // ── Viewport ──────────────────────────────────────────────────────────────
     Section &viewportSection = uiSettings->AddSection("Viewport");

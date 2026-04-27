@@ -1335,31 +1335,42 @@ void UIRenderer::Render()
             float vpx = contentPx;
             float vpy = contentPy + bearingY + lineStepPx * static_cast<float>(visibleI);
 
+            float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max(inkH, bearingY);
+            float btnX = vpx;
+            float btnY = vpy - bearingY;
+            float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX - usedLeadingPx;
+            const bool useSquareHit =
+                line.squareIconHit && line.iconDraw && line.onClick && !item.onClick && !line.imguiContent &&
+                !line.select.has_value() && line.text.empty() && line.prefix.empty();
+            float winX = btnX;
+            float winY = btnY;
+            float winW = btnW;
+            float winH = baseH;
+            if (useSquareHit)
+            {
+                float side = std::min(btnW, baseH);
+                winX = btnX + (btnW - side) * 0.5f;
+                winY = btnY + (baseH - side) * 0.5f;
+                winW = side;
+                winH = side;
+            }
+
             // Compute icon slot offset and draw icon if present.
-            // The ImGui window covers the full row width (including the icon slot) so that
-            // clicks on the icon are registered by the InvisibleButton / DragFloat inside.
+            // The ImGui window covers the row (or a centered square for toolbar tools) so clicks register.
             float iconOffset = 0.0f;
             if (line.iconDraw)
             {
                 float sRatio = line.iconSizeRatio > 0.0f ? line.iconSizeRatio : ICON_SIZE_RATIO;
                 float s = std::max(2.0f, std::round(font->FontSize * line.fontScale * sRatio));
                 iconOffset = 2.0f * s + 3.0f;
-                float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max((ink.valid() ? ink.height() : bearingY) * line.fontScale, bearingY);
-                float midY = vpy - bearingY + baseH * 0.5f;
+                float midY = useSquareHit ? (winY + winH * 0.5f) : (btnY + baseH * 0.5f);
+                float iconLeft = useSquareHit ? (winX + (winW - iconOffset) * 0.5f) : vpx;
                 ImDrawList *dl = ImGui::GetForegroundDrawList();
-                line.iconDraw(dl, vpx, midY, s);
-                // vpx is NOT advanced: the button window starts at the icon's left edge
-                // so the icon area is included in the interactable region.
+                line.iconDraw(dl, iconLeft, midY, s);
             }
 
-            float btnX = vpx;
-            float btnY = vpy - bearingY;
-            float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX - usedLeadingPx;
-            // Slot height: use frame height for imguiContent/select, at least text bearing otherwise.
-            float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max(inkH, bearingY);
-            float btnH = baseH;
-            ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
-            ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
+            ImGui::SetNextWindowPos(ImVec2(winX, winY));
+            ImGui::SetNextWindowSize(ImVec2(winW, winH));
             std::string winId = "##val" + itemPath + "_" + std::to_string(i);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
             ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
@@ -1509,8 +1520,8 @@ void UIRenderer::Render()
                 {
                     if (pixelImFont)
                         ImGui::PushFont(pixelImFont);
-                    ImGui::SetCursorPos(ImVec2(0, 0));          // ensure cursor starts at top-left of slot window
-                    line.imguiContent(btnW, baseH, iconOffset); // pass visual height and icon slot offset
+                    ImGui::SetCursorPos(ImVec2(0, 0)); // ensure cursor starts at top-left of slot window
+                    line.imguiContent(winW, winH, iconOffset); // matches ImGui window size
                     if (pixelImFont)
                         ImGui::PopFont();
                 }
@@ -1521,7 +1532,7 @@ void UIRenderer::Render()
                     if (line.onClick && !item.onClick)
                     {
                         ImGui::SetCursorPos(ImVec2(0, 0));
-                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, baseH)))
+                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(winW, winH)))
                             line.onClick();
                         if (ImGui::IsItemHovered())
                             ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -1529,12 +1540,12 @@ void UIRenderer::Render()
                     // Centre the ink region in the visual slot
                     float ty = btnY + (baseH - inkH) * 0.5f - inkY0;
                     ImDrawList *dl = ImGui::GetWindowDrawList();
-                    float rowRadius = baseH * UIStyle::FRAME_ROUNDING_RATIO;
+                    float rowRadius = std::min(winW, winH) * UIStyle::FRAME_ROUNDING_RATIO;
                     // Neutral dim fill — completed step
                     if (line.dimFill)
                     {
                         glm::vec4 bg = Color::GetUIText(1);
-                        dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + baseH),
+                        dl->AddRectFilled(ImVec2(winX, winY), ImVec2(winX + winW, winY + winH),
                                           ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, 0.07f)), rowRadius);
                     }
                     // Accent fill — hover/active for per-line clickable lines only
@@ -1547,7 +1558,7 @@ void UIRenderer::Render()
                             float alpha = active ? 0.18f : line.selected ? 0.20f
                                                                          : 0.10f;
                             glm::vec4 bg = Color::GetAccent(d, alpha, ACCENT_SAT_MULT_HOVER);
-                            dl->AddRectFilled(ImVec2(btnX, btnY), ImVec2(btnX + btnW, btnY + baseH),
+                            dl->AddRectFilled(ImVec2(winX, winY), ImVec2(winX + winW, winY + winH),
                                               ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), rowRadius);
                         }
                     }
@@ -1556,12 +1567,12 @@ void UIRenderer::Render()
                     {
                         constexpr float barW = 3.0f;
                         glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
-                        dl->AddRectFilled(ImVec2(btnX + 1.0f, btnY + 2.0f),
-                                          ImVec2(btnX + 1.0f + barW, btnY + baseH - 2.0f),
+                        dl->AddRectFilled(ImVec2(winX + 1.0f, winY + 2.0f),
+                                          ImVec2(winX + 1.0f + barW, winY + winH - 2.0f),
                                           ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
                                           barW * 0.5f);
                     }
-                    float tx = btnX + iconOffset; // skip icon slot before drawing text
+                    float tx = winX + iconOffset; // skip icon slot before drawing text
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));

@@ -134,6 +134,8 @@ private:
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
     bool settingsOpenAccentPicker = false;
+    Select *uiAppearanceThemeSelect = nullptr;
+    Select *uiAppearanceAccentSelect = nullptr;
 
     RootPanel *uiFiles = nullptr;
     RootPanel *uiAnalysis = nullptr;
