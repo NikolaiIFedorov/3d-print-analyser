@@ -1709,16 +1709,13 @@ void Display::InitUI()
         statusDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Left};
         statusDef.rightAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         statusDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-        // No fixed height: row span comes from typography: imguiContent used to reserve widget row
-        // height (frame padding), which exceeded 0.65 cells and drew text below the GL card.
-        statusDef.borderRadius = 0.22f; // flatter bar — reads as status chrome, not a pill control
+        // Match Files / other root panels: default RootPanel borderRadius + margin + padding;
+        // default Paragraph (layer 2) margin/padding — same box model as header/body rows elsewhere.
         uiStatusStrip = &uiRenderer.AddPanel(statusDef);
         uiStatusStrip->children.reserve(1); // RootPanel::AddParagraph requires capacity > size (see Panel.hpp)
         Paragraph &stripPara = uiStatusStrip->AddParagraph("Line");
-        stripPara.margin = 0.05f;
-        stripPara.padding = 0.03f;
         SectionLine &stripLine = stripPara.values.emplace_back();
-        stripLine.fontScale = 0.92f;
+        stripLine.fontScale = 1.0f;
         stripLine.textDepth = 2;
         statusStripTextLine = &stripLine;
     }

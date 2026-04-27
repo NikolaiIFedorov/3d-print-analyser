@@ -1147,6 +1147,12 @@ void UIRenderer::BuildMesh()
             float x1 = grid.ToPixelsX(panel.col + panel.colSpan - mx);
             float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - mx);
             float r = std::min(grid.cellSizeX, grid.cellSizeY) * panel.borderRadius;
+            // Same nominal radius as other root panels, but cap by half the shorter side so
+            // shallow strips (e.g. status bar) do not read as full pills; tall panels unchanged.
+            const float wPx = x1 - x0;
+            const float hPx = y1 - y0;
+            if (wPx > 1.0f && hPx > 1.0f)
+                r = std::min(r, 0.5f * std::min(wPx, hPx));
             EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, Color::GetUI(panel.bgParentDepth + 1));
         }
 
