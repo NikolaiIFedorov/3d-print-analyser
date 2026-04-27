@@ -4,6 +4,22 @@
 #include "ViewportDepthExperiments.hpp"
 #include "RenderingExperiments.hpp"
 
+namespace
+{
+[[nodiscard]] GLenum DepthComparePass()
+{
+    return RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL;
+}
+
+[[nodiscard]] float LineShaderWireZNudgeNdc()
+{
+    if (ViewportDepthExperiments::IsNoWireZBias())
+        return 0.0f;
+    const float n = 1.0e-6f * RenderingExperiments::kWireframeClipZNudgeScale;
+    return RenderingExperiments::kReverseZDepth ? -n : n;
+}
+} // namespace
+
 OpenGLRenderer::~OpenGLRenderer()
 {
     Shutdown();
@@ -90,9 +106,37 @@ OpenGLRenderer::OpenGLRenderer(SDL_Window *windowHandle)
         return;
     }
 
+    GLint sampleBuffers = 0;
+    GLint samples = 0;
+    glGetIntegerv(GL_SAMPLE_BUFFERS, &sampleBuffers);
+    glGetIntegerv(GL_SAMPLES, &samples);
+    LOG_DESC("Multisample: GL_SAMPLE_BUFFERS=" + std::to_string(sampleBuffers) +
+             " GL_SAMPLES=" + std::to_string(samples));
+    if (RenderingExperiments::kReverseZDepth)
+    {
+        LOG_DESC("Depth mode: reverse-Z");
+    }
+    else
+    {
+        LOG_DESC("Depth mode: forward");
+    }
+
+    if (RenderingExperiments::kGlFramebufferMsaaSamples > 0)
+        glEnable(GL_MULTISAMPLE);
+    else
+        glDisable(GL_MULTISAMPLE);
+
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
-    glClearDepth(1.0);
+    if (RenderingExperiments::kReverseZDepth)
+    {
+        glClearDepth(0.0);
+        glDepthFunc(GL_GEQUAL);
+    }
+    else
+    {
+        glClearDepth(1.0);
+        glDepthFunc(GL_LEQUAL);
+    }
 
     glDisable(GL_CULL_FACE);
     glCullFace(GL_BACK);
@@ -184,6 +228,7 @@ void OpenGLRenderer::EndFrame()
 void OpenGLRenderer::Clear(const glm::vec3 &color)
 {
     glClearColor(color.r, color.g, color.b, 1.0f);
+    glClearDepth(RenderingExperiments::kReverseZDepth ? 0.0 : 1.0);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -346,10 +391,15 @@ void OpenGLRenderer::DrawTriangles()
 {
     LOG_DESC("Drawing triangles with index count: " + std::to_string(triangleIndexCount));
     if (triangleIndexCount == 0)
-    {
         return;
-    }
 
+    if (RenderingExperiments::kDepthPrepassOpaquePatches)
+        DrawTrianglesPass(false);
+    DrawTrianglesPass(true);
+}
+
+void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
+{
     shader.Use();
 
     glm::mat4 viewProj = projectionMatrix * viewMatrix;
@@ -367,16 +417,20 @@ void OpenGLRenderer::DrawTriangles()
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uLightingEnabled", 1.0f);
 
-    // Force depth state
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(DepthComparePass());
     glDepthMask(GL_TRUE);
 
+    if (writeColor)
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    else
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
     glBindVertexArray(triangleVAO);
-
     glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
-
     glBindVertexArray(0);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
     GetGLError();
 }
@@ -439,10 +493,12 @@ void OpenGLRenderer::DrawPickHighlight()
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(DepthComparePass());
     glDepthMask(GL_TRUE);
 
-    if (!ViewportDepthExperiments::IsNoPickPolygonOffset())
+    const bool skipPickPolygonOffset = ViewportDepthExperiments::IsNoPickPolygonOffset() ||
+                                       RenderingExperiments::kPickHighlightNoPolygonOffset;
+    if (!skipPickPolygonOffset)
     {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(-1.0f, -1.0f);
@@ -452,7 +508,7 @@ void OpenGLRenderer::DrawPickHighlight()
     glDrawElements(GL_TRIANGLES, pickHighlightIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    if (!ViewportDepthExperiments::IsNoPickPolygonOffset())
+    if (!skipPickPolygonOffset)
         glDisable(GL_POLYGON_OFFSET_FILL);
 
     GetGLError();
@@ -471,15 +527,24 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
     lineShader.SetMat4("uModel", modelMatrix);
     lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
     lineShader.SetFloat("uLineWidth", pixelWidth);
-    lineShader.SetFloat("uWireZBias", ViewportDepthExperiments::IsNoWireZBias() ? 0.0f : 1.0f);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(DepthComparePass());
     glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
 
     glBindVertexArray(pickHighlightLineVAO);
     glDrawElements(GL_LINES, pickHighlightLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+        glDisable(GL_POLYGON_OFFSET_FILL);
 
     glDepthMask(GL_TRUE);
 
@@ -500,15 +565,24 @@ void OpenGLRenderer::DrawLines()
     lineShader.SetMat4("uModel", modelMatrix);
     lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
     lineShader.SetFloat("uLineWidth", lineWidth);
-    lineShader.SetFloat("uWireZBias", ViewportDepthExperiments::IsNoWireZBias() ? 0.0f : 1.0f);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(DepthComparePass());
     glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
 
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, lineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+        glDisable(GL_POLYGON_OFFSET_FILL);
 
     glDepthMask(GL_TRUE);
 

@@ -1,6 +1,8 @@
 #include "camera.hpp"
 #include "utils/log.hpp"
 
+#include <glm/gtc/matrix_inverse.hpp>
+
 Camera::Camera(uint16_t width, uint16_t height)
 
 {
@@ -10,9 +12,8 @@ Camera::Camera(uint16_t width, uint16_t height)
     orthoSize = 2.5f;
     aspectRatio = static_cast<float>(width) / static_cast<float>(height);
     fov = 45.0f;
-    // Large symmetric range so nothing is near-clipped during orbit/pan.
-    // Orthographic depth precision is linear, so ±100 000 world units still
-    // gives ~12 µm per depth step with a 24-bit buffer — more than enough.
+    // Defaults until `Display::ApplyOrthoClipFromViewBounds` tightens the slab from scene +
+    // grid + view-scaled axis extent (linear depth: precision ~ (far−near) / 2^24).
     nearPlane = -100000.0f;
     farPlane = 100000.0f;
 }
@@ -25,10 +26,16 @@ glm::vec3 Camera::GetPosition() const
 
 glm::mat4 Camera::GetViewMatrix() const
 {
-    glm::vec3 position = GetPosition();
-    glm::vec3 up = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+    const glm::vec3 position = GetPosition();
+    const glm::vec3 r = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
+    const glm::vec3 u = orientation * glm::vec3(0.0f, 1.0f, 0.0f);
+    const glm::vec3 b = orientation * glm::vec3(0.0f, 0.0f, 1.0f); // target → camera
 
-    return glm::lookAt(position, target, up);
+    // `glm::lookAt(eye, center, up)` becomes ill-conditioned when `up` is almost parallel to the
+    // view ray; that shows up as a sudden scene flip near steep tilts. The turntable already
+    // stores an orthonormal basis, so invert the camera-to-world rigid transform instead.
+    const glm::mat4 camToWorld = glm::translate(glm::mat4(1.0f), position) * glm::mat4(glm::mat3(r, u, b));
+    return glm::inverse(camToWorld);
 }
 
 glm::mat4 Camera::GetProjectionMatrix() const
@@ -44,43 +51,92 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Turntable + tilt (Plasticity-style):
-    //  - Horizontal → yaw about fixed world +Z (part spins on the table).
-    //  - Vertical → pitch about a horizontal axis (view tilts, Z can lean on screen).
+    // Turntable (no roll): move on the sphere around `target`, then rebuild `orientation` so
+    // local +Y stays as close as possible to a stable world-up frame (yaw about +Z, pitch about
+    // horizontal axis cross(worldUp, view)). Incremental yaw*pitch on a quaternion drifted in
+    // roll and made Z-tilt feel stiff; integrating on `f` and orthonormalizing fixes both.
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
-    // Build / printer up — matches world axes used by the grid and modeling convention.
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
+
+    glm::vec3 f = glm::normalize(GetPosition() - target);
+    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
+        return;
 
     if (std::abs(deltaX) > kEps)
     {
-        glm::quat qYaw = glm::angleAxis(-deltaX, kWorldUp);
-        orientation = glm::normalize(qYaw * orientation);
+        const glm::mat3 Ry = glm::mat3_cast(glm::angleAxis(-deltaX, kWorldUp));
+        f = Ry * f;
+        f = glm::normalize(f);
     }
+
+    // After yaw, horizontal direction is still meaningful at the north pole (yaw spins f in XY
+    // when off-pole); if we later polar-clamp using only f.xy, near-pole noise can flip azimuth.
+    const glm::vec3 fAfterYaw = f;
+
+    // Tiny offset from true ±Z for numeric stability; pitch gating (below) stops “fighting” the
+    // cap so the margin can stay small enough to read as a true plan view of the XY plane.
+    constexpr float kPolarMargin = glm::radians(0.35f);
+    constexpr float kPolarPitchGateSlop = glm::radians(0.3f);
 
     if (std::abs(deltaY) > kEps)
     {
-        glm::vec3 forwardFromTarget = orientation * glm::vec3(0.0f, 0.0f, 1.0f);
-        glm::vec3 viewIntoScene = -forwardFromTarget;
-        // Pitch axis: horizontal in world, perpendicular to world Z and view. Vanishes
-        // when the view is straight down or up; then use camera local +X in world
-        // so vertical drag still tilts off the pole.
-        glm::vec3 right = glm::cross(kWorldUp, viewIntoScene);
-        float rlen = glm::length(right);
-        if (rlen < 1e-4f)
-        {
-            right = orientation * glm::vec3(1.0f, 0.0f, 0.0f);
-            rlen = glm::length(right);
-        }
-        if (rlen > 1e-4f)
-        {
-            right *= 1.0f / rlen;
-            glm::quat qPitch = glm::angleAxis(-deltaY, right);
-            orientation = glm::normalize(qPitch * orientation);
-        }
+        const float polarBeforePitch = std::acos(std::clamp(f.z, -1.0f, 1.0f));
+
+        glm::vec3 pitchAxis = glm::cross(kWorldUp, f);
+        const float paLen = glm::length(pitchAxis);
+        if (paLen > 1e-6f)
+            pitchAxis *= 1.0f / paLen;
+        else
+            pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f); // over the pole: pitch in XZ
+
+        const glm::mat3 Rp = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
+        const glm::vec3 fCandidate = glm::normalize(Rp * f);
+        const float polarCandidate = std::acos(std::clamp(fCandidate.z, -1.0f, 1.0f));
+
+        const float northGate = kPolarMargin + kPolarPitchGateSlop;
+        const float southGate = glm::pi<float>() - kPolarMargin - kPolarPitchGateSlop;
+        const bool atNorthCap = polarBeforePitch <= northGate;
+        const bool pitchTighterNorth = polarCandidate < polarBeforePitch - 1e-6f;
+        const bool atSouthCap = polarBeforePitch >= southGate;
+        const bool pitchTighterSouth = polarCandidate > polarBeforePitch + 1e-6f;
+
+        if (!(atNorthCap && pitchTighterNorth) && !(atSouthCap && pitchTighterSouth))
+            f = fCandidate;
     }
+
+    // Hard clamp to kPolarMargin if numerical drift still pushes past the cap.
+    float polar = std::acos(std::clamp(f.z, -1.0f, 1.0f));
+    if (polar < kPolarMargin || polar > glm::pi<float>() - kPolarMargin)
+    {
+        glm::vec2 hz(f.x, f.y);
+        float hLen = glm::length(hz);
+        if (hLen < 1e-4f)
+        {
+            hz = glm::vec2(fAfterYaw.x, fAfterYaw.y);
+            hLen = glm::length(hz);
+        }
+        if (hLen < 1e-4f)
+            hz = glm::vec2(1.0f, 0.0f);
+        else
+            hz /= hLen;
+        polar = glm::clamp(polar, kPolarMargin, glm::pi<float>() - kPolarMargin);
+        const float sinP = std::sin(polar);
+        f = glm::normalize(glm::vec3(hz.x * sinP, hz.y * sinP, std::cos(polar)));
+    }
+
+    glm::vec3 r = glm::cross(kWorldUp, f);
+    const float rLen = glm::length(r);
+    if (rLen > 1e-6f)
+        r *= 1.0f / rLen;
+    else
+        r = glm::vec3(1.0f, 0.0f, 0.0f);
+    const glm::vec3 u = glm::normalize(glm::cross(f, r));
+
+    const glm::mat3 basis(r, u, f);
+    orientation = glm::normalize(glm::quat_cast(basis));
 }
 
 void Camera::Roll(float delta)

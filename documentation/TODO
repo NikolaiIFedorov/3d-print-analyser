@@ -1,5 +1,5 @@
 # Documentation TODO
-Last updated: 2026-04-24
+Last updated: 2026-04-27
 
 ---
 
@@ -41,6 +41,8 @@ Last updated: 2026-04-24
 - [ ] Replace `Analysis` Meyer's singleton with dependency-injected instance
 
 ### Renderer
+- [ ] **Viewport depth / layering (open)** — symptoms & probes: [2026-04-27] Viewport depth
+      & occluded edges below
 - [ ] Remove duplicated triangulation logic between `Patch::AddFace` and
       `AnalysisRenderer::TriangulateFace` (~60 lines duplicated)
 - [ ] Investigate incremental / dirty-only GPU upload to replace full
@@ -138,5 +140,48 @@ Source: discussion — persist more tuning knobs in `Settings` / `settings.xml`
 ### UI layout (lower priority)
 - [ ] Optional “compact UI” / density: `UIGrid::CELL_SIZE`, `GAP`, panel radii / icon ratios,
       or fixed pixel gaps in `UIRenderer` — only if we want accessibility or power-user prefs
+
+---
+
+## [2026-04-27] Viewport depth & occluded edges (open)
+Source: session investigation vs reference viewers; probes in `include/RenderingExperiments.hpp`,
+`ViewportDepthExperiments`, `Display` / `OpenGLRenderer` depth and line passes.
+
+### Observed symptoms (may not all appear every session)
+- [ ] **Through-surface visibility** — internal or farther geometry (including triangulation
+      stripes on curved faces) can show through nominally opaque front faces; severity varies
+      with **camera / orbit** (grazing views often worse).
+- [ ] **Same class on filled patches** — **lighting** (diffuse on `basic.frag`), **analysis tint**
+      (vertex colors from `Patch` + `AnalysisResults`), and **hover / pick highlight fills** can
+      all show **wrong depth layering**, not only wireframe lines. Implicates **triangle depth**
+      (precision, coplanar/double geometry, MSAA) rather than the GS line pass alone.
+- [ ] **Pick vs occlusion** — hover pick can hit entities that should be hidden behind nearer
+      solid surfaces.
+- [ ] **Fainter ghost edges** — edges that *should* be fully occluded by layering sometimes
+      still appear but **weaker / thinner** than true silhouette or foreground edges (partial
+      depth-test wins or line vs patch interaction). Repro is **intermittent**; depth prepass
+      (`kDepthPrepassOpaquePatches`) has been reported to **slightly** change ghost edge intensity
+      without fixing root cause.
+
+### Investigation notes
+- **`kDebugSkipSceneWireframe`** — if artifacts **persist** with wire pass off, focus on
+      shaded tris / mesh / projection depth; if they **vanish**, line pass still matters.
+- Tightening ortho clip (incl. view-scaled axis extent), pick polygon offset, wire Z bias,
+      back-face cull for patches, and STL coplanar merge skips were tried without clearing the
+      core artifact class.
+- Default framebuffer MSAA: `RenderingExperiments::kGlFramebufferMsaaSamples` — **0 vs 4**
+      reproduced **same** layering artifact (2026 session); MSAA unlikely primary cause here.
+      Log still reports `GL_SAMPLES` / `GL_SAMPLE_BUFFERS` after context creation.
+- **Reverse-Z** — `RenderingExperiments::kReverseZDepth` + `ProjectionDepthMode::EffectiveProjection`
+      (rebuild). Clears depth to **0**, **`GL_GEQUAL`**, wire Z nudge sign flips. Session report:
+      **no visible change** vs forward for same layering bug (ortho + likely **equal-Z** / mesh);
+      startup log line in renderer confirms which mode is active. **Projection sync**: `Display::Frame`
+      now always calls `SetCamera` after clip so near/far match the GPU every frame.
+- **Degenerate patch tris** — `kCullDegeneratePatchTriangles` (**bool**) + `kDegeneratePatchMinCrossLen`
+      (**double**, used only when cull is on) in `Patch::AddFace`. Session: toggling cull and
+      thresholds **1e-13–1e-15** had **no** visible effect → artifact probably not from earcut
+      zero-area triangles; look at **coplanar non-degenerate** duplicates / shell topology / capture.
+- Use `/` bug marker + `session_log.json` (camera, clip, `depth_experiment_ordinal`) when a
+      bad frame is visible to preserve repro state even if the artifact is hard to re-hit.
 
 ---

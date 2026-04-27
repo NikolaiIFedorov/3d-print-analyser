@@ -1,4 +1,5 @@
 #include "patch.hpp"
+#include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
 static void CreatePlaneCoordinateSystem(const glm::dvec3 &normal,
@@ -202,20 +203,30 @@ void Patch::AddFace(const Face *face,
         }
     }
 
-    for (uint32_t idx : triangleIndices)
+    for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3)
     {
-        indices.push_back(baseVertexIndex + idx);
-    }
+        const uint32_t ia = triangleIndices[i];
+        const uint32_t ib = triangleIndices[i + 1];
+        const uint32_t ic = triangleIndices[i + 2];
 
-    if (pickOut != nullptr)
-    {
-        for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3)
+        if (RenderingExperiments::kCullDegeneratePatchTriangles)
         {
-            const uint32_t ia = triangleIndices[i];
-            const uint32_t ib = triangleIndices[i + 1];
-            const uint32_t ic = triangleIndices[i + 2];
-            pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
+            const glm::dvec3 &p0 = flatPositions[ia];
+            const glm::dvec3 &p1 = flatPositions[ib];
+            const glm::dvec3 &p2 = flatPositions[ic];
+            const glm::dvec3 e1 = p1 - p0;
+            const glm::dvec3 e2 = p2 - p0;
+            const double crossLen = glm::length(glm::cross(e1, e2));
+            if (crossLen < RenderingExperiments::kDegeneratePatchMinCrossLen)
+                continue;
         }
+
+        indices.push_back(baseVertexIndex + ia);
+        indices.push_back(baseVertexIndex + ib);
+        indices.push_back(baseVertexIndex + ic);
+
+        if (pickOut != nullptr)
+            pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
     }
 }
 

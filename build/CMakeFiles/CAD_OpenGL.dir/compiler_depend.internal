@@ -2842,6 +2842,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
@@ -5586,6 +5587,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/geometric.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/constants.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat2x2.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat3x3.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x4.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/matrix.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/trigonometric.hpp
@@ -5595,6 +5598,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vector_relational.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.inl
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_inverse.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_inverse.inl
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.inl
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp
@@ -6591,6 +6596,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
@@ -8877,6 +8883,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -10127,6 +10135,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -11327,6 +11336,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
@@ -17538,6 +17549,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRendere
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -35722,6 +35735,8 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h

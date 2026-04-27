@@ -7,11 +7,15 @@ C_DEFINES =
 
 C_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/include -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry -I/opt/homebrew/include -isystem /opt/homebrew/include/freetype2
 
-C_FLAGS = -g
+C_FLAGSarm64 = -g -arch arm64
+
+C_FLAGS = -g -arch arm64
 
 CXX_DEFINES = 
 
 CXX_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/include -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry -I/opt/homebrew/include -isystem /opt/homebrew/include/freetype2
 
-CXX_FLAGS = -g -std=c++2b
+CXX_FLAGSarm64 = -g -std=c++2b -arch arm64
+
+CXX_FLAGS = -g -std=c++2b -arch arm64
 

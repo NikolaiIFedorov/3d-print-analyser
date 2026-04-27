@@ -9,7 +9,7 @@ description: >-
 
 # CAD_OpenGL — Feature development workflow
 
-Canonical detail: [practices/best_practices.md](../../../practices/best_practices.md) (Development Workflow, Mini retrospective).
+Canonical detail: [practices/best_practices.md](../../../practices/best_practices.md) (Development Workflow, Mini retrospective). Project agents also get this via `.cursor/rules/cad-development-workflow.mdc` (`alwaysApply`).
 
 ## Stage 1 — Understand the problem
 

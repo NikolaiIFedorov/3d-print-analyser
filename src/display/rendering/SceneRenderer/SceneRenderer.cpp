@@ -1,4 +1,5 @@
 #include "SceneRenderer.hpp"
+#include "ProjectionDepthMode.hpp"
 #include "rendering/CalibPickSegments.hpp"
 #include "utils/log.hpp"
 
@@ -48,7 +49,8 @@ void SceneRenderer::SetCamera(Camera &camera)
 {
 
     renderer.SetViewMatrix(camera.GetViewMatrix());
-    renderer.SetProjectionMatrix(camera.GetProjectionMatrix());
+    renderer.SetProjectionMatrix(
+        ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()));
     renderer.SetModelMatrix(glm::mat4(1.0f));
     renderer.SetViewPos(camera.GetPosition());
 }

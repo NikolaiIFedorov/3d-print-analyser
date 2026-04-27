@@ -1163,6 +1163,8 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h \

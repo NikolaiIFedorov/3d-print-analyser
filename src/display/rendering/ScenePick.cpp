@@ -1,5 +1,6 @@
 #include "ScenePick.hpp"
 
+#include "ProjectionDepthMode.hpp"
 #include "ViewportDepthExperiments.hpp"
 #include "rendering/Camera/camera.hpp"
 
@@ -22,7 +23,8 @@ void OrthoPickRay(const Camera &camera, int windowW, int windowH, float pixelX, 
     const float ndcX = 2.0f * pixelX / static_cast<float>(windowW) - 1.0f;
     const float ndcY = 1.0f - 2.0f * pixelY / static_cast<float>(windowH);
 
-    const glm::mat4 proj = camera.GetProjectionMatrix();
+    const glm::mat4 proj =
+        ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix());
     const glm::mat4 view = camera.GetViewMatrix();
     const glm::dmat4 invVP = glm::inverse(glm::dmat4(proj) * glm::dmat4(view));
 

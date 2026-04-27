@@ -23,6 +23,8 @@ public:
     ViewportRenderer &operator=(ViewportRenderer &&other) noexcept;
 
     void SetCamera(Camera &camera);
+    /// World-space half-length of each axis ray from origin (must match ortho clip in Display).
+    void SetAxisWorldHalfExtent(float halfLength);
     void Render();         // draws grid (with depth test)
     void RenderAxes();     // draws axes without depth test — call AFTER scene geometry
     void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
@@ -38,6 +40,7 @@ private:
     uint32_t gridIndexCount = 0;
 
     glm::mat4 viewProjection = glm::mat4(1.0f);
+    float axisWorldHalfExtent = 10000.0f;
 
     bool InitializeShaders();
     void Generate();

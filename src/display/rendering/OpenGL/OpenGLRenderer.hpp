@@ -52,6 +52,7 @@ private:
 
     bool GetGLError(const std::source_location &loc = std::source_location::current());
     bool InitializeShaders();
+    void DrawTrianglesPass(bool writeColor);
 
 public:
     OpenGLShader shader;

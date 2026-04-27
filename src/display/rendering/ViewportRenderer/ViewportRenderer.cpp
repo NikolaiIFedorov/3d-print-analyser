@@ -1,4 +1,6 @@
 #include "ViewportRenderer.hpp"
+#include "ProjectionDepthMode.hpp"
+#include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
@@ -26,7 +28,8 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       lineVAO(other.lineVAO), lineVBO(other.lineVBO),
       lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
       gridIndexCount(other.gridIndexCount),
-      viewProjection(other.viewProjection)
+      viewProjection(other.viewProjection),
+      axisWorldHalfExtent(other.axisWorldHalfExtent)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -45,6 +48,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         lineIndexCount = other.lineIndexCount;
         gridIndexCount = other.gridIndexCount;
         viewProjection = other.viewProjection;
+        axisWorldHalfExtent = other.axisWorldHalfExtent;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -59,7 +63,13 @@ bool ViewportRenderer::InitializeShaders()
 
 void ViewportRenderer::SetCamera(Camera &camera)
 {
-    viewProjection = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+    viewProjection = ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) *
+                     camera.GetViewMatrix();
+}
+
+void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
+{
+    axisWorldHalfExtent = std::max(1.0f, halfLength);
 }
 
 void ViewportRenderer::RegenerateGrid()
@@ -99,7 +109,7 @@ void ViewportRenderer::Generate()
 
     gridIndexCount = static_cast<uint32_t>(indices.size());
 
-    const float axisExtent = 10000.0f;
+    const float axisExtent = axisWorldHalfExtent;
 
     // X axis (negative then positive)
     uint32_t base = static_cast<uint32_t>(vertices.size());
@@ -185,7 +195,7 @@ void ViewportRenderer::Render()
     shader.SetMat4("uModel", glm::mat4(1.0f));
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(lineVAO);

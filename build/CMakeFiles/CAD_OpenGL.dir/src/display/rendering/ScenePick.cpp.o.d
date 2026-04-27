@@ -819,6 +819,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__mutex/once_flag.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/no_destroy.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/cstdlib \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera/camera.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.hpp \

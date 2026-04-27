@@ -2,6 +2,7 @@
 
 #include <glad/glad.h>
 #include <SDL3/SDL.h>
+#include <limits>
 #include <memory>
 #include <string>
 #include "utils/utils.hpp"
@@ -210,4 +211,9 @@ private:
     const Face *calibFacePoint2 = nullptr;
     const Edge *calibEdgePoint1 = nullptr;
     const Edge *calibEdgePoint2 = nullptr;
+
+    /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.
+    float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+    /// Rebuilds axis line length when zoom/aspect/grid change; returns extent for ortho near/far.
+    float SyncViewportAxisForDepthClip();
 };

@@ -29,6 +29,7 @@
 #include <limits>
 
 #include "ViewportDepthExperiments.hpp"
+#include "RenderingExperiments.hpp"
 #include "scene/scene.hpp"
 
 namespace
@@ -62,7 +63,16 @@ namespace
 // Set false to restore legacy ±100000 ortho depth (wider slab, coarser depth steps).
 inline constexpr bool kTightenOrthoClipPlanes = true;
 
-void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene)
+/// World-space half-length of axis lines — must match `ViewportRenderer` mesh and ortho clip.
+/// Using a fixed ±10k axis previously blew up the view-space Z slab and wasted ~24-bit linear depth.
+inline float OrthoClipAxisWorldHalfExtent(const Camera &cam)
+{
+    const float gridReach = Color::GRID_EXTENT * 2.0f;
+    const float fromOrtho = cam.orthoSize * (std::fabs(cam.aspectRatio) + 1.0f) * 2.0f;
+    return std::min(std::max(gridReach, fromOrtho), 1.0e6f);
+}
+
+void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldHalfExtent)
 {
     if (!kTightenOrthoClipPlanes)
     {
@@ -96,13 +106,13 @@ void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene)
     addWorld(glm::vec3(-ext, ext, 0.0f));
     addWorld(glm::vec3(ext, -ext, 0.0f));
 
-    constexpr float kAxisExtent = 10000.0f;
-    addWorld(glm::vec3(kAxisExtent, 0.0f, 0.0f));
-    addWorld(glm::vec3(-kAxisExtent, 0.0f, 0.0f));
-    addWorld(glm::vec3(0.0f, kAxisExtent, 0.0f));
-    addWorld(glm::vec3(0.0f, -kAxisExtent, 0.0f));
-    addWorld(glm::vec3(0.0f, 0.0f, kAxisExtent));
-    addWorld(glm::vec3(0.0f, 0.0f, -kAxisExtent));
+    const float ax = std::max(1.0f, axisWorldHalfExtent);
+    addWorld(glm::vec3(ax, 0.0f, 0.0f));
+    addWorld(glm::vec3(-ax, 0.0f, 0.0f));
+    addWorld(glm::vec3(0.0f, ax, 0.0f));
+    addWorld(glm::vec3(0.0f, -ax, 0.0f));
+    addWorld(glm::vec3(0.0f, 0.0f, ax));
+    addWorld(glm::vec3(0.0f, 0.0f, -ax));
 
     if (!std::isfinite(minZ) || !std::isfinite(maxZ) || minZ >= maxZ)
     {
@@ -117,6 +127,20 @@ void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene)
     camera.farPlane = maxZ + pad;
 }
 } // namespace
+
+float Display::SyncViewportAxisForDepthClip()
+{
+    const float h = OrthoClipAxisWorldHalfExtent(camera);
+    if (std::isnan(lastSyncedAxisWorldHalfExtent) ||
+        std::abs(h - lastSyncedAxisWorldHalfExtent) >
+            std::max(0.5f, 0.015f * std::max(1.0f, h)))
+    {
+        lastSyncedAxisWorldHalfExtent = h;
+        viewportRenderer.SetAxisWorldHalfExtent(h);
+        viewportRenderer.RegenerateGrid();
+    }
+    return h;
+}
 
 void Display::ApplyTheme()
 {
@@ -203,6 +227,18 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
+    const int msaaSamples = RenderingExperiments::kGlFramebufferMsaaSamples;
+    if (msaaSamples > 0)
+    {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, msaaSamples);
+    }
+    else
+    {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+    }
+
     windowWidth = width;
     windowHeight = height;
 
@@ -286,7 +322,8 @@ void Display::LoadSettings()
 
     // Viewport
     Color::GRID_EXTENT = loaded.gridExtent;
-    viewportRenderer.RegenerateGrid();
+    lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+    (void)SyncViewportAxisForDepthClip();
 
     // Navigation
     mouseSensitivity = loaded.mouseSensitivity;
@@ -331,18 +368,31 @@ void Display::Render()
 {
     auto bg = Color::GetBase();
     glClearColor(bg.r, bg.g, bg.b, 1.0f);
+    if (RenderingExperiments::kReverseZDepth)
+    {
+        glClearDepth(0.0);
+        glDepthFunc(GL_GEQUAL);
+    }
+    else
+    {
+        glClearDepth(1.0);
+        glDepthFunc(GL_LEQUAL);
+    }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    if (ViewportDepthExperiments::IsBackFaceCull())
+    // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
+    glDisable(GL_CULL_FACE);
+
+    viewportRenderer.Render(); // grid (depth-tested)
+
+    const bool cullOpaqueTriangles = ViewportDepthExperiments::IsBackFaceCull() ||
+                                   RenderingExperiments::kCullBackFacesOpaquePatches;
+    if (cullOpaqueTriangles)
     {
         glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
         glFrontFace(GL_CCW);
     }
-    else
-        glDisable(GL_CULL_FACE);
-
-    viewportRenderer.Render(); // grid (depth-tested)
 
     // Mark only the solid surface pixels in the stencil buffer (value = 1).
     // Lines are excluded — their geometry-shader quads extend beyond silhouettes
@@ -352,8 +402,12 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
+    if (cullOpaqueTriangles)
+        glDisable(GL_CULL_FACE);
+
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
-    renderer.RenderWireframe();
+    if (!RenderingExperiments::kDebugSkipSceneWireframe)
+        renderer.RenderWireframe();
     // Calibrate edge picks: thick accent lines on top of wireframe (same GS line pipeline).
     renderer.RenderPickHighlightLines(6.0f);
     glDisable(GL_STENCIL_TEST);
@@ -411,16 +465,18 @@ void Display::UpdateScene()
 
 void Display::Frame()
 {
-    ApplyOrthoClipFromViewBounds(camera, scene);
+    const float axisH = SyncViewportAxisForDepthClip();
+    ApplyOrthoClipFromViewBounds(camera, scene, axisH);
 
     const bool cameraMovedForPick = cameraDirty;
 
+    // Always sync projection + view to GPU: `ApplyOrthoClipFromViewBounds` updates near/far
+    // every frame from the current view matrix; previously we only pushed matrices when
+    // `cameraDirty`, so clip planes and `OpenGLRenderer` projection could diverge.
+    renderer.SetCamera(camera);
+    viewportRenderer.SetCamera(camera);
     if (cameraDirty)
-    {
-        renderer.SetCamera(camera);
-        viewportRenderer.SetCamera(camera);
         cameraDirty = false;
-    }
 
     if (sceneDirty)
     {
@@ -887,7 +943,8 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
     camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
     uiRenderer.SetScreenSize(width, height);
 
-    ApplyOrthoClipFromViewBounds(camera, scene);
+    const float axisH = SyncViewportAxisForDepthClip();
+    ApplyOrthoClipFromViewBounds(camera, scene, axisH);
 
     // Push updated matrices to the renderers immediately. ResizeEventWatcher
     // calls Render() before Frame() has a chance to process cameraDirty, so
@@ -2051,7 +2108,11 @@ void Display::InitUI()
     makeSettingsDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
                      4.0f, 16.0f, 2048.0f, "%.0f", "##gridExtent",
                      [this]()
-                     { viewportRenderer.RegenerateGrid(); renderDirty = true; });
+                     {
+                         lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+                         (void)SyncViewportAxisForDepthClip();
+                         renderDirty = true;
+                     });
 
     // ── Navigation ────────────────────────────────────────────────────────────
     Section &navSection = uiSettings->AddSection("Navigation");
