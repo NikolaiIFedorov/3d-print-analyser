@@ -146,6 +146,7 @@ private:
     RootPanel *uiSettings = nullptr;
     RootPanel *uiToolbar = nullptr;
     RootPanel *uiStatusStrip = nullptr;
+    SectionLine *statusStripTextLine = nullptr;
     SectionLine *toolbarAnalysisLine = nullptr;
     SectionLine *toolbarCalibrateLine = nullptr;
     Paragraph *uiResult = nullptr;
@@ -202,6 +203,7 @@ private:
     void CompleteFileImport(const std::string &path);
     void SyncToolbarToolVisualState();
     void RefreshStatusStripIdleText();
+    void SyncStatusStripTextLine();
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;

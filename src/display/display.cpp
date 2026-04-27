@@ -1444,6 +1444,13 @@ void Display::SyncToolbarToolVisualState()
     uiRenderer.MarkDirty();
 }
 
+void Display::SyncStatusStripTextLine()
+{
+    if (statusStripTextLine != nullptr)
+        statusStripTextLine->text = statusStripLine;
+    uiRenderer.MarkDirty();
+}
+
 void Display::RefreshStatusStripIdleText()
 {
     if (statusStripImportBusy)
@@ -1451,13 +1458,15 @@ void Display::RefreshStatusStripIdleText()
         if (uiStatusStrip)
         {
             uiStatusStrip->visible = true;
-            uiRenderer.MarkDirty();
+            SyncStatusStripTextLine();
         }
         return;
     }
     if (scene == nullptr)
     {
         statusStripLine.clear();
+        if (statusStripTextLine != nullptr)
+            statusStripTextLine->text.clear();
         if (uiStatusStrip)
         {
             uiStatusStrip->visible = false;
@@ -1477,10 +1486,8 @@ void Display::RefreshStatusStripIdleText()
                  nFaces, nEdges, nPts, nSol);
     statusStripLine.assign(buf);
     if (uiStatusStrip)
-    {
         uiStatusStrip->visible = true;
-        uiRenderer.MarkDirty();
-    }
+    SyncStatusStripTextLine();
 }
 
 void Display::CompleteFileImport(const std::string &path)
@@ -1553,7 +1560,7 @@ void Display::ProcessDeferredImportIfAny()
     statusStripLine = "Importing " + fname + "…";
     if (uiStatusStrip)
         uiStatusStrip->visible = true;
-    uiRenderer.MarkDirty();
+    SyncStatusStripTextLine();
     Render();
 
     CompleteFileImport(path);
@@ -1702,40 +1709,18 @@ void Display::InitUI()
         statusDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Left};
         statusDef.rightAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         statusDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-        statusDef.height = 0.65f;
+        // No fixed height: row span comes from typography: imguiContent used to reserve widget row
+        // height (frame padding), which exceeded 0.65 cells and drew text below the GL card.
+        statusDef.borderRadius = 0.22f; // flatter bar — reads as status chrome, not a pill control
         uiStatusStrip = &uiRenderer.AddPanel(statusDef);
         uiStatusStrip->children.reserve(1); // RootPanel::AddParagraph requires capacity > size (see Panel.hpp)
         Paragraph &stripPara = uiStatusStrip->AddParagraph("Line");
-        stripPara.margin = 0.06f;
-        stripPara.padding = 0.04f;
+        stripPara.margin = 0.05f;
+        stripPara.padding = 0.03f;
         SectionLine &stripLine = stripPara.values.emplace_back();
-        stripLine.imguiContent = [this](float winW, float winH, float /*iconOffsetPx*/)
-        {
-            ImFont *pf = uiRenderer.GetPixelImFont();
-            if (pf != nullptr)
-                ImGui::PushFont(pf);
-            glm::vec4 tc = Color::GetUIText(1);
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(tc.r, tc.g, tc.b, tc.a));
-            ImGui::TextUnformatted(statusStripLine.c_str());
-            ImGui::PopStyleColor();
-            if (statusStripImportBusy && statusStripImportProgress01 < 0.0f && winW > 40.0f)
-            {
-                ImDrawList *dl = ImGui::GetWindowDrawList();
-                const ImVec2 wpos = ImGui::GetWindowPos();
-                const float innerL = wpos.x + 8.0f;
-                const float innerR = wpos.x + winW - 8.0f;
-                const float trackW = innerR - innerL;
-                const float stripBottom = wpos.y + winH - 2.0f;
-                const float t = static_cast<float>(SDL_GetTicks()) * 0.001f;
-                const float pulse = std::sin(t * 3.0f) * 0.5f + 0.5f;
-                const float segW = std::min(80.0f, trackW * 0.28f);
-                const float bx = innerL + (trackW - segW) * pulse;
-                dl->AddRectFilled(ImVec2(bx, stripBottom - 5.0f), ImVec2(bx + segW, stripBottom - 1.0f),
-                                  IM_COL32(90, 150, 255, 210), 2.0f);
-            }
-            if (pf != nullptr)
-                ImGui::PopFont();
-        };
+        stripLine.fontScale = 0.92f;
+        stripLine.textDepth = 2;
+        statusStripTextLine = &stripLine;
     }
 
     // Files tab bar — spans from toolbar right edge to screen right
