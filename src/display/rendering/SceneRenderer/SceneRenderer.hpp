@@ -40,6 +40,12 @@ public:
     const std::vector<PickTriangle> &GetPickTriangles() const { return pickTriangles; }
     const std::vector<PickSegment> &GetPickSegments() const { return pickSegments; }
 
+    /// Last uploaded main scene mesh (patches + wireframe), for HUD / diagnostics.
+    uint32_t UploadedTriangleIndexCount() const { return renderer.GetTriangleIndexCount(); }
+    uint32_t UploadedLineIndexCount() const { return renderer.GetLineIndexCount(); }
+    uint32_t UploadedTriangleVertexCount() const { return renderer.GetTriangleVertexCount(); }
+    uint32_t UploadedLineVertexCount() const { return renderer.GetLineVertexCount(); }
+
     void Shutdown();
 
 private:

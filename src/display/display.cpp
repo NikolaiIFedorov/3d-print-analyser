@@ -1478,12 +1478,17 @@ void Display::RefreshStatusStripIdleText()
     const size_t nEdges = scene->edges.size();
     const size_t nPts = scene->points.size();
     const size_t nSol = scene->solids.size();
-    char buf[160];
+    const unsigned triIdx = static_cast<unsigned>(renderer.UploadedTriangleIndexCount());
+    const unsigned lnIdx = static_cast<unsigned>(renderer.UploadedLineIndexCount());
+    const unsigned triV = static_cast<unsigned>(renderer.UploadedTriangleVertexCount());
+    const unsigned lnV = static_cast<unsigned>(renderer.UploadedLineVertexCount());
+    char buf[224];
     if (nFaces == 0 && nEdges == 0 && nPts == 0)
-        snprintf(buf, sizeof(buf), "Scene: empty");
+        snprintf(buf, sizeof(buf), "Mesh idx %u+%u vtx %u+%u · topo empty",
+                 triIdx, lnIdx, triV, lnV);
     else
-        snprintf(buf, sizeof(buf), "Scene: %zu faces · %zu edges · %zu verts · %zu solids",
-                 nFaces, nEdges, nPts, nSol);
+        snprintf(buf, sizeof(buf), "Mesh idx %u+%u vtx %u+%u · F%zu E%zu · %zu pts · %zu sol",
+                 triIdx, lnIdx, triV, lnV, nFaces, nEdges, nPts, nSol);
     statusStripLine.assign(buf);
     if (uiStatusStrip)
         uiStatusStrip->visible = true;

@@ -26,11 +26,13 @@ private:
     GLuint triangleVBO = 0;
     GLuint triangleIBO = 0;
     uint32_t triangleIndexCount = 0;
+    uint32_t triangleVertexCount = 0;
 
     GLuint lineVAO = 0;
     GLuint lineVBO = 0;
     GLuint lineIBO = 0;
     uint32_t lineIndexCount = 0;
+    uint32_t lineVertexCount = 0;
 
     GLuint pickHighlightVAO = 0;
     GLuint pickHighlightVBO = 0;
@@ -91,4 +93,9 @@ public:
     void SetWireFrameMode(bool enabled);
     void SetLineWidth(float width) { lineWidth = width; }
     float GetLineWidth() const { return lineWidth; }
+
+    uint32_t GetTriangleIndexCount() const { return triangleIndexCount; }
+    uint32_t GetLineIndexCount() const { return lineIndexCount; }
+    uint32_t GetTriangleVertexCount() const { return triangleVertexCount; }
+    uint32_t GetLineVertexCount() const { return lineVertexCount; }
 };

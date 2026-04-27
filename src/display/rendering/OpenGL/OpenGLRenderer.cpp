@@ -28,8 +28,10 @@ OpenGLRenderer::~OpenGLRenderer()
 OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     : window(other.window),
       glContext(other.glContext),
-      triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO), triangleIBO(other.triangleIBO), triangleIndexCount(other.triangleIndexCount),
+      triangleVAO(other.triangleVAO), triangleVBO(other.triangleVBO), triangleIBO(other.triangleIBO),
+      triangleIndexCount(other.triangleIndexCount), triangleVertexCount(other.triangleVertexCount),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO), lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      lineVertexCount(other.lineVertexCount),
       pickHighlightVAO(other.pickHighlightVAO), pickHighlightVBO(other.pickHighlightVBO),
       pickHighlightIBO(other.pickHighlightIBO), pickHighlightIndexCount(other.pickHighlightIndexCount),
       pickHighlightLineVAO(other.pickHighlightLineVAO), pickHighlightLineVBO(other.pickHighlightLineVBO),
@@ -44,8 +46,8 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.pickHighlightVAO = other.pickHighlightVBO = other.pickHighlightIBO = 0;
     other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
-    other.triangleIndexCount = other.lineIndexCount = other.pickHighlightIndexCount =
-        other.pickHighlightLineIndexCount = 0;
+    other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
+        other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = 0;
 }
 
 OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
@@ -59,10 +61,12 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         triangleVBO = other.triangleVBO;
         triangleIBO = other.triangleIBO;
         triangleIndexCount = other.triangleIndexCount;
+        triangleVertexCount = other.triangleVertexCount;
         lineVAO = other.lineVAO;
         lineVBO = other.lineVBO;
         lineIBO = other.lineIBO;
         lineIndexCount = other.lineIndexCount;
+        lineVertexCount = other.lineVertexCount;
         pickHighlightVAO = other.pickHighlightVAO;
         pickHighlightVBO = other.pickHighlightVBO;
         pickHighlightIBO = other.pickHighlightIBO;
@@ -82,8 +86,8 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.pickHighlightVAO = other.pickHighlightVBO = other.pickHighlightIBO = 0;
         other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
-        other.triangleIndexCount = other.lineIndexCount = other.pickHighlightIndexCount =
-            other.pickHighlightLineIndexCount = 0;
+        other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
+            other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = 0;
     }
     return *this;
 }
@@ -258,6 +262,7 @@ void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                                         const std::vector<uint32_t> &indices)
 {
     triangleIndexCount = static_cast<uint32_t>(indices.size());
+    triangleVertexCount = static_cast<uint32_t>(vertices.size());
 
     glBindVertexArray(triangleVAO);
 
@@ -307,7 +312,8 @@ void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
 void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
                                     const std::vector<uint32_t> &indices)
 {
-    lineIndexCount = indices.size();
+    lineIndexCount = static_cast<uint32_t>(indices.size());
+    lineVertexCount = static_cast<uint32_t>(vertices.size());
 
     if (lineVAO == 0)
         glGenVertexArrays(1, &lineVAO);
