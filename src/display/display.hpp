@@ -6,6 +6,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <cstdint>
+#include <unordered_set>
 #include "utils/utils.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
@@ -21,6 +23,7 @@
 #include "Calibrate/CalibDistanceType.hpp"
 
 struct Edge;
+struct Solid;
 
 class Display
 {
@@ -34,6 +37,10 @@ public:
 
     void Render();
     void UpdateScene();
+    void MarkStyleDirty();
+    void MarkGeometryDirtyAll();
+    void MarkGeometryDirtySolid(const Solid *solid);
+    void MarkPickDirty();
     void Frame();
 
     bool HitTestUI(float pixelX, float pixelY) const;
@@ -90,6 +97,31 @@ public:
     void ApplyTheme();
 
 private:
+    enum class InvalidationNode : uint8_t
+    {
+        Geometry = 0,
+        Style,
+        Pick,
+        Analysis,
+        UI,
+        Count
+    };
+
+    struct InvalidationStats
+    {
+        uint64_t scheduled[static_cast<size_t>(InvalidationNode::Count)] = {};
+        uint64_t executed[static_cast<size_t>(InvalidationNode::Count)] = {};
+        uint64_t skipped[static_cast<size_t>(InvalidationNode::Count)] = {};
+        uint64_t guardrailViolations = 0;
+        uint64_t fallbackToFullRebuild = 0;
+    };
+
+    using InvalidationMask = uint32_t;
+    static constexpr InvalidationMask NodeBit(InvalidationNode n)
+    {
+        return 1u << static_cast<uint32_t>(n);
+    }
+
     int16_t windowWidth;
     int16_t windowHeight;
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
@@ -108,7 +140,14 @@ private:
 
     bool analysisEnabled = true;
     bool cameraDirty = true;
-    bool sceneDirty = true;
+    // Phase-6 hook: keep CPU-first path by default; shader/material style propagation can gate on this later.
+    bool preferShaderStylePropagation = false;
+    InvalidationMask scheduledNodes = 0;
+    InvalidationStats invalidationStats;
+    bool styleDirty = true;
+    bool geometryDirtyAll = true;
+    std::unordered_set<const Solid *> geometryDirtySolids;
+    bool pickDirty = true;
 
     float overhangAngle = 45.0f;
     float sharpCornerAngle = 100.0f;
@@ -216,6 +255,13 @@ private:
     void ClearCalibrateFacePicks();
     void SetHoverCalibPick(const Face *face, const Edge *edge);
     void RebuildPickHighlightMesh();
+    void ScheduleNode(InvalidationNode node);
+    void RunPickNode();
+    void RunUiNode();
+    void ClearScheduledNodes();
+    void InvalidationSkip(InvalidationNode node);
+    void InvalidationExec(InvalidationNode node);
+    void InvalidationGuardrailViolation();
     void RefreshCalibWorkflow();
     void RefreshCalibCompensation();
     void RefreshCalibDerivedRowVisible();

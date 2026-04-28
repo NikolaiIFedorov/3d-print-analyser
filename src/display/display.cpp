@@ -53,6 +53,14 @@ const Face *ResolveCalibFaceForWorkflow(const Face *pickedFace, const Edge *pick
     return best;
 }
 
+CalibrateDistance::PickRef ResolveCalibPickRefForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
+{
+    CalibrateDistance::PickRef out;
+    out.face = ResolveCalibFaceForWorkflow(pickedFace, pickedEdge);
+    out.edge = pickedEdge;
+    return out;
+}
+
 bool CalibSlotHasPick(const Face *f, const Edge *e)
 {
     return f != nullptr || e != nullptr;
@@ -189,7 +197,9 @@ void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldH
     }
 
     const float span = maxZ - minZ;
-    const float pad = std::max(50.0f, span * 0.1f);
+    // Keep clip bounds conservative so close-up navigation does not clip near surfaces when
+    // scene extrema are sparse (e.g. coarse topology vs shaded/tessellated geometry).
+    const float pad = std::max(120.0f, span * 0.3f);
     camera.nearPlane = minZ - pad;
     camera.farPlane = maxZ + pad;
 }
@@ -229,8 +239,8 @@ void Display::ApplyTheme()
     uiRenderer.MarkDirty();
     viewportRenderer.RegenerateGrid();
     if (scene && (!scene->solids.empty() || !scene->faces.empty()))
-        UpdateScene();
-    renderDirty = true;
+        MarkStyleDirty();
+    MarkPickDirty();
 }
 
 Display::Display(int16_t width, int16_t height, const char *title) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height)
@@ -390,6 +400,8 @@ void Display::LoadSettings()
     UserTuning::DeriveFromContrast();
     Color::SetUiDepthStep(UserTuning::uiDepthStep);
     ApplyTheme();
+    MarkStyleDirty();
+    MarkPickDirty();
 
     // Viewport
     Color::GRID_EXTENT = loaded.gridExtent;
@@ -405,7 +417,7 @@ void Display::LoadSettings()
 
     // Re-run analysis with restored parameters.
     RebuildAnalysis();
-    renderDirty = true;
+    MarkGeometryDirtyAll();
 
     // Settings UI was built before load — sync pill indices to restored state.
     if (uiAppearanceThemeSelect)
@@ -548,8 +560,115 @@ void Display::Render()
 
 void Display::UpdateScene()
 {
-    sceneDirty = true;
+    MarkGeometryDirtyAll();
+}
+
+void Display::ScheduleNode(InvalidationNode node)
+{
+    const size_t idx = static_cast<size_t>(node);
+    if ((scheduledNodes & NodeBit(node)) == 0)
+        invalidationStats.scheduled[idx]++;
+    scheduledNodes |= NodeBit(node);
+}
+
+void Display::MarkStyleDirty()
+{
+    styleDirty = true;
+    ScheduleNode(InvalidationNode::Style);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
     renderDirty = true;
+}
+
+void Display::MarkGeometryDirtyAll()
+{
+    geometryDirtyAll = true;
+    geometryDirtySolids.clear();
+    ScheduleNode(InvalidationNode::Geometry);
+    ScheduleNode(InvalidationNode::Analysis);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
+    renderDirty = true;
+}
+
+void Display::MarkGeometryDirtySolid(const Solid *solid)
+{
+    if (solid == nullptr)
+    {
+        MarkGeometryDirtyAll();
+        return;
+    }
+    if (!geometryDirtyAll)
+        geometryDirtySolids.insert(solid);
+    ScheduleNode(InvalidationNode::Geometry);
+    ScheduleNode(InvalidationNode::Analysis);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
+    renderDirty = true;
+}
+
+void Display::MarkPickDirty()
+{
+    pickDirty = true;
+    ScheduleNode(InvalidationNode::Pick);
+    renderDirty = true;
+}
+
+void Display::InvalidationSkip(InvalidationNode node)
+{
+    invalidationStats.skipped[static_cast<size_t>(node)]++;
+}
+
+void Display::InvalidationExec(InvalidationNode node)
+{
+    invalidationStats.executed[static_cast<size_t>(node)]++;
+}
+
+void Display::InvalidationGuardrailViolation()
+{
+    invalidationStats.guardrailViolations++;
+}
+
+void Display::ClearScheduledNodes()
+{
+    scheduledNodes = 0;
+}
+
+void Display::RunPickNode()
+{
+    // Guardrail: pick mesh refresh must run after geometry/style node settled for this frame.
+    if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
+    {
+        InvalidationGuardrailViolation();
+        invalidationStats.fallbackToFullRebuild++;
+        AnalysisResults results;
+        if (analysisEnabled)
+        {
+            results = Analysis::Instance().AnalyzeScene(scene);
+            renderer.RebuildAll(scene, &results);
+        }
+        else
+        {
+            renderer.RebuildAll(scene, nullptr);
+        }
+        geometryDirtyAll = false;
+        geometryDirtySolids.clear();
+        styleDirty = false;
+    }
+
+    if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
+        calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr)
+    {
+        RebuildPickHighlightMesh();
+        InvalidationExec(InvalidationNode::Pick);
+        return;
+    }
+    InvalidationSkip(InvalidationNode::Pick);
+}
+
+void Display::RunUiNode()
+{
+    InvalidationExec(InvalidationNode::UI);
 }
 
 void Display::Frame()
@@ -569,8 +688,16 @@ void Display::Frame()
     if (cameraDirty)
         cameraDirty = false;
 
-    if (sceneDirty)
+    if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty)
     {
+        ScheduleNode(InvalidationNode::Geometry);
+        if (styleDirty)
+            ScheduleNode(InvalidationNode::Style);
+        if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
+            ScheduleNode(InvalidationNode::Analysis);
+        ScheduleNode(InvalidationNode::Pick);
+        ScheduleNode(InvalidationNode::UI);
+
         bool hasModel = !scene->solids.empty() || !scene->faces.empty();
 
         // Toggle Analysis panel sections based on model presence
@@ -582,11 +709,26 @@ void Display::Frame()
             uiVerdict->visible = hasModel;
         uiRenderer.MarkDirty();
 
+        const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
         AnalysisResults results;
-        if (analysisEnabled)
+        if (geometryOrStyleWork && analysisEnabled)
             results = Analysis::Instance().AnalyzeScene(scene);
 
-        renderer.UpdateScene(scene, analysisEnabled ? &results : nullptr);
+        if (geometryDirtyAll)
+        {
+            renderer.RebuildAll(scene, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            InvalidationExec(InvalidationNode::Geometry);
+        }
+        else if (!geometryDirtySolids.empty())
+        {
+            renderer.RebuildSolids(scene, geometryDirtySolids, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            InvalidationExec(InvalidationNode::Geometry);
+        }
+        else if (styleDirty)
+        {
+            renderer.RecolorOnly(scene, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            InvalidationExec(InvalidationNode::Style);
+        }
 
         auto stillPickable = [&](const Face *f) -> bool
         {
@@ -613,9 +755,15 @@ void Display::Frame()
         };
 
         if (hoverPickFace != nullptr && !stillPickable(hoverPickFace))
+        {
             hoverPickFace = nullptr;
+            pickDirty = true;
+        }
         if (hoverPickEdge != nullptr && !stillPickableEdge(hoverPickEdge))
+        {
             hoverPickEdge = nullptr;
+            pickDirty = true;
+        }
 
         bool calibPickInvalidated = false;
         if (calibFacePoint1 != nullptr && !stillPickable(calibFacePoint1))
@@ -623,24 +771,28 @@ void Display::Frame()
             calibFacePoint1 = nullptr;
             calibStepPoint1 = Icons::StepState::Active;
             calibPickInvalidated = true;
+            pickDirty = true;
         }
         if (calibEdgePoint1 != nullptr && !stillPickableEdge(calibEdgePoint1))
         {
             calibEdgePoint1 = nullptr;
             calibStepPoint1 = Icons::StepState::Active;
             calibPickInvalidated = true;
+            pickDirty = true;
         }
         if (calibFacePoint2 != nullptr && !stillPickable(calibFacePoint2))
         {
             calibFacePoint2 = nullptr;
             calibStepPoint2 = Icons::StepState::Active;
             calibPickInvalidated = true;
+            pickDirty = true;
         }
         if (calibEdgePoint2 != nullptr && !stillPickableEdge(calibEdgePoint2))
         {
             calibEdgePoint2 = nullptr;
             calibStepPoint2 = Icons::StepState::Active;
             calibPickInvalidated = true;
+            pickDirty = true;
         }
         if (calibPickInvalidated)
         {
@@ -654,12 +806,11 @@ void Display::Frame()
             uiRenderer.MarkDirty();
         }
 
-        if (hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
-            calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr)
-            RebuildPickHighlightMesh();
+        RunPickNode();
 
-        if (analysisEnabled)
+        if (geometryOrStyleWork && analysisEnabled)
         {
+            InvalidationExec(InvalidationNode::Analysis);
             // Count flaws per type and push to UI
             size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
 
@@ -994,15 +1145,24 @@ void Display::Frame()
         }
         else
         {
-            lastVerdictWasPass = false;
-            flawOverhang = {};
-            flawSharp = {};
-            flawThin = {};
-            flawSmall = {};
-            if (uiVerdict)
-                uiVerdict->values = {};
+            InvalidationSkip(InvalidationNode::Analysis);
+            if (geometryOrStyleWork)
+            {
+                lastVerdictWasPass = false;
+                flawOverhang = {};
+                flawSharp = {};
+                flawThin = {};
+                flawSmall = {};
+                if (uiVerdict)
+                    uiVerdict->values = {};
+            }
         }
-        sceneDirty = false;
+        geometryDirtyAll = false;
+        geometryDirtySolids.clear();
+        styleDirty = false;
+        pickDirty = false;
+        InvalidationExec(InvalidationNode::UI);
+        ClearScheduledNodes();
     }
 
     if (cameraMovedForPick)
@@ -1093,8 +1253,7 @@ void Display::ClearPickHover()
 {
     hoverPickFace = nullptr;
     hoverPickEdge = nullptr;
-    RebuildPickHighlightMesh();
-    renderDirty = true;
+    MarkPickDirty();
 }
 
 void Display::ClearCalibrateFacePicks()
@@ -1104,8 +1263,7 @@ void Display::ClearCalibrateFacePicks()
     calibEdgePoint1 = nullptr;
     calibEdgePoint2 = nullptr;
     RefreshCalibWorkflow();
-    RebuildPickHighlightMesh();
-    renderDirty = true;
+    MarkPickDirty();
 }
 
 void Display::SetHoverCalibPick(const Face *face, const Edge *edge)
@@ -1122,8 +1280,7 @@ void Display::SetHoverCalibPick(const Face *face, const Edge *edge)
     }
     hoverPickFace = face;
     hoverPickEdge = edge;
-    RebuildPickHighlightMesh();
-    renderDirty = true;
+    MarkPickDirty();
 }
 
 void Display::RebuildPickHighlightMesh()
@@ -1310,8 +1467,7 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
 
     RefreshCalibWorkflow();
     uiRenderer.MarkDirty();
-    RebuildPickHighlightMesh();
-    renderDirty = true;
+    MarkPickDirty();
 }
 
 void Display::RefreshCalibWorkflow()
@@ -1326,13 +1482,13 @@ void Display::RefreshCalibWorkflow()
     std::unordered_set<const Edge *> holeEdges;
     CalibrateDistance::RebuildHoleEdgeSet(*scene, holeEdges);
     const double layerMm = static_cast<double>(layerHeight);
-    const Face *r1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
-    const Face *r2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
-    if (r1 != nullptr && r2 != nullptr)
+    const CalibrateDistance::PickRef r1 = ResolveCalibPickRefForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const CalibrateDistance::PickRef r2 = ResolveCalibPickRefForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (r1.face != nullptr && r2.face != nullptr)
         calibWorkflow = CalibrateDistance::CombinePickedFaces(r1, r2, scene, layerMm, holeEdges);
-    else if (r1 != nullptr)
+    else if (r1.face != nullptr)
         calibWorkflow = CalibrateDistance::ClassifyFace(r1, scene, layerMm, holeEdges);
-    else if (r2 != nullptr)
+    else if (r2.face != nullptr)
         calibWorkflow = CalibrateDistance::ClassifyFace(r2, scene, layerMm, holeEdges);
     else
         calibWorkflow = CalibWorkflow::None;
@@ -1557,11 +1713,28 @@ void Display::RefreshStatusStripIdleText()
     const size_t nSol = scene->solids.size();
     const unsigned renderedVerts = static_cast<unsigned>(renderer.UploadedTriangleVertexCount() +
                                                           renderer.UploadedLineVertexCount());
-    char buf[96];
+    char buf[256];
+    const unsigned long long fullRebuilds = static_cast<unsigned long long>(renderer.FullRebuildCount());
+    const unsigned long long partialRebuilds = static_cast<unsigned long long>(renderer.PartialRebuildCount());
+    const unsigned long long recolors = static_cast<unsigned long long>(renderer.RecolorOnlyCount());
+    const unsigned long long guardViol = static_cast<unsigned long long>(invalidationStats.guardrailViolations);
+    const unsigned long long fallbackCnt = static_cast<unsigned long long>(invalidationStats.fallbackToFullRebuild);
+    const unsigned long long geomExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Geometry)]);
+    const unsigned long long styleExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Style)]);
+    const unsigned long long pickExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Pick)]);
     if (nSol == 1)
-        snprintf(buf, sizeof(buf), "1 solid, %u rendered vertices", renderedVerts);
+        snprintf(buf, sizeof(buf),
+                 "1 solid, %u verts | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 renderedVerts, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
+                 guardViol, fallbackCnt);
     else
-        snprintf(buf, sizeof(buf), "%zu solids, %u rendered vertices", nSol, renderedVerts);
+        snprintf(buf, sizeof(buf),
+                 "%zu solids, %u verts | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 nSol, renderedVerts, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
+                 guardViol, fallbackCnt);
     statusStripLine.assign(buf);
     if (uiStatusStrip)
         uiStatusStrip->visible = true;
@@ -1619,6 +1792,11 @@ void Display::CompleteFileImport(const std::string &path)
     RefreshCalibDerivedRowVisible();
     uiRenderer.MarkDirty();
     renderDirty = true;
+
+    // After returning from the native file dialog, macOS can deliver a short tail of synthesized
+    // wheel/touch events (trackpad inertia / focus handoff). They should not drive camera gestures.
+    SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
+    SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
 
     statusStripImportBusy = false;
     statusStripImportProgress01 = -1.0f;
@@ -2234,7 +2412,8 @@ void Display::InitUI()
 
     // All appearance rows in one paragraph — no splitters between them.
     Paragraph &appearancePara = appearanceSection.AddParagraph("AppearanceRows");
-    appearancePara.values.reserve(2);
+    // Theme + Accent + Contrast are appended below; reserve all so stored select pointers remain valid.
+    appearancePara.values.reserve(3);
 
     // Theme selector: System / Light / Dark pill
     {
@@ -2279,14 +2458,18 @@ void Display::InitUI()
                     // Keep saved custom hue/sat for when user switches back to Custom — only drive live color from OS.
                     Color::SetAccent(hue, sat);
                     uiRenderer.MarkDirty();
-                    renderDirty = true;
+                    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                        MarkStyleDirty();
+                    MarkPickDirty();
                 }
             }
             else
             {
                 Color::SetAccent(settingsAccentHue, settingsAccentSat);
                 uiRenderer.MarkDirty();
-                renderDirty = true;
+                if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                    MarkStyleDirty();
+                MarkPickDirty();
             }
         };
         sel.onActiveClick = [this]()
@@ -2318,7 +2501,9 @@ void Display::InitUI()
                     settingsAccentSat = s2;
                     Color::SetAccent(settingsAccentHue, settingsAccentSat);
                     uiRenderer.MarkDirty();
-                    renderDirty = true;
+                    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                        MarkStyleDirty();
+                    MarkPickDirty();
                 }
                 ImGui::EndPopup();
             }
@@ -2334,7 +2519,9 @@ void Display::InitUI()
                          UserTuning::DeriveFromContrast();
                          Color::SetUiDepthStep(UserTuning::uiDepthStep);
                          uiRenderer.MarkDirty();
-                         renderDirty = true;
+                         if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                            MarkStyleDirty();
+                        MarkPickDirty();
                      });
 
     // ── Viewport ──────────────────────────────────────────────────────────────
@@ -2542,8 +2729,7 @@ void Display::InitUI()
                         ImGui::Dummy(ImVec2(w, pad));
                         return;
                     }
-                    drawLine(y0, "Pick second face or edge for CAD span.", "");
-                    ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                    ImGui::Dummy(ImVec2(w, pad));
                     return;
                 }
                 if (spanBad)
@@ -2611,11 +2797,15 @@ void Display::InitUI()
         {
             calibPara_Point1->selected = true;
             calibPara_Point2->selected = false;
+            uiRenderer.MarkDirty();
+            MarkPickDirty();
         };
         auto selectPoint2 = [this]()
         {
             calibPara_Point2->selected = true;
             calibPara_Point1->selected = false;
+            uiRenderer.MarkDirty();
+            MarkPickDirty();
         };
         calibPara_Point1->onClick        = selectPoint1;
         calibLine_Point1Primary->onClick = selectPoint1;

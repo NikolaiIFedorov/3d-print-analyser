@@ -5,8 +5,19 @@
 void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices, results);
+        GenerateSolid(&solid, vertices, indices, results);
 
+    GenerateLoose(scene, vertices, indices);
+}
+
+void Wireframe::GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                              const AnalysisResults *results) const
+{
+    AddSolid(solid, vertices, indices, results);
+}
+
+void Wireframe::GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
+{
     for (const Face &face : scene->faces)
         AddFace(&face, vertices, indices, false);
 

@@ -27,12 +27,16 @@ private:
     GLuint triangleIBO = 0;
     uint32_t triangleIndexCount = 0;
     uint32_t triangleVertexCount = 0;
+    size_t triangleVertexCapacity = 0;
+    size_t triangleIndexCapacity = 0;
 
     GLuint lineVAO = 0;
     GLuint lineVBO = 0;
     GLuint lineIBO = 0;
     uint32_t lineIndexCount = 0;
     uint32_t lineVertexCount = 0;
+    size_t lineVertexCapacity = 0;
+    size_t lineIndexCapacity = 0;
 
     GLuint pickHighlightVAO = 0;
     GLuint pickHighlightVBO = 0;
@@ -82,9 +86,13 @@ public:
     void SetViewPos(const glm::vec3 &pos);
 
     void UploadTriangleMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    bool UpdateTriangleMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
+                                   const std::vector<uint32_t> &indices, size_t indexOffset);
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    bool UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
+                               const std::vector<uint32_t> &indices, size_t indexOffset);
 
     void DrawTriangles();
     void DrawPickHighlight();

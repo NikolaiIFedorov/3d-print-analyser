@@ -35,8 +35,22 @@ void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<ui
                      const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices, results, pickOut);
+        GenerateSolid(&solid, vertices, indices, viewport, results, pickOut);
 
+    GenerateLoose(scene, vertices, indices, viewport, results, pickOut);
+}
+
+void Patch::GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                          int viewport[4], const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
+{
+    (void)viewport;
+    AddSolid(solid, vertices, indices, results, pickOut);
+}
+
+void Patch::GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                          int viewport[4], const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
+{
+    (void)viewport;
     for (const Face &face : scene->faces)
         AddFace(&face, vertices, indices, false, results, pickOut);
 }
