@@ -75,3 +75,20 @@ Centralizing screen-edge insets in `UIGrid` keeps `ResolveAnchors` / min-grid si
 ### Files
 
 - `UIGrid.hpp`, `Camera.{hpp,cpp}`, `ViewportRenderer.{hpp,cpp}`, `basic.frag`, `OpenGLRenderer.{hpp,cpp}`, `SceneRenderer.cpp`
+
+---
+
+## Follow-up (remove grid LOD; rely on transparency)
+
+### Problem
+
+Zoom / pixel-gap grid LOD felt worse than a fixed dense grid.
+
+### Approach
+
+- Removed `gridWorldSpacing` / `PickGridWorldSpacing` and per-frame `RegenerateGrid` from `SetCamera`; grid always uses world spacing `1.0`.
+- `basic.frag`: lower alpha range for the grid pass (`aLo` / `aHi` with principal-snap mix) so the floor stays readable but dense lines stack visually lighter.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, `basic.frag`, this log

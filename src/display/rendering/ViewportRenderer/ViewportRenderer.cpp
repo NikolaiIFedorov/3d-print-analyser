@@ -3,25 +3,6 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
-#include <algorithm>
-#include <cmath>
-
-namespace
-{
-/// Minimum world spacing so adjacent parallel grid lines stay ~`minPixelGap` screen pixels apart (when zoomed out).
-float PickGridWorldSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
-{
-    const float halfW = orthoSize * std::fabs(aspect);
-    const float halfH = orthoSize;
-    const float worldPerPxX = (2.0f * halfW) / std::max(1, widthPx);
-    const float worldPerPxY = (2.0f * halfH) / std::max(1, heightPx);
-    const float wpp = std::max(worldPerPxX, worldPerPxY);
-    constexpr float kMinPixelGap = 2.5f;
-    const float minWorld = kMinPixelGap * wpp;
-    return std::min(512.0f, std::max(1.0f, std::ceil(minWorld)));
-}
-} // namespace
-
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
     if (!InitializeShaders())
@@ -50,7 +31,6 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
-      gridWorldSpacing(other.gridWorldSpacing),
       principalSnapForGrid(other.principalSnapForGrid)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
@@ -72,7 +52,6 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewProjection = other.viewProjection;
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
-        gridWorldSpacing = other.gridWorldSpacing;
         principalSnapForGrid = other.principalSnapForGrid;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
@@ -96,15 +75,6 @@ void ViewportRenderer::SetCamera(Camera &camera)
         viewDirWorld = glm::normalize(-forwardWorld);
 
     principalSnapForGrid = camera.IsPrincipalAxisView() ? 1.0f : 0.0f;
-
-    const float sp = PickGridWorldSpacing(camera.orthoSize, camera.aspectRatio,
-                                          static_cast<int>(camera.widthWindow),
-                                          static_cast<int>(camera.heightWindow));
-    if (std::abs(sp - gridWorldSpacing) > 1e-5f * std::max(1.0f, gridWorldSpacing))
-    {
-        gridWorldSpacing = sp;
-        RegenerateGrid();
-    }
 }
 
 void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
@@ -123,7 +93,7 @@ void ViewportRenderer::Generate()
     std::vector<uint32_t> indices;
 
     const float extent = Color::GRID_EXTENT;
-    const float spacing = std::max(1.0f, gridWorldSpacing);
+    constexpr float spacing = 1.0f;
 
     glm::vec3 gridColor = Color::GetGrid();
 

@@ -23,9 +23,11 @@ void main()
             float g = abs(dot(normalize(uViewDirWorld), n));
             // 0 = grazing the XY plane, 1 = looking along +Z / −Z (perpendicular to grid).
             float t = smoothstep(0.05, 0.36, g);
-            // Alpha floor when grazing; uPrincipalSnap raises the floor on canonical views (faint reference grid).
-            float aLo = mix(0.26, 0.44, uPrincipalSnap);
-            float a = mix(aLo, 0.92, t);
+            // Overall light grid (no LOD): transparency + same grazing response as before.
+            // uPrincipalSnap raises the grazing floor on canonical views (faint reference plane).
+            float aLo = mix(0.10, 0.28, uPrincipalSnap);
+            float aHi = mix(0.38, 0.55, uPrincipalSnap);
+            float a = mix(aLo, aHi, t);
             outColor = vec4(c, a);
             return;
         }
