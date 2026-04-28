@@ -327,3 +327,31 @@ Orbit snap used one cone (~3°): leaving a snapped canonical view re-snapped on 
 ### Files
 
 - `Camera.{hpp,cpp}`, this log
+
+---
+
+## Follow-up (expose tuning constants in Settings)
+
+### Problem
+
+Recent viewport/snap tuning lived as local compile-time constants, and TODO still called out
+UI contrast (`Color::kStep`) and other tuning as settings candidates.
+
+### Approach
+
+- Added runtime tuning namespace `UserTuning` and persisted fields in `Settings` (`settings.xml`):
+  - UI: `uiDepthStep` (UI contrast)
+  - Viewport LOD: min px gap, foreshorten floor/exponent, hysteresis band, min/max world step
+  - Camera snap: enter/exit degrees
+- Settings panel wiring:
+  - Appearance: `UI contrast`
+  - Viewport: LOD tuning sliders
+  - Navigation: snap enter/exit sliders
+- `Color` now supports runtime UI depth step (`SetUiDepthStep` / `GetUiDepthStep`) and uses it for
+  UI text/panel/accent and derived scene luminance helpers.
+- `ViewportRenderer` and `Camera` read from `UserTuning` (replacing hardcoded constants).
+
+### Files
+
+- `include/UserTuning.hpp`, `Settings.hpp`, `display.cpp`, `color.{hpp,cpp}`,
+  `ViewportRenderer.cpp`, `Camera.cpp`, this log

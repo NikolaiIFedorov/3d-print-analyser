@@ -19,12 +19,21 @@ struct Settings
     float accentSat = 0.35f;
     bool accentUseSystem = true;
     int themeMode = 0; // 0=System, 1=Light, 2=Dark
+    float uiDepthStep = 0.10f;
 
     // Viewport
     float gridExtent = 256.0f;
+    float gridLodMinPixelGap = 1.0f;
+    float gridForeshortenFloor = 0.055f;
+    float gridForeshortenExponent = 1.28f;
+    float gridLodHysteresisBand = 1.06f;
+    float gridLodMinWorldStep = 1.0f / 256.0f;
+    float gridLodMaxWorldStep = 32.0f;
 
     // Navigation
     float mouseSensitivity = 30.0f;
+    float snapEnterDeg = 3.0f;
+    float snapExitDeg = 5.25f;
 
     // Returns the platform-appropriate path to settings.xml.
     // Uses SDL_GetPrefPath so the directory is created if it doesn't exist.
@@ -66,8 +75,17 @@ struct Settings
         writeFloat("accentSat", accentSat);
         writeBool("accentUseSystem", accentUseSystem);
         writeInt("themeMode", themeMode);
+        writeFloat("uiDepthStep", uiDepthStep);
         writeFloat("gridExtent", gridExtent);
+        writeFloat("gridLodMinPixelGap", gridLodMinPixelGap);
+        writeFloat("gridForeshortenFloor", gridForeshortenFloor);
+        writeFloat("gridForeshortenExponent", gridForeshortenExponent);
+        writeFloat("gridLodHysteresisBand", gridLodHysteresisBand);
+        writeFloat("gridLodMinWorldStep", gridLodMinWorldStep);
+        writeFloat("gridLodMaxWorldStep", gridLodMaxWorldStep);
         writeFloat("mouseSensitivity", mouseSensitivity);
+        writeFloat("snapEnterDeg", snapEnterDeg);
+        writeFloat("snapExitDeg", snapExitDeg);
 
         return doc.SaveFile(path.c_str()) == tinyxml2::XML_SUCCESS;
     }
@@ -111,8 +129,17 @@ struct Settings
         readFloat("accentSat", accentSat);
         readBool("accentUseSystem", accentUseSystem);
         readInt("themeMode", themeMode);
+        readFloat("uiDepthStep", uiDepthStep);
         readFloat("gridExtent", gridExtent);
+        readFloat("gridLodMinPixelGap", gridLodMinPixelGap);
+        readFloat("gridForeshortenFloor", gridForeshortenFloor);
+        readFloat("gridForeshortenExponent", gridForeshortenExponent);
+        readFloat("gridLodHysteresisBand", gridLodHysteresisBand);
+        readFloat("gridLodMinWorldStep", gridLodMinWorldStep);
+        readFloat("gridLodMaxWorldStep", gridLodMaxWorldStep);
         readFloat("mouseSensitivity", mouseSensitivity);
+        readFloat("snapEnterDeg", snapEnterDeg);
+        readFloat("snapExitDeg", snapExitDeg);
 
         return true;
     }

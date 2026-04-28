@@ -1,6 +1,7 @@
 #include "ViewportRenderer.hpp"
 #include "ProjectionDepthMode.hpp"
 #include "RenderingExperiments.hpp"
+#include "UserTuning.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -21,13 +22,10 @@ float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heig
                             static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
     // Foreshortening: in-plane line spacing projects tighter when |view·ẑ| is small.
     // Mild superlinear exponent between linear 1/|z| and the previous 1.5 (tune with floor).
-    constexpr float kForeshortenFloor = 0.055f;
-    constexpr float kForeshortenExponent = 1.28f;
-    const float foreshort = std::max(kForeshortenFloor, std::abs(absViewDirDotZ));
-    const float wpp = wppLinear / std::pow(foreshort, kForeshortenExponent);
+    const float foreshort = std::max(UserTuning::gridForeshortenFloor, std::abs(absViewDirDotZ));
+    const float wpp = wppLinear / std::pow(foreshort, UserTuning::gridForeshortenExponent);
 
-    constexpr float kMinPixelGapBetweenParallelLines = 1.0f;
-    const float minByPixels = kMinPixelGapBetweenParallelLines * wpp;
+    const float minByPixels = UserTuning::gridLodMinPixelGap * wpp;
 
     const float extent = Color::GRID_EXTENT;
     const float spanWorld = 2.0f * extent;
@@ -36,12 +34,12 @@ float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heig
 
     const float minWorldSpacing = std::max(minByPixels, densityFloor);
 
-    constexpr float kMinWorldStep = 1.0f / 256.0f;
-    constexpr float kMaxWorldStep = 32.0f;
-    float s = kMinWorldStep;
-    while (s + 1e-8f < minWorldSpacing && s < kMaxWorldStep)
+    const float minWorldStep = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
+    const float maxWorldStep = std::max(minWorldStep, UserTuning::gridLodMaxWorldStep);
+    float s = minWorldStep;
+    while (s + 1e-8f < minWorldSpacing && s < maxWorldStep)
         s *= 2.0f;
-    return std::min(kMaxWorldStep, s);
+    return std::min(maxWorldStep, s);
 }
 
 /// Small relative deadband so ortho jitter does not rebuild the grid mesh every frame.
@@ -54,7 +52,7 @@ void ApplyGridLodHysteresis(float desired, float &current)
         current = desired;
         return;
     }
-    constexpr float kBand = 1.06f;
+    const float kBand = std::max(1.001f, UserTuning::gridLodHysteresisBand);
     if (desired > current * kBand)
         current = desired;
     else if (desired * kBand < current)

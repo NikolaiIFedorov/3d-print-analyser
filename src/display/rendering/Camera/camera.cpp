@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "UserTuning.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -185,11 +186,8 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (glm::dot(qNew, orientation) < 0.0f)
         qNew = -qNew;
 
-    // Enter ~3° (unchanged feel); exit only slightly wider so orbit leaves snap without feeling sticky.
-    constexpr float kSnapEnterDeg = 3.0f;
-    constexpr float kSnapExitDeg = 4.2f;
-    const float cosEnter = std::cos(glm::radians(kSnapEnterDeg));
-    const float cosExit = std::cos(glm::radians(kSnapExitDeg));
+    const float cosEnter = std::cos(glm::radians(UserTuning::snapEnterDeg));
+    const float cosExit = std::cos(glm::radians(UserTuning::snapExitDeg));
 
     const glm::mat3 M_qNew = glm::mat3_cast(qNew);
     glm::vec3 fNew = glm::normalize(M_qNew * glm::vec3(0.0f, 0.0f, 1.0f));

@@ -52,6 +52,8 @@ struct Color
     static bool IsDark() { return s_darkMode; }
     static float GetAccentHue() { return s_accentHue; }
     static float GetAccentSat() { return s_accentSat; }
+    static float GetUiDepthStep() { return s_uiDepthStep; }
+    static void SetUiDepthStep(float step) { s_uiDepthStep = std::clamp(step, 0.02f, 0.25f); }
 
     static glm::vec3 GetBase()
     {
@@ -62,8 +64,8 @@ struct Color
     }
     static glm::vec4 GetUI(int depth, float alpha = 1.0f)
     {
-        float v = s_darkMode ? s_uiBase + kStep * depth
-                             : s_uiBase - kStep * depth;
+        float v = s_darkMode ? s_uiBase + Step() * depth
+                             : s_uiBase - Step() * depth;
         return glm::vec4(v, v, v, alpha);
     }
     static glm::vec4 GetInputBg(int layer, float alpha = 1.0f)
@@ -72,17 +74,17 @@ struct Color
     }
     static glm::vec4 GetUIText(int depth, float alpha = 1.0f)
     {
-        float v = s_darkMode ? s_uiBase + kStep * (depth + 6)
-                             : s_uiBase - kStep * (depth + 6);
+        float v = s_darkMode ? s_uiBase + Step() * (depth + 6)
+                             : s_uiBase - Step() * (depth + 6);
         return glm::vec4(v, v, v, alpha);
     }
     // Accent color: same luminance progression as GetUI but with accent hue/saturation applied.
     // Use for interactive state feedback (hover, active), selection, and accent bars — not neutral dividers.
-    // `depthSteps` uses the same kStep as GetUI (e.g. 0.5f = half a UI depth step); satMult scales saturation.
+    // `depthSteps` uses the same UI depth step as GetUI (e.g. 0.5f = half a UI depth step); satMult scales saturation.
     static glm::vec4 GetAccentSteps(float depthSteps, float alpha = 1.0f, float satMult = 1.0f)
     {
-        float l = s_darkMode ? s_uiBase + kStep * depthSteps + kAccentLBoost * satMult
-                             : s_uiBase - kStep * depthSteps - kAccentLBoost * satMult;
+        float l = s_darkMode ? s_uiBase + Step() * depthSteps + kAccentLBoost * satMult
+                             : s_uiBase - Step() * depthSteps - kAccentLBoost * satMult;
         return glm::vec4(HslToRgb(s_accentHue, s_accentSat * satMult, l), alpha);
     }
 
@@ -94,17 +96,17 @@ struct Color
 
     static glm::vec3 GetEdge()
     {
-        float v = s_darkMode ? kEdgeL : 1.0f - kEdgeL;
+        float v = s_darkMode ? EdgeL() : 1.0f - EdgeL();
         return glm::vec3(v, v, v);
     }
     static glm::vec3 GetPoint()
     {
-        float v = s_darkMode ? kPointL : 1.0f - kPointL;
+        float v = s_darkMode ? PointL() : 1.0f - PointL();
         return glm::vec3(v, v, v);
     }
     static glm::vec3 GetFace()
     {
-        float v = s_darkMode ? kFaceL : 1.0f - kFaceL;
+        float v = s_darkMode ? FaceL() : 1.0f - FaceL();
         return glm::vec3(v, v, v);
     }
 
@@ -131,14 +133,15 @@ struct Color
 
 private:
     static constexpr float kBase = 0.1f;
-    static constexpr float kStep = 0.1f;
-    static constexpr float kFaceL = kBase + kStep;         // default luminance for scene faces
-    static constexpr float kEdgeL = kFaceL + kStep * 0.5f; // edges: half-step above faces (less bright than before)
-    static constexpr float kPointL = kEdgeL + kStep;       // default luminance for scene points
+    static float Step() { return s_uiDepthStep; }
+    static float FaceL() { return kBase + Step(); }              // default luminance for scene faces
+    static float EdgeL() { return FaceL() + Step() * 0.5f; }     // edges: half-step above faces
+    static float PointL() { return EdgeL() + Step(); }           // default luminance for scene points
     static constexpr float kAccentLBoost = 0.10f;          // luminance offset in GetAccent to compensate for perceived darkening from saturation
 
     inline static bool s_darkMode = true;
     inline static float s_uiBase = 0.05f;
+    inline static float s_uiDepthStep = 0.1f;
     inline static float s_accentHue = 220.0f;
     inline static float s_accentSat = 0.35f;
 };
