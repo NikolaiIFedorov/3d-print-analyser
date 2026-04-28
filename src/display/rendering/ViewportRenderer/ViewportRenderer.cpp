@@ -89,7 +89,6 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
       gridWorldSpacing(other.gridWorldSpacing),
-      principalSnapForGrid(other.principalSnapForGrid),
       drawGridOnCoplanarStencil(other.drawGridOnCoplanarStencil)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
@@ -112,7 +111,6 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
-        principalSnapForGrid = other.principalSnapForGrid;
         drawGridOnCoplanarStencil = other.drawGridOnCoplanarStencil;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
@@ -134,8 +132,6 @@ void ViewportRenderer::SetCamera(Camera &camera)
     const float fLen = glm::length(forwardWorld);
     if (fLen > 1e-8f)
         viewDirWorld = glm::normalize(-forwardWorld);
-
-    principalSnapForGrid = camera.IsPrincipalAxisView() ? 1.0f : 0.0f;
 
     // Near–top-down / bottom-up views: allow a second grid pass on stencil==1 pixels so the floor
     // does not vanish when zoomed into a coplanar face; skip at grazing angles to keep vertical
@@ -280,8 +276,6 @@ void ViewportRenderer::Render()
     shader.SetMat4("uModel", glm::mat4(1.0f));
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 1.0f);
-    shader.SetVec3("uViewDirWorld", viewDirWorld);
-    shader.SetFloat("uPrincipalSnap", principalSnapForGrid);
     shader.SetFloat("uGridLodStep", gridWorldSpacing);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
 
@@ -336,8 +330,6 @@ void ViewportRenderer::RenderAxes()
     shader.SetMat4("uModel", glm::mat4(1.0f));
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 0.0f);
-    shader.SetVec3("uViewDirWorld", viewDirWorld);
-    shader.SetFloat("uPrincipalSnap", 0.0f);
     shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasAxesW());
 

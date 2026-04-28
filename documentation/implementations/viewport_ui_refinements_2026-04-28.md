@@ -271,9 +271,26 @@ finer world step.
 
 - Scale effective `wpp` by `1 / max(kFloor, |viewDir·ẑ|)` (same `viewDirWorld.z` already used for grid
   shading): foreshortening makes the same world spacing “denser” in pixels — same ≥1 px rule as zoom.
-- Small floor `kForeshortenFloor` avoids extreme coarsening at grazing angles where the grid is
-  already faded in `basic.frag`.
+- Small floor `kForeshortenFloor` avoids extreme coarsening at grazing views.
 
 ### Files
 
 - `ViewportRenderer.cpp`, this log
+
+---
+
+## Follow-up (grid opacity: LOD only)
+
+### Problem
+
+View-based grazing alpha in `basic.frag` plus LOD foreshortening felt redundant.
+
+### Approach
+
+- Grid pass: fixed base alpha (~0.46) plus existing `uGridLodStep` boost for coarse spacing; removed
+  `uViewDirWorld` / `uPrincipalSnap` from `basic.frag` and CPU setters. Dropped `principalSnapForGrid`
+  from `ViewportRenderer` (wireframe principal-axis nudge in `SceneRenderer` unchanged).
+
+### Files
+
+- `basic.frag`, `OpenGLRenderer.cpp`, `ViewportRenderer.{hpp,cpp}`, this log

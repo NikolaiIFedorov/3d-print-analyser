@@ -8,9 +8,7 @@ out vec4 outColor;
 uniform vec3 uLightDir;
 uniform float uBrightenAmount;
 uniform float uLightingEnabled;
-uniform vec3 uViewDirWorld;
 uniform float uGridPlaneFade;
-uniform float uPrincipalSnap;
 uniform float uGridLodStep;
 
 void main()
@@ -20,15 +18,8 @@ void main()
         vec3 c = fragColor;
         if (uGridPlaneFade > 0.5)
         {
-            vec3 n = vec3(0.0, 0.0, 1.0);
-            float g = abs(dot(normalize(uViewDirWorld), n));
-            // 0 = grazing the XY plane, 1 = looking along +Z / −Z (perpendicular to grid).
-            float t = smoothstep(0.02, 0.40, g);
-            // Overall light grid + grazing response; uPrincipalSnap lifts floor on canonical views.
-            float aLo = mix(0.16, 0.30, uPrincipalSnap);
-            float aHi = mix(0.38, 0.55, uPrincipalSnap);
-            float a = mix(aLo, aHi, t);
-            // When LOD spacing > 1 world unit, lines are sparser — bump alpha slightly so the grid stays readable.
+            // Opacity fixed; density is handled only by grid LOD (world spacing + foreshortening).
+            float a = 0.46;
             if (uGridLodStep > 1.01)
                 a = min(0.93, a + 0.12 * clamp(log2(uGridLodStep) / 4.0, 0.0, 1.0));
             outColor = vec4(c, a);

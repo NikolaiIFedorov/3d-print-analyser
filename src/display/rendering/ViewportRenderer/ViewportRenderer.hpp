@@ -45,8 +45,6 @@ private:
     float axisWorldHalfExtent = 10000.0f;
     /// World-space grid step (dyadic: …, 1/8, 1/4, 1/2, 1, 2, …); from ortho scale + 1 px line gap.
     float gridWorldSpacing = 1.0f;
-    /// 1 when view is aligned to a principal axis — slightly stronger faint grid (see basic.frag).
-    float principalSnapForGrid = 0.0f;
     /// Second grid pass (stencil==1): only when |view·Z| is high so coplanar floors recover the grid
     /// without reintroducing bleed through vertical faces at grazing angles.
     bool drawGridOnCoplanarStencil = false;
