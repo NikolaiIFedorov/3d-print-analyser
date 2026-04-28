@@ -172,3 +172,25 @@ Front to back: **axes** over **grid** over **scene** triangles/edges (reduce z-f
 ### Outcome
 
 Build clean; user can tune hysteresis / `kMinPx` / LOD max in `ViewportRenderer.cpp` if stepping feels harsh.
+
+---
+
+## Follow-up (grid vanishes when zoomed into a face)
+
+### Problem
+
+Stencil mask `EQUAL 0` hides the grid on every pixel where opaque triangles ran. A large face
+coplanar with the reference plane fills the viewport with stencil=1, so the grid disappears
+entirely when the user zooms in close.
+
+### Approach
+
+- **Two-pass grid**: keep the stencil==0 pass; when `|viewDirWorld.z| > 0.62`, add a second draw
+  with `GL_EQUAL 1` so coplanar horizontal inspection recovers the floor grid (depth + clip bias
+  still suppress the grid through vertical walls at grazing views).
+- **`basic.frag`**: slightly wider grazing smoothstep and higher `aLo` so edge-on views stay faintly
+  visible.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, `basic.frag`, this log

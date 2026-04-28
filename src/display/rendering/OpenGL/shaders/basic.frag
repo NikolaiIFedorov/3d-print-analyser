@@ -23,9 +23,9 @@ void main()
             vec3 n = vec3(0.0, 0.0, 1.0);
             float g = abs(dot(normalize(uViewDirWorld), n));
             // 0 = grazing the XY plane, 1 = looking along +Z / −Z (perpendicular to grid).
-            float t = smoothstep(0.05, 0.36, g);
+            float t = smoothstep(0.02, 0.40, g);
             // Overall light grid + grazing response; uPrincipalSnap lifts floor on canonical views.
-            float aLo = mix(0.10, 0.28, uPrincipalSnap);
+            float aLo = mix(0.16, 0.30, uPrincipalSnap);
             float aHi = mix(0.38, 0.55, uPrincipalSnap);
             float a = mix(aLo, aHi, t);
             // When LOD spacing > 1 world unit, lines are sparser — bump alpha slightly so the grid stays readable.

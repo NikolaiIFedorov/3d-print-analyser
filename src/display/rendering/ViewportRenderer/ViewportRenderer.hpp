@@ -47,6 +47,9 @@ private:
     float gridWorldSpacing = 1.0f;
     /// 1 when view is aligned to a principal axis — slightly stronger faint grid (see basic.frag).
     float principalSnapForGrid = 0.0f;
+    /// Second grid pass (stencil==1): only when |view·Z| is high so coplanar floors recover the grid
+    /// without reintroducing bleed through vertical faces at grazing angles.
+    bool drawGridOnCoplanarStencil = false;
 
     bool InitializeShaders();
     void Generate();

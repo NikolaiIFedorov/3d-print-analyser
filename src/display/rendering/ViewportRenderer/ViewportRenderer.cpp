@@ -62,7 +62,8 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
       gridWorldSpacing(other.gridWorldSpacing),
-      principalSnapForGrid(other.principalSnapForGrid)
+      principalSnapForGrid(other.principalSnapForGrid),
+      drawGridOnCoplanarStencil(other.drawGridOnCoplanarStencil)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -85,6 +86,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
         principalSnapForGrid = other.principalSnapForGrid;
+        drawGridOnCoplanarStencil = other.drawGridOnCoplanarStencil;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -107,6 +109,11 @@ void ViewportRenderer::SetCamera(Camera &camera)
         viewDirWorld = glm::normalize(-forwardWorld);
 
     principalSnapForGrid = camera.IsPrincipalAxisView() ? 1.0f : 0.0f;
+
+    // Near–top-down / bottom-up views: allow a second grid pass on stencil==1 pixels so the floor
+    // does not vanish when zoomed into a coplanar face; skip at grazing angles to keep vertical
+    // faces from showing the reference grid through depth ties.
+    drawGridOnCoplanarStencil = std::abs(viewDirWorld.z) > 0.62f;
 
     const float want =
         DesiredGridLodSpacing(camera.orthoSize, camera.aspectRatio,
@@ -268,6 +275,16 @@ void ViewportRenderer::Render()
 
     // Draw grid only — axes are handled by RenderAxes() after the scene
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
+
+    // Stencil==0 pass hides the grid on every solid pixel. Coplanar horizontal faces then erase the
+    // entire floor grid when zoomed in. When the view is mostly perpendicular to the XY plane,
+    // draw the grid again on stencil==1 pixels; clip Z bias + depth test keep it from winning
+    // through vertical walls in typical ortho setups.
+    if (drawGridOnCoplanarStencil)
+    {
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
+    }
 
     glBindVertexArray(0);
 
