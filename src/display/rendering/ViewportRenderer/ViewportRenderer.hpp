@@ -43,8 +43,10 @@ private:
     /// Normalized world direction the camera looks (ortho: parallel view rays).
     glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
-    /// World-space grid line spacing (powers of two ≥ 1); coarser when zoomed out.
+    /// World-space grid line spacing (≥ 1); widened when lines would pack tighter than a min pixel gap.
     float gridWorldSpacing = 1.0f;
+    /// 1 when view is aligned to a principal axis — slightly stronger faint grid (see basic.frag).
+    float principalSnapForGrid = 0.0f;
 
     bool InitializeShaders();
     void Generate();

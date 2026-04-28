@@ -46,4 +46,7 @@ public:
     uint16_t heightWindow;
 
     glm::vec3 GetPosition() const;
+
+    /// True when the view direction is within the same cone as principal-axis snap (canonical top/front/side).
+    bool IsPrincipalAxisView(float marginDegrees = 3.0f) const;
 };

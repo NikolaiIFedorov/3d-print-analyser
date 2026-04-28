@@ -51,3 +51,27 @@ Centralizing screen-edge insets in `UIGrid` keeps `ResolveAnchors` / min-grid si
 ### Files
 
 - `UIGrid.hpp`, `UIRenderer.cpp`, `basic.frag`, `ViewportRenderer.{hpp,cpp}`
+
+---
+
+## Follow-up (bottom gap tuning, depth, LOD, principal views)
+
+### Problem
+
+- Bottom gap felt too large after strip `rowSpan` fix.
+- Power-of-two grid LOD was too aggressive; user preferred a minimum **screen-pixel** gap between lines.
+- Scene appeared to draw on top of grid/axes: grid pass used `glDepthMask(GL_FALSE)`; axes used `glDisable(GL_DEPTH_TEST)`.
+- Wireframe back edges popped in front of faces on principal-axis snaps (depth precision + small line nudge).
+- Request: slightly stronger faint grid when snapped to a canonical orientation.
+
+### Approach
+
+- `SCREEN_BOTTOM_INSET` → `0.85f` cells.
+- `PickGridWorldSpacing`: `ceil(kMinPixelGap * max(worldPerPxX, worldPerPxY))` with `kMinPixelGap = 2.5`, cap 512.
+- Grid pass: `glDepthMask(GL_TRUE)` again (keep blend for grazing alpha).
+- `RenderAxes`: depth test **on**, `glDepthMask(GL_FALSE)`, same depth func as scene; stencil still masks solid pixels from patch pass.
+- `Camera::IsPrincipalAxisView` (3° cone, same as snap): `uPrincipalSnap` raises grazing alpha floor in `basic.frag`; `SceneRenderer::SetCamera` sets `SetWireframeDepthNudgeScale(2.25f)` on principal views for wireframe Z nudge and polygon-offset scale.
+
+### Files
+
+- `UIGrid.hpp`, `Camera.{hpp,cpp}`, `ViewportRenderer.{hpp,cpp}`, `basic.frag`, `OpenGLRenderer.{hpp,cpp}`, `SceneRenderer.cpp`

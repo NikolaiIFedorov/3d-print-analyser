@@ -53,6 +53,9 @@ void SceneRenderer::SetCamera(Camera &camera)
         ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()));
     renderer.SetModelMatrix(glm::mat4(1.0f));
     renderer.SetViewPos(camera.GetPosition());
+    // Principal-axis views tighten depth precision; nudge wireframe slightly more so back edges
+    // stay behind filled surfaces.
+    renderer.SetWireframeDepthNudgeScale(camera.IsPrincipalAxisView() ? 2.25f : 1.0f);
 }
 
 void SceneRenderer::RenderPatches()

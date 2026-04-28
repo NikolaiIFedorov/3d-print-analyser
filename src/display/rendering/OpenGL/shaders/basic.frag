@@ -10,6 +10,7 @@ uniform float uBrightenAmount;
 uniform float uLightingEnabled;
 uniform vec3 uViewDirWorld;
 uniform float uGridPlaneFade;
+uniform float uPrincipalSnap;
 
 void main()
 {
@@ -22,8 +23,9 @@ void main()
             float g = abs(dot(normalize(uViewDirWorld), n));
             // 0 = grazing the XY plane, 1 = looking along +Z / −Z (perpendicular to grid).
             float t = smoothstep(0.05, 0.36, g);
-            // Alpha floor keeps the grid visible; cap avoids fully washing out at top-down.
-            float a = mix(0.26, 0.92, t);
+            // Alpha floor when grazing; uPrincipalSnap raises the floor on canonical views (faint reference grid).
+            float aLo = mix(0.26, 0.44, uPrincipalSnap);
+            float a = mix(aLo, 0.92, t);
             outColor = vec4(c, a);
             return;
         }

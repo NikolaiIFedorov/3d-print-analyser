@@ -8,17 +8,17 @@
 
 namespace
 {
-/// Fewer world-space lines when zoomed out (large ortho half-extent), capped powers of two.
-float PickGridWorldSpacing(float orthoSize, float aspect)
+/// Minimum world spacing so adjacent parallel grid lines stay ~`minPixelGap` screen pixels apart (when zoomed out).
+float PickGridWorldSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
 {
     const float halfW = orthoSize * std::fabs(aspect);
     const float halfH = orthoSize;
-    const float viewHalf = std::max(halfW, halfH);
-    const float raw = viewHalf / 14.0f;
-    if (raw <= 1.0f)
-        return 1.0f;
-    const float lg = std::floor(std::log2(raw));
-    return std::min(256.0f, std::pow(2.0f, lg));
+    const float worldPerPxX = (2.0f * halfW) / std::max(1, widthPx);
+    const float worldPerPxY = (2.0f * halfH) / std::max(1, heightPx);
+    const float wpp = std::max(worldPerPxX, worldPerPxY);
+    constexpr float kMinPixelGap = 2.5f;
+    const float minWorld = kMinPixelGap * wpp;
+    return std::min(512.0f, std::max(1.0f, std::ceil(minWorld)));
 }
 } // namespace
 
@@ -50,7 +50,8 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
-      gridWorldSpacing(other.gridWorldSpacing)
+      gridWorldSpacing(other.gridWorldSpacing),
+      principalSnapForGrid(other.principalSnapForGrid)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -72,6 +73,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
+        principalSnapForGrid = other.principalSnapForGrid;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -93,7 +95,11 @@ void ViewportRenderer::SetCamera(Camera &camera)
     if (fLen > 1e-8f)
         viewDirWorld = glm::normalize(-forwardWorld);
 
-    const float sp = PickGridWorldSpacing(camera.orthoSize, camera.aspectRatio);
+    principalSnapForGrid = camera.IsPrincipalAxisView() ? 1.0f : 0.0f;
+
+    const float sp = PickGridWorldSpacing(camera.orthoSize, camera.aspectRatio,
+                                          static_cast<int>(camera.widthWindow),
+                                          static_cast<int>(camera.heightWindow));
     if (std::abs(sp - gridWorldSpacing) > 1e-5f * std::max(1.0f, gridWorldSpacing))
     {
         gridWorldSpacing = sp;
@@ -230,6 +236,7 @@ void ViewportRenderer::Render()
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 1.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
+    shader.SetFloat("uPrincipalSnap", principalSnapForGrid);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
@@ -238,7 +245,8 @@ void ViewportRenderer::Render()
     glGetBooleanv(GL_BLEND, &blendWas);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthMask(GL_FALSE);
+    // Write depth so opaque scene sorts correctly in front of/behind the z=0 grid plane.
+    glDepthMask(GL_TRUE);
 
     glBindVertexArray(lineVAO);
 
@@ -247,7 +255,6 @@ void ViewportRenderer::Render()
 
     glBindVertexArray(0);
 
-    glDepthMask(GL_TRUE);
     if (!blendWas)
         glDisable(GL_BLEND);
 }
@@ -267,20 +274,23 @@ void ViewportRenderer::RenderAxes()
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
+    shader.SetFloat("uPrincipalSnap", 0.0f);
 
     // Only draw where stencil == 0 (open space, not covered by solid geometry)
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_EQUAL, 0, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
                    (void *)(gridIndexCount * sizeof(uint32_t)));
     glBindVertexArray(0);
 
-    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
     glDisable(GL_STENCIL_TEST);
 }
 

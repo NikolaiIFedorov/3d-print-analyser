@@ -423,6 +423,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
+    shader.SetFloat("uPrincipalSnap", 0.0f);
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
@@ -500,6 +501,7 @@ void OpenGLRenderer::DrawPickHighlight()
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
+    shader.SetFloat("uPrincipalSnap", 0.0f);
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
@@ -575,7 +577,7 @@ void OpenGLRenderer::DrawLines()
     lineShader.SetMat4("uModel", modelMatrix);
     lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
     lineShader.SetFloat("uLineWidth", lineWidth);
-    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc() * wireframeDepthNudgeScale);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(DepthComparePass());
@@ -584,7 +586,7 @@ void OpenGLRenderer::DrawLines()
     if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
     {
         glEnable(GL_POLYGON_OFFSET_FILL);
-        glPolygonOffset(0.0f, 1.5f);
+        glPolygonOffset(0.0f, 1.5f * wireframeDepthNudgeScale);
     }
 
     glBindVertexArray(lineVAO);

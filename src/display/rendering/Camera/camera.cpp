@@ -92,6 +92,25 @@ glm::vec3 Camera::GetPosition() const
     return target + forward * distance;
 }
 
+bool Camera::IsPrincipalAxisView(float marginDegrees) const
+{
+    const float cosSnap = std::cos(glm::radians(marginDegrees));
+    const glm::mat3 M = glm::mat3_cast(orientation);
+    glm::vec3 f = glm::normalize(M * glm::vec3(0.0f, 0.0f, 1.0f));
+    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
+        return false;
+    const float ax = std::abs(f.x);
+    const float ay = std::abs(f.y);
+    const float az = std::abs(f.z);
+    if (ax >= cosSnap && ax >= ay && ax >= az)
+        return true;
+    if (ay >= cosSnap && ay >= az)
+        return true;
+    if (az >= cosSnap)
+        return true;
+    return false;
+}
+
 glm::mat4 Camera::GetViewMatrix() const
 {
     const glm::vec3 position = GetPosition();

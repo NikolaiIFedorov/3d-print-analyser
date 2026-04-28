@@ -51,6 +51,8 @@ private:
     glm::vec3 lightDir = glm::vec3(0.0f, 0.0f, 1.0f);
 
     float lineWidth = 3.0f;
+    /// Multiplier on `LineShaderWireZNudgeNdc` for scene wireframe (principal views need a bit more nudge).
+    float wireframeDepthNudgeScale = 1.0f;
 
     bool GetGLError(const std::source_location &loc = std::source_location::current());
     bool InitializeShaders();
@@ -91,6 +93,7 @@ public:
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);
+    void SetWireframeDepthNudgeScale(float scale) { wireframeDepthNudgeScale = scale; }
     void SetLineWidth(float width) { lineWidth = width; }
     float GetLineWidth() const { return lineWidth; }
 
