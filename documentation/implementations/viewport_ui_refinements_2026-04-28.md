@@ -213,3 +213,22 @@ so moderate zoom looked too sparse; refine hysteresis at 0.68 also kept coarse s
 ### Files
 
 - `ViewportRenderer.cpp`, this log
+
+---
+
+## Follow-up (grid LOD: ≥ 1 px between parallel lines)
+
+### Problem
+
+Heuristic `kMinPx` / slack still felt too coarse; user asked for a clear rule.
+
+### Approach
+
+- With `wpp` = world units per pixel (same ortho span / min viewport side), spacing `s` implies
+  ~`s/wpp` pixels between parallel lines. Enforce **≥ 1 px**: use smallest power-of-two
+  `s ∈ {1,…,32}` with `s >= wpp` (tiny epsilon on float compare). Max 32 caps extreme zoom-out.
+- Refine hysteresis eased to 0.92 so zoom-in tracks the finer desired spacing quickly.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, this log
