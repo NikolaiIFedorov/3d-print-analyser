@@ -194,3 +194,22 @@ entirely when the user zooms in close.
 ### Files
 
 - `ViewportRenderer.{hpp,cpp}`, `basic.frag`, this log
+
+---
+
+## Follow-up (grid LOD too coarse)
+
+### Problem
+
+Spacing doubled to 2 world units as soon as `kMinPx * wpp` passed 1 (smallest power-of-two ≥ need),
+so moderate zoom looked too sparse; refine hysteresis at 0.68 also kept coarse steps when zooming in.
+
+### Approach
+
+- Lower `kMinPx` and choose spacing with `while (s * 2 <= need * kLodStepSlack)` so 1× persists until
+  `need` clearly exceeds the next band.
+- Refine hysteresis 0.68 → 0.78.
+
+### Files
+
+- `ViewportRenderer.cpp`, this log

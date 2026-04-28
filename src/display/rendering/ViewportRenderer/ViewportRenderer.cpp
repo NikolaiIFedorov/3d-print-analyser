@@ -8,27 +8,31 @@
 
 namespace
 {
-/// Minimum world spacing so parallel grid lines stay roughly `kMinPx` apart on screen (gentle 1,2,4,…).
+/// Target ~`kMinPx` screen pixels between adjacent parallel grid lines; spacing is 1,2,4,… world units.
+/// Uses `s*2 <= need * kLodStepSlack` so we do not jump to 2× as soon as `need` crosses 1.0 (float +
+/// tight kMinPx made the grid feel too coarse at moderate zoom).
 float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
 {
     const float halfW = orthoSize * std::fabs(aspect);
     const float halfH = orthoSize;
     const float wpp = (2.0f * std::max(halfW, halfH)) /
                       static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
-    constexpr float kMinPx = 3.25f;
+    constexpr float kMinPx = 2.05f;
+    constexpr float kLodStepSlack = 1.16f;
     const float need = kMinPx * wpp;
     float s = 1.0f;
-    while (s < need && s < 32.0f)
+    while (s * 2.0f <= need * kLodStepSlack && s < 32.0f)
         s *= 2.0f;
     return std::min(32.0f, s);
 }
 
-/// Coarsen LOD immediately when zooming out; refine only after zoom-in to reduce band popping.
+/// Coarsen LOD immediately when zooming out; refine when zoom-in clearly wants a finer step (was 0.68,
+/// which kept coarse spacing sticky across moderate zoom changes).
 void ApplyGridLodHysteresis(float desired, float &current)
 {
     if (desired > current + 1e-4f)
         current = desired;
-    else if (desired + 1e-4f < current && desired < current * 0.68f)
+    else if (desired + 1e-4f < current && desired < current * 0.78f)
         current = desired;
 }
 } // namespace
