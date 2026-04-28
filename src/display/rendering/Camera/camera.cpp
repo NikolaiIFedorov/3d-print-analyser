@@ -51,17 +51,14 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Turntable: yaw about world +Z, pitch about cross(worldUp, fAfterYaw).
+    // Turntable yaw about world +Z; pitch about camera **right** after that yaw (screen-horizontal
+    // in world), not about cross(Z,f). The cross(Z,f) axis is the latitude tangent and matches
+    // screen vertical only in special poses—oblique XZ→XY tilts often “stall” (~45°) because
+    // mouse-y barely moves colatitude. Camera-right pitch tracks vertical drag intuitively.
     // R = R_pitch * R_yaw * R_current (explicit mat3); roll stays in R_current between frames.
-    // A dual-chart (Rx near ±Z) was tried but with a correct narrow pole cone it almost never
-    // differs from Rz in practice—Rz still spins azimuth until f is essentially (0,0,±1).
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
-
-    // Pure yaw this frame: next pitch should not inherit an old pitch-axis sign (f changed).
-    if (std::abs(deltaY) <= kEps && std::abs(deltaX) > kEps)
-        hasLastOrbitPitchAxis = false;
 
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
 
@@ -79,17 +76,16 @@ void Camera::Orbit(float deltaX, float deltaY)
     glm::mat3 M_p(1.0f);
     if (std::abs(deltaY) > kEps)
     {
-        glm::vec3 pitchAxis = glm::cross(kWorldUp, fAfterYaw);
-        const float paLen = glm::length(pitchAxis);
-        if (paLen > 1e-6f)
-            pitchAxis *= 1.0f / paLen;
-        else
-            pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f); // over the pole: pitch in XZ
-
-        if (hasLastOrbitPitchAxis && glm::dot(pitchAxis, lastOrbitPitchAxis) < 0.0f)
-            pitchAxis = -pitchAxis;
-        lastOrbitPitchAxis = pitchAxis;
-        hasLastOrbitPitchAxis = true;
+        glm::vec3 pitchAxis = glm::normalize(M_horizontal * M_ori * glm::vec3(1.0f, 0.0f, 0.0f));
+        if (glm::length(pitchAxis) < 1e-6f)
+        {
+            pitchAxis = glm::cross(kWorldUp, fAfterYaw);
+            const float paLen = glm::length(pitchAxis);
+            if (paLen > 1e-6f)
+                pitchAxis *= 1.0f / paLen;
+            else
+                pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+        }
 
         M_p = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
     }
@@ -149,7 +145,6 @@ void Camera::Orbit(float deltaX, float deltaY)
 
 void Camera::Roll(float delta)
 {
-    hasLastOrbitPitchAxis = false;
     glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, -1.0f);
     glm::quat rotation = glm::angleAxis(delta, forward);
     orientation = glm::normalize(rotation * orientation);
@@ -230,5 +225,4 @@ void Camera::ResetHomeView()
     distance = 5.0f;
     orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     orthoSize = 2.5f;
-    hasLastOrbitPitchAxis = false;
 }

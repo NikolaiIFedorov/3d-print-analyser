@@ -45,9 +45,5 @@ public:
     uint16_t widthWindow;
     uint16_t heightWindow;
 
-    /// Orbit: keep pitch axis and quaternion choices continuous (avoids 180° flips / stalls).
-    glm::vec3 lastOrbitPitchAxis{0.0f};
-    bool hasLastOrbitPitchAxis = false;
-
     glm::vec3 GetPosition() const;
 };

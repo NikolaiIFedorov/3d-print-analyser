@@ -17,3 +17,9 @@ Tilting the view (world Z on screen) seemed to stop near ~45°; pushing further 
 ## Outcome
 
 - `cmake --build build --target CAD_OpenGL` succeeded.
+
+## Follow-up — pitch about camera right (screen-vertical orbit)
+
+Quat hemisphere kept. **Pitch axis** changed from `normalize(cross(Z, fAfterYaw))` (turntable latitude tangent) to **`normalize(M_yaw * R_ori * e_x)`** (camera right after horizontal yaw). That aligns vertical mouse drag with **tilt toward/away from plan** when coming from an XZ-style oblique view; the old axis often left colatitude “stuck” around ~45° while the on-screen Z line still moved from mixing yaw/pitch in non-screen axes.
+
+Removed **lastOrbitPitchAxis** continuity (could fight legitimate axis changes); pitch axis is now unambiguous each frame.
