@@ -9,15 +9,20 @@
 namespace
 {
 /// World units per pixel (ortho span on the long in-view axis ÷ shorter viewport side in pixels).
-/// Parallel grid lines spaced `s` world units are ~`s/wpp` px apart — enforce ≥ 1 px via
-/// `minWorldSpacing`. Sub-unit steps use a dyadic ladder down to `kMinWorldStep` so zoom-in can
-/// refine LOD; `densityFloor` caps line count across `GRID_EXTENT`.
-float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
+/// For the XY reference grid, orbit tilts the view: in-plane line spacing projects ~×`1/|v·ẑ|`
+/// tighter on screen, so we scale `wpp` by that factor (same ≥1 px rule as zoom).
+/// `absViewDirDotZ` is `|dot(viewDirWorld, (0,0,1))|` in [0,1] (already `|viewDirWorld.z|` here).
+float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx,
+                            float absViewDirDotZ)
 {
     const float halfW = orthoSize * std::fabs(aspect);
     const float halfH = orthoSize;
-    const float wpp = (2.0f * std::max(halfW, halfH)) /
-                      static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
+    const float wppLinear = (2.0f * std::max(halfW, halfH)) /
+                            static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
+    // Floor avoids singular spacing at grazing views; grid frag already fades there.
+    constexpr float kForeshortenFloor = 0.07f;
+    const float foreshort = std::max(kForeshortenFloor, std::abs(absViewDirDotZ));
+    const float wpp = wppLinear / foreshort;
 
     constexpr float kMinPixelGapBetweenParallelLines = 1.0f;
     const float minByPixels = kMinPixelGapBetweenParallelLines * wpp;
@@ -137,9 +142,9 @@ void ViewportRenderer::SetCamera(Camera &camera)
     // faces from showing the reference grid through depth ties.
     drawGridOnCoplanarStencil = std::abs(viewDirWorld.z) > 0.62f;
 
-    const float want =
-        DesiredGridLodSpacing(camera.orthoSize, camera.aspectRatio,
-                              static_cast<int>(camera.widthWindow), static_cast<int>(camera.heightWindow));
+    const float want = DesiredGridLodSpacing(
+        camera.orthoSize, camera.aspectRatio, static_cast<int>(camera.widthWindow),
+        static_cast<int>(camera.heightWindow), viewDirWorld.z);
     const float before = gridWorldSpacing;
     ApplyGridLodHysteresis(want, gridWorldSpacing);
     const float mag = std::max({1e-6f, before, gridWorldSpacing});

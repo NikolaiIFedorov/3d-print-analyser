@@ -256,3 +256,24 @@ Heuristic `kMinPx` / slack still felt too coarse; user asked for a clear rule.
 ### Files
 
 - `Camera.{hpp,cpp}`, `display.cpp`, `ViewportRenderer.{hpp,cpp}`, this log
+
+---
+
+## Follow-up (grid LOD vs orbit / tilt)
+
+### Problem
+
+LOD used ortho scale and window size only. Orbit changes tilt without changing `orthoSize`, so
+parallel XY grid lines could pack tighter on screen at shallow angles while LOD stayed on a
+finer world step.
+
+### Approach
+
+- Scale effective `wpp` by `1 / max(kFloor, |viewDir·ẑ|)` (same `viewDirWorld.z` already used for grid
+  shading): foreshortening makes the same world spacing “denser” in pixels — same ≥1 px rule as zoom.
+- Small floor `kForeshortenFloor` avoids extreme coarsening at grazing angles where the grid is
+  already faded in `basic.frag`.
+
+### Files
+
+- `ViewportRenderer.cpp`, this log
