@@ -92,3 +92,23 @@ Zoom / pixel-gap grid LOD felt worse than a fixed dense grid.
 ### Files
 
 - `ViewportRenderer.{hpp,cpp}`, `basic.frag`, this log
+
+---
+
+## Follow-up (depth priority + bottom inset)
+
+### Problem
+
+- Z-fighting between mesh faces and the floor grid; user wanted geometry to win over the grid.
+- Z-fighting between axes and grid at the origin plane; user wanted axes preferred.
+- Bottom gap between Settings/Toolbar and window still too tall.
+
+### Approach
+
+- Grid pass: `GL_POLYGON_OFFSET_LINE` with positive `glPolygonOffset` (negative when reverse-Z) so grid depth is pushed slightly **farther** than coplanar fills/lines.
+- Axes pass: `GL_POLYGON_OFFSET_LINE` with opposite sign so axis lines sit slightly **closer** than the biased grid (still after scene depth test; stencil unchanged).
+- `UIGrid::SCREEN_BOTTOM_INSET` reduced from `0.85f` to `0.35f` cells.
+
+### Files
+
+- `ViewportRenderer.cpp`, `UIGrid.hpp`, this log

@@ -218,12 +218,21 @@ void ViewportRenderer::Render()
     // Write depth so opaque scene sorts correctly in front of/behind the z=0 grid plane.
     glDepthMask(GL_TRUE);
 
+    // Push grid slightly farther than coplanar faces/axes so meshes and axes win depth tests.
+    glEnable(GL_POLYGON_OFFSET_LINE);
+    if (RenderingExperiments::kReverseZDepth)
+        glPolygonOffset(-1.25f, -1.25f);
+    else
+        glPolygonOffset(1.25f, 1.25f);
+
     glBindVertexArray(lineVAO);
 
     // Draw grid only — axes are handled by RenderAxes() after the scene
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
+
+    glDisable(GL_POLYGON_OFFSET_LINE);
 
     if (!blendWas)
         glDisable(GL_BLEND);
@@ -255,10 +264,19 @@ void ViewportRenderer::RenderAxes()
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
     glDepthMask(GL_FALSE);
 
+    // Nudge axes slightly toward the camera vs the grid so shared z=0 lines prefer axes.
+    glEnable(GL_POLYGON_OFFSET_LINE);
+    if (RenderingExperiments::kReverseZDepth)
+        glPolygonOffset(1.0f, 1.0f);
+    else
+        glPolygonOffset(-1.0f, -1.0f);
+
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
                    (void *)(gridIndexCount * sizeof(uint32_t)));
     glBindVertexArray(0);
+
+    glDisable(GL_POLYGON_OFFSET_LINE);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_STENCIL_TEST);

@@ -8,7 +8,7 @@ struct UIGrid
     static constexpr float GAP = 0.5f;        // universal spacing in cells
     /// Extra inset from the window bottom for screen-anchored `PanelAnchor::Bottom` (cells).
     /// Complements `GAP * 0.5f` so tall sidebars/toolbars do not sit flush on the frame.
-    static constexpr float SCREEN_BOTTOM_INSET = 0.85f;
+    static constexpr float SCREEN_BOTTOM_INSET = 0.35f;
 
     float cellSizeX = CELL_SIZE;
     float cellSizeY = CELL_SIZE;
