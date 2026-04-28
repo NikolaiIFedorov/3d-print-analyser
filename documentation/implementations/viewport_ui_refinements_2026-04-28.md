@@ -26,7 +26,7 @@
 
 ## Ship
 
-Committed as `c5640cf` on `imgui-refactor`.
+Shipped on `imgui-refactor` with the viewport/UI/grid/axes change set (see `git log` for hash).
 
 ## Mini retro
 
