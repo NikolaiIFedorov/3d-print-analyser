@@ -282,6 +282,10 @@ finer world step.
 - `kForeshortenFloor` 0.07 → 0.035; apply `wpp = wppLinear / pow(foreshort, 1.5)` instead of linear
   `1/foreshort` so shallow tilts step LOD coarser sooner.
 
+### Follow-up (orbit LOD strength dial-back)
+
+- Floor `0.055`, exponent `1.28` — between original linear / 0.07 floor and the too-strong 0.035 / 1.5.
+
 ---
 
 ## Follow-up (grid opacity: LOD only)
