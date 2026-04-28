@@ -26,9 +26,10 @@ ViewportRenderer::~ViewportRenderer()
 ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
     : shader(std::move(other.shader)),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO),
-      lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      lineIBO(other.lineIBO),       lineIndexCount(other.lineIndexCount),
       gridIndexCount(other.gridIndexCount),
       viewProjection(other.viewProjection),
+      viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
@@ -48,6 +49,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         lineIndexCount = other.lineIndexCount;
         gridIndexCount = other.gridIndexCount;
         viewProjection = other.viewProjection;
+        viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
@@ -65,6 +67,10 @@ void ViewportRenderer::SetCamera(Camera &camera)
 {
     viewProjection = ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) *
                      camera.GetViewMatrix();
+    const glm::vec3 forwardWorld = camera.orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+    const float fLen = glm::length(forwardWorld);
+    if (fLen > 1e-8f)
+        viewDirWorld = glm::normalize(-forwardWorld);
 }
 
 void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
@@ -193,6 +199,9 @@ void ViewportRenderer::Render()
     shader.Use();
     shader.SetMat4("uViewProjection", viewProjection);
     shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uGridPlaneFade", 1.0f);
+    shader.SetVec3("uViewDirWorld", viewDirWorld);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
@@ -218,6 +227,9 @@ void ViewportRenderer::RenderAxes()
     shader.Use();
     shader.SetMat4("uViewProjection", viewProjection);
     shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetVec3("uViewDirWorld", viewDirWorld);
 
     // Only draw where stencil == 0 (open space, not covered by solid geometry)
     glEnable(GL_STENCIL_TEST);

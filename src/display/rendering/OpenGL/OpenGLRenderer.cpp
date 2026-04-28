@@ -421,6 +421,8 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
@@ -496,6 +498,8 @@ void OpenGLRenderer::DrawPickHighlight()
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     glEnable(GL_DEPTH_TEST);

@@ -64,13 +64,78 @@ namespace
 // Set false to restore legacy ±100000 ortho depth (wider slab, coarser depth steps).
 inline constexpr bool kTightenOrthoClipPlanes = true;
 
+/// Ray `o + h * d` (world axis from origin: `d` is column of V⁻¹ omitted — here `d = V_linear * axis`).
+/// Returns max `h >= 0` inside the ortho view slab in view space (symmetric XY, Z in [zLo,zHi]).
+static float RayOrthoSlabMaxPositiveH(const glm::vec3 &o, const glm::vec3 &d,
+                                      float halfW, float halfH,
+                                      float zLo, float zHi)
+{
+    float tEnter = 0.0f;
+    float tExit = 1.0e30f;
+
+    auto clip = [&](float po, float pd, float lo, float hi)
+    {
+        if (std::fabs(pd) < 1e-12f)
+        {
+            if (po < lo || po > hi)
+                tExit = -1.0f;
+            return;
+        }
+        const float inv = 1.0f / pd;
+        float t0 = (lo - po) * inv;
+        float t1 = (hi - po) * inv;
+        if (t0 > t1)
+            std::swap(t0, t1);
+        tEnter = std::max(tEnter, t0);
+        tExit = std::min(tExit, t1);
+    };
+
+    clip(o.x, d.x, -halfW, halfW);
+    clip(o.y, d.y, -halfH, halfH);
+    clip(o.z, d.z, zLo, zHi);
+
+    if (tExit < tEnter || tExit < 0.0f)
+        return 0.0f;
+    const float enterClamped = std::max(0.0f, tEnter);
+    if (tExit < enterClamped)
+        return 0.0f;
+    return tExit;
+}
+
 /// World-space half-length of axis lines — must match `ViewportRenderer` mesh and ortho clip.
-/// Using a fixed ±10k axis previously blew up the view-space Z slab and wasted ~24-bit linear depth.
+/// Extent follows the ortho frustum along each principal direction from the world origin so axes
+/// reach the viewport edges after rotation/pan; still at least the grid diameter for huge grids.
 inline float OrthoClipAxisWorldHalfExtent(const Camera &cam)
 {
     const float gridReach = Color::GRID_EXTENT * 2.0f;
-    const float fromOrtho = cam.orthoSize * (std::fabs(cam.aspectRatio) + 1.0f) * 2.0f;
-    return std::min(std::max(gridReach, fromOrtho), 1.0e6f);
+
+    const glm::mat4 V = cam.GetViewMatrix();
+    const float halfW = cam.orthoSize * std::fabs(cam.aspectRatio);
+    const float halfH = cam.orthoSize;
+    const float zLo = std::min(cam.nearPlane, cam.farPlane);
+    const float zHi = std::max(cam.nearPlane, cam.farPlane);
+
+    const glm::vec4 o4 = V * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    const float ow = std::max(1e-12f, std::fabs(o4.w));
+    const glm::vec3 o = glm::vec3(o4) / ow;
+
+    float best = 1.0f;
+    for (int ax = 0; ax < 3; ++ax)
+    {
+        for (float s : {-1.0f, 1.0f})
+        {
+            glm::vec3 wd(0.0f);
+            wd[ax] = s;
+            const glm::vec3 d = glm::vec3(V * glm::vec4(wd, 0.0f));
+            if (glm::length(d) < 1e-12f)
+                continue;
+            const float hExit = RayOrthoSlabMaxPositiveH(o, d, halfW, halfH, zLo, zHi);
+            best = std::max(best, hExit);
+        }
+    }
+
+    const float withMargin = best * 1.08f + 2.0f;
+    return std::min(std::max(gridReach, withMargin), 1.0e6f);
 }
 
 void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldHalfExtent)

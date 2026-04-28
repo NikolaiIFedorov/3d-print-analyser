@@ -40,6 +40,8 @@ private:
     uint32_t gridIndexCount = 0;
 
     glm::mat4 viewProjection = glm::mat4(1.0f);
+    /// Normalized world direction the camera looks (ortho: parallel view rays).
+    glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
 
     bool InitializeShaders();

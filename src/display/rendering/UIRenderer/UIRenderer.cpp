@@ -531,7 +531,7 @@ void UIRenderer::ResolveAnchors()
             case PanelAnchor::Right:
                 return static_cast<float>(grid.columns) - halfGap;
             case PanelAnchor::Bottom:
-                return static_cast<float>(grid.rows) - halfGap;
+                return static_cast<float>(grid.rows) - halfGap - UIGrid::SCREEN_BOTTOM_INSET;
             default: // Left, Top
                 return halfGap;
             }
@@ -858,7 +858,7 @@ void UIRenderer::ComputeMinGridSize()
             case PanelAnchor::Right:
                 return minExtentX - halfGap;
             case PanelAnchor::Bottom:
-                return minExtentY - halfGap;
+                return minExtentY - halfGap - UIGrid::SCREEN_BOTTOM_INSET;
             default:
                 return halfGap;
             }
