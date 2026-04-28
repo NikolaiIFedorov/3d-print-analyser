@@ -59,6 +59,10 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
+    // Pure yaw this frame: next pitch should not inherit an old pitch-axis sign (f changed).
+    if (std::abs(deltaY) <= kEps && std::abs(deltaX) > kEps)
+        hasLastOrbitPitchAxis = false;
+
     const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
 
     const glm::mat3 M_ori = glm::mat3_cast(orientation);
@@ -82,15 +86,22 @@ void Camera::Orbit(float deltaX, float deltaY)
         else
             pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f); // over the pole: pitch in XZ
 
+        if (hasLastOrbitPitchAxis && glm::dot(pitchAxis, lastOrbitPitchAxis) < 0.0f)
+            pitchAxis = -pitchAxis;
+        lastOrbitPitchAxis = pitchAxis;
+        hasLastOrbitPitchAxis = true;
+
         M_p = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
     }
 
     const glm::mat3 M_new = M_p * M_horizontal * M_ori;
 
     glm::quat qNew = glm::normalize(glm::quat_cast(M_new));
-    if (!std::isfinite(qNew.x) || !std::isfinite(qNew.y) || !std::isfinite(qNew.z) || !std::isfinite(qNew.w) ||
-        glm::dot(qNew, qNew) < 0.25f)
+    if (!std::isfinite(qNew.x) || !std::isfinite(qNew.y) || !std::isfinite(qNew.z) || !std::isfinite(qNew.w))
         return;
+    // quat_cast picks q or −q; choose the hemisphere continuous with the previous orientation.
+    if (glm::dot(qNew, orientation) < 0.0f)
+        qNew = -qNew;
 
     // Only snap near true ±Z for view-matrix stability (GetViewMatrix); margin is tiny so a real
     // plan view of the XY plane (camera over +Z or under −Z) is still reachable.
@@ -125,7 +136,10 @@ void Camera::Orbit(float deltaX, float deltaY)
         else
             r = glm::vec3(1.0f, 0.0f, 0.0f);
         const glm::vec3 u = glm::normalize(glm::cross(f, r));
-        orientation = glm::normalize(glm::quat_cast(glm::mat3(r, u, f)));
+        glm::quat qSnap = glm::normalize(glm::quat_cast(glm::mat3(r, u, f)));
+        if (glm::dot(qSnap, orientation) < 0.0f)
+            qSnap = -qSnap;
+        orientation = qSnap;
     }
     else
     {
@@ -135,6 +149,7 @@ void Camera::Orbit(float deltaX, float deltaY)
 
 void Camera::Roll(float delta)
 {
+    hasLastOrbitPitchAxis = false;
     glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, -1.0f);
     glm::quat rotation = glm::angleAxis(delta, forward);
     orientation = glm::normalize(rotation * orientation);
@@ -215,4 +230,5 @@ void Camera::ResetHomeView()
     distance = 5.0f;
     orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     orthoSize = 2.5f;
+    hasLastOrbitPitchAxis = false;
 }
