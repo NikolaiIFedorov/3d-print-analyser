@@ -16,14 +16,18 @@ void main()
     if (uLightingEnabled < 0.5)
     {
         vec3 c = fragColor;
-        float k = 1.0;
         if (uGridPlaneFade > 0.5)
         {
             vec3 n = vec3(0.0, 0.0, 1.0);
             float g = abs(dot(normalize(uViewDirWorld), n));
-            k = smoothstep(0.06, 0.32, g);
+            // 0 = grazing the XY plane, 1 = looking along +Z / −Z (perpendicular to grid).
+            float t = smoothstep(0.05, 0.36, g);
+            // Alpha floor keeps the grid visible; cap avoids fully washing out at top-down.
+            float a = mix(0.26, 0.92, t);
+            outColor = vec4(c, a);
+            return;
         }
-        outColor = vec4(c * k, 1.0);
+        outColor = vec4(c, 1.0);
         return;
     }
 

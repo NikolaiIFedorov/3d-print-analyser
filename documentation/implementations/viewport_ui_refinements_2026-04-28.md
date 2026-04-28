@@ -31,3 +31,23 @@ Shipped on `imgui-refactor` with the viewport/UI/grid/axes change set (see `git 
 ## Mini retro
 
 Centralizing screen-edge insets in `UIGrid` keeps `ResolveAnchors` / min-grid simulation aligned; axis extent from slab math removes magic ortho multipliers but still depends on previous-frame `near`/`far` (one-frame lag acceptable).
+
+---
+
+## Follow-up (same theme)
+
+### Problem
+
+- Grid grazing fade used RGB multiply and could read as “too gone”; user wanted partial transparency with a floor.
+- Zoomed-out views still drew unit-spaced world lines (heavy LOD).
+- Bottom gap still invisible: StatusStrip post-pass moved `Settings`/`Toolbar` down by `dy` but left `rowSpan` unchanged, so panels extended past the anchored bottom and painted over the `SCREEN_BOTTOM_INSET` band.
+
+### Approach
+
+- `basic.frag`: grid pass outputs premultiplied-style `vec4(c, a)` with `a` in `[0.26, 0.92]` from view–plane alignment; `ViewportRenderer::Render` enables blending and disables depth writes for the grid pass only.
+- `PickGridWorldSpacing(ortho, aspect)`: powers of two in `[1, 256]` from ortho half-extent; `SetCamera` bumps `gridWorldSpacing` and `RegenerateGrid` when it changes.
+- After strip shift: `rowSpan -= dy` for Settings and Toolbar; `SCREEN_BOTTOM_INSET` raised to `1.75f` cells.
+
+### Files
+
+- `UIGrid.hpp`, `UIRenderer.cpp`, `basic.frag`, `ViewportRenderer.{hpp,cpp}`

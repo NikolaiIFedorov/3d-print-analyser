@@ -3,6 +3,25 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+/// Fewer world-space lines when zoomed out (large ortho half-extent), capped powers of two.
+float PickGridWorldSpacing(float orthoSize, float aspect)
+{
+    const float halfW = orthoSize * std::fabs(aspect);
+    const float halfH = orthoSize;
+    const float viewHalf = std::max(halfW, halfH);
+    const float raw = viewHalf / 14.0f;
+    if (raw <= 1.0f)
+        return 1.0f;
+    const float lg = std::floor(std::log2(raw));
+    return std::min(256.0f, std::pow(2.0f, lg));
+}
+} // namespace
+
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
     if (!InitializeShaders())
@@ -30,7 +49,8 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       gridIndexCount(other.gridIndexCount),
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
-      axisWorldHalfExtent(other.axisWorldHalfExtent)
+      axisWorldHalfExtent(other.axisWorldHalfExtent),
+      gridWorldSpacing(other.gridWorldSpacing)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -51,6 +71,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewProjection = other.viewProjection;
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
+        gridWorldSpacing = other.gridWorldSpacing;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -71,6 +92,13 @@ void ViewportRenderer::SetCamera(Camera &camera)
     const float fLen = glm::length(forwardWorld);
     if (fLen > 1e-8f)
         viewDirWorld = glm::normalize(-forwardWorld);
+
+    const float sp = PickGridWorldSpacing(camera.orthoSize, camera.aspectRatio);
+    if (std::abs(sp - gridWorldSpacing) > 1e-5f * std::max(1.0f, gridWorldSpacing))
+    {
+        gridWorldSpacing = sp;
+        RegenerateGrid();
+    }
 }
 
 void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
@@ -89,12 +117,12 @@ void ViewportRenderer::Generate()
     std::vector<uint32_t> indices;
 
     const float extent = Color::GRID_EXTENT;
-    const float spacing = 1.0f;
+    const float spacing = std::max(1.0f, gridWorldSpacing);
 
     glm::vec3 gridColor = Color::GetGrid();
 
     // Grid lines parallel to X axis (varying Y)
-    for (float y = -extent; y <= extent; y += spacing)
+    for (float y = -extent; y <= extent + 1e-4f * spacing; y += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
         vertices.push_back({glm::vec3(-extent, y, 0.0f), gridColor});
@@ -104,7 +132,7 @@ void ViewportRenderer::Generate()
     }
 
     // Grid lines parallel to Y axis (varying X)
-    for (float x = -extent; x <= extent; x += spacing)
+    for (float x = -extent; x <= extent + 1e-4f * spacing; x += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
         vertices.push_back({glm::vec3(x, -extent, 0.0f), gridColor});
@@ -205,7 +233,12 @@ void ViewportRenderer::Render()
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
-    glDepthMask(GL_TRUE);
+
+    GLboolean blendWas = GL_FALSE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
 
     glBindVertexArray(lineVAO);
 
@@ -213,6 +246,10 @@ void ViewportRenderer::Render()
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    if (!blendWas)
+        glDisable(GL_BLEND);
 }
 
 void ViewportRenderer::RenderAxes()

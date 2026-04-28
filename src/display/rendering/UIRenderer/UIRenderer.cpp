@@ -821,6 +821,11 @@ void UIRenderer::ResolveAnchors()
             const float dy = strip->rowSpan;
             st->row += dy;
             tb->row += dy;
+            // Keep the bottom edge on the anchored screen bottom (incl. SCREEN_BOTTOM_INSET):
+            // without shrinking rowSpan, the panel would extend dy cells past the layout bottom and
+            // cover the intended gap (and/or overlap the strip band incorrectly).
+            st->rowSpan = std::max(1.0f, st->rowSpan - dy);
+            tb->rowSpan = std::max(1.0f, tb->rowSpan - dy);
             updateLocalGrid(*st, st->padding);
             placeChildrenVertical(*st);
             updateLocalGrid(*tb, tb->padding);
