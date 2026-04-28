@@ -355,3 +355,11 @@ UI contrast (`Color::kStep`) and other tuning as settings candidates.
 
 - `include/UserTuning.hpp`, `Settings.hpp`, `display.cpp`, `color.{hpp,cpp}`,
   `ViewportRenderer.cpp`, `Camera.cpp`, this log
+
+### Follow-up (grouped controls + forms contrast)
+
+- Reduced the panel to grouped controls:
+  - `Contrast` (drives UI depth step + form hover/active tint intensity)
+  - `LOD` (derives min px gap, foreshorten floor/exponent, hysteresis, min/max world step)
+  - `Snap` (keeps enter fixed at 3°, derives exit offset)
+- Persisted grouped values (`contrast`, `lod`, `snap`) instead of exposing all low-level fields.

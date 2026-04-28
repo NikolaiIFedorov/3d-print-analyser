@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 #include <glm/glm.hpp>
+#include "UserTuning.hpp"
 #include "rendering/color.hpp"
 
 // Shared style constants and push/pop helpers for interactive input elements
@@ -72,7 +73,10 @@ namespace UIStyle
         if (!hovered && !active)
             return;
         int d = active ? layer + 2 : layer + 1;
-        glm::vec4 bg = Color::GetAccent(d, active ? 0.18f : 0.10f, ACCENT_SAT_MULT_HOVER);
+        const float alphaScale = std::max(0.1f, UserTuning::formHoverAlphaScale);
+        glm::vec4 bg = Color::GetAccent(d,
+                                        (active ? 0.18f : 0.10f) * alphaScale,
+                                        ACCENT_SAT_MULT_HOVER);
         float radius = ImGui::GetItemRectSize().y * FRAME_ROUNDING_RATIO;
         ImVec2 rMin = ImGui::GetItemRectMin();
         ImVec2 rMax = ImGui::GetItemRectMax();

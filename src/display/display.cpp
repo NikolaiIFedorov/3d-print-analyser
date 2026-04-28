@@ -386,27 +386,22 @@ void Display::LoadSettings()
         Color::SetAccent(settingsAccentHue, settingsAccentSat);
 
     themeMode = static_cast<ThemeMode>(std::clamp(loaded.themeMode, 0, 2));
-    Color::SetUiDepthStep(loaded.uiDepthStep);
-    UserTuning::uiDepthStep = Color::GetUiDepthStep();
+    UserTuning::contrast = std::clamp(loaded.contrast, 0.0f, 1.0f);
+    UserTuning::DeriveFromContrast();
+    Color::SetUiDepthStep(UserTuning::uiDepthStep);
     ApplyTheme();
 
     // Viewport
     Color::GRID_EXTENT = loaded.gridExtent;
-    UserTuning::gridLodMinPixelGap = std::clamp(loaded.gridLodMinPixelGap, 0.25f, 8.0f);
-    UserTuning::gridForeshortenFloor = std::clamp(loaded.gridForeshortenFloor, 0.01f, 0.5f);
-    UserTuning::gridForeshortenExponent = std::clamp(loaded.gridForeshortenExponent, 0.5f, 3.0f);
-    UserTuning::gridLodHysteresisBand = std::clamp(loaded.gridLodHysteresisBand, 1.001f, 1.5f);
-    UserTuning::gridLodMinWorldStep = std::clamp(loaded.gridLodMinWorldStep, 1.0f / 8192.0f, 1.0f);
-    UserTuning::gridLodMaxWorldStep = std::clamp(loaded.gridLodMaxWorldStep, 1.0f, 1024.0f);
-    if (UserTuning::gridLodMaxWorldStep < UserTuning::gridLodMinWorldStep)
-        UserTuning::gridLodMaxWorldStep = UserTuning::gridLodMinWorldStep;
+    UserTuning::lod = std::clamp(loaded.lod, 0.0f, 1.0f);
+    UserTuning::DeriveFromLod();
     lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
     (void)SyncViewportAxisForDepthClip();
 
     // Navigation
     mouseSensitivity = loaded.mouseSensitivity;
-    UserTuning::snapEnterDeg = std::clamp(loaded.snapEnterDeg, 0.5f, 15.0f);
-    UserTuning::snapExitDeg = std::clamp(loaded.snapExitDeg, UserTuning::snapEnterDeg, 20.0f);
+    UserTuning::snap = std::clamp(loaded.snap, 0.0f, 1.0f);
+    UserTuning::DeriveFromSnap();
 
     // Re-run analysis with restored parameters.
     RebuildAnalysis();
@@ -431,17 +426,11 @@ void Display::SaveSettings()
     settings.accentSat = settingsAccentSat;
     settings.accentUseSystem = settingsAccentUseSystem;
     settings.themeMode = static_cast<int>(themeMode);
-    settings.uiDepthStep = Color::GetUiDepthStep();
+    settings.contrast = UserTuning::contrast;
     settings.gridExtent = Color::GRID_EXTENT;
-    settings.gridLodMinPixelGap = UserTuning::gridLodMinPixelGap;
-    settings.gridForeshortenFloor = UserTuning::gridForeshortenFloor;
-    settings.gridForeshortenExponent = UserTuning::gridForeshortenExponent;
-    settings.gridLodHysteresisBand = UserTuning::gridLodHysteresisBand;
-    settings.gridLodMinWorldStep = UserTuning::gridLodMinWorldStep;
-    settings.gridLodMaxWorldStep = UserTuning::gridLodMaxWorldStep;
+    settings.lod = UserTuning::lod;
     settings.mouseSensitivity = mouseSensitivity;
-    settings.snapEnterDeg = UserTuning::snapEnterDeg;
-    settings.snapExitDeg = UserTuning::snapExitDeg;
+    settings.snap = UserTuning::snap;
     settings.Save(Settings::DefaultPath());
 }
 
@@ -2338,12 +2327,12 @@ void Display::InitUI()
         uiAppearanceAccentSelect = &accentSel.select.value();
     }
 
-    makeSettingsDrag(appearancePara.values.emplace_back(), "UI contrast", UserTuning::uiDepthStep,
-                     0.002f, 0.02f, 0.25f, "%.3f", "##uiDepthStep",
+    makeSettingsDrag(appearancePara.values.emplace_back(), "Contrast", UserTuning::contrast,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##contrast",
                      [this]()
                      {
+                         UserTuning::DeriveFromContrast();
                          Color::SetUiDepthStep(UserTuning::uiDepthStep);
-                         UserTuning::uiDepthStep = Color::GetUiDepthStep();
                          uiRenderer.MarkDirty();
                          renderDirty = true;
                      });
@@ -2365,36 +2354,11 @@ void Display::InitUI()
                          renderDirty = true;
                      });
 
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD min px gap", UserTuning::gridLodMinPixelGap,
-                     0.05f, 0.25f, 8.0f, "%.2f", "##gridLodMinPx",
-                     [this]()
-                     { UpdateCamera(); });
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD tilt floor", UserTuning::gridForeshortenFloor,
-                     0.002f, 0.01f, 0.5f, "%.3f", "##gridForeshortenFloor",
-                     [this]()
-                     { UpdateCamera(); });
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD tilt exponent", UserTuning::gridForeshortenExponent,
-                     0.02f, 0.5f, 3.0f, "%.2f", "##gridForeshortenExp",
-                     [this]()
-                     { UpdateCamera(); });
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD hysteresis", UserTuning::gridLodHysteresisBand,
-                     0.005f, 1.001f, 1.5f, "%.3f", "##gridLodHyst",
-                     [this]()
-                     { UpdateCamera(); });
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD min world step", UserTuning::gridLodMinWorldStep,
-                     0.00025f, 1.0f / 8192.0f, 1.0f, "%.5f", "##gridLodMinStep",
+    makeSettingsDrag(gridPara.values.emplace_back(), "LOD", UserTuning::lod,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##gridLodMaster",
                      [this]()
                      {
-                         if (UserTuning::gridLodMaxWorldStep < UserTuning::gridLodMinWorldStep)
-                             UserTuning::gridLodMaxWorldStep = UserTuning::gridLodMinWorldStep;
-                         UpdateCamera();
-                     });
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD max world step", UserTuning::gridLodMaxWorldStep,
-                     0.25f, 1.0f, 1024.0f, "%.2f", "##gridLodMaxStep",
-                     [this]()
-                     {
-                         if (UserTuning::gridLodMaxWorldStep < UserTuning::gridLodMinWorldStep)
-                             UserTuning::gridLodMaxWorldStep = UserTuning::gridLodMinWorldStep;
+                         UserTuning::DeriveFromLod();
                          UpdateCamera();
                      });
 
@@ -2410,20 +2374,11 @@ void Display::InitUI()
                      1.0f, 1.0f, 500.0f, "%.0f", "##mouseSens",
                      [this]()
                      { renderDirty = true; });
-    makeSettingsDrag(sensPara.values.emplace_back(), "Snap enter (deg)", UserTuning::snapEnterDeg,
-                     0.1f, 0.5f, 15.0f, "%.2f", "##snapEnterDeg",
+    makeSettingsDrag(sensPara.values.emplace_back(), "Snap", UserTuning::snap,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##snapMaster",
                      [this]()
                      {
-                         if (UserTuning::snapExitDeg < UserTuning::snapEnterDeg)
-                             UserTuning::snapExitDeg = UserTuning::snapEnterDeg;
-                         renderDirty = true;
-                     });
-    makeSettingsDrag(sensPara.values.emplace_back(), "Snap exit (deg)", UserTuning::snapExitDeg,
-                     0.1f, 0.5f, 20.0f, "%.2f", "##snapExitDeg",
-                     [this]()
-                     {
-                         if (UserTuning::snapExitDeg < UserTuning::snapEnterDeg)
-                             UserTuning::snapExitDeg = UserTuning::snapEnterDeg;
+                         UserTuning::DeriveFromSnap();
                          renderDirty = true;
                      });
 
