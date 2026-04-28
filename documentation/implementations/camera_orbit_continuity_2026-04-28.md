@@ -31,3 +31,11 @@ Removed **lastOrbitPitchAxis** continuity (could fight legitimate axis changes);
 **Implementation:** Removed the old **1e−5 rad** polar offset branch inside `Orbit`; after each orbit step set `orientation = qNew` then `SnapOrientationToCanonicalPlanIfNearWorldZ` when colatitude is within **1°** of ±Z (`kPolarSnapRad`; was 7°, tightened after UX feedback). Target, distance, and ortho zoom unchanged.
 
 **Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.
+
+## Follow-up — principal faces ±X / ±Y / ±Z at 3° (later)
+
+**Idea:** Same snap pattern for **XZ** (view along ±Y) and **YZ** (view along ±X), not only XY / ±Z, so orbit can land on canonical orthographic faces without an orientation cube.
+
+**Implementation:** Replaced Z-only helper with `SnapOrientationToCanonicalPrincipalViewIfNearAxis`: within **3°** of the nearest world ±X, ±Y, or ±Z (by largest `|f·axis|` on unit target→camera `f`), snap `f` to that sign axis; build `r` by projecting camera +X onto the plane ⊥ `fSnap`; `u = cross(fSnap,r)`; quat hemisphere continuity unchanged.
+
+**Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.

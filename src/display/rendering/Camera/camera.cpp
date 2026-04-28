@@ -5,33 +5,62 @@
 
 namespace
 {
-/// When target→camera is within this angle of world ±Z, snap to an exact plan pose (f = ±Z) with
-/// roll taken from the current basis so the horizon does not jump arbitrarily. Avoids the
-/// classic lookAt-style ill-conditioning without changing target, distance, or ortho zoom.
-void SnapOrientationToCanonicalPlanIfNearWorldZ(glm::quat &orientation)
+/// When target→camera is within a small cone of world ±X, ±Y, or ±Z, snap to that principal axis so
+/// the view is a canonical orthographic face of a coordinate plane (YZ / XZ / XY). Roll is taken
+/// from the current basis by projecting camera +X onto the plane perpendicular to the snapped axis.
+/// Does not change target, distance, or ortho zoom — complements orbit without an orientation cube.
+void SnapOrientationToCanonicalPrincipalViewIfNearAxis(glm::quat &orientation)
 {
-    constexpr float kPolarSnapRad = glm::radians(1.0f);
+    constexpr float kPrincipalSnapRad = glm::radians(3.0f);
+    const float cosSnap = std::cos(kPrincipalSnapRad);
 
     const glm::mat3 M = glm::mat3_cast(orientation);
     glm::vec3 f = glm::normalize(M * glm::vec3(0.0f, 0.0f, 1.0f));
     if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
         return;
 
-    const float polar = std::acos(std::clamp(f.z, -1.0f, 1.0f));
-    if (polar > kPolarSnapRad && polar < glm::pi<float>() - kPolarSnapRad)
+    const float ax = std::abs(f.x);
+    const float ay = std::abs(f.y);
+    const float az = std::abs(f.z);
+
+    glm::vec3 fSnap(0.0f);
+    if (ax >= cosSnap && ax >= ay && ax >= az)
+        fSnap = glm::vec3(f.x >= 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f);
+    else if (ay >= cosSnap && ay >= az)
+        fSnap = glm::vec3(0.0f, f.y >= 0.0f ? 1.0f : -1.0f, 0.0f);
+    else if (az >= cosSnap)
+        fSnap = glm::vec3(0.0f, 0.0f, f.z >= 0.0f ? 1.0f : -1.0f);
+    else
         return;
 
-    const float zSign = (f.z >= 0.0f) ? 1.0f : -1.0f;
-    const glm::vec3 fSnap(0.0f, 0.0f, zSign);
+    const glm::vec3 r0 = M * glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 rProj(0.0f);
+    if (std::abs(fSnap.x) > 0.5f)
+        rProj = glm::vec3(0.0f, r0.y, r0.z); // plane ⊥ ±X
+    else if (std::abs(fSnap.y) > 0.5f)
+        rProj = glm::vec3(r0.x, 0.0f, r0.z); // plane ⊥ ±Y
+    else
+        rProj = glm::vec3(r0.x, r0.y, 0.0f); // plane ⊥ ±Z
 
-    glm::vec3 r0 = M * glm::vec3(1.0f, 0.0f, 0.0f);
-    glm::vec3 rProj(r0.x, r0.y, 0.0f);
-    const float hLen = glm::length(rProj);
-    glm::vec3 r = (hLen > 1e-5f) ? (rProj * (1.0f / hLen)) : glm::vec3(1.0f, 0.0f, 0.0f);
+    float hLen = glm::length(rProj);
+    glm::vec3 r = (hLen > 1e-5f) ? (rProj * (1.0f / hLen)) : glm::vec3(0.0f);
+    if (hLen <= 1e-5f)
+    {
+        if (std::abs(fSnap.x) > 0.5f)
+            r = glm::vec3(0.0f, 1.0f, 0.0f);
+        else if (std::abs(fSnap.y) > 0.5f)
+            r = glm::vec3(0.0f, 0.0f, 1.0f);
+        else
+            r = glm::vec3(1.0f, 0.0f, 0.0f);
+    }
 
     glm::vec3 u = glm::normalize(glm::cross(fSnap, r));
     if (!std::isfinite(u.x) || glm::length(u) < 1e-12f)
-        u = glm::vec3(0.0f, zSign, 0.0f); // fSnap ∥ ±Z, r ⊥ Z ⇒ u along ±Y
+    {
+        r = glm::normalize(glm::cross(
+            fSnap, std::abs(fSnap.x) > 0.5f ? glm::vec3(0.0f, 1.0f, 0.0f) : glm::vec3(1.0f, 0.0f, 0.0f)));
+        u = glm::normalize(glm::cross(fSnap, r));
+    }
 
     glm::quat q = glm::normalize(glm::quat_cast(glm::mat3(r, u, fSnap)));
     if (!std::isfinite(q.x))
@@ -139,7 +168,7 @@ void Camera::Orbit(float deltaX, float deltaY)
         qNew = -qNew;
 
     orientation = qNew;
-    SnapOrientationToCanonicalPlanIfNearWorldZ(orientation);
+    SnapOrientationToCanonicalPrincipalViewIfNearAxis(orientation);
 }
 
 void Camera::Roll(float delta)
