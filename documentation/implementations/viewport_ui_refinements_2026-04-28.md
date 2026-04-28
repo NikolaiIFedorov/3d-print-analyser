@@ -277,6 +277,11 @@ finer world step.
 
 - `ViewportRenderer.cpp`, this log
 
+### Follow-up (stronger orbit / tilt LOD)
+
+- `kForeshortenFloor` 0.07 → 0.035; apply `wpp = wppLinear / pow(foreshort, 1.5)` instead of linear
+  `1/foreshort` so shallow tilts step LOD coarser sooner.
+
 ---
 
 ## Follow-up (grid opacity: LOD only)

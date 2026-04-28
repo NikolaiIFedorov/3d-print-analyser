@@ -19,10 +19,12 @@ float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heig
     const float halfH = orthoSize;
     const float wppLinear = (2.0f * std::max(halfW, halfH)) /
                             static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
-    // Floor avoids singular spacing at grazing views; grid frag already fades there.
-    constexpr float kForeshortenFloor = 0.07f;
+    // Foreshortening: in-plane line spacing projects tighter when |view·ẑ| is small. Use
+    // wppLinear / foreshort^exp so orbit coarsens more aggressively than a linear 1/|z| (user tune).
+    constexpr float kForeshortenFloor = 0.035f;
+    constexpr float kForeshortenExponent = 1.5f;
     const float foreshort = std::max(kForeshortenFloor, std::abs(absViewDirDotZ));
-    const float wpp = wppLinear / foreshort;
+    const float wpp = wppLinear / std::pow(foreshort, kForeshortenExponent);
 
     constexpr float kMinPixelGapBetweenParallelLines = 1.0f;
     const float minByPixels = kMinPixelGapBetweenParallelLines * wpp;
