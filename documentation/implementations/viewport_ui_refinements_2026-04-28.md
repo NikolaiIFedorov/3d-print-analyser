@@ -315,8 +315,8 @@ Orbit snap used one cone (~3°): leaving a snapped canonical view re-snapped on 
 ### Approach
 
 - Hysteresis: **enter** still `cos(3°)` via `TryPrincipalSnapQuat`; when latched, keep
-  `latchedPrincipalOrientation` until raw orbit forward is **> ~8.5°** off that axis
-  (`|dot(fNew,fLock)| < cos(8.5°)`), then release and allow normal snap/enter again.
+  `latchedPrincipalOrientation` until raw orbit forward is **> ~5.25°** off that axis (was 8.5° —
+  too sticky vs enter-only 3°).
 - Latch cleared on `Roll`, `FrameBounds`, `ResetHomeView`.
 
 ### Files

@@ -185,8 +185,9 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (glm::dot(qNew, orientation) < 0.0f)
         qNew = -qNew;
 
+    // Enter ~3° (unchanged feel); exit only modestly wider so orbit is not “stuck” on the latched axis.
     constexpr float kSnapEnterDeg = 3.0f;
-    constexpr float kSnapExitDeg = 8.5f;
+    constexpr float kSnapExitDeg = 5.25f;
     const float cosEnter = std::cos(glm::radians(kSnapEnterDeg));
     const float cosExit = std::cos(glm::radians(kSnapExitDeg));
 
