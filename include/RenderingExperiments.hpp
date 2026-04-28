@@ -37,6 +37,26 @@ inline constexpr bool kLineDrawsOmitDepthWrite = false;
 //     Bumped from 1 → 48 after reports of edge/face z-fighting in ortho (still subtle; tune if lines pop).
 inline constexpr float kWireframeClipZNudgeScale = 48.0f;
 
+// --- Ortho layer stack (axes > grid > scene): `basic.vert` / `line.vert` use `gl_Position.z += uClipZBiasW * w`.
+//     Scene mesh + wire use positive bias (standard depth: slightly farther); grid/axes use more negative
+//     values so they win coplanar depth tests. Magnitudes are ortho-scale heuristics; tune if shimmer remains.
+inline constexpr float kClipZBiasSceneMeshW = 0.0022f;
+inline constexpr float kClipZBiasGridW = -0.00115f;
+inline constexpr float kClipZBiasAxesW = -0.0045f;
+
+inline float ClipZBiasSceneMeshW()
+{
+    return kReverseZDepth ? -kClipZBiasSceneMeshW : kClipZBiasSceneMeshW;
+}
+inline float ClipZBiasGridW()
+{
+    return kReverseZDepth ? -kClipZBiasGridW : kClipZBiasGridW;
+}
+inline float ClipZBiasAxesW()
+{
+    return kReverseZDepth ? -kClipZBiasAxesW : kClipZBiasAxesW;
+}
+
 // --- Theory #2b: `GL_POLYGON_OFFSET_FILL` on wireframe / pick-highlight *line* draws (GS emits
 //     filled tris). Default off — trial did not materially change ghosting; set true to re-test.
 inline constexpr bool kWireframeLinePolygonOffsetDeeper = false;

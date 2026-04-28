@@ -457,7 +457,7 @@ void Display::Render()
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
 
-    // Grid first with line polygon offset so depth stacks: scene < grid < axes (axes drawn last).
+    // Grid first with clip-space Z bias so depth stacks: scene < grid < axes (axes drawn last).
     viewportRenderer.Render();
 
     const bool cullOpaqueTriangles = ViewportDepthExperiments::IsBackFaceCull() ||

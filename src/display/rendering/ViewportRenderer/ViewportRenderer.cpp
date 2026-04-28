@@ -3,15 +3,6 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
-namespace
-{
-// Depth stacking (LEQUAL, smaller depth = nearer): scene uses default offset; grid is drawn first
-// with a line offset so its stored depth wins over coplanar triangles/edges; axes use a stronger
-// offset so they win over the grid. Signs flip with reverse-Z projection.
-constexpr float kGridLinePolygonOffset = -0.9f;
-constexpr float kAxisLinePolygonOffset = -2.25f;
-} // namespace
-
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
     if (!InitializeShaders())
@@ -216,6 +207,7 @@ void ViewportRenderer::Render()
     shader.SetFloat("uGridPlaneFade", 1.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
     shader.SetFloat("uPrincipalSnap", principalSnapForGrid);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
@@ -227,21 +219,12 @@ void ViewportRenderer::Render()
     // Write depth so later passes can test against the floor plane.
     glDepthMask(GL_TRUE);
 
-    // Bias grid slightly nearer than coplanar scene geometry so grid wins over mesh (see kGrid* / kAxis*).
-    glEnable(GL_POLYGON_OFFSET_LINE);
-    if (RenderingExperiments::kReverseZDepth)
-        glPolygonOffset(-kGridLinePolygonOffset, -kGridLinePolygonOffset);
-    else
-        glPolygonOffset(kGridLinePolygonOffset, kGridLinePolygonOffset);
-
     glBindVertexArray(lineVAO);
 
     // Draw grid only — axes are handled by RenderAxes() after the scene
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
-
-    glDisable(GL_POLYGON_OFFSET_LINE);
 
     if (!blendWas)
         glDisable(GL_BLEND);
@@ -263,6 +246,7 @@ void ViewportRenderer::RenderAxes()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
     shader.SetFloat("uPrincipalSnap", 0.0f);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasAxesW());
 
     // Only draw where stencil == 0 (open space, not covered by solid geometry)
     glEnable(GL_STENCIL_TEST);
@@ -273,19 +257,10 @@ void ViewportRenderer::RenderAxes()
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
     glDepthMask(GL_FALSE);
 
-    // Stronger line offset than grid so axes win depth over the floor grid where they coincide.
-    glEnable(GL_POLYGON_OFFSET_LINE);
-    if (RenderingExperiments::kReverseZDepth)
-        glPolygonOffset(-kAxisLinePolygonOffset, -kAxisLinePolygonOffset);
-    else
-        glPolygonOffset(kAxisLinePolygonOffset, kAxisLinePolygonOffset);
-
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
                    (void *)(gridIndexCount * sizeof(uint32_t)));
     glBindVertexArray(0);
-
-    glDisable(GL_POLYGON_OFFSET_LINE);
 
     glDepthMask(GL_TRUE);
     glDisable(GL_STENCIL_TEST);

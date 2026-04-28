@@ -130,3 +130,22 @@ Front to back: **axes** over **grid** over **scene** triangles/edges (reduce z-f
 ### Files
 
 - `ViewportRenderer.cpp`, `display.cpp` (comment), this log
+
+---
+
+## Follow-up (clip-space Z bias vs z-fighting)
+
+### Problem
+
+`GL_POLYGON_OFFSET_LINE` alone still allowed shimmer between grid, axes, and mesh (slope-dependent and small ULP separation).
+
+### Approach
+
+- `RenderingExperiments`: `kClipZBiasSceneMeshW`, `kClipZBiasGridW`, `kClipZBiasAxesW` plus `ClipZBiasSceneMeshW()` / `ClipZBiasGridW()` / `ClipZBiasAxesW()` (sign flip when `kReverseZDepth`).
+- `basic.vert`: `gl_Position.z += uClipZBiasW * pos.w` — scene patches use **positive** bias (farther); grid/axes use **more negative** (nearer), preserving axes > grid > scene.
+- `line.vert`: same `uClipZBiasW` for wireframe with scene bias so edges share the mesh depth layer.
+- Removed grid/axes `GL_POLYGON_OFFSET_LINE` passes; pick highlight / pick lines set `uClipZBiasW` to 0.
+
+### Files
+
+- `include/RenderingExperiments.hpp`, `basic.vert`, `line.vert`, `OpenGLRenderer.cpp`, `ViewportRenderer.cpp`, `display.cpp`, this log
