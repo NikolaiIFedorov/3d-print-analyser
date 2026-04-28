@@ -10,7 +10,7 @@ namespace
 /// classic lookAt-style ill-conditioning without changing target, distance, or ortho zoom.
 void SnapOrientationToCanonicalPlanIfNearWorldZ(glm::quat &orientation)
 {
-    constexpr float kPolarSnapRad = glm::radians(7.0f);
+    constexpr float kPolarSnapRad = glm::radians(1.0f);
 
     const glm::mat3 M = glm::mat3_cast(orientation);
     glm::vec3 f = glm::normalize(M * glm::vec3(0.0f, 0.0f, 1.0f));

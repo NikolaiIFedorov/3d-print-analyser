@@ -28,6 +28,6 @@ Removed **lastOrbitPitchAxis** continuity (could fight legitimate axis changes);
 
 **Idea:** Near the classic “view along ±world Z” / lookAt-degenerate cone, snap orientation to an **exact** plan basis (`f = ±(0,0,1)`), preserving which side of the XY plane and approximate screen azimuth (project current camera +X onto XY). Small snap is acceptable UX.
 
-**Implementation:** Removed the old **1e−5 rad** polar offset branch inside `Orbit`; after each orbit step set `orientation = qNew` then `SnapOrientationToCanonicalPlanIfNearWorldZ` when colatitude is within **7°** of ±Z (`kPolarSnapRad`). Target, distance, and ortho zoom unchanged.
+**Implementation:** Removed the old **1e−5 rad** polar offset branch inside `Orbit`; after each orbit step set `orientation = qNew` then `SnapOrientationToCanonicalPlanIfNearWorldZ` when colatitude is within **1°** of ±Z (`kPolarSnapRad`; was 7°, tightened after UX feedback). Target, distance, and ortho zoom unchanged.
 
 **Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.
