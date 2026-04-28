@@ -267,11 +267,14 @@ void Input::mouseGestures(const SDL_Event &event)
         break;
     case SDL_EVENT_MOUSE_MOTION:
     {
-        // ImGui may not have wanted capture on the mouse-down frame; also skip when over custom UI
-        // so a click + drag on widgets never moves the camera once the cursor is over the UI stack.
+        // While RMB/MMB orbit or pan is active, ignore UI/ImGui under the cursor so a drag that
+        // started on the viewport is not cancelled when the pointer crosses panels (WantCaptureMouse
+        // and hit-tests still gate starting a new drag on mouse-down).
         float mx, my;
         SDL_GetMouseState(&mx, &my);
-        const bool blockNav = io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my);
+        const bool viewportNavDrag = middleMouseDown || rightMouseDown;
+        const bool blockNav = !viewportNavDrag &&
+                              (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my));
         if (middleMouseDown && !blockNav)
             display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                            event.motion.yrel * display->mouseSensitivity * 1e-4f);
@@ -330,7 +333,7 @@ bool Input::processEvent(const SDL_Event &event)
     }
     case SDL_EVENT_FINGER_MOTION:
     {
-        if (io.WantCaptureMouse)
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
         {
             break;
         }
@@ -347,13 +350,9 @@ bool Input::processEvent(const SDL_Event &event)
         const size_t nContacts = activeTouches.size();
         if (nContacts == 1U && (rightMouseDown || middleMouseDown))
         {
-            int w = 0, h = 0;
-            SDL_GetWindowSize(display->GetWindow(), &w, &h);
-            const float px = (w > 0) ? tf.x * static_cast<float>(w) : 0.0f;
-            const float py = (h > 0) ? tf.y * static_cast<float>(h) : 0.0f;
-            const bool blockTouchNav =
-                io.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py);
-            if (!blockTouchNav && std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
+            // Mouse button started navigation on the viewport; do not cancel when the finger centroid
+            // moves over UI (same policy as MOUSE_MOTION + HitTest*).
+            if (std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
             {
                 twoFingerOrMouseBridgePanOrbit(event);
             }
@@ -420,8 +419,14 @@ bool Input::processEvent(const SDL_Event &event)
         mouseGestures(event);
         break;
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
-    case SDL_EVENT_MOUSE_MOTION:
         if (io.WantCaptureMouse)
+            break;
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_MOTION:
+        // During viewport orbit/pan, ImGui may take WantCaptureMouse once the cursor is over a
+        // widget; still deliver motion so the in-progress gesture does not stop mid-drag.
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
             break;
         mouseGestures(event);
         break;
