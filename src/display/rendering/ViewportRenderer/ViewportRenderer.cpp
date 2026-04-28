@@ -8,31 +8,49 @@
 
 namespace
 {
-/// World units per pixel (ortho span across the shorter viewport side ÷ that side in pixels).
-/// Parallel grid lines `s` world units apart are ~`s/wpp` pixels apart; require ≥ 1 px gap.
-/// Returns smallest spacing in {1,2,4,…,32} with `s >= wpp` (capped at 32 — extreme zoom-out may
-/// pack slightly tighter than 1 px).
+/// World units per pixel (ortho span on the long in-view axis ÷ shorter viewport side in pixels).
+/// Parallel grid lines spaced `s` world units are ~`s/wpp` px apart — enforce ≥ 1 px via
+/// `minWorldSpacing`. Sub-unit steps use a dyadic ladder down to `kMinWorldStep` so zoom-in can
+/// refine LOD; `densityFloor` caps line count across `GRID_EXTENT`.
 float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
 {
     const float halfW = orthoSize * std::fabs(aspect);
     const float halfH = orthoSize;
     const float wpp = (2.0f * std::max(halfW, halfH)) /
                       static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
-    constexpr float kMinPixelGapBetweenParallelLines = 1.0f;
-    const float minWorldSpacing = kMinPixelGapBetweenParallelLines * wpp;
 
-    float s = 1.0f;
-    while (s + 1e-6f < minWorldSpacing && s < 32.0f)
+    constexpr float kMinPixelGapBetweenParallelLines = 1.0f;
+    const float minByPixels = kMinPixelGapBetweenParallelLines * wpp;
+
+    const float extent = Color::GRID_EXTENT;
+    const float spanWorld = 2.0f * extent;
+    const float budget = 4.0f * static_cast<float>(std::max(1, std::max(widthPx, heightPx)));
+    const float densityFloor = spanWorld / budget;
+
+    const float minWorldSpacing = std::max(minByPixels, densityFloor);
+
+    constexpr float kMinWorldStep = 1.0f / 256.0f;
+    constexpr float kMaxWorldStep = 32.0f;
+    float s = kMinWorldStep;
+    while (s + 1e-8f < minWorldSpacing && s < kMaxWorldStep)
         s *= 2.0f;
-    return std::min(32.0f, s);
+    return std::min(kMaxWorldStep, s);
 }
 
-/// Coarsen immediately when zooming out; refine when zoom-in wants a finer step (gentle anti-pop).
+/// Small relative deadband so ortho jitter does not rebuild the grid mesh every frame.
 void ApplyGridLodHysteresis(float desired, float &current)
 {
-    if (desired > current + 1e-4f)
+    if (!std::isfinite(desired) || desired <= 0.0f)
+        return;
+    if (!std::isfinite(current) || current <= 0.0f)
+    {
         current = desired;
-    else if (desired + 1e-4f < current && desired < current * 0.92f)
+        return;
+    }
+    constexpr float kBand = 1.06f;
+    if (desired > current * kBand)
+        current = desired;
+    else if (desired * kBand < current)
         current = desired;
 }
 } // namespace
@@ -124,7 +142,8 @@ void ViewportRenderer::SetCamera(Camera &camera)
                               static_cast<int>(camera.widthWindow), static_cast<int>(camera.heightWindow));
     const float before = gridWorldSpacing;
     ApplyGridLodHysteresis(want, gridWorldSpacing);
-    if (std::abs(gridWorldSpacing - before) > 1e-4f)
+    const float mag = std::max({1e-6f, before, gridWorldSpacing});
+    if (std::abs(gridWorldSpacing - before) > std::max(1e-7f, mag * 1e-5f))
         RegenerateGrid();
 }
 
@@ -144,7 +163,7 @@ void ViewportRenderer::Generate()
     std::vector<uint32_t> indices;
 
     const float extent = Color::GRID_EXTENT;
-    const float spacing = std::max(1.0f, gridWorldSpacing);
+    const float spacing = std::max(1.0f / 8192.0f, gridWorldSpacing);
 
     glm::vec3 gridColor = Color::GetGrid();
 

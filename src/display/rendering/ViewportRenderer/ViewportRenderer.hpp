@@ -43,7 +43,7 @@ private:
     /// Normalized world direction the camera looks (ortho: parallel view rays).
     glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
-    /// World-space grid step (1, 2, 4, …); coarsened so parallel lines stay ≥ ~1 px apart on screen.
+    /// World-space grid step (dyadic: …, 1/8, 1/4, 1/2, 1, 2, …); from ortho scale + 1 px line gap.
     float gridWorldSpacing = 1.0f;
     /// 1 when view is aligned to a principal axis — slightly stronger faint grid (see basic.frag).
     float principalSnapForGrid = 0.0f;

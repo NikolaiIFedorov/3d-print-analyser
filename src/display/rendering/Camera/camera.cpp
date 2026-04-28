@@ -1,6 +1,7 @@
 #include "camera.hpp"
 #include "utils/log.hpp"
 
+#include <algorithm>
 #include <glm/gtc/matrix_inverse.hpp>
 
 namespace
@@ -78,7 +79,9 @@ Camera::Camera(uint16_t width, uint16_t height)
     distance = 5.0f;
     orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
     orthoSize = 2.5f;
-    aspectRatio = static_cast<float>(width) / static_cast<float>(height);
+    widthWindow = width;
+    heightWindow = height;
+    aspectRatio = static_cast<float>(width) / static_cast<float>(std::max<uint16_t>(1, height));
     fov = 45.0f;
     // Defaults until `Display::ApplyOrthoClipFromViewBounds` tightens the slab from scene +
     // grid + view-scaled axis extent (linear depth: precision ~ (far−near) / 2^24).
@@ -261,9 +264,11 @@ void Camera::SetDistance(float d)
     distance = d;
 }
 
-void Camera::SetAspectRatio(float aspect)
+void Camera::SetAspectRatio(float aspect, uint16_t width, uint16_t height)
 {
     aspectRatio = aspect;
+    widthWindow = width;
+    heightWindow = height;
 }
 
 void Camera::ResetHomeView()

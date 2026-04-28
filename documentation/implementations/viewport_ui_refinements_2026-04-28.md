@@ -232,3 +232,27 @@ Heuristic `kMinPx` / slack still felt too coarse; user asked for a clear rule.
 ### Files
 
 - `ViewportRenderer.{hpp,cpp}`, this log
+
+---
+
+## Follow-up (grid LOD not updating on zoom)
+
+### Problem
+
+- `Camera::widthWindow` / `heightWindow` were never set (only `aspectRatio` in ctor / resize), so
+  grid LOD used stale or zero dimensions with `ViewportRenderer::SetCamera`.
+- With the ≥1 px rule, smallest spacing in `{1,2,4,…}` with `s >= wpp` is always **1** whenever
+  `wpp < 1` (typical CAD zoom), so LOD never moved; `Generate()` also clamped with `max(1, spacing)`.
+
+### Approach
+
+- Set `widthWindow` / `heightWindow` in `Camera` ctor and `SetAspectRatio(aspect, w, h)`; call the
+  new overload from `Display::SetAspectRatio`; default members for safety.
+- LOD spacing: dyadic ladder from `1/256` to `32` world units, `minWorldSpacing = max(1px·wpp,
+  densityFloor)` where `densityFloor = 2*GRID_EXTENT / (4·max(w,h))` caps mesh size.
+- `Generate()`: allow sub-unit spacing (`max(1/8192, gridWorldSpacing)`); hysteresis uses ~6%
+  relative band; regenerate when relative delta exceeds a small epsilon.
+
+### Files
+
+- `Camera.{hpp,cpp}`, `display.cpp`, `ViewportRenderer.{hpp,cpp}`, this log

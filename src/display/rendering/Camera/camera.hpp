@@ -24,7 +24,7 @@ public:
 
     void SetTarget(const glm::vec3 &target);
     void SetDistance(const float distance);
-    void SetAspectRatio(const float aspect);
+    void SetAspectRatio(float aspect, uint16_t width, uint16_t height);
 
     /// Target at origin, identity orientation (view toward XY from +Z), default distance and ortho zoom.
     void ResetHomeView();
@@ -42,8 +42,9 @@ public:
     float nearPlane;
     float farPlane;
 
-    uint16_t widthWindow;
-    uint16_t heightWindow;
+    /// Logical window size for ortho scale / grid LOD (kept in sync with `SetAspectRatio`).
+    uint16_t widthWindow = 1280;
+    uint16_t heightWindow = 720;
 
     glm::vec3 GetPosition() const;
 

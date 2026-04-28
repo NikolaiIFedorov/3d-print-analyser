@@ -1023,7 +1023,8 @@ void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
     SDL_GetWindowSizeInPixels(window, &physW, &physH);
     glViewport(0, 0, physW, physH);
 
-    camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+    camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(std::max<uint16_t>(1, height)),
+                          width, height);
     uiRenderer.SetScreenSize(width, height);
 
     const float axisH = SyncViewportAxisForDepthClip();
