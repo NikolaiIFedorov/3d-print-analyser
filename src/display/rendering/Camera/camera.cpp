@@ -3,6 +3,45 @@
 
 #include <glm/gtc/matrix_inverse.hpp>
 
+namespace
+{
+/// When target→camera is within this angle of world ±Z, snap to an exact plan pose (f = ±Z) with
+/// roll taken from the current basis so the horizon does not jump arbitrarily. Avoids the
+/// classic lookAt-style ill-conditioning without changing target, distance, or ortho zoom.
+void SnapOrientationToCanonicalPlanIfNearWorldZ(glm::quat &orientation)
+{
+    constexpr float kPolarSnapRad = glm::radians(7.0f);
+
+    const glm::mat3 M = glm::mat3_cast(orientation);
+    glm::vec3 f = glm::normalize(M * glm::vec3(0.0f, 0.0f, 1.0f));
+    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
+        return;
+
+    const float polar = std::acos(std::clamp(f.z, -1.0f, 1.0f));
+    if (polar > kPolarSnapRad && polar < glm::pi<float>() - kPolarSnapRad)
+        return;
+
+    const float zSign = (f.z >= 0.0f) ? 1.0f : -1.0f;
+    const glm::vec3 fSnap(0.0f, 0.0f, zSign);
+
+    glm::vec3 r0 = M * glm::vec3(1.0f, 0.0f, 0.0f);
+    glm::vec3 rProj(r0.x, r0.y, 0.0f);
+    const float hLen = glm::length(rProj);
+    glm::vec3 r = (hLen > 1e-5f) ? (rProj * (1.0f / hLen)) : glm::vec3(1.0f, 0.0f, 0.0f);
+
+    glm::vec3 u = glm::normalize(glm::cross(fSnap, r));
+    if (!std::isfinite(u.x) || glm::length(u) < 1e-12f)
+        u = glm::vec3(0.0f, zSign, 0.0f); // fSnap ∥ ±Z, r ⊥ Z ⇒ u along ±Y
+
+    glm::quat q = glm::normalize(glm::quat_cast(glm::mat3(r, u, fSnap)));
+    if (!std::isfinite(q.x))
+        return;
+    if (glm::dot(q, orientation) < 0.0f)
+        q = -q;
+    orientation = q;
+}
+} // namespace
+
 Camera::Camera(uint16_t width, uint16_t height)
 
 {
@@ -99,48 +138,8 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (glm::dot(qNew, orientation) < 0.0f)
         qNew = -qNew;
 
-    // Only snap near true ±Z for view-matrix stability (GetViewMatrix); margin is tiny so a real
-    // plan view of the XY plane (camera over +Z or under −Z) is still reachable.
-    constexpr float kPolarMargin = 1e-5f;
-
-    glm::vec3 f = glm::normalize(M_new * glm::vec3(0.0f, 0.0f, 1.0f));
-    if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
-        return;
-
-    float polar = std::acos(std::clamp(f.z, -1.0f, 1.0f));
-    if (polar < kPolarMargin || polar > glm::pi<float>() - kPolarMargin)
-    {
-        glm::vec2 hz(f.x, f.y);
-        float hLen = glm::length(hz);
-        if (hLen < 1e-4f)
-        {
-            hz = glm::vec2(fAfterYaw.x, fAfterYaw.y);
-            hLen = glm::length(hz);
-        }
-        if (hLen < 1e-4f)
-            hz = glm::vec2(1.0f, 0.0f);
-        else
-            hz /= hLen;
-        polar = glm::clamp(polar, kPolarMargin, glm::pi<float>() - kPolarMargin);
-        const float sinP = std::sin(polar);
-        f = glm::normalize(glm::vec3(hz.x * sinP, hz.y * sinP, std::cos(polar)));
-
-        glm::vec3 r = glm::cross(kWorldUp, f);
-        const float rLen = glm::length(r);
-        if (rLen > 1e-6f)
-            r *= 1.0f / rLen;
-        else
-            r = glm::vec3(1.0f, 0.0f, 0.0f);
-        const glm::vec3 u = glm::normalize(glm::cross(f, r));
-        glm::quat qSnap = glm::normalize(glm::quat_cast(glm::mat3(r, u, f)));
-        if (glm::dot(qSnap, orientation) < 0.0f)
-            qSnap = -qSnap;
-        orientation = qSnap;
-    }
-    else
-    {
-        orientation = qNew;
-    }
+    orientation = qNew;
+    SnapOrientationToCanonicalPlanIfNearWorldZ(orientation);
 }
 
 void Camera::Roll(float delta)

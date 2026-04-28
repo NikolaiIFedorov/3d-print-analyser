@@ -23,3 +23,11 @@ Tilting the view (world Z on screen) seemed to stop near ~45°; pushing further 
 Quat hemisphere kept. **Pitch axis** changed from `normalize(cross(Z, fAfterYaw))` (turntable latitude tangent) to **`normalize(M_yaw * R_ori * e_x)`** (camera right after horizontal yaw). That aligns vertical mouse drag with **tilt toward/away from plan** when coming from an XZ-style oblique view; the old axis often left colatitude “stuck” around ~45° while the on-screen Z line still moved from mixing yaw/pitch in non-screen axes.
 
 Removed **lastOrbitPitchAxis** continuity (could fight legitimate axis changes); pitch axis is now unambiguous each frame.
+
+## Follow-up — plan singularity snap (same day)
+
+**Idea:** Near the classic “view along ±world Z” / lookAt-degenerate cone, snap orientation to an **exact** plan basis (`f = ±(0,0,1)`), preserving which side of the XY plane and approximate screen azimuth (project current camera +X onto XY). Small snap is acceptable UX.
+
+**Implementation:** Removed the old **1e−5 rad** polar offset branch inside `Orbit`; after each orbit step set `orientation = qNew` then `SnapOrientationToCanonicalPlanIfNearWorldZ` when colatitude is within **7°** of ±Z (`kPolarSnapRad`). Target, distance, and ortho zoom unchanged.
+
+**Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.
