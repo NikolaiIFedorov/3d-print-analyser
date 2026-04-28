@@ -3,22 +3,18 @@
 
 #include <algorithm>
 #include <glm/gtc/matrix_inverse.hpp>
+#include <optional>
 
 namespace
 {
-/// When target→camera is within a small cone of world ±X, ±Y, or ±Z, snap to that principal axis so
-/// the view is a canonical orthographic face of a coordinate plane (YZ / XZ / XY). Roll is taken
-/// from the current basis by projecting camera +X onto the plane perpendicular to the snapped axis.
-/// Does not change target, distance, or ortho zoom — complements orbit without an orientation cube.
-void SnapOrientationToCanonicalPrincipalViewIfNearAxis(glm::quat &orientation)
+/// If world forward `orientation*(0,0,1)` lies within `acos(cosSnap)` of a world ±X/±Y/±Z axis,
+/// returns the canonical orthographic snap quaternion; otherwise nullopt.
+std::optional<glm::quat> TryPrincipalSnapQuat(const glm::quat &orientation, float cosSnap)
 {
-    constexpr float kPrincipalSnapRad = glm::radians(3.0f);
-    const float cosSnap = std::cos(kPrincipalSnapRad);
-
     const glm::mat3 M = glm::mat3_cast(orientation);
     glm::vec3 f = glm::normalize(M * glm::vec3(0.0f, 0.0f, 1.0f));
     if (!std::isfinite(f.x) || glm::length(f) < 1e-12f)
-        return;
+        return std::nullopt;
 
     const float ax = std::abs(f.x);
     const float ay = std::abs(f.y);
@@ -32,16 +28,16 @@ void SnapOrientationToCanonicalPrincipalViewIfNearAxis(glm::quat &orientation)
     else if (az >= cosSnap)
         fSnap = glm::vec3(0.0f, 0.0f, f.z >= 0.0f ? 1.0f : -1.0f);
     else
-        return;
+        return std::nullopt;
 
     const glm::vec3 r0 = M * glm::vec3(1.0f, 0.0f, 0.0f);
     glm::vec3 rProj(0.0f);
     if (std::abs(fSnap.x) > 0.5f)
-        rProj = glm::vec3(0.0f, r0.y, r0.z); // plane ⊥ ±X
+        rProj = glm::vec3(0.0f, r0.y, r0.z);
     else if (std::abs(fSnap.y) > 0.5f)
-        rProj = glm::vec3(r0.x, 0.0f, r0.z); // plane ⊥ ±Y
+        rProj = glm::vec3(r0.x, 0.0f, r0.z);
     else
-        rProj = glm::vec3(r0.x, r0.y, 0.0f); // plane ⊥ ±Z
+        rProj = glm::vec3(r0.x, r0.y, 0.0f);
 
     float hLen = glm::length(rProj);
     glm::vec3 r = (hLen > 1e-5f) ? (rProj * (1.0f / hLen)) : glm::vec3(0.0f);
@@ -65,10 +61,10 @@ void SnapOrientationToCanonicalPrincipalViewIfNearAxis(glm::quat &orientation)
 
     glm::quat q = glm::normalize(glm::quat_cast(glm::mat3(r, u, fSnap)));
     if (!std::isfinite(q.x))
-        return;
+        return std::nullopt;
     if (glm::dot(q, orientation) < 0.0f)
         q = -q;
-    orientation = q;
+    return q;
 }
 } // namespace
 
@@ -189,12 +185,49 @@ void Camera::Orbit(float deltaX, float deltaY)
     if (glm::dot(qNew, orientation) < 0.0f)
         qNew = -qNew;
 
+    constexpr float kSnapEnterDeg = 3.0f;
+    constexpr float kSnapExitDeg = 8.5f;
+    const float cosEnter = std::cos(glm::radians(kSnapEnterDeg));
+    const float cosExit = std::cos(glm::radians(kSnapExitDeg));
+
+    const glm::mat3 M_qNew = glm::mat3_cast(qNew);
+    glm::vec3 fNew = glm::normalize(M_qNew * glm::vec3(0.0f, 0.0f, 1.0f));
+    if (!std::isfinite(fNew.x) || glm::length(fNew) < 1e-12f)
+        return;
+
+    if (principalSnapLatched)
+    {
+        const glm::mat3 M_l = glm::mat3_cast(latchedPrincipalOrientation);
+        const glm::vec3 fLock = glm::normalize(M_l * glm::vec3(0.0f, 0.0f, 1.0f));
+        const float align = std::fabs(glm::dot(fNew, fLock));
+        if (align < cosExit)
+        {
+            principalSnapLatched = false;
+            orientation = qNew;
+            if (auto snapped = TryPrincipalSnapQuat(orientation, cosEnter))
+            {
+                orientation = *snapped;
+                latchedPrincipalOrientation = *snapped;
+                principalSnapLatched = true;
+            }
+        }
+        else
+            orientation = latchedPrincipalOrientation;
+        return;
+    }
+
     orientation = qNew;
-    SnapOrientationToCanonicalPrincipalViewIfNearAxis(orientation);
+    if (auto snapped = TryPrincipalSnapQuat(orientation, cosEnter))
+    {
+        orientation = *snapped;
+        latchedPrincipalOrientation = *snapped;
+        principalSnapLatched = true;
+    }
 }
 
 void Camera::Roll(float delta)
 {
+    principalSnapLatched = false;
     glm::vec3 forward = orientation * glm::vec3(0.0f, 0.0f, -1.0f);
     glm::quat rotation = glm::angleAxis(delta, forward);
     orientation = glm::normalize(rotation * orientation);
@@ -238,6 +271,7 @@ void Camera::Zoom(float delta, const glm::vec3 &targetPoint)
 
 void Camera::FrameBounds(const glm::vec3 &min, const glm::vec3 &max)
 {
+    principalSnapLatched = false;
     target = (min + max) * 0.5f;
 
     glm::vec3 size = max - min;
@@ -273,6 +307,7 @@ void Camera::SetAspectRatio(float aspect, uint16_t width, uint16_t height)
 
 void Camera::ResetHomeView()
 {
+    principalSnapLatched = false;
     target = glm::vec3(0.0f, 0.0f, 0.0f);
     distance = 5.0f;
     orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);

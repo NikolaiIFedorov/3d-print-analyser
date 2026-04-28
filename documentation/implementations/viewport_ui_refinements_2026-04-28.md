@@ -303,3 +303,22 @@ View-based grazing alpha in `basic.frag` plus LOD foreshortening felt redundant.
 ### Files
 
 - `basic.frag`, `OpenGLRenderer.cpp`, `ViewportRenderer.{hpp,cpp}`, this log
+
+---
+
+## Follow-up (principal-axis snap: easier in, harder out)
+
+### Problem
+
+Orbit snap used one cone (~3°): leaving a snapped canonical view re-snapped on small motion.
+
+### Approach
+
+- Hysteresis: **enter** still `cos(3°)` via `TryPrincipalSnapQuat`; when latched, keep
+  `latchedPrincipalOrientation` until raw orbit forward is **> ~8.5°** off that axis
+  (`|dot(fNew,fLock)| < cos(8.5°)`), then release and allow normal snap/enter again.
+- Latch cleared on `Roll`, `FrameBounds`, `ResetHomeView`.
+
+### Files
+
+- `Camera.{hpp,cpp}`, this log
