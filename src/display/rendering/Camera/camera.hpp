@@ -36,7 +36,7 @@ public:
     float distance;
     glm::quat orientation;
 
-    /// Principal-axis snap hysteresis: enter ~3°, release after ~5.25° raw tilt off latched axis.
+    /// Principal-axis snap hysteresis: enter ~3°, release after ~4.2° raw tilt off latched axis.
     bool principalSnapLatched = false;
     glm::quat latchedPrincipalOrientation{1.0f, 0.0f, 0.0f, 0.0f};
 

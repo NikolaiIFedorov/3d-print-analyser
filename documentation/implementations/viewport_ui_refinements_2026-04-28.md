@@ -319,6 +319,11 @@ Orbit snap used one cone (~3°): leaving a snapped canonical view re-snapped on 
   too sticky vs enter-only 3°).
 - Latch cleared on `Roll`, `FrameBounds`, `ResetHomeView`.
 
+### Follow-up (snap-out too sticky still)
+
+- Reduced snap-out threshold to `~4.2°` while keeping enter at `3°`, preserving hysteresis but making
+  leaving a snapped orientation require less drag.
+
 ### Files
 
 - `Camera.{hpp,cpp}`, this log
