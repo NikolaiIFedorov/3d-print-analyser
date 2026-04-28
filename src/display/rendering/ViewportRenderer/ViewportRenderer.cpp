@@ -3,6 +3,15 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
+namespace
+{
+// Depth stacking (LEQUAL, smaller depth = nearer): scene uses default offset; grid is drawn first
+// with a line offset so its stored depth wins over coplanar triangles/edges; axes use a stronger
+// offset so they win over the grid. Signs flip with reverse-Z projection.
+constexpr float kGridLinePolygonOffset = -0.9f;
+constexpr float kAxisLinePolygonOffset = -2.25f;
+} // namespace
+
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
     if (!InitializeShaders())
@@ -215,15 +224,15 @@ void ViewportRenderer::Render()
     glGetBooleanv(GL_BLEND, &blendWas);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // Write depth so opaque scene sorts correctly in front of/behind the z=0 grid plane.
+    // Write depth so later passes can test against the floor plane.
     glDepthMask(GL_TRUE);
 
-    // Push grid slightly farther than coplanar faces/axes so meshes and axes win depth tests.
+    // Bias grid slightly nearer than coplanar scene geometry so grid wins over mesh (see kGrid* / kAxis*).
     glEnable(GL_POLYGON_OFFSET_LINE);
     if (RenderingExperiments::kReverseZDepth)
-        glPolygonOffset(-1.25f, -1.25f);
+        glPolygonOffset(-kGridLinePolygonOffset, -kGridLinePolygonOffset);
     else
-        glPolygonOffset(1.25f, 1.25f);
+        glPolygonOffset(kGridLinePolygonOffset, kGridLinePolygonOffset);
 
     glBindVertexArray(lineVAO);
 
@@ -264,12 +273,12 @@ void ViewportRenderer::RenderAxes()
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
     glDepthMask(GL_FALSE);
 
-    // Nudge axes slightly toward the camera vs the grid so shared z=0 lines prefer axes.
+    // Stronger line offset than grid so axes win depth over the floor grid where they coincide.
     glEnable(GL_POLYGON_OFFSET_LINE);
     if (RenderingExperiments::kReverseZDepth)
-        glPolygonOffset(1.0f, 1.0f);
+        glPolygonOffset(-kAxisLinePolygonOffset, -kAxisLinePolygonOffset);
     else
-        glPolygonOffset(-1.0f, -1.0f);
+        glPolygonOffset(kAxisLinePolygonOffset, kAxisLinePolygonOffset);
 
     glBindVertexArray(lineVAO);
     glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,

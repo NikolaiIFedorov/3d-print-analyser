@@ -112,3 +112,21 @@ Zoom / pixel-gap grid LOD felt worse than a fixed dense grid.
 ### Files
 
 - `ViewportRenderer.cpp`, `UIGrid.hpp`, this log
+
+---
+
+## Follow-up (explicit depth stack: axes > grid > scene)
+
+### Intended order
+
+Front to back: **axes** over **grid** over **scene** triangles/edges (reduce z-fighting at the floor plane).
+
+### Approach
+
+- Grid pass: `GL_POLYGON_OFFSET_LINE` with **negative** factor (standard depth) so stored grid depth is slightly **nearer** than coplanar mesh; scene draws afterward and loses where the user wants the grid to read on top.
+- Axes pass: **more negative** line offset than grid so axes beat the grid at shared lines; reverse-Z uses negated constants.
+- Named constants `kGridLinePolygonOffset` / `kAxisLinePolygonOffset` in `ViewportRenderer.cpp`.
+
+### Files
+
+- `ViewportRenderer.cpp`, `display.cpp` (comment), this log

@@ -457,7 +457,8 @@ void Display::Render()
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
 
-    viewportRenderer.Render(); // grid (depth-tested)
+    // Grid first with line polygon offset so depth stacks: scene < grid < axes (axes drawn last).
+    viewportRenderer.Render();
 
     const bool cullOpaqueTriangles = ViewportDepthExperiments::IsBackFaceCull() ||
                                    RenderingExperiments::kCullBackFacesOpaquePatches;
@@ -486,7 +487,7 @@ void Display::Render()
     renderer.RenderPickHighlightLines(6.0f);
     glDisable(GL_STENCIL_TEST);
 
-    viewportRenderer.RenderAxes(); // axes — occluded by solid via stencil
+    viewportRenderer.RenderAxes(); // axes over grid; stencil masks solid fills from patch pass
 
     // Start ImGui frame
     if (pendingFileTabsRebuild)
