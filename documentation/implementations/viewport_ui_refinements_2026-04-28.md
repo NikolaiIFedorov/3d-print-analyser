@@ -149,3 +149,26 @@ Front to back: **axes** over **grid** over **scene** triangles/edges (reduce z-f
 ### Files
 
 - `include/RenderingExperiments.hpp`, `basic.vert`, `line.vert`, `OpenGLRenderer.cpp`, `ViewportRenderer.cpp`, `display.cpp`, this log
+
+---
+
+## Follow-up (grid bleed on solids + LOD readability)
+
+### Problem
+
+- Grid and axes could still read through opaque fills when depth alone was ambiguous.
+- Coarse grid LOD (wider world spacing) made the floor hard to see if alpha stayed low.
+
+### Approach
+
+- **Draw order**: `display.cpp` draws opaque patches (stencil write `1`), wireframe, pick-highlight lines, then **grid** then **axes**; stencil test `EQUAL 0` on the grid pass so fragments over opaque patch pixels are skipped.
+- **LOD**: Restore world-spacing powers-of-two with hysteresis in `ViewportRenderer::SetCamera` (`DesiredGridLodSpacing`, `ApplyGridLodHysteresis`); `RegenerateGrid` when spacing changes.
+- **`uGridLodStep`**: Grid pass sets this to current `gridWorldSpacing`; `basic.frag` adds a small alpha boost when spacing > 1 so sparse lines stay visible without globally raising opacity.
+
+### Files
+
+- `display.cpp`, `ViewportRenderer.{hpp,cpp}`, `basic.frag`, `OpenGLRenderer.cpp`, this log
+
+### Outcome
+
+Build clean; user can tune hysteresis / `kMinPx` / LOD max in `ViewportRenderer.cpp` if stepping feels harsh.

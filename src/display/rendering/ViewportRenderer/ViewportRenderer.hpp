@@ -43,6 +43,8 @@ private:
     /// Normalized world direction the camera looks (ortho: parallel view rays).
     glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
+    /// World-space grid step (1, 2, 4, …); widened only when lines would pack tighter than a few px.
+    float gridWorldSpacing = 1.0f;
     /// 1 when view is aligned to a principal axis — slightly stronger faint grid (see basic.frag).
     float principalSnapForGrid = 0.0f;
 

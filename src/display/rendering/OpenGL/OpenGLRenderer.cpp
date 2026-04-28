@@ -424,6 +424,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
     shader.SetFloat("uPrincipalSnap", 0.0f);
+    shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
 
@@ -503,6 +504,7 @@ void OpenGLRenderer::DrawPickHighlight()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", glm::vec3(0.0f, 0.0f, 1.0f));
     shader.SetFloat("uPrincipalSnap", 0.0f);
+    shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", 0.0f);
     shader.SetFloat("uLightingEnabled", 1.0f);
 

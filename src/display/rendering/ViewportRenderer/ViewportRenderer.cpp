@@ -3,6 +3,36 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+/// Minimum world spacing so parallel grid lines stay roughly `kMinPx` apart on screen (gentle 1,2,4,…).
+float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx)
+{
+    const float halfW = orthoSize * std::fabs(aspect);
+    const float halfH = orthoSize;
+    const float wpp = (2.0f * std::max(halfW, halfH)) /
+                      static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
+    constexpr float kMinPx = 3.25f;
+    const float need = kMinPx * wpp;
+    float s = 1.0f;
+    while (s < need && s < 32.0f)
+        s *= 2.0f;
+    return std::min(32.0f, s);
+}
+
+/// Coarsen LOD immediately when zooming out; refine only after zoom-in to reduce band popping.
+void ApplyGridLodHysteresis(float desired, float &current)
+{
+    if (desired > current + 1e-4f)
+        current = desired;
+    else if (desired + 1e-4f < current && desired < current * 0.68f)
+        current = desired;
+}
+} // namespace
+
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
     if (!InitializeShaders())
@@ -31,6 +61,7 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
+      gridWorldSpacing(other.gridWorldSpacing),
       principalSnapForGrid(other.principalSnapForGrid)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
@@ -52,6 +83,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewProjection = other.viewProjection;
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
+        gridWorldSpacing = other.gridWorldSpacing;
         principalSnapForGrid = other.principalSnapForGrid;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
@@ -75,6 +107,14 @@ void ViewportRenderer::SetCamera(Camera &camera)
         viewDirWorld = glm::normalize(-forwardWorld);
 
     principalSnapForGrid = camera.IsPrincipalAxisView() ? 1.0f : 0.0f;
+
+    const float want =
+        DesiredGridLodSpacing(camera.orthoSize, camera.aspectRatio,
+                              static_cast<int>(camera.widthWindow), static_cast<int>(camera.heightWindow));
+    const float before = gridWorldSpacing;
+    ApplyGridLodHysteresis(want, gridWorldSpacing);
+    if (std::abs(gridWorldSpacing - before) > 1e-4f)
+        RegenerateGrid();
 }
 
 void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
@@ -93,7 +133,7 @@ void ViewportRenderer::Generate()
     std::vector<uint32_t> indices;
 
     const float extent = Color::GRID_EXTENT;
-    constexpr float spacing = 1.0f;
+    const float spacing = std::max(1.0f, gridWorldSpacing);
 
     glm::vec3 gridColor = Color::GetGrid();
 
@@ -207,7 +247,12 @@ void ViewportRenderer::Render()
     shader.SetFloat("uGridPlaneFade", 1.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
     shader.SetFloat("uPrincipalSnap", principalSnapForGrid);
+    shader.SetFloat("uGridLodStep", gridWorldSpacing);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
+
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
@@ -225,6 +270,8 @@ void ViewportRenderer::Render()
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
 
     glBindVertexArray(0);
+
+    glDisable(GL_STENCIL_TEST);
 
     if (!blendWas)
         glDisable(GL_BLEND);
@@ -246,6 +293,7 @@ void ViewportRenderer::RenderAxes()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetVec3("uViewDirWorld", viewDirWorld);
     shader.SetFloat("uPrincipalSnap", 0.0f);
+    shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasAxesW());
 
     // Only draw where stencil == 0 (open space, not covered by solid geometry)
