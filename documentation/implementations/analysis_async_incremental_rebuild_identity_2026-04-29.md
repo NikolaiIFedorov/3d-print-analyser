@@ -43,3 +43,9 @@ Pointer identity on stack-backed `AnalysisResults` was a subtle footgun; prefer 
 - In `Display::Frame`, the `else` branch after `hasAnalysisThisFrame` cleared flaw counts and verdict whenever `geometryOrStyleWork` was true.
 - After async analysis applied, incremental rebuild often keeps `geometryDirtyAll` latched for many frames with `hasAnalysisThisFrame` false on those frames → the clear ran every frame and wiped the panel right after it populated.
 - Gate that clear: only when `geometryOrStyleWork && !analysisEnabled` (non-Analysis tool / analysis off path still resets UI during geometry work).
+
+## Follow-up fix 4 (viewport flaw tint stopped updating after param change)
+
+- `RebuildAllIncremental` was only given `AnalysisResults*` on the **first** frame (`hasAnalysisThisFrame`).
+- Continuation frames passed `nullptr` and identity `0`, so `SceneRenderer` treated that as a new snapshot and restarted the incremental session **without** analysis → meshes rebuilt with default colors while the panel still showed flaws.
+- `Display` now keeps `activeAnalysisTintForRebuild` (+ matching identity) until incremental geometry rebuild completes, and passes that pointer on **every** continuation frame.

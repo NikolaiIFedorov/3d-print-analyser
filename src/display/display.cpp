@@ -580,6 +580,8 @@ void Display::MarkStyleDirty()
         pendingAnalysisTask.reset();
     }
     pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
     analysisRequestId++;
 
     styleDirty = true;
@@ -597,6 +599,8 @@ void Display::MarkGeometryDirtyAll()
         pendingAnalysisTask.reset();
     }
     pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
     analysisRequestId++;
 
     geometryDirtyAll = true;
@@ -621,6 +625,8 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
         pendingAnalysisTask.reset();
     }
     pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
     analysisRequestId++;
 
     if (!geometryDirtyAll)
@@ -774,13 +780,11 @@ void Display::Frame()
         const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
         bool geometryRebuildComplete = true;
         bool hasAnalysisThisFrame = false;
-        AnalysisResults results;
-        uint64_t analysisIdentityForRebuild = 0;
         if (analysisEnabled && pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene &&
             styleDirty)
         {
-            results = std::move(pendingAnalysisTint->results);
-            analysisIdentityForRebuild = pendingAnalysisTint->requestId;
+            activeAnalysisTintForRebuild.emplace(std::move(pendingAnalysisTint->results));
+            activeAnalysisTintIdentityForRebuild = pendingAnalysisTint->requestId;
             pendingAnalysisTint.reset();
             hasAnalysisThisFrame = true;
             if (!geometryDirtyAll && geometryDirtySolids.empty())
@@ -823,10 +827,15 @@ void Display::Frame()
             }
         }
 
+        const AnalysisResults *activeTintPtr =
+            activeAnalysisTintForRebuild.has_value() ? &*activeAnalysisTintForRebuild : nullptr;
+        const uint64_t activeTintId =
+            activeAnalysisTintForRebuild.has_value() ? activeAnalysisTintIdentityForRebuild : 0;
+
         if (geometryDirtyAll)
         {
-            geometryRebuildComplete = renderer.RebuildAllIncremental(scene, hasAnalysisThisFrame ? &results : nullptr, 2.5,
-                                                                     hasAnalysisThisFrame ? analysisIdentityForRebuild : 0);
+            geometryRebuildComplete =
+                renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
             InvalidationExec(InvalidationNode::Geometry);
             if (!geometryRebuildComplete)
             {
@@ -837,7 +846,7 @@ void Display::Frame()
         }
         else if (!geometryDirtySolids.empty())
         {
-            renderer.RebuildSolids(scene, geometryDirtySolids, hasAnalysisThisFrame ? &results : nullptr);
+            renderer.RebuildSolids(scene, geometryDirtySolids, activeTintPtr);
             InvalidationExec(InvalidationNode::Geometry);
         }
         else if (styleDirty)
@@ -848,7 +857,7 @@ void Display::Frame()
                 // a full rebuild. Route through the same incremental path to avoid a hitch.
                 geometryDirtyAll = true;
                 geometryRebuildComplete =
-                    renderer.RebuildAllIncremental(scene, &results, 2.5, analysisIdentityForRebuild);
+                    renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
                 InvalidationExec(InvalidationNode::Geometry);
                 if (!geometryRebuildComplete)
                 {
@@ -943,6 +952,7 @@ void Display::Frame()
 
         if (hasAnalysisThisFrame)
         {
+            AnalysisResults &results = *activeAnalysisTintForRebuild;
             InvalidationExec(InvalidationNode::Analysis);
             // Count flaws per type and push to UI
             size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
@@ -1306,6 +1316,8 @@ void Display::Frame()
             geometryDirtySolids.clear();
             styleDirty = false;
             pickDirty = false;
+            activeAnalysisTintForRebuild.reset();
+            activeAnalysisTintIdentityForRebuild = 0;
         }
         else
         {

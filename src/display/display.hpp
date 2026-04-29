@@ -264,9 +264,12 @@ private:
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
     /// Latest async analysis result awaiting render application (tints / flaw overlay).
     std::optional<AsyncAnalysisResult> pendingAnalysisTint;
+    /// Incremental full rebuild spans many frames; keep analysis snapshot + id stable until it finishes.
+    std::optional<AnalysisResults> activeAnalysisTintForRebuild;
+    uint64_t activeAnalysisTintIdentityForRebuild = 0;
     uint64_t analysisRequestId = 0;
     bool skipAnalysisForNextGeometryRebuild = false;
-    bool pendingAnalysisAfterImportRebuild = false;
+    bool pendingAnalysisAfterGeometryRebuild = false;
 
     /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
     std::string statusStripLine;
