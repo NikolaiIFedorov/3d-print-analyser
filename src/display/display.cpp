@@ -661,30 +661,13 @@ void Display::ClearScheduledNodes()
 
 void Display::RunPickNode()
 {
-    // Guardrail: pick mesh refresh must run after geometry/style node settled for this frame.
-    if (renderer.FullRebuildInProgress())
-    {
-        InvalidationSkip(InvalidationNode::Pick);
-        return;
-    }
-
+    // Pick mesh refresh must run after geometry/style has fully settled.
+    // Never force a sync fallback rebuild from here; geometry/style work owns rebuild cadence.
     if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
     {
         InvalidationGuardrailViolation();
-        invalidationStats.fallbackToFullRebuild++;
-        AnalysisResults results;
-        if (analysisEnabled)
-        {
-            results = Analysis::Instance().AnalyzeScene(scene);
-            renderer.RebuildAll(scene, &results);
-        }
-        else
-        {
-            renderer.RebuildAll(scene, nullptr);
-        }
-        geometryDirtyAll = false;
-        geometryDirtySolids.clear();
-        styleDirty = false;
+        InvalidationSkip(InvalidationNode::Pick);
+        return;
     }
 
     if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
@@ -740,9 +723,10 @@ void Display::Frame()
         }
     }
 
-    if (pendingAnalysisAfterImportRebuild && !geometryDirtyAll && geometryDirtySolids.empty() && !styleDirty && !pendingAnalysisTask.has_value())
+    if (analysisEnabled && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
+        !styleDirty && !pendingAnalysisTask.has_value())
     {
-        pendingAnalysisAfterImportRebuild = false;
+        pendingAnalysisAfterGeometryRebuild = false;
         const uint64_t requestId = ++analysisRequestId;
         const Scene *sceneForAnalysis = scene;
         pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
@@ -806,9 +790,10 @@ void Display::Frame()
         {
             const bool shouldLaunchAsyncAnalysis =
                 geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
-                !renderer.FullRebuildInProgress() && !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value();
-            if (shouldLaunchAsyncAnalysis)
+                !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value();
+            if (shouldLaunchAsyncAnalysis && !renderer.FullRebuildInProgress())
             {
+                pendingAnalysisAfterGeometryRebuild = false;
                 const uint64_t requestId = analysisRequestId;
                 const Scene *sceneForAnalysis = scene;
                 pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
@@ -830,6 +815,11 @@ void Display::Frame()
                                                             out.ok = true;
                                                             return out;
                                                         });
+            }
+            else if (shouldLaunchAsyncAnalysis)
+            {
+                // Geometry work is still in-flight; launch analysis as soon as the rebuild drains.
+                pendingAnalysisAfterGeometryRebuild = true;
             }
         }
 
@@ -1289,7 +1279,10 @@ void Display::Frame()
         else
         {
             InvalidationSkip(InvalidationNode::Analysis);
-            if (geometryOrStyleWork)
+            // Only clear live analysis UI when analysis is off. When analysis is on, geometry/style
+            // can stay dirty across many frames (incremental rebuild); clearing here would erase
+            // counts/verdict the frame after async results were applied.
+            if (geometryOrStyleWork && !analysisEnabled)
             {
                 lastVerdictWasPass = false;
                 flawOverhang = {};
@@ -1305,7 +1298,7 @@ void Display::Frame()
             // Import handoff: keep the first rebuild responsive, then request one
             // follow-up style/analysis pass once geometry is visible.
             skipAnalysisForNextGeometryRebuild = false;
-            pendingAnalysisAfterImportRebuild = true;
+            pendingAnalysisAfterGeometryRebuild = true;
         }
         if (geometryRebuildComplete)
         {

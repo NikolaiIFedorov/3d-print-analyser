@@ -23,3 +23,23 @@ After routing analysis tint through incremental `RebuildAll`, the UI sometimes f
 ## Retro (short)
 
 Pointer identity on stack-backed `AnalysisResults` was a subtle footgun; prefer explicit generation ids for anything that spans frames.
+
+## Follow-up fix (same day)
+
+- `RunPickNode` still had a synchronous guardrail fallback that could call `Analysis::AnalyzeScene` + `renderer.RebuildAll` on the main thread whenever dirty flags were latched at pick time.
+- During incremental rebuild hand-off this path could reintroduce visible freezes and bypass normal async-analysis/UI result application cadence.
+- Updated `RunPickNode` to **defer pick refresh while geometry/style are dirty** (skip + return) instead of forcing fallback full rebuild.
+
+## Follow-up fix 2 (analysis not returning after hitch reduction)
+
+- While incremental geometry rebuild was in flight, `Display::Frame` intentionally avoided launching async analysis (`renderer.FullRebuildInProgress()` guard).
+- If rebuild then settled with no new dirty event, analysis launch could be skipped indefinitely.
+- Added `pendingAnalysisAfterGeometryRebuild`:
+  - set whenever analysis is needed but blocked by in-flight rebuild,
+  - consumed as soon as geometry/style dirty flags clear, launching async analysis immediately.
+
+## Follow-up fix 3 (analysis UI vanished next frame)
+
+- In `Display::Frame`, the `else` branch after `hasAnalysisThisFrame` cleared flaw counts and verdict whenever `geometryOrStyleWork` was true.
+- After async analysis applied, incremental rebuild often keeps `geometryDirtyAll` latched for many frames with `hasAnalysisThisFrame` false on those frames → the clear ran every frame and wiped the panel right after it populated.
+- Gate that clear: only when `geometryOrStyleWork && !analysisEnabled` (non-Analysis tool / analysis off path still resets UI during geometry work).
