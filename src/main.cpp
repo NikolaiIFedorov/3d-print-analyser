@@ -3,8 +3,10 @@
 #include "map"
 
 #include "scene.hpp"
+#include "ProjectionDepthMode.hpp"
 #include "display/display.hpp"
 #include "input/Input.hpp"
+#include "utils/log.hpp"
 #include "utils/SessionLogger.hpp"
 
 SDL_Window *window = nullptr;
@@ -30,7 +32,7 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
     float ndcY = 1.0f - (2.0f * mouseY) / screenHeight;
 
     glm::mat4 view = camera.GetViewMatrix();
-    glm::mat4 proj = camera.GetProjectionMatrix();
+    glm::mat4 proj = ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix());
     glm::mat4 viewProj = proj * view;
     glm::mat4 invViewProj = glm::inverse(viewProj);
 
@@ -82,7 +84,7 @@ int main()
         if (!Init())
             return -1;
 
-        LOG_FILTER_BACK(true);
+        Log::SetVerbosity(LogVerbosity::NORMAL);
         display->Frame();
         while (input->handleEvents())
         {

@@ -5,12 +5,13 @@
 /// One-at-a-time probes for depth fighting / wrong occlusion / hover picking.
 /// Change `kActive`, rebuild, run the same camera orientation that misbehaved, note result, then try the next.
 ///
-/// Ortho near/far are tightened from scene + grid + axis bounds in `Display` by default
-/// (`kTightenOrthoClipPlanes` in `display.cpp`). These experiments only adjust other GL / pick behavior.
+/// Ortho near/far are tightened from scene + grid + view-scaled axis extent in `Display` by default
+/// (`kTightenOrthoClipPlanes`, `OrthoClipAxisWorldHalfExtent` in `display.cpp`). Experiments only adjust
+/// other GL / pick behavior.
 ///
 /// Suggested order for remaining probes:
 /// 1. `BackFaceCull` — `GL_CULL_FACE` on for the 3D pass (stencil/axes path unchanged).
-/// 2. `NoWireZBias` — wireframe / pick-highlight lines skip the clip-space Z nudge in `line.vert`.
+/// 2. `NoWireZBias` — wireframe / pick-highlight lines set `uWireZNudgeNdc` to 0 (no clip Z nudge).
 /// 3. `NoPickPolygonOffset` — pick highlight fill has no `glPolygonOffset`.
 /// 4. `PickFrontFaceOnly` — CPU ray pick skips hits on the back side of the triangle (winding vs ray).
 ///

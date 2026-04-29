@@ -19,12 +19,15 @@ struct Settings
     float accentSat = 0.35f;
     bool accentUseSystem = true;
     int themeMode = 0; // 0=System, 1=Light, 2=Dark
+    float contrast = 0.5f;
 
     // Viewport
     float gridExtent = 256.0f;
+    float lod = 0.5f;
 
     // Navigation
     float mouseSensitivity = 30.0f;
+    float snap = 0.3f;
 
     // Returns the platform-appropriate path to settings.xml.
     // Uses SDL_GetPrefPath so the directory is created if it doesn't exist.
@@ -66,8 +69,11 @@ struct Settings
         writeFloat("accentSat", accentSat);
         writeBool("accentUseSystem", accentUseSystem);
         writeInt("themeMode", themeMode);
+        writeFloat("contrast", contrast);
         writeFloat("gridExtent", gridExtent);
+        writeFloat("lod", lod);
         writeFloat("mouseSensitivity", mouseSensitivity);
+        writeFloat("snap", snap);
 
         return doc.SaveFile(path.c_str()) == tinyxml2::XML_SUCCESS;
     }
@@ -111,8 +117,11 @@ struct Settings
         readFloat("accentSat", accentSat);
         readBool("accentUseSystem", accentUseSystem);
         readInt("themeMode", themeMode);
+        readFloat("contrast", contrast);
         readFloat("gridExtent", gridExtent);
+        readFloat("lod", lod);
         readFloat("mouseSensitivity", mouseSensitivity);
+        readFloat("snap", snap);
 
         return true;
     }

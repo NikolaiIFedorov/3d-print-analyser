@@ -8,12 +8,24 @@ out vec4 outColor;
 uniform vec3 uLightDir;
 uniform float uBrightenAmount;
 uniform float uLightingEnabled;
+uniform float uGridPlaneFade;
+uniform float uGridLodStep;
 
 void main()
 {
     if (uLightingEnabled < 0.5)
     {
-        outColor = vec4(fragColor, 1.0);
+        vec3 c = fragColor;
+        if (uGridPlaneFade > 0.5)
+        {
+            // Opacity fixed; density is handled only by grid LOD (world spacing + foreshortening).
+            float a = 0.46;
+            if (uGridLodStep > 1.01)
+                a = min(0.93, a + 0.12 * clamp(log2(uGridLodStep) / 4.0, 0.0, 1.0));
+            outColor = vec4(c, a);
+            return;
+        }
+        outColor = vec4(c, 1.0);
         return;
     }
 

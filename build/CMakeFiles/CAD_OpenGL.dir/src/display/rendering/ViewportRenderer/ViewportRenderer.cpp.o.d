@@ -1336,6 +1336,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRendere
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../core/surface.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/array2.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \

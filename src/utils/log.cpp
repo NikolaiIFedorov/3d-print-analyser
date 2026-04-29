@@ -1,6 +1,44 @@
 #include "log.hpp"
 #include "thread"
 
+#include <mutex>
+#include <cstdlib>
+
+namespace
+{
+std::mutex gLogWriteMutex;
+LogVerbosity gLogVerbosity = LogVerbosity::NORMAL;
+
+bool ShouldEmit(Level level)
+{
+    switch (gLogVerbosity)
+    {
+    case LogVerbosity::QUIET:
+        return level == Level::WARN || level == Level::ERROR;
+    case LogVerbosity::NORMAL:
+        return level == Level::SESSION || level == Level::WARN || level == Level::ERROR;
+    case LogVerbosity::VERBOSE:
+        return true;
+    default:
+        return true;
+    }
+}
+
+LogVerbosity ParseVerbosityFromEnv()
+{
+    const char *value = std::getenv("CAD_LOG_VERBOSITY");
+    if (value == nullptr)
+        return LogVerbosity::NORMAL;
+
+    const std::string raw(value);
+    if (raw == "quiet")
+        return LogVerbosity::QUIET;
+    if (raw == "verbose")
+        return LogVerbosity::VERBOSE;
+    return LogVerbosity::NORMAL;
+}
+}
+
 std::string Log::NumToStr(double douNum, bool format)
 {
     std::string strNum;
@@ -239,8 +277,19 @@ void Log::SetAllFilter(bool state)
     allFilter = state;
 }
 
+void Log::SetVerbosity(LogVerbosity verbosity)
+{
+    gLogVerbosity = verbosity;
+}
+
+LogVerbosity Log::GetVerbosity()
+{
+    return gLogVerbosity;
+}
+
 void Log::Start()
 {
+    SetVerbosity(ParseVerbosityFromEnv());
     Split(Level::BACKGROUND);
     Void("Program started");
     Split(Level::BACKGROUND);
@@ -338,7 +387,11 @@ bool Log::Msg(const std::string &msg, const std::source_location &loc, const Lev
 
 void Log::Write(const std::string &msg, const std::source_location &loc, Level level, bool returnLog)
 {
+    std::lock_guard<std::mutex> lock(gLogWriteMutex);
+
     if (allFilter)
+        return;
+    if (!ShouldEmit(level))
         return;
     if (debugFilter == true && level != Level::DEBUG && level != Level::SESSION)
         return;

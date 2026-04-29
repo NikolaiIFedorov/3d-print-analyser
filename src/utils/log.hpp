@@ -20,6 +20,13 @@ enum class Level
     SESSION,
 };
 
+enum class LogVerbosity
+{
+    QUIET,   // only warnings/errors
+    NORMAL,  // warnings/errors + session events
+    VERBOSE, // all levels
+};
+
 enum class BoolType
 {
     TRUE,
@@ -45,6 +52,9 @@ inline uint idLog = 0;
 class Log
 {
 public:
+    static void SetVerbosity(LogVerbosity verbosity);
+    static LogVerbosity GetVerbosity();
+
     static void Debug(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);
     static void Error(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);
     static void Warn(const std::string &msg, const std::source_location &loc = std::source_location::current(), bool returnLog = false);

@@ -2384,61 +2384,14 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__new/nothrow_t.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__new/placement_new_delete.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__node_handle
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/accumulate.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/adjacent_difference.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/exclusive_scan.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/gcd_lcm.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/inclusive_scan.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/inner_product.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/iota.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/midpoint.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/partial_sum.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/pstl.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/reduce.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/saturation_arithmetic.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/transform_exclusive_scan.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/transform_inclusive_scan.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__numeric/transform_reduce.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/basic_ostream.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/print.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/put_character_sequence.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/bernoulli_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/binomial_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/cauchy_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/chi_squared_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/clamp_to_integral.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/default_random_engine.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/discard_block_engine.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/discrete_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/exponential_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/extreme_value_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/fisher_f_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/gamma_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/generate_canonical.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/geometric_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/independent_bits_engine.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/is_seed_sequence.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/is_valid.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/knuth_b.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/linear_congruential_engine.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/log2.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/lognormal_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/mersenne_twister_engine.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/negative_binomial_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/normal_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/piecewise_constant_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/piecewise_linear_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/poisson_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/random_device.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/ranlux.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/seed_seq.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/shuffle_order_engine.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/student_t_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/subtract_with_carry_engine.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/uniform_int_distribution.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/uniform_random_bit_generator.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/uniform_real_distribution.h
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__random/weibull_distribution.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/access.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/concepts.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ranges/container_compatible_range.h
@@ -2669,12 +2622,10 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/locale
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/math.h
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/memory
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/numeric
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/optional
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ostream
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/print
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/queue
- /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/random
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ratio
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location
  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream
@@ -2842,6 +2793,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
@@ -5586,6 +5538,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/geometric.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/constants.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat2x2.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat3x3.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/mat4x4.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/matrix.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/trigonometric.hpp
@@ -5595,6 +5549,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/Camera/camera.cpp.o
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vector_relational.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/epsilon.inl
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_inverse.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_inverse.inl
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/matrix_transform.inl
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp
@@ -6591,6 +6547,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/OpenGLRenderer.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
@@ -8877,6 +8834,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -10127,6 +10086,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -11327,6 +11287,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
@@ -17538,6 +17500,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ViewportRenderer/ViewportRendere
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/common.hpp
@@ -35722,6 +35686,8 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdarg.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stddef.h
  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp
+ /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h
  /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h

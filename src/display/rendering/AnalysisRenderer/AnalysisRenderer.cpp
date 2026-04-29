@@ -1,5 +1,6 @@
 #include "AnalysisRenderer.hpp"
 #include <mapbox/earcut.hpp>
+#include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
 AnalysisRenderer::AnalysisRenderer(SDL_Window *window)
@@ -606,7 +607,7 @@ void AnalysisRenderer::Render()
         return;
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
 
     GLint viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);

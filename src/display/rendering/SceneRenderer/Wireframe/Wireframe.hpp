@@ -9,6 +9,9 @@ class Wireframe
 {
 public:
     void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const;
+    void GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                       const AnalysisResults *results) const;
+    void GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const;
 
 private:
     void AddPoint(const Point *point,

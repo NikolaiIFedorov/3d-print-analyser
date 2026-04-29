@@ -100,7 +100,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -std=c++2b"
+					"fragment" : "-g -std=c++2b -arch arm64"
 				}
 			],
 			"includes" : 
@@ -257,7 +257,7 @@
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g"
+					"fragment" : "-g -arch arm64"
 				}
 			],
 			"includes" : 

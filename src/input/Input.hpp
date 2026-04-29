@@ -35,8 +35,11 @@ private:
     int touchPanEventCount = 0;
     /// Processed after draining the event queue so FINGER* updates `activeTouches` before suppress checks.
     std::vector<SDL_Event> pendingMouseWheel;
+    /// After RMB/MMB release or touch pan, ignore unmodified wheel zoom/roll briefly (trackpad inertia).
+    Uint64 suppressCameraWheelUntilMs = 0;
 
-    static constexpr float kTouchDeadzone = 0.0005f;
+    /// Normalized finger deltas: per-event gate uses hypot(dx,dy); batch apply also rejects tiny means.
+    static constexpr float kTouchDeadzone = 0.00006f;
 
     void clearTouchState();
     void beginTouchPanAccumForFrame();

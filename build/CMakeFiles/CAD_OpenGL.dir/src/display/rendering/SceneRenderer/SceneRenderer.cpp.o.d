@@ -1354,6 +1354,8 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/SceneRenderer.cpp.
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/rel_ops.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/as_const.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/CalibPickSegments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \

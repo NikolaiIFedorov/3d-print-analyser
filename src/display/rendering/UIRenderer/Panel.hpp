@@ -102,6 +102,8 @@ struct SectionLine
     std::function<float()> getMinContentWidthPx;                     // optional: called at layout time to enforce min content width (px)
     bool bold = false;                                               // true = use heavy/title font; false = use body font if available
     std::optional<Select> select;                                    // segmented pill selector — replaces imguiContent when set
+    /// Icon-only toolbar rows: use a centered square hit target and hover fill instead of stretching to full row width.
+    bool squareIconHit = false;
     bool visible = true;                                             // false = skipped in layout and render
 };
 

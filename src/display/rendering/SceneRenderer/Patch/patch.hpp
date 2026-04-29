@@ -12,6 +12,10 @@ class Patch
 public:
     void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4],
                    const AnalysisResults *results, std::vector<PickTriangle> *pickOut = nullptr) const;
+    void GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4],
+                       const AnalysisResults *results, std::vector<PickTriangle> *pickOut = nullptr) const;
+    void GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4],
+                       const AnalysisResults *results, std::vector<PickTriangle> *pickOut = nullptr) const;
 
 private:
     void AddFace(const Face *face,

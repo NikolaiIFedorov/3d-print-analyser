@@ -11,6 +11,29 @@
 namespace
 {
 
+/// True if any SDL touch device currently reports ≥1 finger down (physical contact on trackpad / screen).
+static bool anySdlTouchFingerDown()
+{
+    int nDevices = 0;
+    SDL_TouchID *devices = SDL_GetTouchDevices(&nDevices);
+    if (devices == nullptr)
+        return false;
+    for (int i = 0; i < nDevices; ++i)
+    {
+        int nFingers = 0;
+        SDL_Finger **fgs = SDL_GetTouchFingers(devices[i], &nFingers);
+        if (fgs != nullptr)
+            SDL_free(fgs);
+        if (nFingers > 0)
+        {
+            SDL_free(devices);
+            return true;
+        }
+    }
+    SDL_free(devices);
+    return false;
+}
+
 /// True if SDL’s touch layer sees ≥2 fingers (e.g. trackpad; often still true when duplicate scroll arrives).
 static bool sdlHasMultiTouchContact()
 {
@@ -59,7 +82,6 @@ void Input::beginTouchPanAccumForFrame()
     touchPanAccDx = 0.0f;
     touchPanAccDy = 0.0f;
     touchPanEventCount = 0;
-    pendingMouseWheel.clear();
 }
 
 void Input::applyBatchedTwoFingerPan()
@@ -67,6 +89,25 @@ void Input::applyBatchedTwoFingerPan()
     if (touchPanEventCount <= 0)
     {
         return;
+    }
+    int w = 0, h = 0;
+    SDL_GetWindowSize(display->GetWindow(), &w, &h);
+    if (w > 0 && h > 0)
+    {
+        ImGuiIO &imguiIo = ImGui::GetIO();
+        // Two fingers span a wide region; any-finger hit-test falsely drops pans when one contact
+        // sits over panels while the gesture centroid remains on the viewport.
+        float sx = 0.0f, sy = 0.0f;
+        for (const auto &kv : activeTouches)
+        {
+            sx += kv.second.x;
+            sy += kv.second.y;
+        }
+        const float inv = 1.0f / static_cast<float>(activeTouches.size());
+        const float px = sx * inv * static_cast<float>(w);
+        const float py = sy * inv * static_cast<float>(h);
+        if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
+            return;
     }
     const float n = static_cast<float>(touchPanEventCount);
     const float cdx = touchPanAccDx / n;
@@ -77,6 +118,7 @@ void Input::applyBatchedTwoFingerPan()
     }
     const float s = display->mouseSensitivity / 30.0f;
     display->Pan(cdx * s, cdy * s, true);
+    suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
 }
 
 void Input::twoFingerOrMouseBridgePanOrbit(const SDL_Event &event)
@@ -123,14 +165,25 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
 
 void Input::mouseGestures(const SDL_Event &event)
 {
+    ImGuiIO &io = ImGui::GetIO();
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_WHEEL:
     {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        if (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my))
+            break;
         SDL_Keymod mod = SDL_GetModState();
+        const bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
+        const Uint64 now = SDL_GetTicks();
+        if (now < suppressCameraWheelUntilMs && !hasModifier)
+            break;
+        // Trackpad scroll synthesized as wheel with no finger contact is usually inertia after a gesture lift.
+        if (!hasModifier && event.wheel.which == SDL_TOUCH_MOUSEID && !anySdlTouchFingerDown())
+            break;
         float x = event.wheel.x;
         float y = event.wheel.y;
-        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
         if (hasModifier)
         {
             if (mod & SDL_KMOD_ALT)
@@ -173,7 +226,9 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 rightMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -181,7 +236,9 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 middleMouseDown = true;
                 syncWindowRelativeMouseMode();
@@ -196,26 +253,38 @@ void Input::mouseGestures(const SDL_Event &event)
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             rightMouseDown = false;
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
             syncWindowRelativeMouseMode();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
             middleMouseDown = false;
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
             syncWindowRelativeMouseMode();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        if (middleMouseDown)
+    {
+        // While RMB/MMB orbit or pan is active, ignore UI/ImGui under the cursor so a drag that
+        // started on the viewport is not cancelled when the pointer crosses panels (WantCaptureMouse
+        // and hit-tests still gate starting a new drag on mouse-down).
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        const bool viewportNavDrag = middleMouseDown || rightMouseDown;
+        const bool blockNav = !viewportNavDrag &&
+                              (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my));
+        if (middleMouseDown && !blockNav)
             display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                            event.motion.yrel * display->mouseSensitivity * 1e-4f);
-        else if (rightMouseDown)
+        else if (rightMouseDown && !blockNav)
             display->Pan(event.motion.xrel * display->mouseSensitivity * 1e-4f,
                          event.motion.yrel * display->mouseSensitivity * 1e-4f, false);
         else
             display->UpdatePickHover(static_cast<float>(event.motion.x), static_cast<float>(event.motion.y));
         break;
+    }
     default:
         break;
     }
@@ -240,20 +309,11 @@ bool Input::processEvent(const SDL_Event &event)
         }
         break;
     case SDL_EVENT_FINGER_CANCELED:
-    {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
+        // Always sync hardware touch model; skipping here desyncs nContacts vs real fingers.
         clearTouchState();
         break;
-    }
     case SDL_EVENT_FINGER_DOWN:
     {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
         const SDL_TouchFingerEvent &tf = event.tfinger;
         if (std::find(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID) == fingerArrivalOrder.end())
         {
@@ -264,10 +324,6 @@ bool Input::processEvent(const SDL_Event &event)
     }
     case SDL_EVENT_FINGER_UP:
     {
-        if (io.WantCaptureMouse)
-        {
-            break;
-        }
         const SDL_TouchFingerEvent &tf = event.tfinger;
         activeTouches.erase(tf.fingerID);
         fingerArrivalOrder.erase(
@@ -277,7 +333,7 @@ bool Input::processEvent(const SDL_Event &event)
     }
     case SDL_EVENT_FINGER_MOTION:
     {
-        if (io.WantCaptureMouse)
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
         {
             break;
         }
@@ -294,7 +350,9 @@ bool Input::processEvent(const SDL_Event &event)
         const size_t nContacts = activeTouches.size();
         if (nContacts == 1U && (rightMouseDown || middleMouseDown))
         {
-            if (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone)
+            // Mouse button started navigation on the viewport; do not cancel when the finger centroid
+            // moves over UI (same policy as MOUSE_MOTION + HitTest*).
+            if (std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
             {
                 twoFingerOrMouseBridgePanOrbit(event);
             }
@@ -305,8 +363,10 @@ bool Input::processEvent(const SDL_Event &event)
             const SDL_Keymod mod = SDL_GetModState();
             const bool wheelOverridesTwoFingerPan =
                 (mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0;
+            // Use hypot so brief reversals (both |dx| and |dy| tiny for a frame) still contribute when
+            // the vector magnitude is meaningful; skip (0,0) so a stationary second finger does not dilute the mean.
             if (!wheelOverridesTwoFingerPan &&
-                (std::abs(tf.dx) >= kTouchDeadzone || std::abs(tf.dy) >= kTouchDeadzone))
+                std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
             {
                 touchPanAccDx += tf.dx;
                 touchPanAccDy += tf.dy;
@@ -354,10 +414,19 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_MOUSE_WHEEL:
         pendingMouseWheel.push_back(event);
         break;
-    case SDL_EVENT_MOUSE_BUTTON_DOWN:
     case SDL_EVENT_MOUSE_BUTTON_UP:
-    case SDL_EVENT_MOUSE_MOTION:
+        // Always release navigation buttons even when ImGui has capture (otherwise RMB stays "down").
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (io.WantCaptureMouse)
+            break;
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_MOTION:
+        // During viewport orbit/pan, ImGui may take WantCaptureMouse once the cursor is over a
+        // widget; still deliver motion so the in-progress gesture does not stop mid-drag.
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
             break;
         mouseGestures(event);
         break;
