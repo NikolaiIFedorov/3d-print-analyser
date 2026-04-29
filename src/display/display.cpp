@@ -740,7 +740,7 @@ void Display::Frame()
     }
 
     if (analysisEnabled && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
-        !styleDirty && !pendingAnalysisTask.has_value())
+        !styleDirty && !pendingAnalysisTask.has_value() && !activeAnalysisTintForRebuild.has_value())
     {
         pendingAnalysisAfterGeometryRebuild = false;
         const uint64_t requestId = ++analysisRequestId;
@@ -811,9 +811,13 @@ void Display::Frame()
         }
         else
         {
+            // Do not queue another worker while a prior run's tint is still being applied to geometry
+            // (activeAnalysisTintForRebuild); otherwise the next frame can submit AnalyzeScene again,
+            // pendingAnalysisTask flips on, and Result/Verdict hide right after they were shown.
             const bool shouldLaunchAsyncAnalysis =
                 geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
-                !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value();
+                !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value() &&
+                !activeAnalysisTintForRebuild.has_value();
             if (shouldLaunchAsyncAnalysis && !renderer.FullRebuildInProgress())
             {
                 pendingAnalysisAfterGeometryRebuild = false;

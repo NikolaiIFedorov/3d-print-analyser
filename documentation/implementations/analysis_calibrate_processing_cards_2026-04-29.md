@@ -104,3 +104,8 @@
 
 - `queueingFirstAnalysis` is `pendingAnalysisAfterGeometryRebuild && !lastCommittedAnalysisForRecolor`; `lastCommitted` is only set when incremental rebuild completes. That made “pipeline waiting” effectively true for the whole post-worker GPU window when combined with the earlier gate.
 - Panel visibility now uses **only** `pendingAnalysisTask` and unconsumed `pendingAnalysisTint`; `queueingFirstAnalysis` remains in `analysisBusy` for the processing card / staged bar only.
+
+### Results visible one frame then hidden (duplicate worker)
+
+- Cause: `shouldLaunchAsyncAnalysis` did not check `activeAnalysisTintForRebuild`. The frame after consuming `pendingAnalysisTint`, the worker path was eligible again while the prior run’s tint was still being applied incrementally; a second `AnalyzeScene` was submitted, `pendingAnalysisTask` became true, and panel visibility hid again.
+- Fix: require `!activeAnalysisTintForRebuild.has_value()` for `shouldLaunchAsyncAnalysis` and for the top-of-frame deferred launch at `pendingAnalysisAfterGeometryRebuild`.
