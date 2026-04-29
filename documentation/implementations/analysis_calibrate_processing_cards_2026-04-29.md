@@ -93,3 +93,9 @@
 
 - Cause: unconditional creep once `carry >= 0.75` let the bar approach 100% during **pendingAnalysisTask** while verdict/rows stayed hidden until `analysisBusy` cleared.
 - Fix: per-phase **ceilings** (e.g. worker max ~62%); **creep only** during `analysisRenderingInScene`.
+
+### Verdict/counts hidden while mesh already shows flaw tints (same day)
+
+- Cause: `uiResult` / `uiVerdict` used `!analysisBusy`, and `analysisBusy` included `analysisRenderingInScene` (incremental GPU rebuild). Counts and verdict were filled when tint was consumed, but panels stayed hidden until `FullRebuildInProgress()` cleared. First `RefreshToolProcessingCards` in the invalidation block also ran **before** tint consumption.
+- Fix: introduce `analysisPipelineWaiting` (task, queue, unconsumed tint only) and show result/verdict when the pipeline is not waiting; keep the full `analysisBusy` for the processing card and phase bar. Call `RefreshToolProcessingCards` again at the end of the invalidation block after analysis UI updates.
+- Validation: `cmake --build build -j8` on `display.cpp`.

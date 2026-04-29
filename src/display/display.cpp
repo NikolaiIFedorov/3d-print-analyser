@@ -1356,6 +1356,8 @@ void Display::Frame()
             // Leave dirty flags latched so the next frame continues incremental rebuild.
             geometryDirtyAll = true;
         }
+        // Re-sync cards after tint consumption / verdict fill (first Refresh in this block ran before that work).
+        RefreshToolProcessingCards(hasModel, geometryOrStyleWork, ranMainThreadApplyTask);
         InvalidationExec(InvalidationNode::UI);
         ClearScheduledNodes();
     }
@@ -1931,10 +1933,13 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
         pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene;
     const bool analysisRenderingInScene =
         analysisEnabled && activeAnalysisTintForRebuild.has_value() && renderer.FullRebuildInProgress();
+    // Hide verdict/counts only while new results are not yet applied (worker, queue, or tint not consumed).
+    // GPU incremental rebuild can lag; mesh tints appear before FullRebuildInProgress clears — keep panels visible then.
+    const bool analysisPipelineWaiting =
+        analysisEnabled &&
+        (pendingAnalysisTask.has_value() || queueingFirstAnalysis || pendingTintThisScene);
     // Do not gate on stale verdict text: old "No issues" must not suppress the card while a new analysis runs.
-    const bool analysisBusy =
-        analysisEnabled && (pendingAnalysisTask.has_value() || queueingFirstAnalysis || pendingTintThisScene ||
-                            analysisRenderingInScene);
+    const bool analysisBusy = analysisPipelineWaiting || analysisRenderingInScene;
 
     if (!analysisBusy)
     {
@@ -1993,9 +1998,9 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
             setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
     }
     if (uiResult)
-        setVisible(uiResult, hasModel && !analysisBusy);
+        setVisible(uiResult, hasModel && !analysisPipelineWaiting);
     if (uiVerdict)
-        setVisible(uiVerdict, hasModel && !analysisBusy);
+        setVisible(uiVerdict, hasModel && !analysisPipelineWaiting);
 
     // Import progress lives in the Files bar tab; keep Calibrate panel unobstructed during import.
     const bool calibrateBusy =
