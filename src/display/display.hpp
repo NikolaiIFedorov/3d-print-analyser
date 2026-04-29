@@ -262,7 +262,8 @@ private:
     MainThreadPipeline mainThreadPipeline;
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
-    std::optional<AsyncAnalysisResult> readyAnalysisResult;
+    /// Latest async analysis result awaiting render application (tints / flaw overlay).
+    std::optional<AsyncAnalysisResult> pendingAnalysisTint;
     uint64_t analysisRequestId = 0;
     bool skipAnalysisForNextGeometryRebuild = false;
     bool pendingAnalysisAfterImportRebuild = false;

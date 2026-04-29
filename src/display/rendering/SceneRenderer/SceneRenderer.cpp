@@ -27,6 +27,7 @@ void SceneRenderer::AbortIncrementalFullRebuild()
     fullRebuildPhase = FullRebuildPhase::Idle;
     fullRebuildSolidIndex = 0;
     fullRebuildScene = nullptr;
+    fullRebuildAnalysisIdentity = 0;
     fullRebuildResults = nullptr;
 }
 
@@ -72,7 +73,8 @@ void SceneRenderer::RebuildAll(Scene *scene, const AnalysisResults *results)
     LogSlowStage("rebuild_all_total", MsSince(tAll));
 }
 
-bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs)
+bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs,
+                                          uint64_t analysisIdentity)
 {
     if (scene == nullptr)
     {
@@ -98,15 +100,16 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
 
         fullRebuildScene = scene;
         fullRebuildResults = results;
+        fullRebuildAnalysisIdentity = analysisIdentity;
         fullRebuildSolidIndex = 0;
         fullRebuildPhase = FullRebuildPhase::BuildingSolids;
         fullRebuildInProgress = true;
     }
-    else if (fullRebuildScene != scene || fullRebuildResults != results)
+    else if (fullRebuildScene != scene || fullRebuildAnalysisIdentity != analysisIdentity)
     {
-        // Scene or analysis pointer changed mid-flight; restart safely.
+        // Scene or analysis snapshot changed mid-flight; restart safely.
         AbortIncrementalFullRebuild();
-        return RebuildAllIncremental(scene, results, budgetLeft());
+        return RebuildAllIncremental(scene, results, budgetLeft(), analysisIdentity);
     }
 
     while (fullRebuildPhase != FullRebuildPhase::Done)

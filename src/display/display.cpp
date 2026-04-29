@@ -579,7 +579,7 @@ void Display::MarkStyleDirty()
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
     }
-    readyAnalysisResult.reset();
+    pendingAnalysisTint.reset();
     analysisRequestId++;
 
     styleDirty = true;
@@ -596,7 +596,7 @@ void Display::MarkGeometryDirtyAll()
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
     }
-    readyAnalysisResult.reset();
+    pendingAnalysisTint.reset();
     analysisRequestId++;
 
     geometryDirtyAll = true;
@@ -620,7 +620,7 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
     }
-    readyAnalysisResult.reset();
+    pendingAnalysisTint.reset();
     analysisRequestId++;
 
     if (!geometryDirtyAll)
@@ -729,7 +729,7 @@ void Display::Frame()
             if (analysisReady->ok && !analysisReady->cancelled &&
                 analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
             {
-                readyAnalysisResult = std::move(*analysisReady);
+                pendingAnalysisTint = std::move(*analysisReady);
                 styleDirty = true;
                 ScheduleNode(InvalidationNode::Style);
                 ScheduleNode(InvalidationNode::Analysis);
@@ -791,18 +791,22 @@ void Display::Frame()
         bool geometryRebuildComplete = true;
         bool hasAnalysisThisFrame = false;
         AnalysisResults results;
-        if (analysisEnabled && readyAnalysisResult.has_value() && readyAnalysisResult->scene == scene &&
-            styleDirty && !geometryDirtyAll && geometryDirtySolids.empty())
+        uint64_t analysisIdentityForRebuild = 0;
+        if (analysisEnabled && pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene &&
+            styleDirty)
         {
-            results = std::move(readyAnalysisResult->results);
-            readyAnalysisResult.reset();
+            results = std::move(pendingAnalysisTint->results);
+            analysisIdentityForRebuild = pendingAnalysisTint->requestId;
+            pendingAnalysisTint.reset();
             hasAnalysisThisFrame = true;
+            if (!geometryDirtyAll && geometryDirtySolids.empty())
+                geometryDirtyAll = true;
         }
         else
         {
             const bool shouldLaunchAsyncAnalysis =
                 geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
-                !pendingAnalysisTask.has_value();
+                !renderer.FullRebuildInProgress() && !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value();
             if (shouldLaunchAsyncAnalysis)
             {
                 const uint64_t requestId = analysisRequestId;
@@ -831,8 +835,8 @@ void Display::Frame()
 
         if (geometryDirtyAll)
         {
-            geometryRebuildComplete =
-                renderer.RebuildAllIncremental(scene, hasAnalysisThisFrame ? &results : nullptr, 2.5);
+            geometryRebuildComplete = renderer.RebuildAllIncremental(scene, hasAnalysisThisFrame ? &results : nullptr, 2.5,
+                                                                     hasAnalysisThisFrame ? analysisIdentityForRebuild : 0);
             InvalidationExec(InvalidationNode::Geometry);
             if (!geometryRebuildComplete)
             {
@@ -848,8 +852,25 @@ void Display::Frame()
         }
         else if (styleDirty)
         {
-            renderer.RecolorOnly(scene, hasAnalysisThisFrame ? &results : nullptr);
-            InvalidationExec(InvalidationNode::Style);
+            if (hasAnalysisThisFrame)
+            {
+                // Applying fresh analysis often changes rendered topology enough to force
+                // a full rebuild. Route through the same incremental path to avoid a hitch.
+                geometryDirtyAll = true;
+                geometryRebuildComplete =
+                    renderer.RebuildAllIncremental(scene, &results, 2.5, analysisIdentityForRebuild);
+                InvalidationExec(InvalidationNode::Geometry);
+                if (!geometryRebuildComplete)
+                {
+                    renderDirty = true;
+                    pickDirty = true;
+                }
+            }
+            else
+            {
+                renderer.RecolorOnly(scene, nullptr);
+                InvalidationExec(InvalidationNode::Style);
+            }
         }
 
         auto stillPickable = [&](const Face *f) -> bool

@@ -40,7 +40,8 @@ public:
     void UpdateScene(Scene *scene, const AnalysisResults *results = nullptr);
     void RebuildAll(Scene *scene, const AnalysisResults *results = nullptr);
     /// Time-sliced variant of `RebuildAll` for large scenes. Returns true when finished.
-    bool RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs);
+    bool RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs,
+                               uint64_t analysisIdentity = 0);
     bool FullRebuildInProgress() const { return fullRebuildInProgress; }
     void RebuildSolids(Scene *scene, const std::unordered_set<const Solid *> &dirtySolids,
                        const AnalysisResults *results = nullptr);
@@ -123,5 +124,7 @@ private:
     FullRebuildPhase fullRebuildPhase = FullRebuildPhase::Idle;
     size_t fullRebuildSolidIndex = 0;
     Scene *fullRebuildScene = nullptr;
+    /// Which analysis snapshot this rebuild incorporates (opaque id from `Display`; 0 = none).
+    uint64_t fullRebuildAnalysisIdentity = 0;
     const AnalysisResults *fullRebuildResults = nullptr;
-};
+}; 
