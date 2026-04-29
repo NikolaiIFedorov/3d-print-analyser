@@ -56,3 +56,9 @@ Pointer identity on stack-backed `AnalysisResults` was a subtle footgun; prefer 
 - `RecolorOnly` rebuilds vertex colors with `nullptr` analysis → **all flaw tinting stripped** from the GPU mesh.
 - After a param change toward *more* flaws, the tinted incremental rebuild could finish, then a later style refresh ran `RecolorOnly(nullptr)` and removed the new overhang colors while the panel still showed flaws.
 - On incremental completion, move applied analysis into `lastCommittedAnalysisForRecolor`; `RecolorOnly` uses it when `analysisEnabled`. Clear that snapshot on geometry invalidation (`MarkGeometryDirty*`).
+
+## Follow-up fix 6 (param change toward *more* flaws looked ignored until restart)
+
+- `Analysis` is a singleton; async `AnalyzeScene` ran on the worker while the main thread could call `RebuildAnalysis()` → `Clear()` / `Add*()` on the same vectors/thresholds → **data race** / torn reads. Results could be wrong or “stuck” until reload rebuilt a consistent pipeline.
+- Added a `std::recursive_mutex` on `Analysis`, held for `AnalyzeScene`, `Clear`, `Add*`, and `Flaw*` reads; `Display::RebuildAnalysis` holds the mutex across the whole `Clear`+`Add*` sequence.
+- Flaw-row `DragFloat`: also treat `ImGui::IsItemDeactivatedAfterEdit()` as a commit so keyboard edits still run `RebuildAnalysis`+`UpdateScene` even when `DragFloat`’s `changed` flag is easy to miss.

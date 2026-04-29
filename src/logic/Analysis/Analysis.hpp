@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <optional>
 
 #include <glm/glm.hpp>
@@ -47,7 +48,11 @@ public:
 
     void Clear();
 
+    /// Serializes `Clear` / `Add*` vs `AnalyzeScene` (async worker + main-thread `RebuildAnalysis`).
+    std::recursive_mutex &PipelineMutex() { return pipelineMutex; }
+
 private:
+    mutable std::recursive_mutex pipelineMutex;
     std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;
     std::vector<std::unique_ptr<ISolidAnalysis>> solidAnalyses;
     std::vector<std::unique_ptr<IEdgeAnalysis>> edgeAnalyses;

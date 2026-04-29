@@ -3,6 +3,7 @@
 #include "utils/log.hpp"
 
 #include <chrono>
+#include <mutex>
 
 namespace
 {
@@ -18,21 +19,25 @@ Analysis &Analysis::Instance()
 
 void Analysis::AddFaceAnalysis(std::unique_ptr<IFaceAnalysis> analysis)
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     faceAnalyses.push_back(std::move(analysis));
 }
 
 void Analysis::AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis)
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     solidAnalyses.push_back(std::move(analysis));
 }
 
 void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     edgeAnalyses.push_back(std::move(analysis));
 }
 
 FaceFlawKind Analysis::FlawFace(const Face *face) const
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     for (const auto &analysis : faceAnalyses)
     {
         auto result = analysis->Analyze(face);
@@ -45,6 +50,7 @@ FaceFlawKind Analysis::FlawFace(const Face *face) const
 
 std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces) const
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     ZBounds bounds = Slice::GetZBounds(solid);
 
     std::vector<FaceFlaw> allFlaws;
@@ -58,6 +64,7 @@ std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<Bridge
 
 std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     std::vector<EdgeFlaw> allEdgeFlaws;
     for (const auto &analysis : edgeAnalyses)
     {
@@ -69,6 +76,7 @@ std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
 
 void Analysis::Clear()
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     faceAnalyses.clear();
     solidAnalyses.clear();
     edgeAnalyses.clear();
@@ -76,6 +84,7 @@ void Analysis::Clear()
 
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
 {
+    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
     using Clock = std::chrono::steady_clock;
     auto elapsedMs = [](const Clock::time_point &start, const Clock::time_point &end) -> double
     {

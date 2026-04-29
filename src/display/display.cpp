@@ -15,6 +15,7 @@
 #include "utils/SystemAppearance.hpp"
 
 #include <filesystem>
+#include <mutex>
 #include <unordered_set>
 #include <queue>
 #include <cstdio>
@@ -449,6 +450,9 @@ void Display::SaveSettings()
 
 void Display::RebuildAnalysis()
 {
+    // Hold the pipeline mutex for the whole rebuild so `Clear` + `Add*` cannot interleave with an
+    // in-flight `AnalyzeScene` on the worker (would otherwise corrupt analyzer lists / thresholds).
+    std::lock_guard<std::recursive_mutex> pipelineLock(Analysis::Instance().PipelineMutex());
     Analysis::Instance().Clear();
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>(overhangAngle));
     Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize));
@@ -2508,6 +2512,7 @@ void Display::InitUI()
             ImGui::SetNextItemWidth(rightW);
             const char *fmt = showEdit ? (isAngle ? "%.0f" : (dragSpeed < 0.1f ? "%.2f" : "%.1f")) : "";
             bool changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
+            const bool committedEdit = ImGui::IsItemDeactivatedAfterEdit();
             UIStyle::DrawInputHoverTint(1);
 
             fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
@@ -2570,7 +2575,7 @@ void Display::InitUI()
 
             if (navFired)
                 fr.frameCallback();
-            if (changed)
+            if (changed || committedEdit)
             {
                 auto &sl = SessionLogger::Instance();
                 sl.state.overhangAngle = this->overhangAngle;
