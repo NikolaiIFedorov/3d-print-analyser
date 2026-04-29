@@ -62,3 +62,9 @@ Pointer identity on stack-backed `AnalysisResults` was a subtle footgun; prefer 
 - `Analysis` is a singleton; async `AnalyzeScene` ran on the worker while the main thread could call `RebuildAnalysis()` → `Clear()` / `Add*()` on the same vectors/thresholds → **data race** / torn reads. Results could be wrong or “stuck” until reload rebuilt a consistent pipeline.
 - Added a `std::recursive_mutex` on `Analysis`, held for `AnalyzeScene`, `Clear`, `Add*`, and `Flaw*` reads; `Display::RebuildAnalysis` holds the mutex across the whole `Clear`+`Add*` sequence.
 - Flaw-row `DragFloat`: also treat `ImGui::IsItemDeactivatedAfterEdit()` as a commit so keyboard edits still run `RebuildAnalysis`+`UpdateScene` even when `DragFloat`’s `changed` flag is easy to miss.
+
+## Follow-up fix 7 (large-file freeze when changing overhang)
+
+- Holding the analysis mutex for the entire `AnalyzeScene` pass (large models: many seconds) allowed correctness but made main-thread param edits block waiting on that lock.
+- `AnalyzeScene` now snapshots analyzer pipelines (`shared_ptr` vectors) under lock, then releases the lock before heavy geometry loops.
+- `Clear`/`Add*` remain serialized, but no longer wait for full analysis runtime; parameter edits can reconfigure immediately while in-flight analysis keeps a stable snapshot.

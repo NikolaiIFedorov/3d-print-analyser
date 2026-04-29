@@ -20,19 +20,19 @@ Analysis &Analysis::Instance()
 void Analysis::AddFaceAnalysis(std::unique_ptr<IFaceAnalysis> analysis)
 {
     std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
-    faceAnalyses.push_back(std::move(analysis));
+    faceAnalyses.push_back(std::shared_ptr<IFaceAnalysis>(std::move(analysis)));
 }
 
 void Analysis::AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis)
 {
     std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
-    solidAnalyses.push_back(std::move(analysis));
+    solidAnalyses.push_back(std::shared_ptr<ISolidAnalysis>(std::move(analysis)));
 }
 
 void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
 {
     std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
-    edgeAnalyses.push_back(std::move(analysis));
+    edgeAnalyses.push_back(std::shared_ptr<IEdgeAnalysis>(std::move(analysis)));
 }
 
 FaceFlawKind Analysis::FlawFace(const Face *face) const
@@ -84,7 +84,16 @@ void Analysis::Clear()
 
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::vector<std::shared_ptr<IFaceAnalysis>> localFaceAnalyses;
+    std::vector<std::shared_ptr<ISolidAnalysis>> localSolidAnalyses;
+    std::vector<std::shared_ptr<IEdgeAnalysis>> localEdgeAnalyses;
+    {
+        std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+        localFaceAnalyses = faceAnalyses;
+        localSolidAnalyses = solidAnalyses;
+        localEdgeAnalyses = edgeAnalyses;
+    }
+
     using Clock = std::chrono::steady_clock;
     auto elapsedMs = [](const Clock::time_point &start, const Clock::time_point &end) -> double
     {
@@ -94,9 +103,9 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
     AnalysisResults results;
     const Clock::time_point tSceneStart = Clock::now();
 
-    std::vector<double> faceAnalyzerMs(faceAnalyses.size(), 0.0);
-    std::vector<double> solidAnalyzerMs(solidAnalyses.size(), 0.0);
-    std::vector<double> edgeAnalyzerMs(edgeAnalyses.size(), 0.0);
+    std::vector<double> faceAnalyzerMs(localFaceAnalyses.size(), 0.0);
+    std::vector<double> solidAnalyzerMs(localSolidAnalyses.size(), 0.0);
+    std::vector<double> edgeAnalyzerMs(localEdgeAnalyses.size(), 0.0);
     double totalFacePassMs = 0.0;
     double totalSolidPassMs = 0.0;
     double totalEdgePassMs = 0.0;
@@ -110,10 +119,10 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
         for (const Face *face : solid.faces)
         {
             FaceFlawKind faceFlaw = FaceFlawKind::NONE;
-            for (size_t i = 0; i < faceAnalyses.size(); ++i)
+            for (size_t i = 0; i < localFaceAnalyses.size(); ++i)
             {
                 const Clock::time_point tStart = Clock::now();
-                auto result = faceAnalyses[i]->Analyze(face);
+                auto result = localFaceAnalyses[i]->Analyze(face);
                 const Clock::time_point tEnd = Clock::now();
                 faceAnalyzerMs[i] += elapsedMs(tStart, tEnd);
                 if (result.has_value())
@@ -129,10 +138,10 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
         const Clock::time_point tSolidPassStart = Clock::now();
         ZBounds bounds = Slice::GetZBounds(&solid);
         std::vector<FaceFlaw> allSolidFlaws;
-        for (size_t i = 0; i < solidAnalyses.size(); ++i)
+        for (size_t i = 0; i < localSolidAnalyses.size(); ++i)
         {
             const Clock::time_point tStart = Clock::now();
-            auto flaws = solidAnalyses[i]->Analyze(&solid, bounds, &results.bridgeSurfaces[&solid]);
+            auto flaws = localSolidAnalyses[i]->Analyze(&solid, bounds, &results.bridgeSurfaces[&solid]);
             const Clock::time_point tEnd = Clock::now();
             solidAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             allSolidFlaws.insert(allSolidFlaws.end(), flaws.begin(), flaws.end());
@@ -142,10 +151,10 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
 
         const Clock::time_point tEdgePassStart = Clock::now();
         std::vector<EdgeFlaw> allEdgeFlaws;
-        for (size_t i = 0; i < edgeAnalyses.size(); ++i)
+        for (size_t i = 0; i < localEdgeAnalyses.size(); ++i)
         {
             const Clock::time_point tStart = Clock::now();
-            auto flaws = edgeAnalyses[i]->Analyze(&solid);
+            auto flaws = localEdgeAnalyses[i]->Analyze(&solid);
             const Clock::time_point tEnd = Clock::now();
             edgeAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
@@ -164,10 +173,10 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
     for (const Face &face : scene->faces)
     {
         FaceFlawKind faceFlaw = FaceFlawKind::NONE;
-        for (size_t i = 0; i < faceAnalyses.size(); ++i)
+        for (size_t i = 0; i < localFaceAnalyses.size(); ++i)
         {
             const Clock::time_point tStart = Clock::now();
-            auto result = faceAnalyses[i]->Analyze(&face);
+            auto result = localFaceAnalyses[i]->Analyze(&face);
             const Clock::time_point tEnd = Clock::now();
             faceAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             if (result.has_value())

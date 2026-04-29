@@ -48,12 +48,12 @@ public:
 
     void Clear();
 
-    /// Serializes `Clear` / `Add*` vs `AnalyzeScene` (async worker + main-thread `RebuildAnalysis`).
+    /// Serializes analyzer pipeline reads/writes.
     std::recursive_mutex &PipelineMutex() { return pipelineMutex; }
 
 private:
     mutable std::recursive_mutex pipelineMutex;
-    std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;
-    std::vector<std::unique_ptr<ISolidAnalysis>> solidAnalyses;
-    std::vector<std::unique_ptr<IEdgeAnalysis>> edgeAnalyses;
+    std::vector<std::shared_ptr<IFaceAnalysis>> faceAnalyses;
+    std::vector<std::shared_ptr<ISolidAnalysis>> solidAnalyses;
+    std::vector<std::shared_ptr<IEdgeAnalysis>> edgeAnalyses;
 };
