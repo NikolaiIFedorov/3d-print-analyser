@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <unordered_set>
 #include "utils/utils.hpp"
+#include "utils/TaskRunner.hpp"
+#include "utils/MainThreadPipeline.hpp"
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
@@ -232,6 +234,38 @@ private:
     bool pendingToolSwitch = false;
     /// Set when the file dialog returns; consumed at the start of `Frame()` (splash + blocking import).
     std::optional<std::string> deferredImportPath;
+    struct AsyncImportResult
+    {
+        bool ok = false;
+        bool cancelled = false;
+        std::string path;
+        std::string lower;
+        std::unique_ptr<Scene> importedScene;
+        bool hasStlStats = false;
+        double stlParseMs = 0.0;
+        double stlMergeMs = 0.0;
+        double stlTotalMs = 0.0;
+        uint32_t stlTriangles = 0;
+        std::size_t stlUniquePoints = 0;
+        std::size_t stlFaces = 0;
+        double importerMs = 0.0;
+    };
+    struct AsyncAnalysisResult
+    {
+        bool ok = false;
+        bool cancelled = false;
+        uint64_t requestId = 0;
+        const Scene *scene = nullptr;
+        AnalysisResults results;
+    };
+    TaskRunner taskRunner;
+    MainThreadPipeline mainThreadPipeline;
+    std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
+    std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
+    std::optional<AsyncAnalysisResult> readyAnalysisResult;
+    uint64_t analysisRequestId = 0;
+    bool skipAnalysisForNextGeometryRebuild = false;
+    bool pendingAnalysisAfterImportRebuild = false;
 
     /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
     std::string statusStripLine;

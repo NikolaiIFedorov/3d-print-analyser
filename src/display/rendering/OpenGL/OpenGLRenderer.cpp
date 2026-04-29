@@ -3,6 +3,7 @@
 #include "rendering/color.hpp"
 #include "ViewportDepthExperiments.hpp"
 #include "RenderingExperiments.hpp"
+#include <chrono>
 
 namespace
 {
@@ -17,6 +18,19 @@ namespace
         return 0.0f;
     const float n = 1.0e-6f * RenderingExperiments::kWireframeClipZNudgeScale;
     return RenderingExperiments::kReverseZDepth ? -n : n;
+}
+
+using Clock = std::chrono::steady_clock;
+
+inline double MsSince(const Clock::time_point &start)
+{
+    return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+}
+
+inline void LogSlowGpuUpload(const char *stage, double ms, size_t vertices, size_t indices)
+{
+    if (ms >= 4.0)
+        LOG_SESSION("GPU upload", stage, "ms", ms, "verts", vertices, "indices", indices);
 }
 } // namespace
 
@@ -268,6 +282,7 @@ void OpenGLRenderer::SetViewPos(const glm::vec3 &pos)
 void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                                         const std::vector<uint32_t> &indices)
 {
+    const Clock::time_point tStart = Clock::now();
     triangleIndexCount = static_cast<uint32_t>(indices.size());
     triangleVertexCount = static_cast<uint32_t>(vertices.size());
     triangleVertexCapacity = vertices.size();
@@ -316,6 +331,7 @@ void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
 
     glBindVertexArray(0);
     GetGLError();
+    LogSlowGpuUpload("triangles_full", MsSince(tStart), vertices.size(), indices.size());
 }
 
 bool OpenGLRenderer::UpdateTriangleMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
@@ -349,6 +365,7 @@ bool OpenGLRenderer::UpdateTriangleMeshSubData(const std::vector<Vertex> &vertic
 void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
                                     const std::vector<uint32_t> &indices)
 {
+    const Clock::time_point tStart = Clock::now();
     lineIndexCount = static_cast<uint32_t>(indices.size());
     lineVertexCount = static_cast<uint32_t>(vertices.size());
     lineVertexCapacity = vertices.size();
@@ -392,6 +409,7 @@ void OpenGLRenderer::UploadLineMesh(const std::vector<Vertex> &vertices,
     glEnableVertexAttribArray(2);
     glBindVertexArray(0);
     GetGLError();
+    LogSlowGpuUpload("lines_full", MsSince(tStart), vertices.size(), indices.size());
 }
 
 bool OpenGLRenderer::UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
@@ -462,7 +480,11 @@ void OpenGLRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vert
 
 void OpenGLRenderer::DrawTriangles()
 {
-    LOG_DESC("Drawing triangles with index count: " + std::to_string(triangleIndexCount));
+    // Per-frame draw logs can flood stdout and stall interactive startup/import.
+    // Keep these disabled unless explicitly re-enabled for render debugging.
+    constexpr bool kLogDrawCalls = false;
+    if constexpr (kLogDrawCalls)
+        LOG_DESC("Drawing triangles with index count: " + std::to_string(triangleIndexCount));
     if (triangleIndexCount == 0)
         return;
 
@@ -638,7 +660,9 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
 
 void OpenGLRenderer::DrawLines()
 {
-    LOG_DESC("Drawing lines with index count: " + std::to_string(lineIndexCount));
+    constexpr bool kLogDrawCalls = false;
+    if constexpr (kLogDrawCalls)
+        LOG_DESC("Drawing lines with index count: " + std::to_string(lineIndexCount));
     if (lineIndexCount == 0)
         return;
 

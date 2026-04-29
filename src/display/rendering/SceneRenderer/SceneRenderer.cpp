@@ -2,6 +2,33 @@
 #include "ProjectionDepthMode.hpp"
 #include "rendering/CalibPickSegments.hpp"
 #include "utils/log.hpp"
+#include <chrono>
+
+namespace
+{
+using Clock = std::chrono::steady_clock;
+
+inline double MsSince(const Clock::time_point &start)
+{
+    return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+}
+
+inline void LogSlowStage(const char *stage, double ms)
+{
+    // Keep output low-noise; only log slow render-rebuild stages.
+    if (ms >= 4.0)
+        LOG_SESSION("Render stage", stage, "ms", ms);
+}
+} // namespace
+
+void SceneRenderer::AbortIncrementalFullRebuild()
+{
+    fullRebuildInProgress = false;
+    fullRebuildPhase = FullRebuildPhase::Idle;
+    fullRebuildSolidIndex = 0;
+    fullRebuildScene = nullptr;
+    fullRebuildResults = nullptr;
+}
 
 void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
 {
@@ -10,10 +37,13 @@ void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
 
 void SceneRenderer::RebuildAll(Scene *scene, const AnalysisResults *results)
 {
+    AbortIncrementalFullRebuild();
+    const Clock::time_point tAll = Clock::now();
     fullRebuildCount++;
     solidOrder.clear();
     solidChunks.clear();
 
+    const Clock::time_point tBuildChunks = Clock::now();
     for (const Solid &solid : scene->solids)
     {
         const Solid *key = &solid;
@@ -22,12 +52,136 @@ void SceneRenderer::RebuildAll(Scene *scene, const AnalysisResults *results)
         BuildSolidChunk(key, results, chunk);
         solidChunks.emplace(key, std::move(chunk));
     }
+    LogSlowStage("build_chunks", MsSince(tBuildChunks));
 
+    const Clock::time_point tLoose = Clock::now();
     RebuildLoose(scene, results);
+    LogSlowStage("rebuild_loose", MsSince(tLoose));
+    const Clock::time_point tRepack = Clock::now();
     RepackOffsets();
+    LogSlowStage("repack_offsets", MsSince(tRepack));
+    const Clock::time_point tUpload = Clock::now();
     UploadAllPacked();
+    LogSlowStage("upload_all_packed", MsSince(tUpload));
+    const Clock::time_point tPickTris = Clock::now();
     RebuildPickTriangles();
+    LogSlowStage("rebuild_pick_tris", MsSince(tPickTris));
+    const Clock::time_point tPickSegs = Clock::now();
     RebuildPickSegments(scene);
+    LogSlowStage("rebuild_pick_segs", MsSince(tPickSegs));
+    LogSlowStage("rebuild_all_total", MsSince(tAll));
+}
+
+bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs)
+{
+    if (scene == nullptr)
+    {
+        AbortIncrementalFullRebuild();
+        return true;
+    }
+
+    const Clock::time_point tBudgetStart = Clock::now();
+    auto budgetLeft = [&]() -> double
+    {
+        return budgetMs - MsSince(tBudgetStart);
+    };
+
+    if (fullRebuildPhase == FullRebuildPhase::Idle)
+    {
+        // Start a new incremental rebuild session.
+        fullRebuildCount++;
+        solidOrder.clear();
+        solidChunks.clear();
+
+        for (const Solid &solid : scene->solids)
+            solidOrder.push_back(&solid);
+
+        fullRebuildScene = scene;
+        fullRebuildResults = results;
+        fullRebuildSolidIndex = 0;
+        fullRebuildPhase = FullRebuildPhase::BuildingSolids;
+        fullRebuildInProgress = true;
+    }
+    else if (fullRebuildScene != scene || fullRebuildResults != results)
+    {
+        // Scene or analysis pointer changed mid-flight; restart safely.
+        AbortIncrementalFullRebuild();
+        return RebuildAllIncremental(scene, results, budgetLeft());
+    }
+
+    while (fullRebuildPhase != FullRebuildPhase::Done)
+    {
+        if (budgetLeft() <= 0.0)
+            return false;
+
+        switch (fullRebuildPhase)
+        {
+        case FullRebuildPhase::BuildingSolids:
+        {
+            const Clock::time_point tBuild = Clock::now();
+            while (fullRebuildSolidIndex < solidOrder.size())
+            {
+                if (budgetLeft() <= 0.0)
+                {
+                    LogSlowStage("build_chunks_partial", MsSince(tBuild));
+                    return false;
+                }
+
+                const Solid *key = solidOrder[fullRebuildSolidIndex];
+                SolidChunk chunk;
+                BuildSolidChunk(key, fullRebuildResults, chunk);
+                solidChunks.emplace(key, std::move(chunk));
+                ++fullRebuildSolidIndex;
+            }
+            LogSlowStage("build_chunks", MsSince(tBuild));
+            fullRebuildPhase = FullRebuildPhase::RebuildingLoose;
+            break;
+        }
+        case FullRebuildPhase::RebuildingLoose:
+        {
+            const Clock::time_point tLoose = Clock::now();
+            RebuildLoose(fullRebuildScene, fullRebuildResults);
+            LogSlowStage("rebuild_loose", MsSince(tLoose));
+            fullRebuildPhase = FullRebuildPhase::Repacking;
+            break;
+        }
+        case FullRebuildPhase::Repacking:
+        {
+            const Clock::time_point tRepack = Clock::now();
+            RepackOffsets();
+            LogSlowStage("repack_offsets", MsSince(tRepack));
+            fullRebuildPhase = FullRebuildPhase::Uploading;
+            break;
+        }
+        case FullRebuildPhase::Uploading:
+        {
+            const Clock::time_point tUpload = Clock::now();
+            UploadAllPacked();
+            LogSlowStage("upload_all_packed", MsSince(tUpload));
+            fullRebuildPhase = FullRebuildPhase::PickRebuild;
+            break;
+        }
+        case FullRebuildPhase::PickRebuild:
+        {
+            const Clock::time_point tPickTris = Clock::now();
+            RebuildPickTriangles();
+            LogSlowStage("rebuild_pick_tris", MsSince(tPickTris));
+            const Clock::time_point tPickSegs = Clock::now();
+            RebuildPickSegments(fullRebuildScene);
+            LogSlowStage("rebuild_pick_segs", MsSince(tPickSegs));
+            fullRebuildPhase = FullRebuildPhase::Done;
+            break;
+        }
+        case FullRebuildPhase::Done:
+        default:
+            break;
+        }
+    }
+
+    LogSlowStage("rebuild_all_total_incremental_session", MsSince(tBudgetStart));
+
+    AbortIncrementalFullRebuild();
+    return true;
 }
 
 void SceneRenderer::RebuildSolids(Scene *scene, const std::unordered_set<const Solid *> &dirtySolids,
@@ -36,6 +190,7 @@ void SceneRenderer::RebuildSolids(Scene *scene, const std::unordered_set<const S
     if (dirtySolids.empty())
         return;
 
+    AbortIncrementalFullRebuild();
     partialRebuildCount++;
     bool missingChunk = false;
     for (const Solid *solid : dirtySolids)
@@ -121,6 +276,7 @@ void SceneRenderer::RebuildScope(Scene *scene, const GeometryInvalidationScope &
 
 void SceneRenderer::RecolorOnly(Scene *scene, const AnalysisResults *results)
 {
+    AbortIncrementalFullRebuild();
     recolorOnlyCount++;
 
     // Rebuild chunks to refresh per-vertex colors while preserving topology where possible.
@@ -389,6 +545,7 @@ void SceneRenderer::RenderWireframe()
 
 void SceneRenderer::Shutdown()
 {
+    AbortIncrementalFullRebuild();
     renderer.Shutdown();
     solidOrder.clear();
     solidChunks.clear();

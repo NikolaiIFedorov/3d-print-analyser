@@ -28,6 +28,7 @@
 #include "CalibCompensation.hpp"
 #include <cmath>
 #include <limits>
+#include <chrono>
 
 #include "ViewportDepthExperiments.hpp"
 #include "RenderingExperiments.hpp"
@@ -573,6 +574,14 @@ void Display::ScheduleNode(InvalidationNode node)
 
 void Display::MarkStyleDirty()
 {
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+    }
+    readyAnalysisResult.reset();
+    analysisRequestId++;
+
     styleDirty = true;
     ScheduleNode(InvalidationNode::Style);
     ScheduleNode(InvalidationNode::Pick);
@@ -582,6 +591,14 @@ void Display::MarkStyleDirty()
 
 void Display::MarkGeometryDirtyAll()
 {
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+    }
+    readyAnalysisResult.reset();
+    analysisRequestId++;
+
     geometryDirtyAll = true;
     geometryDirtySolids.clear();
     ScheduleNode(InvalidationNode::Geometry);
@@ -598,6 +615,14 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
         MarkGeometryDirtyAll();
         return;
     }
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+    }
+    readyAnalysisResult.reset();
+    analysisRequestId++;
+
     if (!geometryDirtyAll)
         geometryDirtySolids.insert(solid);
     ScheduleNode(InvalidationNode::Geometry);
@@ -637,6 +662,12 @@ void Display::ClearScheduledNodes()
 void Display::RunPickNode()
 {
     // Guardrail: pick mesh refresh must run after geometry/style node settled for this frame.
+    if (renderer.FullRebuildInProgress())
+    {
+        InvalidationSkip(InvalidationNode::Pick);
+        return;
+    }
+
     if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
     {
         InvalidationGuardrailViolation();
@@ -674,6 +705,7 @@ void Display::RunUiNode()
 void Display::Frame()
 {
     ProcessDeferredImportIfAny();
+    const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
 
     const float axisH = SyncViewportAxisForDepthClip();
     ApplyOrthoClipFromViewBounds(camera, scene, axisH);
@@ -688,7 +720,53 @@ void Display::Frame()
     if (cameraDirty)
         cameraDirty = false;
 
-    if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty)
+    if (pendingAnalysisTask.has_value())
+    {
+        std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
+        if (analysisReady.has_value())
+        {
+            pendingAnalysisTask.reset();
+            if (analysisReady->ok && !analysisReady->cancelled &&
+                analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
+            {
+                readyAnalysisResult = std::move(*analysisReady);
+                styleDirty = true;
+                ScheduleNode(InvalidationNode::Style);
+                ScheduleNode(InvalidationNode::Analysis);
+                ScheduleNode(InvalidationNode::Pick);
+                ScheduleNode(InvalidationNode::UI);
+                renderDirty = true;
+            }
+        }
+    }
+
+    if (pendingAnalysisAfterImportRebuild && !geometryDirtyAll && geometryDirtySolids.empty() && !styleDirty && !pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisAfterImportRebuild = false;
+        const uint64_t requestId = ++analysisRequestId;
+        const Scene *sceneForAnalysis = scene;
+        pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                                                {
+                                                    AsyncAnalysisResult out;
+                                                    out.scene = sceneForAnalysis;
+                                                    out.requestId = requestId;
+                                                    if (token.IsCancellationRequested())
+                                                    {
+                                                        out.cancelled = true;
+                                                        return out;
+                                                    }
+                                                    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                    if (token.IsCancellationRequested())
+                                                    {
+                                                        out.cancelled = true;
+                                                        return out;
+                                                    }
+                                                    out.ok = true;
+                                                    return out;
+                                                });
+    }
+
+    if (!ranMainThreadApplyTask && (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty))
     {
         ScheduleNode(InvalidationNode::Geometry);
         if (styleDirty)
@@ -710,23 +788,67 @@ void Display::Frame()
         uiRenderer.MarkDirty();
 
         const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
+        bool geometryRebuildComplete = true;
+        bool hasAnalysisThisFrame = false;
         AnalysisResults results;
-        if (geometryOrStyleWork && analysisEnabled)
-            results = Analysis::Instance().AnalyzeScene(scene);
+        if (analysisEnabled && readyAnalysisResult.has_value() && readyAnalysisResult->scene == scene &&
+            styleDirty && !geometryDirtyAll && geometryDirtySolids.empty())
+        {
+            results = std::move(readyAnalysisResult->results);
+            readyAnalysisResult.reset();
+            hasAnalysisThisFrame = true;
+        }
+        else
+        {
+            const bool shouldLaunchAsyncAnalysis =
+                geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
+                !pendingAnalysisTask.has_value();
+            if (shouldLaunchAsyncAnalysis)
+            {
+                const uint64_t requestId = analysisRequestId;
+                const Scene *sceneForAnalysis = scene;
+                pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                                                        {
+                                                            AsyncAnalysisResult out;
+                                                            out.scene = sceneForAnalysis;
+                                                            out.requestId = requestId;
+                                                            if (token.IsCancellationRequested())
+                                                            {
+                                                                out.cancelled = true;
+                                                                return out;
+                                                            }
+                                                            out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                            if (token.IsCancellationRequested())
+                                                            {
+                                                                out.cancelled = true;
+                                                                return out;
+                                                            }
+                                                            out.ok = true;
+                                                            return out;
+                                                        });
+            }
+        }
 
         if (geometryDirtyAll)
         {
-            renderer.RebuildAll(scene, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            geometryRebuildComplete =
+                renderer.RebuildAllIncremental(scene, hasAnalysisThisFrame ? &results : nullptr, 2.5);
             InvalidationExec(InvalidationNode::Geometry);
+            if (!geometryRebuildComplete)
+            {
+                // Keep scheduling geometry work until incremental rebuild completes.
+                renderDirty = true;
+                pickDirty = true;
+            }
         }
         else if (!geometryDirtySolids.empty())
         {
-            renderer.RebuildSolids(scene, geometryDirtySolids, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            renderer.RebuildSolids(scene, geometryDirtySolids, hasAnalysisThisFrame ? &results : nullptr);
             InvalidationExec(InvalidationNode::Geometry);
         }
         else if (styleDirty)
         {
-            renderer.RecolorOnly(scene, (geometryOrStyleWork && analysisEnabled) ? &results : nullptr);
+            renderer.RecolorOnly(scene, hasAnalysisThisFrame ? &results : nullptr);
             InvalidationExec(InvalidationNode::Style);
         }
 
@@ -808,7 +930,7 @@ void Display::Frame()
 
         RunPickNode();
 
-        if (geometryOrStyleWork && analysisEnabled)
+        if (hasAnalysisThisFrame)
         {
             InvalidationExec(InvalidationNode::Analysis);
             // Count flaws per type and push to UI
@@ -1157,10 +1279,25 @@ void Display::Frame()
                     uiVerdict->values = {};
             }
         }
-        geometryDirtyAll = false;
-        geometryDirtySolids.clear();
-        styleDirty = false;
-        pickDirty = false;
+        if (geometryOrStyleWork && skipAnalysisForNextGeometryRebuild)
+        {
+            // Import handoff: keep the first rebuild responsive, then request one
+            // follow-up style/analysis pass once geometry is visible.
+            skipAnalysisForNextGeometryRebuild = false;
+            pendingAnalysisAfterImportRebuild = true;
+        }
+        if (geometryRebuildComplete)
+        {
+            geometryDirtyAll = false;
+            geometryDirtySolids.clear();
+            styleDirty = false;
+            pickDirty = false;
+        }
+        else
+        {
+            // Leave dirty flags latched so the next frame continues incremental rebuild.
+            geometryDirtyAll = true;
+        }
         InvalidationExec(InvalidationNode::UI);
         ClearScheduledNodes();
     }
@@ -1743,23 +1880,24 @@ void Display::RefreshStatusStripIdleText()
 
 void Display::CompleteFileImport(const std::string &path)
 {
+    // Legacy synchronous path retained as fallback. Normal imports are now handled
+    // by ProcessDeferredImportIfAny() using an async worker.
     auto ext = path.substr(path.find_last_of('.') + 1);
     std::string lower;
     for (char c : ext)
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
-    // Each import gets its own independent scene.
-    ownedScenes.push_back(std::make_unique<Scene>());
+    auto importedScene = std::make_unique<Scene>();
+    if (lower == "stl")
+        STLImport::Import(path, importedScene.get());
+    else if (lower == "obj")
+        OBJImport::Import(path, importedScene.get());
+    else if (lower == "3mf")
+        ThreeMFImport::Import(path, importedScene.get());
+
+    ownedScenes.push_back(std::move(importedScene));
     activeSceneIndex = ownedScenes.size() - 1;
     scene = ownedScenes.back().get();
-
-    if (lower == "stl")
-        STLImport::Import(path, scene);
-    else if (lower == "obj")
-        OBJImport::Import(path, scene);
-    else if (lower == "3mf")
-        ThreeMFImport::Import(path, scene);
-
     FrameScene();
     UpdateScene();
 
@@ -1805,6 +1943,122 @@ void Display::CompleteFileImport(const std::string &path)
 
 void Display::ProcessDeferredImportIfAny()
 {
+    using namespace std::chrono_literals;
+
+    if (pendingImportTask.has_value())
+    {
+        std::optional<AsyncImportResult> readyResult = pendingImportTask->TryTake();
+        if (!readyResult.has_value())
+            return;
+        AsyncImportResult result = std::move(*readyResult);
+        pendingImportTask.reset();
+
+        if (!result.ok || !result.importedScene)
+        {
+            if (!result.cancelled)
+                LOG_WARN("Import failed for", result.path);
+            statusStripImportBusy = false;
+            statusStripImportProgress01 = -1.0f;
+            RefreshStatusStripIdleText();
+            return;
+        }
+
+        struct ImportApplyState
+        {
+            AsyncImportResult result;
+            std::string filename;
+            double frameSceneMs = 0.0;
+            double updateSceneMs = 0.0;
+        };
+
+        auto state = std::make_shared<ImportApplyState>();
+        state->result = std::move(result);
+        state->filename = state->result.path.substr(state->result.path.find_last_of("/\\") + 1);
+
+        mainThreadPipeline.Enqueue("import-attach-scene", [this, state](double) -> bool
+                                   {
+                                       ownedScenes.push_back(std::move(state->result.importedScene));
+                                       activeSceneIndex = ownedScenes.size() - 1;
+                                       scene = ownedScenes.back().get();
+                                       skipAnalysisForNextGeometryRebuild = true;
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-frame-scene", [this, state](double) -> bool
+                                   {
+                                       using Clock = std::chrono::steady_clock;
+                                       const Clock::time_point tStart = Clock::now();
+                                       FrameScene();
+                                       state->frameSceneMs =
+                                           std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-update-scene", [this, state](double) -> bool
+                                   {
+                                       using Clock = std::chrono::steady_clock;
+                                       const Clock::time_point tStart = Clock::now();
+                                       UpdateScene();
+                                       state->updateSceneMs =
+                                           std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-finalize-ui", [this, state](double) -> bool
+                                   {
+                                       if (state->result.lower == "stl" && state->result.hasStlStats)
+                                       {
+                                           const double pipelineMs =
+                                               state->result.importerMs + state->frameSceneMs + state->updateSceneMs;
+                                           LOG_INFO("Import timing STL parseMs", state->result.stlParseMs,
+                                                    "mergeMs", state->result.stlMergeMs,
+                                                    "stlTotalMs", state->result.stlTotalMs,
+                                                    "importerMs", state->result.importerMs,
+                                                    "frameSceneMs", state->frameSceneMs,
+                                                    "updateSceneMs", state->updateSceneMs,
+                                                    "pipelineMs", pipelineMs,
+                                                    "triangles", state->result.stlTriangles,
+                                                    "uniquePoints", state->result.stlUniquePoints,
+                                                    "faces", state->result.stlFaces);
+                                       }
+
+                                       auto &sl = SessionLogger::Instance();
+                                       sl.state.lastFilename = state->filename;
+                                       sl.state.lastFormat = state->result.lower;
+                                       sl.state.points = scene->points.size();
+                                       sl.state.edges = scene->edges.size();
+                                       sl.state.faces = scene->faces.size();
+                                       sl.state.solids = scene->solids.size();
+                                       sl.LogFileImport(state->filename, state->result.lower);
+
+                                       openFiles.push_back(state->filename);
+                                       RebuildFileTabs();
+
+                                       calibStepImport = Icons::StepState::Done;
+                                       ClearCalibrateFacePicks();
+                                       calibPara_Import->visible = false;
+                                       calibPara_Point1->visible = true;
+                                       calibPara_Point1->selected = true;
+                                       calibStepPoint1 = Icons::StepState::Active;
+                                       calibPara_Point2->visible = true;
+                                       calibStepPoint2 = Icons::StepState::Active;
+                                       if (calibSec_Parameters)
+                                           calibSec_Parameters->visible = true;
+                                       RefreshCalibDerivedRowVisible();
+                                       uiRenderer.MarkDirty();
+                                       renderDirty = true;
+
+                                       SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
+                                       SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+
+                                       statusStripImportBusy = false;
+                                       statusStripImportProgress01 = -1.0f;
+                                       RefreshStatusStripIdleText();
+                                       return true;
+                                   });
+        return;
+    }
+
     if (!deferredImportPath)
         return;
     std::string path = std::move(*deferredImportPath);
@@ -1819,7 +2073,72 @@ void Display::ProcessDeferredImportIfAny()
     SyncStatusStripTextLine();
     Render();
 
-    CompleteFileImport(path);
+    mainThreadPipeline.Clear();
+
+    if (pendingImportTask.has_value())
+    {
+        pendingImportTask->RequestCancel();
+        pendingImportTask.reset();
+    }
+
+    pendingImportTask = taskRunner.Submit([path](const TaskRunner::CancellationToken &token) -> AsyncImportResult
+                                          {
+                                              using Clock = std::chrono::steady_clock;
+                                              AsyncImportResult result;
+                                              result.path = path;
+
+                                              auto ext = path.substr(path.find_last_of('.') + 1);
+                                              for (char c : ext)
+                                                  result.lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+                                              if (token.IsCancellationRequested())
+                                              {
+                                                  result.cancelled = true;
+                                                  return result;
+                                              }
+
+                                              result.importedScene = std::make_unique<Scene>();
+                                              const Clock::time_point tImporterStart = Clock::now();
+
+                                              if (result.lower == "stl")
+                                              {
+                                                  STLImportStats stlStats;
+                                                  result.ok = STLImport::Import(path, result.importedScene.get(), &stlStats);
+                                                  result.hasStlStats = result.ok;
+                                                  if (result.hasStlStats)
+                                                  {
+                                                      result.stlParseMs = stlStats.parseMs;
+                                                      result.stlMergeMs = stlStats.mergeMs;
+                                                      result.stlTotalMs = stlStats.totalMs;
+                                                      result.stlTriangles = stlStats.triangleCount;
+                                                      result.stlUniquePoints = stlStats.uniquePoints;
+                                                      result.stlFaces = stlStats.faces;
+                                                  }
+                                              }
+                                              else if (result.lower == "obj")
+                                              {
+                                                  result.ok = OBJImport::Import(path, result.importedScene.get());
+                                              }
+                                              else if (result.lower == "3mf")
+                                              {
+                                                  result.ok = ThreeMFImport::Import(path, result.importedScene.get());
+                                              }
+                                              else
+                                              {
+                                                  result.ok = false;
+                                              }
+
+                                              if (token.IsCancellationRequested())
+                                              {
+                                                  result.cancelled = true;
+                                                  result.ok = false;
+                                              }
+
+                                              result.importerMs = std::chrono::duration<double, std::milli>(Clock::now() - tImporterStart).count();
+                                              if (!result.ok)
+                                                  result.importedScene.reset();
+                                              return result;
+                                          });
 }
 
 void Display::DoFileImport()

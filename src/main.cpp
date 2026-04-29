@@ -6,6 +6,7 @@
 #include "ProjectionDepthMode.hpp"
 #include "display/display.hpp"
 #include "input/Input.hpp"
+#include "utils/log.hpp"
 #include "utils/SessionLogger.hpp"
 
 SDL_Window *window = nullptr;
@@ -83,7 +84,7 @@ int main()
         if (!Init())
             return -1;
 
-        LOG_FILTER_BACK(true);
+        Log::SetVerbosity(LogVerbosity::NORMAL);
         display->Frame();
         while (input->handleEvents())
         {

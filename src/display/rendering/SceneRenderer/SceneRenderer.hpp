@@ -14,8 +14,10 @@
 #include "scene/scene.hpp"
 
 #include "mapbox/earcut.hpp"
+#include <cstddef>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 class SceneRenderer
 {
@@ -37,6 +39,9 @@ public:
 
     void UpdateScene(Scene *scene, const AnalysisResults *results = nullptr);
     void RebuildAll(Scene *scene, const AnalysisResults *results = nullptr);
+    /// Time-sliced variant of `RebuildAll` for large scenes. Returns true when finished.
+    bool RebuildAllIncremental(Scene *scene, const AnalysisResults *results, double budgetMs);
+    bool FullRebuildInProgress() const { return fullRebuildInProgress; }
     void RebuildSolids(Scene *scene, const std::unordered_set<const Solid *> &dirtySolids,
                        const AnalysisResults *results = nullptr);
     void RecolorOnly(Scene *scene, const AnalysisResults *results = nullptr);
@@ -89,6 +94,7 @@ private:
     void UploadAllPacked();
     void RebuildPickSegments(Scene *scene);
     void RebuildPickTriangles();
+    void AbortIncrementalFullRebuild();
 
     OpenGLRenderer renderer;
     std::vector<const Solid *> solidOrder;
@@ -101,4 +107,21 @@ private:
     uint64_t recolorOnlyCount = 0;
     std::vector<PickTriangle> pickTriangles;
     std::vector<PickSegment> pickSegments;
+
+    enum class FullRebuildPhase
+    {
+        Idle,
+        BuildingSolids,
+        RebuildingLoose,
+        Repacking,
+        Uploading,
+        PickRebuild,
+        Done
+    };
+
+    bool fullRebuildInProgress = false;
+    FullRebuildPhase fullRebuildPhase = FullRebuildPhase::Idle;
+    size_t fullRebuildSolidIndex = 0;
+    Scene *fullRebuildScene = nullptr;
+    const AnalysisResults *fullRebuildResults = nullptr;
 };
