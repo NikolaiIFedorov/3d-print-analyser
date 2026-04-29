@@ -193,11 +193,14 @@ private:
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
+    Paragraph *uiAnalysisProcessing = nullptr;
+    Paragraph *uiCalibrateProcessing = nullptr;
     // Calibrate step-flow pointers — updated when picking is wired
     Paragraph *calibPara_Import = nullptr;          // hidden after file import
     Paragraph *calibPara_Point1 = nullptr;          // shown/activated after import
     Paragraph *calibPara_Point2 = nullptr;          // shown after point1 is plotted
     Section *calibSec_Parameters = nullptr;       // hidden until import (contains Print measurement)
+    Section *calibSec_Prerequisites = nullptr;
     Paragraph *calibPara_Derived = nullptr;       // second Parameters row (span / compensation); hidden when unused
     SectionLine *calibLine_Point1Primary = nullptr; // for per-line state (textDepth etc.)
     SectionLine *calibLine_Point2Primary = nullptr;
@@ -262,6 +265,7 @@ private:
     MainThreadPipeline mainThreadPipeline;
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
+    const Scene *pendingAnalysisScene = nullptr;
     /// Latest async analysis result awaiting render application (tints / flaw overlay).
     std::optional<AsyncAnalysisResult> pendingAnalysisTint;
     /// Incremental full rebuild spans many frames; keep analysis snapshot + id stable until it finishes.
@@ -277,12 +281,15 @@ private:
     std::string statusStripLine;
     bool statusStripImportBusy = false;
     float statusStripImportProgress01 = -1.0f; // reserved: in [0,1] for real %; -1 = indeterminate
+    /// File-bar tab stem while async import is active (empty when idle).
+    std::string pendingImportTabStem;
 
     void ProcessDeferredImportIfAny();
     void CompleteFileImport(const std::string &path);
     void SyncToolbarToolVisualState();
     void RefreshStatusStripIdleText();
     void SyncStatusStripTextLine();
+    void RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask);
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;

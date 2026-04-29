@@ -582,6 +582,7 @@ void Display::MarkStyleDirty()
     {
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
     }
     pendingAnalysisTint.reset();
     activeAnalysisTintForRebuild.reset();
@@ -601,6 +602,7 @@ void Display::MarkGeometryDirtyAll()
     {
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
     }
     pendingAnalysisTint.reset();
     activeAnalysisTintForRebuild.reset();
@@ -628,6 +630,7 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
     {
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
     }
     pendingAnalysisTint.reset();
     activeAnalysisTintForRebuild.reset();
@@ -721,6 +724,7 @@ void Display::Frame()
         if (analysisReady.has_value())
         {
             pendingAnalysisTask.reset();
+            pendingAnalysisScene = nullptr;
             if (analysisReady->ok && !analysisReady->cancelled &&
                 analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
             {
@@ -760,7 +764,14 @@ void Display::Frame()
                                                     out.ok = true;
                                                     return out;
                                                 });
+        pendingAnalysisScene = sceneForAnalysis;
     }
+
+    // Keep processing cards synchronized even when no invalidation pass runs
+    // (e.g. import busy / queued states while geometry flags are currently clean).
+    const bool hasModelNow = !scene->solids.empty() || !scene->faces.empty();
+    const bool geometryOrStyleWorkNow = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
+    RefreshToolProcessingCards(hasModelNow, geometryOrStyleWorkNow, ranMainThreadApplyTask);
 
     if (!ranMainThreadApplyTask && (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty))
     {
@@ -774,6 +785,8 @@ void Display::Frame()
 
         bool hasModel = !scene->solids.empty() || !scene->faces.empty();
 
+        const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
+
         // Toggle Analysis panel sections based on model presence
         if (uiImportPara)
             uiImportPara->visible = !hasModel;
@@ -781,9 +794,9 @@ void Display::Frame()
             uiResult->visible = hasModel;
         if (uiVerdict)
             uiVerdict->visible = hasModel;
+        RefreshToolProcessingCards(hasModel, geometryOrStyleWork, ranMainThreadApplyTask);
         uiRenderer.MarkDirty();
 
-        const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
         bool geometryRebuildComplete = true;
         bool hasAnalysisThisFrame = false;
         if (analysisEnabled && pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene &&
@@ -825,6 +838,7 @@ void Display::Frame()
                                                             out.ok = true;
                                                             return out;
                                                         });
+                pendingAnalysisScene = sceneForAnalysis;
             }
             else if (shouldLaunchAsyncAnalysis)
             {
@@ -1356,6 +1370,9 @@ void Display::Frame()
     if (!statusStripImportBusy)
         RefreshStatusStripIdleText();
 
+    if (statusStripImportBusy || pendingImportTask.has_value())
+        renderDirty = true;
+
     if (renderDirty)
     {
         Render();
@@ -1868,6 +1885,128 @@ void Display::SyncStatusStripTextLine()
     uiRenderer.MarkDirty();
 }
 
+void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask)
+{
+    bool changed = false;
+    auto setVisible = [&](Paragraph *p, bool visible)
+    {
+        if (!p)
+            return;
+        if (p->visible != visible)
+        {
+            p->visible = visible;
+            changed = true;
+        }
+    };
+    auto setBool = [&](bool &dst, bool value)
+    {
+        if (dst != value)
+        {
+            dst = value;
+            changed = true;
+        }
+    };
+    auto setFloat = [&](float &dst, float value)
+    {
+        if (std::fabs(dst - value) > 1e-6f)
+        {
+            dst = value;
+            changed = true;
+        }
+    };
+    auto setText = [&](Paragraph *p, const std::string &text)
+    {
+        if (!p || p->values.empty())
+            return;
+        if (p->values[0].text != text)
+        {
+            p->values[0].text = text;
+            changed = true;
+        }
+    };
+
+    const bool hasCommittedAnalysis = lastCommittedAnalysisForRecolor.has_value();
+    const bool queueingFirstAnalysis = pendingAnalysisAfterGeometryRebuild && !hasCommittedAnalysis;
+    const bool analysisRenderingInScene =
+        analysisEnabled && activeAnalysisTintForRebuild.has_value() && renderer.FullRebuildInProgress();
+    // Do not gate on stale verdict text: old "No issues" must not suppress the card while a new analysis runs.
+    const bool analysisBusy =
+        analysisEnabled && (pendingAnalysisTask.has_value() || queueingFirstAnalysis ||
+                            (pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene) ||
+                            analysisRenderingInScene);
+    if (uiAnalysisProcessing)
+    {
+        setVisible(uiAnalysisProcessing, analysisBusy && hasModel);
+        setBool(uiAnalysisProcessing->accentProgressBar, uiAnalysisProcessing->visible);
+        setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
+        if (uiAnalysisProcessing->visible)
+        {
+            if (queueingFirstAnalysis)
+            {
+                setText(uiAnalysisProcessing, "Queueing analysis...");
+                setFloat(uiAnalysisProcessing->accentProgress01, 0.25f);
+            }
+            else if (pendingAnalysisTask.has_value())
+            {
+                setText(uiAnalysisProcessing, "Analysing faces...");
+                setFloat(uiAnalysisProcessing->accentProgress01, 0.60f);
+            }
+            else if (analysisRenderingInScene)
+            {
+                setText(uiAnalysisProcessing, "Rendering analysis...");
+                setFloat(uiAnalysisProcessing->accentProgress01, 0.90f);
+            }
+            else
+            {
+                setText(uiAnalysisProcessing, "Applying analysis...");
+                setFloat(uiAnalysisProcessing->accentProgress01, 0.95f);
+            }
+        }
+    }
+    if (uiResult)
+        setVisible(uiResult, hasModel && !analysisBusy);
+    if (uiVerdict)
+        setVisible(uiVerdict, hasModel && !analysisBusy);
+
+    // Import progress lives in the Files bar tab; keep Calibrate panel unobstructed during import.
+    const bool calibrateBusy =
+        hasModel && (geometryOrStyleWork || ranMainThreadApplyTask || renderer.FullRebuildInProgress());
+    if (uiCalibrateProcessing)
+    {
+        const bool show = calibrateBusy && uiCalibrate && uiCalibrate->visible;
+        setVisible(uiCalibrateProcessing, show);
+        setBool(uiCalibrateProcessing->accentProgressBar, show);
+        setFloat(uiCalibrateProcessing->accentProgress01, statusStripImportProgress01 >= 0.0f ? statusStripImportProgress01 : -1.0f);
+        if (show)
+        {
+            setText(uiCalibrateProcessing, statusStripImportBusy ? "Importing model..." : "Refreshing calibration...");
+            if (!statusStripImportBusy && uiCalibrateProcessing->accentProgress01 < 0.0f)
+                setFloat(uiCalibrateProcessing->accentProgress01, 0.75f);
+        }
+    }
+
+    if (calibSec_Prerequisites)
+    {
+        if (calibSec_Prerequisites->visible != !calibrateBusy)
+        {
+            calibSec_Prerequisites->visible = !calibrateBusy;
+            changed = true;
+        }
+    }
+    if (calibSec_Parameters)
+    {
+        const bool nextVisible = !calibrateBusy && calibStepImport == Icons::StepState::Done;
+        if (calibSec_Parameters->visible != nextVisible)
+        {
+            calibSec_Parameters->visible = nextVisible;
+            changed = true;
+        }
+    }
+    RefreshCalibDerivedRowVisible();
+    if (changed)
+        uiRenderer.MarkDirty();
+}
+
 void Display::RefreshStatusStripIdleText()
 {
     if (statusStripImportBusy)
@@ -1906,16 +2045,31 @@ void Display::RefreshStatusStripIdleText()
         static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Style)]);
     const unsigned long long pickExec =
         static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Pick)]);
+    const char *analysisState = "off";
+    if (analysisEnabled)
+    {
+        analysisState = "idle";
+        if (pendingAnalysisTask.has_value())
+            analysisState = (pendingAnalysisScene == scene) ? "running" : "running(other)";
+        else if (pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene)
+            analysisState = "ready";
+        else if (pendingAnalysisAfterGeometryRebuild)
+            analysisState = "queued";
+        else if (renderer.FullRebuildInProgress() && activeAnalysisTintForRebuild.has_value())
+            analysisState = "applying";
+        else if (lastCommittedAnalysisForRecolor.has_value())
+            analysisState = "applied";
+    }
     if (nSol == 1)
         snprintf(buf, sizeof(buf),
-                 "1 solid, %u verts | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
-                 renderedVerts, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
+                 "1 solid, %u verts | A:%s | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 renderedVerts, analysisState, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
                  guardViol, fallbackCnt);
     else
         snprintf(buf, sizeof(buf),
-                 "%zu solids, %u verts | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
-                 nSol, renderedVerts, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
-                 guardViol, fallbackCnt);
+                 "%zu solids, %u verts | A:%s | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 nSol, renderedVerts, analysisState, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec,
+                 pickExec, guardViol, fallbackCnt);
     statusStripLine.assign(buf);
     if (uiStatusStrip)
         uiStatusStrip->visible = true;
@@ -1982,6 +2136,8 @@ void Display::CompleteFileImport(const std::string &path)
 
     statusStripImportBusy = false;
     statusStripImportProgress01 = -1.0f;
+    pendingImportTabStem.clear();
+    pendingFileTabsRebuild = true;
     RefreshStatusStripIdleText();
 }
 
@@ -2003,6 +2159,8 @@ void Display::ProcessDeferredImportIfAny()
                 LOG_WARN("Import failed for", result.path);
             statusStripImportBusy = false;
             statusStripImportProgress01 = -1.0f;
+            pendingImportTabStem.clear();
+            pendingFileTabsRebuild = true;
             RefreshStatusStripIdleText();
             return;
         }
@@ -2075,6 +2233,7 @@ void Display::ProcessDeferredImportIfAny()
                                        sl.state.solids = scene->solids.size();
                                        sl.LogFileImport(state->filename, state->result.lower);
 
+                                       pendingImportTabStem.clear();
                                        openFiles.push_back(state->filename);
                                        RebuildFileTabs();
 
@@ -2109,9 +2268,18 @@ void Display::ProcessDeferredImportIfAny()
     deferredImportPath.reset();
 
     const std::string fname = std::filesystem::path(path).filename().string();
+    pendingImportTabStem = std::filesystem::path(path).stem().string();
+    if (uiVerdict)
+        uiVerdict->values.clear();
+    lastVerdictWasPass = false;
+    flawOverhang = {};
+    flawSharp = {};
+    flawThin = {};
+    flawSmall = {};
     statusStripImportBusy = true;
     statusStripImportProgress01 = -1.0f;
     statusStripLine = "Importing " + fname + "…";
+    pendingFileTabsRebuild = true;
     if (uiStatusStrip)
         uiStatusStrip->visible = true;
     SyncStatusStripTextLine();
@@ -2198,8 +2366,11 @@ void Display::RebuildFileTabs()
 {
     // Compact tab style: natural layer-2 paragraph defaults (margin=INSET, padding=0) — matches Analysis children.
 
+    const bool showPendingImportTab =
+        !pendingImportTabStem.empty() && (statusStripImportBusy || pendingImportTask.has_value());
+
     uiFiles->children.clear();
-    uiFiles->children.reserve(openFiles.size() + 1); // file tabs + "+" button
+    uiFiles->children.reserve(openFiles.size() + 1 + (showPendingImportTab ? 1 : 0)); // tabs + optional import + "+"
 
     for (size_t i = 0; i < openFiles.size(); i++)
     {
@@ -2227,6 +2398,57 @@ void Display::RebuildFileTabs()
             FrameScene();
             pendingFileTabsRebuild = true;
             uiRenderer.MarkDirty();
+        };
+    }
+
+    if (showPendingImportTab)
+    {
+        Paragraph &impTab = uiFiles->AddParagraph("file_pending_import");
+        impTab.values.reserve(1);
+        SectionLine &impLine = impTab.values.emplace_back();
+        impLine.text.clear();
+        impLine.bold = false;
+        impLine.textDepth = 2;
+        impLine.getMinContentWidthPx = [this]()
+        {
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                return 160.0f;
+            const std::string preview = std::string("Importing ") + pendingImportTabStem;
+            return f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, preview.c_str()).x + ImGui::GetStyle().FramePadding.x * 4.0f;
+        };
+        impLine.imguiContent = [this](float w, float h, float /*iconOffset*/)
+        {
+            if (pendingImportTabStem.empty())
+                return;
+            ImDrawList *dl = ImGui::GetWindowDrawList();
+            const ImVec2 o = ImGui::GetCursorScreenPos();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const std::string title = std::string("Importing ") + pendingImportTabStem;
+            glm::vec4 tc = Color::GetUIText(2);
+            ImFont *font = uiRenderer.GetPixelImFont() ? uiRenderer.GetPixelImFont() : ImGui::GetFont();
+            const float fs = font->FontSize;
+            dl->AddText(font, fs, ImVec2(o.x + pad, o.y + pad * 0.5f),
+                        ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a)), title.c_str());
+
+            constexpr float barH = 4.0f;
+            const float barY = o.y + h - barH - pad * 0.75f;
+            const float bx0 = o.x + pad;
+            const float bx1 = o.x + w - pad;
+            if (bx1 <= bx0 + 2.0f)
+                return;
+            const float rr = barH * 0.5f;
+            glm::vec4 trackCol = Color::GetAccent(3, 0.22f, 0.55f);
+            dl->AddRectFilled(ImVec2(bx0, barY), ImVec2(bx1, barY + barH),
+                              ImGui::GetColorU32(ImVec4(trackCol.r, trackCol.g, trackCol.b, trackCol.a)), rr);
+            glm::vec4 fillCol = Color::GetAccent(2, 1.0f, 1.0f);
+            float t = statusStripImportProgress01;
+            if (t < 0.0f)
+                t = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.55f, 1.0f);
+            t = std::clamp(t, 0.0f, 1.0f);
+            const float fillX = bx0 + (bx1 - bx0) * t;
+            dl->AddRectFilled(ImVec2(bx0, barY), ImVec2(fillX, barY + barH),
+                              ImGui::GetColorU32(ImVec4(fillCol.r, fillCol.g, fillCol.b, fillCol.a)), rr);
         };
     }
 
@@ -2285,6 +2507,16 @@ void Display::InitUI()
                 if (activeTool == ActiveTool::Analysis)
                 {
                     uiAnalysis->visible = !uiAnalysis->visible;
+                    if (!uiAnalysis->visible)
+                    {
+                        ClearPickHover();
+                        ClearCalibrateFacePicks();
+                    }
+                    if (analysisEnabled != uiAnalysis->visible)
+                    {
+                        analysisEnabled = uiAnalysis->visible;
+                        UpdateScene();
+                    }
                     SyncToolbarToolVisualState();
                     renderDirty = true;
                     return;
@@ -2307,6 +2539,11 @@ void Display::InitUI()
                 if (activeTool == ActiveTool::Calibrate)
                 {
                     uiCalibrate->visible = !uiCalibrate->visible;
+                    if (!uiCalibrate->visible)
+                    {
+                        ClearPickHover();
+                        ClearCalibrateFacePicks();
+                    }
                     SyncToolbarToolVisualState();
                     renderDirty = true;
                     return;
@@ -2369,7 +2606,7 @@ void Display::InitUI()
         line.text = "Detect possible 3D printing issues by analyzing geometry";
         line.textDepth = 1;
     }
-    uiAnalysis->children.reserve(4); // stable pointers: Result + ImportAction + Verdict + Configs
+    uiAnalysis->children.reserve(5); // stable pointers: Result + ImportAction + Verdict + Configs + Processing
     uiResult = &uiAnalysis->AddParagraph("Result");
     uiResult->visible = false;
     {
@@ -2622,6 +2859,17 @@ void Display::InitUI()
                 Icons::SmallFeature(smallColor),
                 " small feature", "s", &Display::flawSmall,
                 minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", false);
+
+    uiAnalysisProcessing = &uiAnalysis->AddParagraph("Processing");
+    uiAnalysisProcessing->visible = false;
+    uiAnalysisProcessing->dimFill = true;
+    uiAnalysisProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+    uiAnalysisProcessing->values.reserve(1);
+    {
+        SectionLine &line = uiAnalysisProcessing->values.emplace_back();
+        line.text = "Analysing faces...";
+        line.textDepth = 2;
+    }
 
     RebuildAnalysis();
 
@@ -3143,9 +3391,13 @@ void Display::InitUI()
         calibPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         calibPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiCalibrate = &uiRenderer.AddPanel(calibPanel);
+        // AddPanel copies `calibPanel`; vector capacity hint on the local copy is not preserved.
+        // Reserve on the live panel before storing child pointers.
+        uiCalibrate->children.reserve(uiCalibrate->children.size() + 1);
 
         // ── Paragraph pointers for live state mutation ──────────────────────
         Section *prereqs = FindSection(*uiCalibrate, "Prerequisites");
+        calibSec_Prerequisites = prereqs;
         calibPara_Import = &prereqs->children[0];
         calibPara_Point1 = &prereqs->children[1];
         calibPara_Point2 = &prereqs->children[2];
@@ -3185,6 +3437,17 @@ void Display::InitUI()
         calibPara_Point2->visible = false;
         if (calibSec_Parameters)
             calibSec_Parameters->visible = false;
+
+        uiCalibrateProcessing = &uiCalibrate->AddParagraph("Processing");
+        uiCalibrateProcessing->visible = false;
+        uiCalibrateProcessing->dimFill = true;
+        uiCalibrateProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        uiCalibrateProcessing->values.reserve(1);
+        {
+            SectionLine &line = uiCalibrateProcessing->values.emplace_back();
+            line.text = "Refreshing calibration...";
+            line.textDepth = 2;
+        }
 
         RefreshCalibDerivedRowVisible();
     }
