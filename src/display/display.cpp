@@ -601,6 +601,7 @@ void Display::MarkGeometryDirtyAll()
     pendingAnalysisTint.reset();
     activeAnalysisTintForRebuild.reset();
     activeAnalysisTintIdentityForRebuild = 0;
+    lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
     geometryDirtyAll = true;
@@ -627,6 +628,7 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
     pendingAnalysisTint.reset();
     activeAnalysisTintForRebuild.reset();
     activeAnalysisTintIdentityForRebuild = 0;
+    lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
     if (!geometryDirtyAll)
@@ -867,7 +869,10 @@ void Display::Frame()
             }
             else
             {
-                renderer.RecolorOnly(scene, nullptr);
+                const AnalysisResults *recolorPtr = nullptr;
+                if (analysisEnabled && lastCommittedAnalysisForRecolor.has_value())
+                    recolorPtr = &*lastCommittedAnalysisForRecolor;
+                renderer.RecolorOnly(scene, recolorPtr);
                 InvalidationExec(InvalidationNode::Style);
             }
         }
@@ -1316,7 +1321,16 @@ void Display::Frame()
             geometryDirtySolids.clear();
             styleDirty = false;
             pickDirty = false;
-            activeAnalysisTintForRebuild.reset();
+            if (activeAnalysisTintForRebuild.has_value())
+            {
+                lastCommittedAnalysisForRecolor = std::move(*activeAnalysisTintForRebuild);
+                activeAnalysisTintForRebuild.reset();
+            }
+            else
+            {
+                lastCommittedAnalysisForRecolor.reset();
+                activeAnalysisTintForRebuild.reset();
+            }
             activeAnalysisTintIdentityForRebuild = 0;
         }
         else

@@ -267,6 +267,8 @@ private:
     /// Incremental full rebuild spans many frames; keep analysis snapshot + id stable until it finishes.
     std::optional<AnalysisResults> activeAnalysisTintForRebuild;
     uint64_t activeAnalysisTintIdentityForRebuild = 0;
+    /// Snapshot of the last analysis applied to the mesh; used by `RecolorOnly` so style-only refreshes do not strip tints.
+    std::optional<AnalysisResults> lastCommittedAnalysisForRecolor;
     uint64_t analysisRequestId = 0;
     bool skipAnalysisForNextGeometryRebuild = false;
     bool pendingAnalysisAfterGeometryRebuild = false;
