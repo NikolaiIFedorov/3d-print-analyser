@@ -1946,32 +1946,38 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
     {
         analysisProcessingIdleStreak = 0;
         float phaseFloor = 0.f;
+        float phaseCap = 1.0f;
         const char *phaseTitle = "Working on analysis...";
         if (queueingFirstAnalysis)
         {
             phaseFloor = 0.22f;
+            phaseCap = 0.30f;
             phaseTitle = "Queueing analysis...";
         }
         else if (pendingAnalysisTask.has_value())
         {
             phaseFloor = 0.48f;
+            // Never drive the bar to “complete” while the worker is still running — results stay hidden until busy clears.
+            phaseCap = 0.62f;
             phaseTitle = "Analysing faces...";
         }
         else if (pendingTintThisScene)
         {
-            // Results ready, GPU mesh not yet updated — must stay numerically below "rendering"
             phaseFloor = 0.68f;
+            phaseCap = 0.80f;
             phaseTitle = "Applying analysis...";
         }
         else if (analysisRenderingInScene)
         {
             phaseFloor = 0.82f;
+            phaseCap = 0.995f;
             phaseTitle = "Rendering analysis...";
         }
         analysisUiProgressCarry01 = std::max(analysisUiProgressCarry01, phaseFloor);
-        // Slow top-up while finishing so the bar can approach full without snapping backward between phases.
-        if (analysisUiProgressCarry01 >= 0.75f)
-            analysisUiProgressCarry01 = std::min(0.995f, analysisUiProgressCarry01 + 0.0035f);
+        analysisUiProgressCarry01 = std::min(analysisUiProgressCarry01, phaseCap);
+        // Creep only while GPU incremental rebuild is applying tints (bar may approach full before panel unlocks).
+        if (analysisRenderingInScene)
+            analysisUiProgressCarry01 = std::min(phaseCap, analysisUiProgressCarry01 + 0.0035f);
         if (uiAnalysisProcessing)
         {
             setText(uiAnalysisProcessing, phaseTitle);

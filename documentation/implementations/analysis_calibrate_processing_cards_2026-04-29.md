@@ -88,3 +88,8 @@
 
 - Cause: phase ordering treated `pendingAnalysisTint` in the final `else` as “Applying” at a **higher** fill than “Rendering”, so the bar jumped **backward** when moving from apply → render; brief idle could also zero the carry.
 - Fix: explicit order queue → worker → **tint** → **render** with monotonically non-decreasing `analysisUiProgressCarry01`, slow creep near the end, and reset carry only after **3 consecutive idle frames** to absorb one-frame gaps.
+
+### Full bar while still “Analysing” / no results (same day)
+
+- Cause: unconditional creep once `carry >= 0.75` let the bar approach 100% during **pendingAnalysisTask** while verdict/rows stayed hidden until `analysisBusy` cleared.
+- Fix: per-phase **ceilings** (e.g. worker max ~62%); **creep only** during `analysisRenderingInScene`.
