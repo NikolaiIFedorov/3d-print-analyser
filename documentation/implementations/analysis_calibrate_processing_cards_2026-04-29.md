@@ -99,3 +99,8 @@
 - Cause: `uiResult` / `uiVerdict` used `!analysisBusy`, and `analysisBusy` included `analysisRenderingInScene` (incremental GPU rebuild). Counts and verdict were filled when tint was consumed, but panels stayed hidden until `FullRebuildInProgress()` cleared. First `RefreshToolProcessingCards` in the invalidation block also ran **before** tint consumption.
 - Fix: introduce `analysisPipelineWaiting` (task, queue, unconsumed tint only) and show result/verdict when the pipeline is not waiting; keep the full `analysisBusy` for the processing card and phase bar. Call `RefreshToolProcessingCards` again at the end of the invalidation block after analysis UI updates.
 - Validation: `cmake --build build -j8` on `display.cpp`.
+
+### Follow-up: panels still hidden (queueingFirstAnalysis)
+
+- `queueingFirstAnalysis` is `pendingAnalysisAfterGeometryRebuild && !lastCommittedAnalysisForRecolor`; `lastCommitted` is only set when incremental rebuild completes. That made “pipeline waiting” effectively true for the whole post-worker GPU window when combined with the earlier gate.
+- Panel visibility now uses **only** `pendingAnalysisTask` and unconsumed `pendingAnalysisTint`; `queueingFirstAnalysis` remains in `analysisBusy` for the processing card / staged bar only.

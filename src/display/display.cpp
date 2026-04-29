@@ -1933,13 +1933,15 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
         pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene;
     const bool analysisRenderingInScene =
         analysisEnabled && activeAnalysisTintForRebuild.has_value() && renderer.FullRebuildInProgress();
-    // Hide verdict/counts only while new results are not yet applied (worker, queue, or tint not consumed).
-    // GPU incremental rebuild can lag; mesh tints appear before FullRebuildInProgress clears — keep panels visible then.
+    // Hide verdict/counts only while a worker run is in flight or a completed run is still queued for tint apply.
+    // Do NOT include queueingFirstAnalysis here: it stays true until geometry rebuild commits recolor, which is
+    // the same window as GPU incremental rebuild — hiding panels on it kept counts/verdict off after results exist.
     const bool analysisPipelineWaiting =
+        analysisEnabled && (pendingAnalysisTask.has_value() || pendingTintThisScene);
+    // Processing card + bar: full pipeline including "waiting to launch" and GPU tint application.
+    const bool analysisBusy =
         analysisEnabled &&
-        (pendingAnalysisTask.has_value() || queueingFirstAnalysis || pendingTintThisScene);
-    // Do not gate on stale verdict text: old "No issues" must not suppress the card while a new analysis runs.
-    const bool analysisBusy = analysisPipelineWaiting || analysisRenderingInScene;
+        (queueingFirstAnalysis || analysisPipelineWaiting || analysisRenderingInScene);
 
     if (!analysisBusy)
     {
