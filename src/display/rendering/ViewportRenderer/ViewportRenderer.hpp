@@ -23,7 +23,11 @@ public:
     ViewportRenderer &operator=(ViewportRenderer &&other) noexcept;
 
     void SetCamera(Camera &camera);
-    void Render();
+    /// World-space half-length of each axis ray from origin (must match ortho clip in Display).
+    void SetAxisWorldHalfExtent(float halfLength);
+    void Render();         // draws grid (with depth test)
+    void RenderAxes();     // axes after scene — depth-tested, stencil masks solid pixels
+    void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
     void Shutdown();
 
 private:
@@ -36,6 +40,14 @@ private:
     uint32_t gridIndexCount = 0;
 
     glm::mat4 viewProjection = glm::mat4(1.0f);
+    /// Normalized world direction the camera looks (ortho: parallel view rays).
+    glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
+    float axisWorldHalfExtent = 10000.0f;
+    /// World-space grid step (dyadic: …, 1/8, 1/4, 1/2, 1, 2, …); from ortho scale + 1 px line gap.
+    float gridWorldSpacing = 1.0f;
+    /// Second grid pass (stencil==1): only when |view·Z| is high so coplanar floors recover the grid
+    /// without reintroducing bleed through vertical faces at grazing angles.
+    bool drawGridOnCoplanarStencil = false;
 
     bool InitializeShaders();
     void Generate();

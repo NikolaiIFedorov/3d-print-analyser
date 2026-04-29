@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
+#include <mutex>
 #include <optional>
 
 #include <glm/glm.hpp>
@@ -47,8 +48,12 @@ public:
 
     void Clear();
 
+    /// Serializes analyzer pipeline reads/writes.
+    std::recursive_mutex &PipelineMutex() { return pipelineMutex; }
+
 private:
-    std::vector<std::unique_ptr<IFaceAnalysis>> faceAnalyses;
-    std::vector<std::unique_ptr<ISolidAnalysis>> solidAnalyses;
-    std::vector<std::unique_ptr<IEdgeAnalysis>> edgeAnalyses;
+    mutable std::recursive_mutex pipelineMutex;
+    std::vector<std::shared_ptr<IFaceAnalysis>> faceAnalyses;
+    std::vector<std::shared_ptr<ISolidAnalysis>> solidAnalyses;
+    std::vector<std::shared_ptr<IEdgeAnalysis>> edgeAnalyses;
 };

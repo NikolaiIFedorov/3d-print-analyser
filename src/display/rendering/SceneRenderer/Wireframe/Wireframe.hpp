@@ -9,6 +9,9 @@ class Wireframe
 {
 public:
     void Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const;
+    void GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                       const AnalysisResults *results) const;
+    void GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const;
 
 private:
     void AddPoint(const Point *point,
@@ -17,15 +20,18 @@ private:
 
     void AddEdge(const Edge *edge,
                  std::vector<Vertex> &vertices,
-                 std::vector<uint32_t> &indices, bool isFace) const;
+                 std::vector<uint32_t> &indices, bool isFace,
+                 const glm::vec3 *colorOverride = nullptr) const;
 
     void AddLineEdge(const Edge *edge,
                      std::vector<Vertex> &vertices,
-                     std::vector<uint32_t> &indices) const;
+                     std::vector<uint32_t> &indices,
+                     const glm::vec3 &color) const;
 
     void AddCurvedEdge(const Edge *edge,
                        std::vector<Vertex> &vertices,
-                       std::vector<uint32_t> &indices) const;
+                       std::vector<uint32_t> &indices,
+                       const glm::vec3 &color) const;
 
     void AddFace(const Face *face,
                  std::vector<Vertex> &vertices,
@@ -38,5 +44,6 @@ private:
                          const glm::dvec3 &start,
                          const glm::dvec3 &end,
                          std::vector<Vertex> &vertices,
-                         std::vector<uint32_t> &indices) const;
+                         std::vector<uint32_t> &indices,
+                         const glm::vec3 &color) const;
 };

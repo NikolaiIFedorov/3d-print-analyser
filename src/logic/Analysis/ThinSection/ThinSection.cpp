@@ -1,49 +1,82 @@
 #include "ThinSection.hpp"
 #include "logic/Analysis/utils/Slice.hpp"
 #include "scene/Geometry/AllGeometry.hpp"
+#include <limits>
 
-static glm::dvec3 ClosestPointOnSegment(const glm::dvec3 &p, const glm::dvec3 &a, const glm::dvec3 &b)
+// Chain outer (non-hole) segments into an ordered polygon by greedily
+// connecting the endpoint of each segment to the nearest unused segment.
+// Returns polygon vertices in traversal order.
+static std::vector<glm::dvec2> ChainOuter(const std::vector<Segment> &segs)
 {
-    glm::dvec2 ab = glm::dvec2(b) - glm::dvec2(a);
-    glm::dvec2 ap = glm::dvec2(p) - glm::dvec2(a);
-    double t = glm::dot(ap, ab) / glm::dot(ab, ab);
-    t = std::clamp(t, 0.0, 1.0);
-    return a + t * (b - a);
-}
+    if (segs.empty())
+        return {};
 
-static bool SharesEndpoint(const Segment &s1, const Segment &s2)
-{
-    const double eps = 1e-10;
-    return glm::length(glm::dvec2(s1.a - s2.a)) < eps ||
-           glm::length(glm::dvec2(s1.a - s2.b)) < eps ||
-           glm::length(glm::dvec2(s1.b - s2.a)) < eps ||
-           glm::length(glm::dvec2(s1.b - s2.b)) < eps;
-}
+    std::vector<bool> used(segs.size(), false);
+    std::vector<glm::dvec2> polygon;
+    polygon.push_back(glm::dvec2(segs[0].a));
+    glm::dvec2 current = glm::dvec2(segs[0].b);
+    used[0] = true;
 
-static double SegmentToSegmentDist(const Segment &s1, const Segment &s2)
-{
-    double d1 = glm::length(glm::dvec2(ClosestPointOnSegment(s1.a, s2.a, s2.b)) - glm::dvec2(s1.a));
-    double d2 = glm::length(glm::dvec2(ClosestPointOnSegment(s1.b, s2.a, s2.b)) - glm::dvec2(s1.b));
-    double d3 = glm::length(glm::dvec2(ClosestPointOnSegment(s2.a, s1.a, s1.b)) - glm::dvec2(s2.a));
-    double d4 = glm::length(glm::dvec2(ClosestPointOnSegment(s2.b, s1.a, s1.b)) - glm::dvec2(s2.b));
-    return std::min({d1, d2, d3, d4});
-}
-
-static bool IsInsideSolid(const glm::dvec2 &point, const std::vector<Segment> &segments)
-{
-    int crossings = 0;
-    for (const auto &seg : segments)
+    while (true)
     {
-        glm::dvec2 a(seg.a);
-        glm::dvec2 b(seg.b);
-        if ((a.y <= point.y && b.y > point.y) || (b.y <= point.y && a.y > point.y))
+        double bestDist = std::numeric_limits<double>::max();
+        int bestIdx = -1;
+        bool bestFlipped = false;
+
+        for (size_t i = 0; i < segs.size(); i++)
         {
-            double t = (point.y - a.y) / (b.y - a.y);
-            if (point.x < a.x + t * (b.x - a.x))
-                crossings++;
+            if (used[i])
+                continue;
+            double da = glm::length(glm::dvec2(segs[i].a) - current);
+            double db = glm::length(glm::dvec2(segs[i].b) - current);
+            if (da < bestDist)
+            {
+                bestDist = da;
+                bestIdx = (int)i;
+                bestFlipped = false;
+            }
+            if (db < bestDist)
+            {
+                bestDist = db;
+                bestIdx = (int)i;
+                bestFlipped = true;
+            }
         }
+
+        if (bestIdx == -1)
+            break;
+
+        polygon.push_back(current);
+        used[bestIdx] = true;
+        current = bestFlipped ? glm::dvec2(segs[bestIdx].a) : glm::dvec2(segs[bestIdx].b);
     }
-    return (crossings % 2) == 1;
+    polygon.push_back(current);
+
+    return polygon;
+}
+
+static double PolygonArea(const std::vector<glm::dvec2> &poly)
+{
+    double area = 0.0;
+    size_t n = poly.size();
+    for (size_t i = 0; i < n; i++)
+    {
+        size_t j = (i + 1) % n;
+        area += poly[i].x * poly[j].y - poly[j].x * poly[i].y;
+    }
+    return std::abs(area) * 0.5;
+}
+
+static double PolygonPerimeter(const std::vector<glm::dvec2> &poly)
+{
+    double perim = 0.0;
+    size_t n = poly.size();
+    for (size_t i = 0; i < n; i++)
+    {
+        size_t j = (i + 1) % n;
+        perim += glm::length(poly[j] - poly[i]);
+    }
+    return perim;
 }
 
 std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBounds> bounds,
@@ -56,73 +89,93 @@ std::vector<FaceFlaw> ThinSection::Analyze(const Solid *solid, std::optional<ZBo
     if (zMax - zMin < layerHeight)
         return results;
 
-    // Per face: track Z range and narrowest width observed
-    struct FaceInfo
+    struct LayerInfo
     {
-        ZBounds zBounds;
-        double minWidth;
+        double z;
+        double wEff;
+        std::vector<const Face *> faces;
     };
-    std::unordered_map<const Face *, FaceInfo> faceInfos;
 
     auto layers = Slice::Range(solid, zMin, zMax, layerHeight);
 
-    for (const auto &layer : layers)
+    std::vector<LayerInfo> infos;
+    infos.reserve(layers.size());
+
+    for (size_t li = 0; li < layers.size(); li++)
     {
-        if (layer.segments.size() < 2)
-            continue;
+        // Reconstruct z to match Slice::Range's iteration
+        double z = zMin + layerHeight * static_cast<double>(li + 1);
+        const auto &layer = layers[li];
 
-        double z = layer.segments[0].a.z;
-
-        for (size_t i = 0; i < layer.segments.size(); i++)
+        std::vector<Segment> outerSegs;
+        std::vector<const Face *> faces;
+        for (const auto &seg : layer.segments)
         {
-            const auto &s1 = layer.segments[i];
-
-            for (size_t j = i + 1; j < layer.segments.size(); j++)
+            if (!seg.isHole)
             {
-                const auto &s2 = layer.segments[j];
-
-                if (SharesEndpoint(s1, s2))
-                    continue;
-
-                if (s1.face && s1.face == s2.face)
-                    continue;
-
-                double dist = SegmentToSegmentDist(s1, s2);
-                if (dist >= widthThreshold)
-                    continue;
-
-                glm::dvec2 midGap = 0.25 * (glm::dvec2(s1.a) + glm::dvec2(s1.b) +
-                                            glm::dvec2(s2.a) + glm::dvec2(s2.b));
-                if (!IsInsideSolid(midGap, layer.segments))
-                    continue;
-
-                // Record both faces with their Z level and observed width
-                for (const Face *face : {s1.face, s2.face})
-                {
-                    if (!face)
-                        continue;
-                    auto it = faceInfos.find(face);
-                    if (it == faceInfos.end())
-                        faceInfos[face] = {{z, z}, dist};
-                    else
-                    {
-                        it->second.zBounds.zMin = std::min(it->second.zBounds.zMin, z);
-                        it->second.zBounds.zMax = std::max(it->second.zBounds.zMax, z);
-                        it->second.minWidth = std::min(it->second.minWidth, dist);
-                    }
-                }
+                outerSegs.push_back(seg);
+                if (seg.face)
+                    faces.push_back(seg.face);
             }
         }
+
+        if (outerSegs.empty())
+        {
+            // No cross-section at this Z — not a thin layer, breaks any run
+            infos.push_back({z, std::numeric_limits<double>::max(), {}});
+            continue;
+        }
+
+        auto polygon = ChainOuter(outerSegs);
+        double A = PolygonArea(polygon);
+        double P = PolygonPerimeter(polygon);
+        // Effective width = 2A/P (hydraulic radius, not diameter).
+        // For a thin rectangular wall of width w and height h >> w:
+        //   2A/P = 2*w*h / (2*(w+h)) → w as h → ∞
+        // This makes the threshold match the actual wall thickness 1:1.
+        // (The full hydraulic diameter 4A/P would be ~2× the wall width for slabs,
+        //  requiring the user to enter twice the actual thickness they want to detect.)
+        double wEff = (P > 1e-10) ? 2.0 * A / P : std::numeric_limits<double>::max();
+
+        infos.push_back({z, wEff, std::move(faces)});
     }
 
-    // Only flag faces where the narrow region spans enough height relative to width
-    for (const auto &[face, info] : faceInfos)
+    // Identify contiguous runs of thin layers (wEff < minWidth)
+    size_t i = 0;
+    while (i < infos.size())
     {
-        double height = info.zBounds.zMax - info.zBounds.zMin;
-        if (info.minWidth < 1e-10)
+        if (infos[i].wEff >= minWidth)
+        {
+            i++;
             continue;
-        if (height / info.minWidth >= heightToWidthRatio)
-            results.push_back({face, FaceFlawKind::THIN_SECTION, info.zBounds});
+        }
+
+        // Start of a thin run
+        size_t runStart = i;
+        double minWEff = infos[i].wEff;
+        std::vector<const Face *> runFaces = infos[i].faces;
+
+        i++;
+        while (i < infos.size() && infos[i].wEff < minWidth)
+        {
+            minWEff = std::min(minWEff, infos[i].wEff);
+            for (const Face *f : infos[i].faces)
+            {
+                if (std::find(runFaces.begin(), runFaces.end(), f) == runFaces.end())
+                    runFaces.push_back(f);
+            }
+            i++;
+        }
+
+        double runHeight = infos[i - 1].z - infos[runStart].z;
+
+        // Slenderness check: run must be tall enough relative to its effective width
+        if (minWEff > 1e-10 && runHeight / minWEff >= heightToWidthRatio)
+        {
+            ZBounds zb = {infos[runStart].z, infos[i - 1].z};
+            for (const Face *face : runFaces)
+                results.push_back({face, FaceFlawKind::THIN_SECTION, zb});
+        }
     }
 
     return results;

@@ -2,40 +2,28 @@
 
 in vec3 fragColor;
 in vec3 fragNormal;
-in vec3 fragWorldPos;
 
 out vec4 outColor;
 
 uniform vec3 uLightDir;
-uniform vec3 uViewPos;
 uniform float uBrightenAmount;
-uniform float uBlueMin;
-uniform float uBlueMax;
-uniform float uBlueNear;
-uniform float uBlueFar;
 uniform float uLightingEnabled;
 
 void main()
 {
-    if (uLightingEnabled < 0.5 || length(fragNormal) < 0.001)
+    if (uLightingEnabled < 0.5)
     {
         outColor = vec4(fragColor, 1.0);
         return;
     }
 
-    vec3 normal = normalize(fragNormal);
-    vec3 lightDir = normalize(uLightDir);
+    vec3 N = normalize(fragNormal);
+    vec3 L = normalize(uLightDir);
 
-    // How much the surface faces the light (one-sided)
-    float facing = max(dot(normal, lightDir), 0.0);
+    // One-sided diffuse: faces pointing away from the light keep their base
+    // color unchanged; faces pointing toward it brighten by up to uBrightenAmount.
+    float diff = max(0.0, dot(N, L));
+    float lighting = 1.0 + uBrightenAmount * diff;
 
-    // Base color + brighten by up to uBrightenAmount when lit
-    vec3 color = fragColor * (1.0 + uBrightenAmount * facing);
-
-    // Blue tint based on distance from camera (farther = more blue)
-    float dist = length(uViewPos - fragWorldPos);
-    float blueFactor = smoothstep(uBlueNear, uBlueFar, dist);
-    color.b += mix(uBlueMin, uBlueMax, blueFactor);
-
-    outColor = vec4(color, 1.0);
+    outColor = vec4(min(fragColor * lighting, vec3(1.0)), 1.0);
 }

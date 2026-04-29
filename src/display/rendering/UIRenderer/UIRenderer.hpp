@@ -23,6 +23,14 @@ struct UIVertex
     glm::vec4 color;
 };
 
+// Precomputed text metrics derived from grid + font, reused throughout layout and rendering.
+struct TextMetrics
+{
+    float localCell;       // grid.cellSizeX * LOCAL_CELL_RATIO
+    float textScale;       // localCell / lineHeight * 1.4
+    float textHeightCells; // maxBearingY(textScale) / cellSizeY
+};
+
 class UIRenderer
 {
 public:
@@ -40,14 +48,21 @@ public:
     bool HitTest(float pixelX, float pixelY) const;
     void Shutdown();
 
-    Panel &AddPanel(const Panel &panel);
-    Panel *GetPanel(const std::string &id);
+    RootPanel &AddPanel(const RootPanel &panel);
+    RootPanel *GetPanel(const std::string &id);
     void SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values);
     void SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible);
-    void SetPixelImFont(ImFont *font) { pixelImFont = font; }
-    ImFont *GetPixelImFont() const { return pixelImFont; }
+    void MarkDirty() { dirty = true; }
     const UIGrid &GetGrid() const { return grid; }
     void ComputeMinGridSize();
+    void SetPixelImFont(ImFont *font) { pixelImFont = font; }
+    ImFont *GetPixelImFont() const { return pixelImFont; }
+    void SetBodyImFont(ImFont *font) { bodyImFont = font; }
+    ImFont *GetBodyImFont() const { return bodyImFont; }
+    void SetHeavyImFont(ImFont *font) { heavyImFont = font; }
+    ImFont *GetHeavyImFont() const { return heavyImFont; }
+    void SetDebugLayout(bool v) { debugLayout = v; }
+    bool GetDebugLayout() const { return debugLayout; }
 
 private:
     OpenGLShader shader;
@@ -61,13 +76,21 @@ private:
     glm::mat4 projection = glm::mat4(1.0f);
 
     UIGrid grid;
-    std::deque<Panel> panels;
+    std::deque<RootPanel> panels;
     TextRenderer textRenderer;
-    ImFont *pixelImFont = nullptr;
     SDL_Window *window = nullptr;
+    ImFont *pixelImFont = nullptr;
+    ImFont *bodyImFont = nullptr;       // lighter weight font for body text (textDepth <= 2)
+    ImFont *heavyImFont = nullptr;      // bold/header font; fallback for layout before first ImGui frame
+    ImFont *cachedTextImFont = nullptr; // default ImGui font captured each frame in Render()
     bool dirty = true;
+    bool debugLayout = false;
 
     bool InitializeShaders();
     void ResolveAnchors();
     void BuildMesh();
+    TextMetrics ComputeTextMetrics() const;
+    static void EmitRoundedRect(std::vector<UIVertex> &vertices, std::vector<uint32_t> &indices,
+                                uint32_t &vertexOffset, float x0, float y0, float x1, float y1,
+                                float radius, glm::vec4 color);
 };

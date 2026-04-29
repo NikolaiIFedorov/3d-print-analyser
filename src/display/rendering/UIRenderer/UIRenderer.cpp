@@ -1,11 +1,119 @@
 #include "UIRenderer.hpp"
 #include "rendering/color.hpp"
+#include "UIStyle.hpp"
+#include "Icons.hpp"
 #include "utils/log.hpp"
 #include "imgui.h"
 #include <algorithm>
 #include <cmath>
 
-static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter thickness in cells
+static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
+static constexpr float SPLITTER_PAD = 0.125f;    // padding above and below the splitter line
+static constexpr float SPLITTER_TOTAL = SPLITTER_HEIGHT + 2.0f * SPLITTER_PAD;
+static constexpr float ACCENT_SAT_MULT_HOVER = 0.6f; // muted accent strength for hover/active row tint
+// Icon slot: s = max(2, round(lineBearing * ICON_SIZE_RATIO)); slot = 2s + 3 px wide
+// ICON_SIZE_RATIO and ICON_SIZE_RATIO_SMALL are defined in UIElement (Panel.hpp).
+static constexpr float ICON_SIZE_RATIO = UIElement::ICON_SIZE_RATIO;
+static constexpr float ICON_SIZE_RATIO_SMALL = UIElement::ICON_SIZE_RATIO_SMALL;
+// Returns the pixel bounding box for text as ImGui's AddText would produce.
+// Origin = (x,y) passed to AddText; results relative to (0,0).
+static PixelBounds MeasureImGuiInkBounds(const std::string &text, ImFont *font)
+{
+    PixelBounds b;
+    if (!font || text.empty())
+        return b;
+    float cx = 0.0f;
+    for (unsigned char c : text)
+    {
+        const ImFontGlyph *g = font->FindGlyph(static_cast<ImWchar>(c));
+        if (!g)
+            continue;
+        b.expand(cx + g->X0, g->Y0);
+        b.expand(cx + g->X1, g->Y1);
+        cx += g->AdvanceX;
+    }
+    return b;
+}
+
+TextMetrics UIRenderer::ComputeTextMetrics() const
+{
+    TextMetrics tm;
+    tm.localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
+    tm.textScale = tm.localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
+    tm.textHeightCells = textRenderer.GetMaxBearingY(tm.textScale) / grid.cellSizeY;
+    return tm;
+}
+
+void UIRenderer::EmitRoundedRect(std::vector<UIVertex> &vertices, std::vector<uint32_t> &indices,
+                                 uint32_t &vertexOffset, float x0, float y0, float x1, float y1,
+                                 float radius, glm::vec4 color)
+{
+    float maxR = std::min((x1 - x0), (y1 - y0)) * 0.5f;
+    float r = std::min(radius, maxR);
+
+    if (r <= 0.0f)
+    {
+        // Simple quad (no rounding)
+        vertices.push_back({{x0, y0}, color});
+        vertices.push_back({{x1, y0}, color});
+        vertices.push_back({{x1, y1}, color});
+        vertices.push_back({{x0, y1}, color});
+
+        indices.push_back(vertexOffset + 0);
+        indices.push_back(vertexOffset + 1);
+        indices.push_back(vertexOffset + 2);
+        indices.push_back(vertexOffset + 0);
+        indices.push_back(vertexOffset + 2);
+        indices.push_back(vertexOffset + 3);
+
+        vertexOffset += 4;
+        return;
+    }
+
+    constexpr int SEGMENTS = 8;
+
+    float cx = (x0 + x1) * 0.5f;
+    float cy = (y0 + y1) * 0.5f;
+
+    vertices.push_back({{cx, cy}, color});
+    uint32_t centerIdx = vertexOffset;
+    vertexOffset++;
+
+    struct Corner
+    {
+        float cx, cy, startAngle;
+    };
+    Corner corners[4] = {
+        {x0 + r, y0 + r, static_cast<float>(M_PI)},        // top-left
+        {x1 - r, y0 + r, static_cast<float>(M_PI) * 1.5f}, // top-right
+        {x1 - r, y1 - r, 0.0f},                            // bottom-right
+        {x0 + r, y1 - r, static_cast<float>(M_PI) * 0.5f}, // bottom-left
+    };
+
+    uint32_t perimStart = vertexOffset;
+    for (int c = 0; c < 4; c++)
+    {
+        for (int s = 0; s <= SEGMENTS; s++)
+        {
+            float angle = corners[c].startAngle +
+                          (static_cast<float>(M_PI) * 0.5f) *
+                              (static_cast<float>(s) / static_cast<float>(SEGMENTS));
+            float px = corners[c].cx + r * std::cos(angle);
+            float py = corners[c].cy + r * std::sin(angle);
+            vertices.push_back({{px, py}, color});
+            vertexOffset++;
+        }
+    }
+
+    uint32_t totalPerim = 4 * (SEGMENTS + 1);
+    for (uint32_t i = 0; i < totalPerim; i++)
+    {
+        uint32_t next = (i + 1) % totalPerim;
+        indices.push_back(centerIdx);
+        indices.push_back(perimStart + i);
+        indices.push_back(perimStart + next);
+    }
+}
 
 UIRenderer::UIRenderer(SDL_Window *window, const std::string &fontPath)
     : window(window)
@@ -100,14 +208,14 @@ void UIRenderer::SetScreenSize(int width, int height)
     dirty = true;
 }
 
-Panel &UIRenderer::AddPanel(const Panel &panel)
+RootPanel &UIRenderer::AddPanel(const RootPanel &panel)
 {
     panels.push_back(panel);
     dirty = true;
     return panels.back();
 }
 
-Panel *UIRenderer::GetPanel(const std::string &id)
+RootPanel *UIRenderer::GetPanel(const std::string &id)
 {
     for (auto &panel : panels)
     {
@@ -119,96 +227,461 @@ Panel *UIRenderer::GetPanel(const std::string &id)
 
 void UIRenderer::SetSectionValue(const std::string &panelId, const std::string &sectionId, const std::vector<SectionLine> &values)
 {
-    Panel *panel = GetPanel(panelId);
+    RootPanel *panel = GetPanel(panelId);
     if (!panel)
         return;
 
-    for (auto &section : panel->sections)
+    auto searchSection = [&](Section &sec) -> bool
     {
-        if (section.id == sectionId)
+        if (sec.id == sectionId)
         {
-            section.values = values;
-            dirty = true;
-            return;
+            assert(false && "SetSectionValue: target ID matches a Section; Sections hold no values directly");
+            return false;
         }
-        for (auto &content : section.sections)
+        for (auto &child : sec.children)
         {
-            if (content.id == sectionId)
+            if (child.id == sectionId)
             {
-                content.values = values;
+                child.values = values;
+                dirty = true;
+                return true;
+            }
+        }
+        return false;
+    };
+    for (auto &child : panel->children)
+    {
+        if (std::holds_alternative<Paragraph>(child))
+        {
+            auto &p = std::get<Paragraph>(child);
+            if (p.id == sectionId)
+            {
+                p.values = values;
                 dirty = true;
                 return;
             }
+        }
+        else
+        {
+            if (searchSection(std::get<Section>(child)))
+                return;
         }
     }
 }
 
 void UIRenderer::SetSectionVisible(const std::string &panelId, const std::string &sectionId, bool visible)
 {
-    Panel *panel = GetPanel(panelId);
+    RootPanel *panel = GetPanel(panelId);
     if (!panel)
         return;
 
-    for (auto &section : panel->sections)
+    auto setVisible = [&](UIElement &el) -> bool
     {
-        if (section.id == sectionId && section.visible != visible)
+        if (el.id == sectionId)
         {
-            section.visible = visible;
-            dirty = true;
-            return;
-        }
-        for (auto &content : section.sections)
-        {
-            if (content.id == sectionId && content.visible != visible)
+            if (el.visible != visible)
             {
-                content.visible = visible;
+                el.visible = visible;
                 dirty = true;
-                return;
             }
+            return true;
         }
+        return false;
+    };
+    for (auto &child : panel->children)
+    {
+        bool found = std::visit([&](auto &el) -> bool
+                                {
+            if (setVisible(el))
+                return true;
+            if constexpr (std::is_same_v<std::decay_t<decltype(el)>, Section>)
+            {
+                for (auto &p : el.children)
+                    if (setVisible(p))
+                        return true;
+            }
+            return false; }, child);
+        if (found)
+            return;
     }
 }
 
 void UIRenderer::ResolveAnchors()
 {
+    // --- Text metrics (computed once, reused throughout) ---
+    TextMetrics tm = ComputeTextMetrics();
+    float textScale = tm.textScale;
+    float textHeightCells = tm.textHeightCells;
+
+    // --- Compute content boxes bottom-up ---
+    // Each element's box is: margin + padding + content + padding + margin (additive, no collapsing).
+
+    // Compute box for a Paragraph leaf.
+    auto computeParagraphBox = [&](Paragraph &item) -> void
+    {
+        float pad = item.padding;
+        float mar = item.margin;
+        item.lineGap = pad * UIElement::LINE_GAP_RATIO;
+
+        float contentH = 0.0f;
+        float contentW = 0.0f;
+
+        if (!item.values.empty())
+        {
+            float bearingPx = pixelImFont ? pixelImFont->FontSize
+                                          : grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
+            float lineGapPx = item.lineGap * grid.cellSizeY;
+            // imguiContent lines (e.g. DragFloat) need at least GetFrameHeight() of vertical space.
+            float slotH = bearingPx;
+            if (pixelImFont)
+            {
+                for (const auto &v : item.values)
+                    if (v.imguiContent || v.select.has_value())
+                    {
+                        slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
+                        break;
+                    }
+            }
+            float lineStepPx = lineGapPx + slotH;
+
+            // Leading slot (e.g. checkbox) advances the text origin in renderParagraph().
+            // Account for that here so content width matches what will be drawn.
+            float leadingAdvanceCells = 0.0f;
+            if (item.leadingDraw && item.leadingWidth > 0.0f)
+            {
+                constexpr float LEADING_GAP_PX = 4.0f; // must match renderParagraph()
+                float leadingPx = grid.ToPixelsX(item.leadingWidth);
+                float checkboxW = std::min(slotH, leadingPx);
+                leadingAdvanceCells = (checkboxW + LEADING_GAP_PX) / grid.cellSizeX;
+            }
+
+            float maxBottom = 0.0f;
+            size_t visibleI = 0;
+            for (size_t i = 0; i < item.values.size(); i++)
+            {
+                const auto &line = item.values[i];
+                if (!line.visible)
+                    continue;
+                ImFont *lineFont = (line.onClick && pixelImFont) ? pixelImFont
+                                   : (!line.bold && bodyImFont)  ? bodyImFont
+                                                                 : cachedTextImFont;
+                PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, lineFont);
+                float scaledBearingPx = bearingPx * line.fontScale;
+                // Use unscaled bearingPx as the floor (matching renderParagraph's baseH = max(inkH, bearingY))
+                // so that scaled-down lines (e.g. fontScale=0.85 subtitle) do not overflow the
+                // computed background bottom.
+                float inkH = (line.imguiContent || line.select.has_value()) ? slotH
+                                                                            : (ink.valid() ? std::max(ink.height() * line.fontScale, bearingPx) : scaledBearingPx);
+                // ink.x1 is the visual right edge of the last glyph; +1px absorbs fp roundtrip loss in cell-division
+                float inkW = (ink.valid() ? std::ceil(ink.x1) + 1.0f : textRenderer.MeasureWidth(line.prefix + line.text, textScale)) * line.fontScale;
+                float totalW = leadingAdvanceCells + inkW / grid.cellSizeX;
+                // Enforce minimum content width BEFORE adding the icon slot so lambdas
+                // can return content-only widths and icon geometry stays encapsulated here.
+                if (line.getMinContentWidthPx)
+                    totalW = std::max(totalW, line.getMinContentWidthPx() / grid.cellSizeX);
+                else if (line.select.has_value())
+                {
+                    const Select &sel = *line.select;
+                    int n = static_cast<int>(sel.options.size());
+                    if (n > 0)
+                    {
+                        ImFont *lblFont = bodyImFont ? bodyImFont : cachedTextImFont;
+                        float selPad = ImGui::GetStyle().FramePadding.x;
+                        float s = std::max(2.0f, std::round(slotH * ICON_SIZE_RATIO));
+                        constexpr float iconGap = 3.0f;
+                        float maxLblW = 0.0f;
+                        for (const auto &opt : sel.options)
+                            if (!opt.label.empty())
+                                maxLblW = std::max(maxLblW, lblFont->CalcTextSizeA(lblFont->FontSize, FLT_MAX, 0.0f, opt.label.c_str()).x);
+                        float titlePadW = line.text.empty() ? 0.0f : selPad * 3.0f;
+                        // Only one zone (the active one) shows icon + label; the rest are icon-only.
+                        float iconOnlyZoneW = 2.0f * s + 4.0f;
+                        float maxLabelZoneW = 2.0f * s + (maxLblW > 0.0f ? iconGap + maxLblW : 0.0f) + 4.0f;
+                        float minPillW = static_cast<float>(n - 1) * iconOnlyZoneW + maxLabelZoneW;
+                        totalW = std::max(totalW, (inkW + titlePadW + minPillW) / grid.cellSizeX);
+                    }
+                }
+                if (line.iconDraw)
+                {
+                    float sRatio = line.iconSizeRatio > 0.0f ? line.iconSizeRatio : ICON_SIZE_RATIO;
+                    float s = std::max(2.0f, std::round(lineFont->FontSize * line.fontScale * sRatio));
+                    totalW += (2.0f * s + 3.0f) / grid.cellSizeX;
+                }
+                maxBottom = std::max(maxBottom, lineStepPx * static_cast<float>(visibleI) + inkH);
+                contentW = std::max(contentW, totalW);
+                ++visibleI;
+            }
+            contentH += maxBottom / grid.cellSizeY;
+        }
+
+        item.box.contentWidth = contentW;
+        item.box.contentHeight = contentH;
+        item.box.outerWidth = 2.0f * mar + 2.0f * pad + contentW;
+        item.box.outerHeight = 2.0f * mar + 2.0f * pad + contentH;
+    };
+
+    // Compute box for a Section (label + Paragraph children).
+    auto computeSectionBox = [&](Section &item) -> void
+    {
+        float pad = item.padding;
+        float mar = item.margin;
+
+        for (auto &child : item.children)
+            computeParagraphBox(child);
+
+        float contentH = 0.0f;
+        float contentW = 0.0f;
+
+        if (item.header.has_value())
+        {
+            computeParagraphBox(item.header->para);
+            contentH = item.header->para.box.outerHeight; // always full outerHeight: header margins unaffected
+            contentW = item.header->para.box.outerWidth;
+        }
+
+        if (!item.collapsed)
+        {
+            bool isFirst = true;
+            for (auto &child : item.children)
+            {
+                if (!child.visible)
+                    continue;
+                // tightHeader: absorb only the first child's top margin (header margins are kept intact).
+                float childH = (isFirst && item.tightHeader) ? child.box.outerHeight - child.margin
+                                                             : child.box.outerHeight;
+                contentH += childH;
+                contentW = std::max(contentW, child.box.outerWidth);
+                isFirst = false;
+            }
+        }
+
+        item.box.contentWidth = contentW;
+        item.box.contentHeight = contentH;
+        // Headerless sections are transparent containers: no margin/padding overhead.
+        const float effMar = item.header.has_value() ? mar : 0.0f;
+        const float effPad = item.header.has_value() ? pad : 0.0f;
+        item.box.outerWidth  = 2.0f * effMar + contentW;        // Section has no background: padding is vertical-only
+        item.box.outerHeight = 2.0f * effMar + effPad + contentH; // only top padding; last child's bottom margin provides bottom spacing
+    };
+
+    // Compute box for a RootPanel — dispatches into Section/Paragraph children.
+    auto computeBox = [&](RootPanel &item) -> void
+    {
+        float pad = item.padding;
+        float mar = item.margin;
+
+        for (auto &child : item.children)
+            std::visit([&](auto &el)
+                       { if constexpr (std::is_same_v<std::decay_t<decltype(el)>, Section>) computeSectionBox(el); else computeParagraphBox(el); }, child);
+
+        float contentH = 0.0f;
+        float contentW = 0.0f;
+
+        // Optional label on root panel (anonymous containers have no header)
+        if (item.header.has_value())
+        {
+            computeParagraphBox(item.header->para);
+            contentH = item.header->para.box.outerHeight;
+            contentW = item.header->para.box.outerWidth;
+        }
+
+        if (item.subtitle.has_value())
+        {
+            computeParagraphBox(*item.subtitle);
+            contentH += item.subtitle->box.outerHeight;
+            contentW = std::max(contentW, item.subtitle->box.outerWidth);
+        }
+
+        // Horizontal panels lay children side-by-side: height = max of any child, NOT the sum.
+        bool horizontal = item.horizontal;
+        for (auto &child : item.children)
+        {
+            const UIElement &el = std::visit([](auto &e) -> const UIElement &
+                                             { return e; }, child);
+            if (!el.visible)
+                continue;
+            if (horizontal)
+                contentH = std::max(contentH, el.box.outerHeight);
+            else
+            {
+                contentH += el.box.outerHeight;
+                contentW = std::max(contentW, el.box.outerWidth);
+            }
+        }
+
+        item.box.contentWidth = contentW;
+        item.box.contentHeight = contentH;
+        item.box.outerWidth = 2.0f * mar + 2.0f * pad + contentW;
+        item.box.outerHeight = 2.0f * mar + 2.0f * pad + contentH;
+    };
+
     // Resolve an anchor to a cell coordinate.
     // Gap is applied automatically: screen edges push inward, panel edges push outward.
     auto resolveEdge = [&](const PanelAnchor &anchor) -> float
     {
-        const float gap = UIGrid::GAP;
+        // Each panel now owns its own margin (GAP/2), so:
+        //   screen edges push inward by GAP/2 — the panel's margin fills the rest.
+        //   panel-to-panel edges are raw outer edges — adjacent margins provide the gap.
+        const float halfGap = UIGrid::GAP * 0.5f;
 
         if (!anchor.panel)
         {
-            // Screen-relative: inset by gap
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return static_cast<float>(grid.columns) - gap;
+                return static_cast<float>(grid.columns) - halfGap;
             case PanelAnchor::Bottom:
-                return static_cast<float>(grid.rows) - gap;
+                return static_cast<float>(grid.rows) - halfGap - UIGrid::SCREEN_BOTTOM_INSET;
             default: // Left, Top
-                return gap;
+                return halfGap;
             }
         }
 
-        const Panel &other = *anchor.panel;
+        const RootPanel &other = *anchor.panel;
         switch (anchor.edge)
         {
         case PanelAnchor::Left:
-            return other.col - gap;
+            return other.col;
         case PanelAnchor::Right:
-            return other.col + other.colSpan + gap;
+            return other.col + other.colSpan;
         case PanelAnchor::Top:
-            return other.row - gap;
+            return other.row;
         case PanelAnchor::Bottom:
-            return other.row + other.rowSpan + gap;
+            return other.row + other.rowSpan;
         }
         return 0.0f;
+    };
+
+    // Helper to update localGrid from cell coordinates
+    auto updateLocalGrid = [&](UIElement &item, float padOverride)
+    {
+        float mx = item.margin;
+        float px = grid.ToPixelsX(item.col + mx);
+        float py = grid.ToPixelsY(item.row + mx);
+        float pw = grid.ToPixelsX(item.colSpan - 2.0f * mx);
+        float ph = grid.ToPixelsY(item.rowSpan - 2.0f * mx);
+        item.localGrid.Update(px, py, pw, ph, grid.cellSizeX, padOverride);
+    };
+
+    // Place Paragraph children within a Section (vertical stacking).
+    auto placeSectionChildren = [&](Section &parent) -> void
+    {
+        // Headerless sections are transparent: no margin/padding inset.
+        float insetX = parent.header.has_value() ? parent.margin : 0.0f;
+        float cursor = parent.row + (parent.header.has_value() ? parent.margin + parent.padding : 0.0f);
+        if (parent.header.has_value())
+        {
+            Paragraph &hpara = parent.header->para;
+            hpara.col = parent.col + insetX;
+            hpara.colSpan = parent.colSpan - 2.0f * insetX;
+            hpara.row = cursor;
+            hpara.rowSpan = hpara.box.outerHeight;
+            updateLocalGrid(hpara, hpara.padding);
+            cursor += hpara.box.outerHeight; // always full outerHeight: header margins unaffected by tightHeader
+        }
+
+        if (parent.collapsed)
+            return;
+
+        bool isFirst = true;
+        float prevVisibleMargin = 0.0f;
+        for (auto &child : parent.children)
+        {
+            if (!child.visible)
+                continue;
+
+            child.col = parent.col + insetX;
+            child.colSpan = parent.colSpan - 2.0f * insetX;
+
+            if (!child.stretch && child.box.outerWidth < child.colSpan)
+            {
+                float availW = child.colSpan;
+                child.colSpan = child.box.outerWidth;
+                child.col += (availW - child.colSpan) * 0.5f;
+            }
+
+            // tightHeader: back first child up by one margin so its content aligns with cursor.
+            child.row = (isFirst && parent.tightHeader) ? cursor - child.margin : cursor;
+            // List-like sections (e.g. prerequisites) collapse adjacent paragraph margins so
+            // row-to-row spacing behaves more like paragraph line spacing.
+            if (!isFirst && parent.noChildSplitters)
+                child.row -= std::min(prevVisibleMargin, child.margin);
+            child.rowSpan = child.box.outerHeight;
+            updateLocalGrid(child, child.padding);
+
+            // Advance cursor from the placed row to preserve any margin-collapsing adjustment.
+            // When backed-up by tightHeader, net advance remains outerHeight - margin.
+            cursor = child.row + ((isFirst && parent.tightHeader) ? child.box.outerHeight - child.margin
+                                                                  : child.box.outerHeight);
+            prevVisibleMargin = child.margin;
+            isFirst = false;
+        }
+    };
+
+    // Place children of a RootPanel (vertical stacking).
+    auto placeChildrenVertical = [&](RootPanel &parent) -> void
+    {
+        if (parent.children.empty() && !parent.header.has_value() && !parent.subtitle.has_value())
+            return;
+
+        float insetX = parent.margin + parent.padding;
+        float cursor = parent.row + parent.margin + parent.padding;
+        if (parent.header.has_value())
+        {
+            Paragraph &hpara = parent.header->para;
+            hpara.col = parent.col + insetX;
+            hpara.colSpan = parent.colSpan - 2.0f * insetX;
+            hpara.row = cursor;
+            hpara.rowSpan = hpara.box.outerHeight;
+            updateLocalGrid(hpara, hpara.padding);
+            cursor += hpara.box.outerHeight;
+        }
+
+        if (parent.subtitle.has_value())
+        {
+            Paragraph &sub = *parent.subtitle;
+            sub.col = parent.col + insetX;
+            sub.colSpan = parent.colSpan - 2.0f * insetX;
+            sub.row = cursor;
+            sub.rowSpan = sub.box.outerHeight;
+            updateLocalGrid(sub, sub.padding);
+            cursor += sub.box.outerHeight;
+        }
+
+        for (auto &child : parent.children)
+        {
+            UIElement &el = std::visit([](auto &e) -> UIElement &
+                                       { return e; }, child);
+            if (!el.visible)
+                continue;
+
+            el.col = parent.col + insetX;
+            el.colSpan = parent.colSpan - 2.0f * insetX;
+
+            if (!el.stretch && el.box.outerWidth < el.colSpan)
+            {
+                float availW = el.colSpan;
+                el.colSpan = el.box.outerWidth;
+                el.col += (availW - el.colSpan) * 0.5f;
+            }
+
+            el.row = cursor;
+            el.rowSpan = el.box.outerHeight;
+            updateLocalGrid(el, el.padding);
+
+            if (std::holds_alternative<Section>(child))
+                placeSectionChildren(std::get<Section>(child));
+
+            cursor += el.box.outerHeight;
+        }
     };
 
     // Single linear pass — panels can only reference panels added before them
     for (auto &panel : panels)
     {
+        // Compute boxes for this panel and all descendants
+        computeBox(panel);
+
         // --- Horizontal axis ---
         std::optional<float> left, right, w;
         if (panel.leftAnchor)
@@ -217,55 +690,11 @@ void UIRenderer::ResolveAnchors()
             right = resolveEdge(*panel.rightAnchor);
         w = panel.width;
 
-        // Auto-width: fit content when width is not explicitly set
+        // Auto-width: use box model
+        // (computeBox already accounts for the widest child, so panel.box.outerWidth suffices)
         if (!w && !right)
         {
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float textWidthPx = textRenderer.MeasureWidth(panel.id, textScale);
-            float textWidthCells = textWidthPx / grid.cellSizeX;
-            float headerWidth = 2.0f * panel.padding + textWidthCells;
-
-            // Sections expand width only for vertical panels;
-            // horizontal panels expand later after both axes are known.
-            w = headerWidth;
-
-            // Vertical sections: widen panel to fit label and value lines
-            bool willBeVertical = !(panel.leftAnchor.has_value() && panel.rightAnchor.has_value());
-            if (willBeVertical)
-            {
-                float wGAP = panel.padding;
-                for (const auto &section : panel.sections)
-                {
-                    if (!section.visible)
-                        continue;
-                    bool isSubPanel = section.color.a > 0.0f;
-                    float subExtra = isSubPanel ? 2.0f * wGAP : 0.0f;
-                    float secLabelW = textRenderer.MeasureWidth(section.id, textScale) / grid.cellSizeX;
-                    float secWidth = 2.0f * wGAP + secLabelW + subExtra;
-                    for (const auto &line : section.values)
-                    {
-                        float lineW = textRenderer.MeasureWidth(line.prefix + line.text, textScale) / grid.cellSizeX;
-                        float lineWidth = 2.0f * wGAP + lineW + subExtra;
-                        secWidth = std::max(secWidth, lineWidth);
-                    }
-                    for (const auto &content : section.sections)
-                    {
-                        if (!content.visible)
-                            continue;
-                        float cLabelW = textRenderer.MeasureWidth(content.id, textScale) / grid.cellSizeX;
-                        float cWidth = 2.0f * wGAP + cLabelW + subExtra;
-                        for (const auto &cLine : content.values)
-                        {
-                            float cLineW = textRenderer.MeasureWidth(cLine.prefix + cLine.text, textScale) / grid.cellSizeX;
-                            float cLineWidth = 2.0f * wGAP + cLineW + subExtra;
-                            cWidth = std::max(cWidth, cLineWidth);
-                        }
-                        secWidth = std::max(secWidth, cWidth);
-                    }
-                    w = std::max(*w, secWidth);
-                }
-            }
+            w = panel.box.outerWidth;
         }
 
         if (left && right)
@@ -292,18 +721,10 @@ void UIRenderer::ResolveAnchors()
             bottom = resolveEdge(*panel.bottomAnchor);
         h = panel.height;
 
-        // Auto-height: fit content when height is not explicitly set
+        // Auto-height: use box model
         if (!h && !bottom)
         {
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float textHeightPx = textRenderer.GetMaxBearingY(textScale);
-            float textHeightCells = textHeightPx / grid.cellSizeY;
-            float headerHeight = 2.0f * panel.padding + textHeightCells;
-
-            // Sections expand height only for vertical panels;
-            // horizontal panels leave height as header-only.
-            h = headerHeight;
+            h = panel.box.outerHeight;
         }
 
         if (top && bottom)
@@ -322,192 +743,108 @@ void UIRenderer::ResolveAnchors()
             panel.rowSpan = *h;
         }
 
-        // Compute local grid from resolved pixel rect
-        float px = grid.ToPixelsX(panel.col);
-        float py = grid.ToPixelsY(panel.row);
-        float pw = grid.ToPixelsX(panel.colSpan);
-        float ph = grid.ToPixelsY(panel.rowSpan);
-        panel.localGrid.Update(px, py, pw, ph, grid.cellSizeX, panel.padding);
+        updateLocalGrid(panel, panel.padding);
 
-        // Resolve child sections — direction depends on panel aspect ratio
-        if (!panel.sections.empty())
+        // --- Resolve child positions ---
+        if (!panel.children.empty() || panel.header.has_value() || panel.subtitle.has_value())
         {
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float textHeightPx = textRenderer.GetMaxBearingY(textScale);
-            float textHeightCells = textHeightPx / grid.cellSizeY;
-            float GAP = panel.padding;                       // universal spacing = padding
-            float lineStep = GAP + textHeightCells;          // per-line step: gap + text
-            float itemHeight = 2.0f * GAP + textHeightCells; // full item: pad + text + pad
-
-            float textWidthPx = textRenderer.MeasureWidth(panel.id, textScale);
-            float textWidthCells = textWidthPx / grid.cellSizeX;
-            float sectionWidth = 2.0f * GAP + textWidthCells;
-
-            float secPadding = Panel::PaddingForLayer(1);
-
-            bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
+            bool horizontal = panel.horizontal;
 
             if (horizontal)
             {
-                // Stack sections rightward; expand panel width to fit
-                float headerWidth = sectionWidth;
-                float totalWidth = headerWidth;
-                for (size_t i = 0; i < panel.sections.size(); i++)
+                float panelInset = panel.margin + panel.padding;
+
+                // Place the header label on the left (natural width, vertically centred).
+                float headerWidth = panelInset;
+                if (panel.header.has_value())
                 {
-                    if (!panel.sections[i].visible)
-                        continue;
-                    float secTextW = textRenderer.MeasureWidth(panel.sections[i].id, textScale);
-                    float secW = 2.0f * secPadding + secTextW / grid.cellSizeX;
-                    totalWidth += (panel.sections[i].showSplitter ? SPLITTER_HEIGHT : 0.0f) + secW;
+                    Paragraph &hpara = panel.header->para;
+                    hpara.col = panel.col + panelInset;
+                    hpara.colSpan = hpara.box.outerWidth;
+                    hpara.row = panel.row + panelInset;
+                    hpara.rowSpan = panel.rowSpan - 2.0f * panelInset;
+                    updateLocalGrid(hpara, hpara.padding);
+                    headerWidth += hpara.box.outerWidth;
                 }
 
-                // Only expand if auto-sized (no right anchor and no fixed width)
+                // All children are tab sections stacked rightward from the header.
+                float totalWidth = headerWidth;
+                for (size_t i = 0; i < panel.children.size(); i++)
+                {
+                    const UIElement &el = std::visit([](const auto &e) -> const UIElement &
+                                                     { return e; }, panel.children[i]);
+                    if (!el.visible)
+                        continue;
+                    totalWidth += el.box.outerWidth;
+                }
+
                 if (!panel.rightAnchor && !panel.width)
-                    panel.colSpan = std::max(panel.colSpan, totalWidth);
+                    panel.colSpan = std::max(panel.colSpan, totalWidth + panelInset);
 
                 float currentCol = panel.col + headerWidth;
-                for (auto &section : panel.sections)
+                for (size_t i = 0; i < panel.children.size(); i++)
                 {
-                    if (!section.visible)
+                    UIElement &el = std::visit([](auto &e) -> UIElement &
+                                               { return e; }, panel.children[i]);
+                    if (!el.visible)
                         continue;
-                    currentCol += section.showSplitter ? SPLITTER_HEIGHT : 0.0f;
-                    float secTextW = textRenderer.MeasureWidth(section.id, textScale);
-                    float secW = 2.0f * secPadding + secTextW / grid.cellSizeX;
 
-                    section.col = currentCol;
-                    section.colSpan = secW;
-                    section.row = panel.row;
-                    section.rowSpan = panel.rowSpan;
+                    el.col = currentCol;
+                    el.colSpan = el.box.outerWidth;
+                    el.row = panel.row + panel.margin + panel.padding; // inset by margin+padding — mirrors placeChildrenVertical
+                    el.rowSpan = panel.rowSpan - 2.0f * (panel.margin + panel.padding);
+                    updateLocalGrid(el, el.padding); // use the tab's own padding, not the panel's
 
-                    float spx = grid.ToPixelsX(section.col);
-                    float spy = grid.ToPixelsY(section.row);
-                    float spw = grid.ToPixelsX(section.colSpan);
-                    float sph = grid.ToPixelsY(section.rowSpan);
-                    section.localGrid.Update(spx, spy, spw, sph, grid.cellSizeX, panel.padding);
-
-                    currentCol += secW;
+                    currentCol += el.box.outerWidth;
                 }
             }
             else
             {
-                // Stack sections downward; expand panel height to fit
-                float totalHeight = itemHeight; // header (includes own top+bottom padding)
-
-                // Compute height of a leaf item (no children)
-                auto leafHeight = [&](const Panel &item) -> float
-                {
-                    float h = itemHeight;
-                    if (!item.values.empty())
-                    {
-                        float valLines = static_cast<float>(item.values.size());
-                        h = item.showLabel
-                                ? itemHeight + valLines * lineStep
-                                : GAP + valLines * lineStep;
-                    }
-                    return h;
-                };
-
-                // Compute total height of a section (including contents)
-                auto computeSecHeight = [&](const Panel &section) -> float
-                {
-                    if (section.sections.empty())
-                        return leafHeight(section);
-                    bool isSubPanel = section.color.a > 0.0f;
-                    float subGap = isSubPanel ? GAP : 0.0f;
-                    float splGap = (isSubPanel && section.showLabel) ? GAP : 0.0f;
-                    float h = section.showLabel ? itemHeight : 0.0f;
-                    for (const auto &content : section.sections)
-                    {
-                        if (!content.visible)
-                            continue;
-                        h += leafHeight(content);
-                    }
-                    return h + 2.0f * subGap + splGap;
-                };
-
-                for (const auto &section : panel.sections)
-                {
-                    if (!section.visible)
-                        continue;
-                    totalHeight += computeSecHeight(section);
-                }
-
-                if (!panel.bottomAnchor && !panel.height)
-                    panel.rowSpan = std::max(panel.rowSpan, totalHeight);
-
-                float currentRow = panel.row + itemHeight;
-                for (auto &section : panel.sections)
-                {
-                    if (!section.visible)
-                        continue;
-                    float secH = computeSecHeight(section);
-
-                    section.col = panel.col;
-                    section.colSpan = panel.colSpan;
-                    section.row = currentRow;
-                    section.rowSpan = secH;
-
-                    float spx = grid.ToPixelsX(section.col);
-                    float spy = grid.ToPixelsY(section.row);
-                    float spw = grid.ToPixelsX(section.colSpan);
-                    float sph = grid.ToPixelsY(section.rowSpan);
-                    section.localGrid.Update(spx, spy, spw, sph, grid.cellSizeX, panel.padding);
-
-                    // Place contents within section
-                    if (!section.sections.empty())
-                    {
-                        bool isSubPanel = section.color.a > 0.0f;
-                        float subGap = isSubPanel ? GAP : 0.0f;
-                        float splGap = (isSubPanel && section.showLabel) ? GAP : 0.0f;
-                        float contentRow = currentRow + (section.showLabel ? itemHeight : 0.0f) + subGap + splGap;
-                        float secPad = isSubPanel ? section.padding : panel.padding;
-                        // For sub-panels, inset content col/colSpan to the background bounds
-                        float cCol = isSubPanel ? section.col + section.padding : section.col;
-                        float cColSpan = isSubPanel ? section.colSpan - 2.0f * section.padding : section.colSpan;
-                        for (auto &content : section.sections)
-                        {
-                            if (!content.visible)
-                                continue;
-                            float cH = leafHeight(content);
-                            content.col = cCol;
-                            content.colSpan = cColSpan;
-                            content.row = contentRow;
-                            content.rowSpan = cH;
-
-                            float cpx = grid.ToPixelsX(content.col);
-                            float cpy = grid.ToPixelsY(content.row);
-                            float cpw = grid.ToPixelsX(content.colSpan);
-                            float cph = grid.ToPixelsY(content.rowSpan);
-                            content.localGrid.Update(cpx, cpy, cpw, cph, grid.cellSizeX, secPad);
-
-                            contentRow += cH;
-                        }
-                    }
-
-                    currentRow += secH;
-                }
+                placeChildrenVertical(panel);
             }
 
             // Recompute parent local grid after potential size expansion
-            px = grid.ToPixelsX(panel.col);
-            py = grid.ToPixelsY(panel.row);
-            pw = grid.ToPixelsX(panel.colSpan);
-            ph = grid.ToPixelsY(panel.rowSpan);
-            panel.localGrid.Update(px, py, pw, ph, grid.cellSizeX, panel.padding);
+            updateLocalGrid(panel, panel.padding);
+        }
+    }
+
+    // StatusStrip spans Settings→Toolbar horizontally; it shares the top row with those panels until
+    // here, so we shift Settings + Toolbar down to free the strip band (avoids forward-anchor cycles).
+    {
+        RootPanel *strip = GetPanel("StatusStrip");
+        RootPanel *st = GetPanel("Settings");
+        RootPanel *tb = GetPanel("Toolbar");
+        if (strip && strip->visible && st && tb && st->visible && tb->visible)
+        {
+            // Touch outer row boxes: same rule as e.g. Files→Analysis (top = other.bottom). No extra
+            // cell gap — adjacent margins already give the only separation between GL backgrounds.
+            const float dy = strip->rowSpan;
+            st->row += dy;
+            tb->row += dy;
+            // Keep the bottom edge on the anchored screen bottom (incl. SCREEN_BOTTOM_INSET):
+            // without shrinking rowSpan, the panel would extend dy cells past the layout bottom and
+            // cover the intended gap (and/or overlap the strip band incorrectly).
+            st->rowSpan = std::max(1.0f, st->rowSpan - dy);
+            tb->rowSpan = std::max(1.0f, tb->rowSpan - dy);
+            updateLocalGrid(*st, st->padding);
+            placeChildrenVertical(*st);
+            updateLocalGrid(*tb, tb->padding);
+            placeChildrenVertical(*tb);
         }
     }
 }
 
 void UIRenderer::ComputeMinGridSize()
 {
-    // Simulate a resolve pass using each panel's minimum dimensions
-    // to find the smallest screen extent that fits all panels.
+    // Ensure box models are up to date before simulating layout.
+    ResolveAnchors();
+
+    // Simulates anchor resolution with minimum dimensions to find
+    // the smallest screen extent that fits all panels.
     const float gap = UIGrid::GAP;
     float maxRight = 0.0f;
     float maxBottom = 0.0f;
 
-    // Temporary resolved positions for min-size calculation
     struct Resolved
     {
         float col, row, colSpan, rowSpan;
@@ -517,20 +854,21 @@ void UIRenderer::ComputeMinGridSize()
 
     auto resolveEdgeMin = [&](const PanelAnchor &anchor, float minExtentX, float minExtentY) -> float
     {
+        const float halfGap = gap * 0.5f;
+
         if (!anchor.panel)
         {
             switch (anchor.edge)
             {
             case PanelAnchor::Right:
-                return minExtentX - gap;
+                return minExtentX - halfGap;
             case PanelAnchor::Bottom:
-                return minExtentY - gap;
+                return minExtentY - halfGap - UIGrid::SCREEN_BOTTOM_INSET;
             default:
-                return gap;
+                return halfGap;
             }
         }
 
-        // Find the resolved entry for the referenced panel
         for (size_t i = 0; i < panels.size(); i++)
         {
             if (&panels[i] == anchor.panel)
@@ -539,28 +877,24 @@ void UIRenderer::ComputeMinGridSize()
                 switch (anchor.edge)
                 {
                 case PanelAnchor::Left:
-                    return r.col - gap;
+                    return r.col;
                 case PanelAnchor::Right:
-                    return r.col + r.colSpan + gap;
+                    return r.col + r.colSpan;
                 case PanelAnchor::Top:
-                    return r.row - gap;
+                    return r.row;
                 case PanelAnchor::Bottom:
-                    return r.row + r.rowSpan + gap;
+                    return r.row + r.rowSpan;
                 }
             }
         }
         return 0.0f;
     };
 
-    // We don't know the final min extent yet, so we iterate:
-    // use a large initial extent for screen-edge anchors, then shrink to fit.
-    // For panels anchored to screen right/bottom, use minWidth/minHeight of
-    // left-anchored panels to determine position, then the screen-edge panels
-    // collapse to fit.
-
-    // First pass: resolve panels using their min sizes where applicable
-    float extentX = 1000.0f; // large initial guess
+    float extentX = 1000.0f;
     float extentY = 1000.0f;
+
+    TextMetrics tm = ComputeTextMetrics();
+    float textScale = tm.textScale;
 
     for (const auto &panel : panels)
     {
@@ -573,21 +907,13 @@ void UIRenderer::ComputeMinGridSize()
         if (panel.rightAnchor)
             right = resolveEdgeMin(*panel.rightAnchor, extentX, extentY);
 
-        // Use minWidth for stretching panels, width for fixed panels
         float w = 0.0f;
         if (panel.leftAnchor && panel.rightAnchor)
             w = panel.minWidth.value_or(panel.width.value_or(0.0f));
         else if (panel.width)
             w = *panel.width;
         else
-        {
-            // Auto-width: fit header content
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float textWidthPx = textRenderer.MeasureWidth(panel.id, textScale);
-            float textWidthCells = textWidthPx / grid.cellSizeX;
-            w = 2.0f * panel.padding + textWidthCells;
-        }
+            w = panel.box.outerWidth;
 
         if (left)
         {
@@ -613,14 +939,7 @@ void UIRenderer::ComputeMinGridSize()
         else if (panel.height)
             h = *panel.height;
         else
-        {
-            // Auto-height: fit header content
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float textHeightPx = textRenderer.GetMaxBearingY(textScale);
-            float textHeightCells = textHeightPx / grid.cellSizeY;
-            h = 2.0f * panel.padding + textHeightCells;
-        }
+            h = panel.box.outerHeight;
 
         if (top)
         {
@@ -633,44 +952,33 @@ void UIRenderer::ComputeMinGridSize()
             r.rowSpan = h;
         }
 
-        // Expand for sections based on direction
-        if (!panel.sections.empty())
+        // Expand for children using box model
+        if (!panel.children.empty())
         {
-            bool isHorizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
-            float localCell = grid.cellSizeX * PanelGrid::LOCAL_CELL_RATIO;
-            float textScale = localCell / textRenderer.GetLineHeight(1.0f) * 1.4f;
+            bool isHorizontal = panel.horizontal;
 
             if (isHorizontal)
             {
-                float totalWidth = r.colSpan;
-                for (const auto &sec : panel.sections)
+                const UIElement &first = std::visit([](const auto &e) -> const UIElement &
+                                                    { return e; }, panel.children[0]);
+                float totalWidth = first.box.outerWidth;
+                for (size_t i = 1; i < panel.children.size(); i++)
                 {
-                    if (!sec.visible)
+                    const UIElement &el = std::visit([](const auto &e) -> const UIElement &
+                                                     { return e; }, panel.children[i]);
+                    if (!el.visible)
                         continue;
-                    float secTextW = textRenderer.MeasureWidth(sec.id, textScale);
-                    float secW = 2.0f * sec.padding + secTextW / grid.cellSizeX;
-                    totalWidth += (sec.showSplitter ? SPLITTER_HEIGHT : 0.0f) + secW;
+                    float secTextW = textRenderer.MeasureWidth(el.id, textScale);
+                    float secW = 2.0f * el.padding + secTextW / grid.cellSizeX;
+                    totalWidth += SPLITTER_TOTAL + secW;
                 }
                 if (!panel.rightAnchor && !panel.width)
                     r.colSpan = totalWidth;
             }
             else
             {
-                float textHeightPx = textRenderer.GetMaxBearingY(textScale);
-                float textHeightCells = textHeightPx / grid.cellSizeY;
-                float minGAP = panel.padding;
-                float minItemH = 2.0f * minGAP + textHeightCells;
-                float totalHeight = r.rowSpan;
-                for (size_t i = 0; i < panel.sections.size(); i++)
-                {
-                    if (!panel.sections[i].visible)
-                        continue;
-                    bool isSubPanel = panel.sections[i].color.a > 0.0f;
-                    float subExtra = isSubPanel ? 3.0f * minGAP : 0.0f;
-                    totalHeight += minItemH + subExtra;
-                }
                 if (!panel.bottomAnchor && !panel.height)
-                    r.rowSpan = totalHeight;
+                    r.rowSpan = panel.box.outerHeight;
             }
         }
 
@@ -696,313 +1004,202 @@ void UIRenderer::BuildMesh()
     std::vector<uint32_t> indices;
 
     uint32_t vertexOffset = 0;
+
+    TextMetrics tm = ComputeTextMetrics();
+
+    // Emit background rect for a UIElement.
+    auto emitBackground = [&](const UIElement &item, glm::vec4 color)
+    {
+        float mx = item.margin;
+        float sx0 = grid.ToPixelsX(item.col) + grid.ToPixelsX(mx);
+        float sy0 = grid.ToPixelsY(item.row) + grid.ToPixelsY(mx);
+        float sx1 = grid.ToPixelsX(item.col + item.colSpan) - grid.ToPixelsX(mx);
+        float sy1 = grid.ToPixelsY(item.row + item.rowSpan) - grid.ToPixelsY(mx);
+        float sr = std::min(grid.cellSizeX, grid.cellSizeY) * item.borderRadius;
+        EmitRoundedRect(vertices, indices, vertexOffset, sx0, sy0, sx1, sy1, sr, color);
+    };
+
+    // Emit a horizontal splitter centered between gapTop and gapBottom (in cells).
+    // X extents span parentBgX0..parentBgX1 inset by half the parent's padding.
+    auto emitVerticalSplitter = [&](float gapTop, float gapBottom,
+                                    float parentBgX0, float parentBgX1,
+                                    float parentPadding, glm::vec4 color)
+    {
+        float halfPadPx = grid.ToPixelsX(parentPadding) * 0.5f;
+        float halfSpl = SPLITTER_HEIGHT * 0.5f;
+        float splCenterY = (gapTop + gapBottom) * 0.5f;
+        float rsx0 = std::round(parentBgX0 + halfPadPx);
+        float rsy0 = std::round(grid.ToPixelsY(splCenterY - halfSpl));
+        float rsx1 = std::round(parentBgX1 - halfPadPx);
+        float rsy1 = std::round(grid.ToPixelsY(splCenterY + halfSpl));
+        float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+        EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, color);
+    };
+
+    // Emit children of a RootPanel: splitters between each visible child, then recurse.
+    // Splitter policy: always between children (parent draws them, not children).
+    auto emitPanelChildren = [&](const RootPanel &parent, int colorLevel) -> void
+    {
+        float mx = parent.margin;
+        float bgX0 = grid.ToPixelsX(parent.col) + grid.ToPixelsX(mx);
+        float bgX1 = grid.ToPixelsX(parent.col + parent.colSpan) - grid.ToPixelsX(mx);
+
+        float prevVisualBottom = parent.row + parent.margin + parent.padding;
+        if (parent.header.has_value())
+            prevVisualBottom = parent.header->para.row + parent.header->para.rowSpan - parent.header->para.margin;
+        if (parent.subtitle.has_value())
+            prevVisualBottom = parent.subtitle->row + parent.subtitle->rowSpan - parent.subtitle->margin;
+
+        int visibleIdx = 0;
+        for (const auto &child : parent.children)
+        {
+            const UIElement &el = std::visit([](const auto &e) -> const UIElement &
+                                             { return e; }, child);
+            if (!el.visible)
+                continue;
+
+            // Splitter between every visible child, and after the header/subtitle block.
+            bool needsSplitter = (visibleIdx > 0) || ((parent.header.has_value() || parent.subtitle.has_value()) && visibleIdx == 0);
+            // Place splitters between visible background edges (margin-aware),
+            // so they land in the true inter-element gap.
+            float childVisualTop = el.row + el.margin;
+            if (std::holds_alternative<Section>(child))
+            {
+                const bool hasHeader = std::get<Section>(child).header.has_value();
+                childVisualTop = hasHeader ? el.row + el.margin + el.padding : el.row;
+            }
+            if (needsSplitter)
+                emitVerticalSplitter(prevVisualBottom, childVisualTop, bgX0, bgX1, parent.padding, Color::GetUI(colorLevel));
+
+            // Background rect for Paragraphs that opt into one
+            if (std::holds_alternative<Paragraph>(child))
+            {
+                const Paragraph &para = std::get<Paragraph>(child);
+                if (para.bgParentDepth >= 0)
+                {
+                    float pmx = para.margin;
+                    float px0 = grid.ToPixelsX(para.col + pmx);
+                    float py0 = grid.ToPixelsY(para.row + pmx);
+                    float px1 = grid.ToPixelsX(para.col + para.colSpan - pmx);
+                    // Use resolved span (not content box) so stretched items keep correct visuals/gaps.
+                    float py1 = grid.ToPixelsY(para.row + para.rowSpan - pmx);
+                    float pr = std::min(grid.cellSizeX, grid.cellSizeY) * para.borderRadius;
+                    EmitRoundedRect(vertices, indices, vertexOffset, px0, py0, px1, py1, pr, Color::GetUI(para.bgParentDepth + 1));
+                }
+            }
+
+            // Emit Section children (Paragraphs inside a Section)
+            if (std::holds_alternative<Section>(child))
+            {
+                const Section &sec = std::get<Section>(child);
+                float secMx = sec.margin;
+                float secBgX0 = grid.ToPixelsX(sec.col) + grid.ToPixelsX(secMx);
+                float secBgX1 = grid.ToPixelsX(sec.col + sec.colSpan) - grid.ToPixelsX(secMx);
+                float secPrevBottom = sec.row + sec.margin + sec.padding;
+                if (sec.header.has_value())
+                    secPrevBottom = sec.header->para.row + sec.header->para.rowSpan - sec.header->para.margin;
+
+                int secVisibleIdx = 0;
+                for (const auto &para : sec.children)
+                {
+                    if (!para.visible)
+                        continue;
+                    // No splitter before the first paragraph — the section label acts as the header.
+                    if (secVisibleIdx > 0 && !sec.noChildSplitters)
+                        // Same depth as splitters between top-level panel children so nested parameter rows
+                        // do not read as a brighter “second layer” than the row above.
+                        emitVerticalSplitter(secPrevBottom, para.row + para.margin, secBgX0, secBgX1, parent.padding,
+                                             Color::GetUI(colorLevel));
+                    // Background rect for section-child Paragraphs that opt into one
+                    if (para.bgParentDepth >= 0)
+                    {
+                        float pmx = para.margin;
+                        float px0 = grid.ToPixelsX(para.col + pmx);
+                        float py0 = grid.ToPixelsY(para.row + pmx);
+                        float px1 = grid.ToPixelsX(para.col + para.colSpan - pmx);
+                        // Use resolved span (not content box) so stretched items keep correct visuals/gaps.
+                        float py1 = grid.ToPixelsY(para.row + para.rowSpan - pmx);
+                        float pr = std::min(grid.cellSizeX, grid.cellSizeY) * para.borderRadius;
+                        EmitRoundedRect(vertices, indices, vertexOffset, px0, py0, px1, py1, pr, Color::GetUI(para.bgParentDepth + 1));
+                    }
+                    secPrevBottom = para.row + para.rowSpan - para.margin;
+                    secVisibleIdx++;
+                }
+            }
+
+            // Advance to the same margin-aware visual boundary we use for splitter placement.
+            if (std::holds_alternative<Section>(child))
+            {
+                const bool hasHeader = std::get<Section>(child).header.has_value();
+                prevVisualBottom = hasHeader ? el.row + el.rowSpan - el.margin - el.padding
+                                             : el.row + el.rowSpan;
+            }
+            else
+                prevVisualBottom = el.row + el.rowSpan - el.margin;
+            visibleIdx++;
+        }
+    };
+
     for (const auto &panel : panels)
     {
         if (!panel.visible)
             continue;
 
-        float x0 = grid.ToPixelsX(panel.col);
-        float y0 = grid.ToPixelsY(panel.row);
-        float x1 = grid.ToPixelsX(panel.col + panel.colSpan);
-        float y1 = grid.ToPixelsY(panel.row + panel.rowSpan);
-
-        // Panel background geometry (skip if transparent)
-        if (panel.color.a > 0.0f)
+        if (panel.HasBackground())
         {
+            float mx = panel.margin;
+            float x0 = grid.ToPixelsX(panel.col + mx);
+            float y0 = grid.ToPixelsY(panel.row + mx);
+            float x1 = grid.ToPixelsX(panel.col + panel.colSpan - mx);
+            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - mx);
             float r = std::min(grid.cellSizeX, grid.cellSizeY) * panel.borderRadius;
-
-            // Clamp radius to half the smaller dimension
-            float maxR = std::min((x1 - x0), (y1 - y0)) * 0.5f;
-            if (r > maxR)
-                r = maxR;
-
-            if (r <= 0.0f)
-            {
-                // Simple quad (no rounding)
-                vertices.push_back({{x0, y0}, panel.color});
-                vertices.push_back({{x1, y0}, panel.color});
-                vertices.push_back({{x1, y1}, panel.color});
-                vertices.push_back({{x0, y1}, panel.color});
-
-                indices.push_back(vertexOffset + 0);
-                indices.push_back(vertexOffset + 1);
-                indices.push_back(vertexOffset + 2);
-                indices.push_back(vertexOffset + 0);
-                indices.push_back(vertexOffset + 2);
-                indices.push_back(vertexOffset + 3);
-
-                vertexOffset += 4;
-            }
-            else
-            {
-                // Rounded rectangle: center vertex + perimeter vertices
-                constexpr int SEGMENTS = 8; // segments per corner quarter-circle
-
-                float cx = (x0 + x1) * 0.5f;
-                float cy = (y0 + y1) * 0.5f;
-
-                // Center vertex
-                vertices.push_back({{cx, cy}, panel.color});
-                uint32_t centerIdx = vertexOffset;
-                vertexOffset++;
-
-                // 4 corners: top-left, top-right, bottom-right, bottom-left
-                // Each corner center and start/end angles
-                struct Corner
-                {
-                    float cx, cy;
-                    float startAngle;
-                };
-                Corner corners[4] = {
-                    {x0 + r, y0 + r, static_cast<float>(M_PI)},        // top-left
-                    {x1 - r, y0 + r, static_cast<float>(M_PI) * 1.5f}, // top-right
-                    {x1 - r, y1 - r, 0.0f},                            // bottom-right
-                    {x0 + r, y1 - r, static_cast<float>(M_PI) * 0.5f}, // bottom-left
-                };
-
-                // Generate perimeter vertices: for each corner, SEGMENTS+1 points
-                uint32_t perimStart = vertexOffset;
-                for (int c = 0; c < 4; c++)
-                {
-                    for (int s = 0; s <= SEGMENTS; s++)
-                    {
-                        float angle = corners[c].startAngle +
-                                      (static_cast<float>(M_PI) * 0.5f) *
-                                          (static_cast<float>(s) / static_cast<float>(SEGMENTS));
-                        float px = corners[c].cx + r * std::cos(angle);
-                        float py = corners[c].cy + r * std::sin(angle);
-                        vertices.push_back({{px, py}, panel.color});
-                        vertexOffset++;
-                    }
-                }
-
-                // Fan triangles from center to consecutive perimeter vertices
-                uint32_t totalPerim = 4 * (SEGMENTS + 1);
-                for (uint32_t i = 0; i < totalPerim; i++)
-                {
-                    uint32_t next = (i + 1) % totalPerim;
-                    indices.push_back(centerIdx);
-                    indices.push_back(perimStart + i);
-                    indices.push_back(perimStart + next);
-                }
-            }
-        } // end if (panel.color.a > 0.0f)
-
-        // Generate splitter geometry between sections (inset halfway into padding)
-        bool horizontal = panel.leftAnchor.has_value() && panel.rightAnchor.has_value();
-        float halfPadPx = grid.ToPixelsX(panel.padding) * 0.5f;
-        for (const auto &section : panel.sections)
-        {
-            if (!section.visible || !section.showSplitter)
-                continue;
-            float rsx0, rsy0, rsx1, rsy1;
-            if (horizontal)
-            {
-                // Vertical splitter: left of section, inset top/bottom
-                float halfSpl = SPLITTER_HEIGHT * 0.5f;
-                rsx0 = grid.ToPixelsX(section.col - halfSpl);
-                rsx1 = grid.ToPixelsX(section.col + halfSpl);
-                rsy0 = y0 + halfPadPx;
-                rsy1 = y1 - halfPadPx;
-            }
-            else
-            {
-                // Horizontal splitter: above section, centered in gap
-                float halfSpl = SPLITTER_HEIGHT * 0.5f;
-                rsx0 = x0 + halfPadPx;
-                rsx1 = x1 - halfPadPx;
-                rsy0 = grid.ToPixelsY(section.row - halfSpl);
-                rsy1 = grid.ToPixelsY(section.row + halfSpl);
-            }
-
-            // Snap splitter rect to whole pixels for clean border radius
-            rsx0 = std::round(rsx0);
-            rsy0 = std::round(rsy0);
-            rsx1 = std::round(rsx1);
-            rsy1 = std::round(rsy1);
-
-            glm::vec4 splitterColor = Color::GetUI(2);
-            float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-
-            constexpr int SEGS = 8;
-            float scx = (rsx0 + rsx1) * 0.5f;
-            float scy = (rsy0 + rsy1) * 0.5f;
-
-            vertices.push_back({{scx, scy}, splitterColor});
-            uint32_t sCenterIdx = vertexOffset;
-            vertexOffset++;
-
-            struct Corner
-            {
-                float cx, cy;
-                float startAngle;
-            };
-            Corner sCorners[4] = {
-                {rsx0 + sr, rsy0 + sr, static_cast<float>(M_PI)},
-                {rsx1 - sr, rsy0 + sr, static_cast<float>(M_PI) * 1.5f},
-                {rsx1 - sr, rsy1 - sr, 0.0f},
-                {rsx0 + sr, rsy1 - sr, static_cast<float>(M_PI) * 0.5f},
-            };
-
-            uint32_t sPerimStart = vertexOffset;
-            for (int c = 0; c < 4; c++)
-            {
-                for (int s = 0; s <= SEGS; s++)
-                {
-                    float angle = sCorners[c].startAngle +
-                                  (static_cast<float>(M_PI) * 0.5f) *
-                                      (static_cast<float>(s) / static_cast<float>(SEGS));
-                    float spx = sCorners[c].cx + sr * std::cos(angle);
-                    float spy = sCorners[c].cy + sr * std::sin(angle);
-                    vertices.push_back({{spx, spy}, splitterColor});
-                    vertexOffset++;
-                }
-            }
-
-            uint32_t sTotalPerim = 4 * (SEGS + 1);
-            for (uint32_t i = 0; i < sTotalPerim; i++)
-            {
-                uint32_t next = (i + 1) % sTotalPerim;
-                indices.push_back(sCenterIdx);
-                indices.push_back(sPerimStart + i);
-                indices.push_back(sPerimStart + next);
-            }
+            // Same nominal radius as other root panels, but cap by half the shorter side so
+            // shallow strips (e.g. status bar) do not read as full pills; tall panels unchanged.
+            const float wPx = x1 - x0;
+            const float hPx = y1 - y0;
+            if (wPx > 1.0f && hPx > 1.0f)
+                r = std::min(r, 0.5f * std::min(wPx, hPx));
+            EmitRoundedRect(vertices, indices, vertexOffset, x0, y0, x1, y1, r, Color::GetUI(panel.bgParentDepth + 1));
         }
 
-        // Generate section and content background geometry
-        auto generateBackground = [&](const Panel &item)
+        bool horizontal = panel.horizontal;
+        if (horizontal)
         {
-            float inset = (!item.sections.empty()) ? item.padding : panel.padding;
-            float padPxH = grid.ToPixelsX(inset);
-            float padPxV = grid.ToPixelsY(inset);
-            float sx0 = grid.ToPixelsX(item.col) + padPxH;
-            float sy0 = grid.ToPixelsY(item.row) + padPxV;
-            float sx1 = grid.ToPixelsX(item.col + item.colSpan) - padPxH;
-            float sy1 = grid.ToPixelsY(item.row + item.rowSpan) - padPxV;
-
-            float sr = std::min(grid.cellSizeX, grid.cellSizeY) * item.borderRadius;
-            float maxSR = std::min((sx1 - sx0), (sy1 - sy0)) * 0.5f;
-            if (sr > maxSR)
-                sr = maxSR;
-
-            constexpr int SEGS = 8;
-            float scx = (sx0 + sx1) * 0.5f;
-            float scy = (sy0 + sy1) * 0.5f;
-
-            vertices.push_back({{scx, scy}, item.color});
-            uint32_t secCenterIdx = vertexOffset;
-            vertexOffset++;
-
-            struct Corner
+            // Vertical separator lines between tabs: span the panel padding rect (margin+padding inset).
+            float y0 = grid.ToPixelsY(panel.row + panel.margin + panel.padding);
+            float y1 = grid.ToPixelsY(panel.row + panel.rowSpan - panel.margin - panel.padding);
+            float halfPadPx = grid.ToPixelsX(panel.padding) * 0.5f;
+            // Splitter between header and first child.
+            if (panel.header.has_value() && !panel.children.empty())
             {
-                float cx, cy, startAngle;
-            };
-            Corner secCorners[4] = {
-                {sx0 + sr, sy0 + sr, static_cast<float>(M_PI)},
-                {sx1 - sr, sy0 + sr, static_cast<float>(M_PI) * 1.5f},
-                {sx1 - sr, sy1 - sr, 0.0f},
-                {sx0 + sr, sy1 - sr, static_cast<float>(M_PI) * 0.5f},
-            };
-
-            uint32_t secPerimStart = vertexOffset;
-            for (int c = 0; c < 4; c++)
-            {
-                for (int s = 0; s <= SEGS; s++)
-                {
-                    float angle = secCorners[c].startAngle +
-                                  (static_cast<float>(M_PI) * 0.5f) *
-                                      (static_cast<float>(s) / static_cast<float>(SEGS));
-                    float spx = secCorners[c].cx + sr * std::cos(angle);
-                    float spy = secCorners[c].cy + sr * std::sin(angle);
-                    vertices.push_back({{spx, spy}, item.color});
-                    vertexOffset++;
-                }
+                float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                float splX = panel.header->para.col + panel.header->para.colSpan;
+                float rsx0 = std::round(grid.ToPixelsX(splX - halfSpl));
+                float rsx1 = std::round(grid.ToPixelsX(splX + halfSpl));
+                float rsy0 = std::round(y0 + halfPadPx);
+                float rsy1 = std::round(y1 - halfPadPx);
+                float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
             }
 
-            uint32_t secTotalPerim = 4 * (SEGS + 1);
-            for (uint32_t i = 0; i < secTotalPerim; i++)
+            for (size_t si = 1; si < panel.children.size(); si++)
             {
-                uint32_t next = (i + 1) % secTotalPerim;
-                indices.push_back(secCenterIdx);
-                indices.push_back(secPerimStart + i);
-                indices.push_back(secPerimStart + next);
-            }
-        };
-
-        for (const auto &section : panel.sections)
-        {
-            if (!section.visible)
-                continue;
-            if (section.color.a > 0.0f)
-                generateBackground(section);
-
-            // Draw splitters between contents inside colored (sub-panel) sections
-            if (section.color.a > 0.0f && section.showLabel && !section.sections.empty())
-            {
-                // Find the first visible content to place a splitter above it
-                for (const auto &content : section.sections)
-                {
-                    if (!content.visible)
-                        continue;
-
-                    float secPadPxH = grid.ToPixelsX(section.padding);
-                    float secBgX0 = grid.ToPixelsX(section.col) + secPadPxH;
-                    float secBgX1 = grid.ToPixelsX(section.col + section.colSpan) - secPadPxH;
-                    float secHalfPad = secPadPxH * 0.5f;
-                    float rsx0 = secBgX0 + secHalfPad;
-                    float rsx1 = secBgX1 - secHalfPad;
-                    float halfSpl = SPLITTER_HEIGHT * 0.5f;
-                    float rsy0 = grid.ToPixelsY(content.row - halfSpl);
-                    float rsy1 = grid.ToPixelsY(content.row + halfSpl);
-
-                    // Snap to whole pixels for clean border radius
-                    rsx0 = std::round(rsx0);
-                    rsy0 = std::round(rsy0);
-                    rsx1 = std::round(rsx1);
-                    rsy1 = std::round(rsy1);
-
-                    glm::vec4 splColor = Color::GetUI(3);
-                    float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
-                    constexpr int SEGS = 8;
-                    float scx = (rsx0 + rsx1) * 0.5f;
-                    float scy = (rsy0 + rsy1) * 0.5f;
-                    vertices.push_back({{scx, scy}, splColor});
-                    uint32_t cIdx = vertexOffset++;
-                    struct Corner
-                    {
-                        float cx, cy, startAngle;
-                    };
-                    Corner cs[4] = {
-                        {rsx0 + sr, rsy0 + sr, static_cast<float>(M_PI)},
-                        {rsx1 - sr, rsy0 + sr, static_cast<float>(M_PI) * 1.5f},
-                        {rsx1 - sr, rsy1 - sr, 0.0f},
-                        {rsx0 + sr, rsy1 - sr, static_cast<float>(M_PI) * 0.5f},
-                    };
-                    uint32_t pStart = vertexOffset;
-                    for (int c = 0; c < 4; c++)
-                        for (int s = 0; s <= SEGS; s++)
-                        {
-                            float angle = cs[c].startAngle + (static_cast<float>(M_PI) * 0.5f) * (static_cast<float>(s) / static_cast<float>(SEGS));
-                            vertices.push_back({{cs[c].cx + sr * std::cos(angle), cs[c].cy + sr * std::sin(angle)}, splColor});
-                            vertexOffset++;
-                        }
-                    uint32_t total = 4 * (SEGS + 1);
-                    for (uint32_t i = 0; i < total; i++)
-                    {
-                        indices.push_back(cIdx);
-                        indices.push_back(pStart + i);
-                        indices.push_back(pStart + (i + 1) % total);
-                    }
-                    break; // only one splitter, between header and first content
-                }
-            }
-
-            for (const auto &content : section.sections)
-            {
-                if (!content.visible || content.color.a <= 0.0f)
+                const UIElement &el = std::visit([](const auto &e) -> const UIElement &
+                                                 { return e; }, panel.children[si]);
+                if (!el.visible)
                     continue;
-                generateBackground(content);
+                float halfSpl = SPLITTER_HEIGHT * 0.5f;
+                float rsx0 = std::round(grid.ToPixelsX(el.col - halfSpl));
+                float rsx1 = std::round(grid.ToPixelsX(el.col + halfSpl));
+                float rsy0 = std::round(y0 + halfPadPx);
+                float rsy1 = std::round(y1 - halfPadPx);
+                float sr = std::min(rsx1 - rsx0, rsy1 - rsy0) * 0.5f;
+                EmitRoundedRect(vertices, indices, vertexOffset, rsx0, rsy0, rsx1, rsy1, sr, Color::GetUI(2));
             }
+        }
+        else
+        {
+            emitPanelChildren(panel, 2);
         }
     }
 
@@ -1048,6 +1245,8 @@ void UIRenderer::Render()
     if (panels.empty())
         return;
 
+    cachedTextImFont = ImGui::GetFont();
+
     if (dirty)
         BuildMesh();
 
@@ -1065,187 +1264,518 @@ void UIRenderer::Render()
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    // Render panel titles using each panel's local grid
-    for (const auto &panel : panels)
+    // Render text for a Paragraph's value lines (interactive ImGui overlay path).
+    auto renderParagraph = [&](Paragraph &item, const std::string &itemPath) -> void
     {
-        if (!panel.visible || panel.id.empty())
-            continue;
+        if (!item.visible)
+            return;
 
-        const auto &lg = panel.localGrid;
-        float textScale = lg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-
-        // Header is row 0 of the local grid, inset by padding (= border radius)
-        float px = lg.ToPixelsX(lg.padding);
-        float py = lg.ToPixelsY(lg.padding) + textRenderer.GetMaxBearingY(textScale);
-        textRenderer.RenderText(panel.id, px, py, textScale, Color::GetUIText(1));
-
-        // Helper to render a section/content item
-        auto renderItem = [&](const Panel &item, const Panel &parent)
+        const auto &slg = item.localGrid;
+        float bearingY = pixelImFont ? pixelImFont->FontSize
+                                     : slg.cellSizeY;
+        // imguiContent lines need a slot tall enough for GetFrameHeight().
+        float slotH = bearingY;
+        if (pixelImFont)
         {
-            if (item.imguiContent)
-            {
-                float padPxH = grid.ToPixelsX(parent.padding);
-                float padPxV = grid.ToPixelsY(parent.padding);
-                float sx0 = grid.ToPixelsX(item.col) + padPxH;
-                float sy0 = grid.ToPixelsY(item.row) + padPxV;
-                float sx1 = grid.ToPixelsX(item.col + item.colSpan) - padPxH;
-                float sy1 = grid.ToPixelsY(item.row + item.rowSpan) - padPxV;
-                float sw = sx1 - sx0;
-                float sh = sy1 - sy0;
-
-                ImGui::SetNextWindowPos(ImVec2(sx0, sy0));
-                ImGui::SetNextWindowSize(ImVec2(sw, sh));
-                std::string winId = "##" + panel.id + "_" + item.id;
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-                if (ImGui::Begin(winId.c_str(), nullptr,
-                                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                     ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
-                                     ImGuiWindowFlags_AlwaysAutoResize))
+            for (const auto &v : item.values)
+                if (v.imguiContent || v.select.has_value())
                 {
-                    item.imguiContent(sw, sh);
+                    slotH = std::max(slotH, pixelImFont->FontSize + ImGui::GetStyle().FramePadding.y * 2.0f);
+                    break;
                 }
-                ImGui::End();
-                ImGui::PopStyleVar(2);
-                return;
+        }
+        float lineStepPx = item.lineGap * grid.cellSizeY + slotH;
+        float contentPx = grid.ToPixelsX(item.col + item.margin + item.padding);
+        float contentPy = grid.ToPixelsY(item.row + item.margin + item.padding);
+        float leadingPx = grid.ToPixelsX(item.leadingWidth); // 0 when no leading slot
+
+        // Paragraph bounding box (margin-inset) — used for fills, accent bar, and paragraph-level hit area.
+        float mx  = item.margin;
+        float px0 = grid.ToPixelsX(item.col + mx);
+        float py0 = grid.ToPixelsY(item.row + mx);
+        float px1 = grid.ToPixelsX(item.col + item.colSpan - mx);
+        float py1 = grid.ToPixelsY(item.row + item.rowSpan - mx);
+        float pr  = std::min(grid.cellSizeX, grid.cellSizeY) * item.borderRadius;
+
+        // Paragraph-level fills and accent bar — drawn before per-line windows,
+        // spanning the full paragraph background area (margin-inset).
+        if (item.dimFill || item.accentBar || item.selected)
+        {
+            ImDrawList *dl = ImGui::GetForegroundDrawList();
+            if (item.dimFill)
+            {
+                glm::vec4 bg = Color::GetUIText(1);
+                dl->AddRectFilled(ImVec2(px0, py0), ImVec2(px1, py1),
+                                  ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, 0.07f)), pr);
+            }
+            if (item.selected)
+            {
+                glm::vec4 bg = Color::GetAccent(item.layer + 1, 0.15f, ACCENT_SAT_MULT_HOVER);
+                dl->AddRectFilled(ImVec2(px0, py0), ImVec2(px1, py1),
+                                  ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), pr);
+            }
+            if (item.accentBar)
+            {
+                constexpr float barW = 4.0f;
+                glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
+                // Bar sits in the margin zone (left of the card background) so that padding
+                // is the equal gap from the card edge to text on all four sides.
+                dl->AddRectFilled(ImVec2(px0 - barW, py0),
+                                  ImVec2(px0, py1),
+                                  ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
+                                  pr, ImDrawFlags_RoundCornersLeft);
+            }
+        }
+
+        // Leading slot — height derived from font bearing metrics, not ink bounds,
+        // so it spans the full typographic extent regardless of which glyphs are present.
+        constexpr float LEADING_GAP_PX = 4.0f; // fixed gap between checkbox and text
+        float usedLeadingPx = leadingPx;        // actual advance + btnW deduction
+        if (item.leadingDraw && leadingPx > 0.0f)
+        {
+            size_t visibleLineCount = 0;
+            for (const auto &v : item.values)
+                if (v.visible) ++visibleLineCount;
+            float ly0 = contentPy;
+            float ly1 = contentPy + lineStepPx * static_cast<float>(visibleLineCount > 0 ? visibleLineCount - 1 : 0) + slotH;
+            ImDrawList *dl = ImGui::GetForegroundDrawList();
+            // Checkbox width = single-line slot height → square on one-line, taller on two-line.
+            float checkboxW = std::min(slotH, leadingPx);
+            item.leadingDraw(dl, contentPx, ly0, contentPx + checkboxW, ly1);
+            usedLeadingPx = checkboxW + LEADING_GAP_PX;
+            contentPx += usedLeadingPx;
+        }
+
+        size_t visibleI = 0;
+        for (size_t i = 0; i < item.values.size(); i++)
+        {
+            auto &line = item.values[i];
+            if (!line.visible)
+                continue;
+            // Measure actual glyph ink bounds at add-text origin (0,0).
+            // onClick lines use pixelImFont; bold lines use the heavy context font;
+            // body lines use the lighter bodyImFont if available.
+            ImFont *font = (line.onClick && pixelImFont) ? pixelImFont
+                           : (!line.bold && bodyImFont)  ? bodyImFont
+                                                         : ImGui::GetFont();
+            float renderSize = font->FontSize * line.fontScale;
+            PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, font);
+            float inkH = (ink.valid() ? ink.height() : bearingY) * line.fontScale;
+            float inkY0 = (ink.valid() ? ink.y0 : 0.0f) * line.fontScale;
+
+            float vpx = contentPx;
+            float vpy = contentPy + bearingY + lineStepPx * static_cast<float>(visibleI);
+
+            float baseH = (line.imguiContent || line.select.has_value()) ? slotH : std::max(inkH, bearingY);
+            float btnX = vpx;
+            float btnY = vpy - bearingY;
+            float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX - usedLeadingPx;
+            const bool useSquareHit =
+                line.squareIconHit && line.iconDraw && line.onClick && !item.onClick && !line.imguiContent &&
+                !line.select.has_value() && line.text.empty() && line.prefix.empty();
+            float winX = btnX;
+            float winY = btnY;
+            float winW = btnW;
+            float winH = baseH;
+            if (useSquareHit)
+            {
+                float side = std::min(btnW, baseH);
+                winX = btnX + (btnW - side) * 0.5f;
+                winY = btnY + (baseH - side) * 0.5f;
+                winW = side;
+                winH = side;
             }
 
-            const auto &slg = item.localGrid;
-            float sTextScale = slg.cellSizeY / textRenderer.GetLineHeight(1.0f) * 1.4f;
-            float bearingY = textRenderer.GetMaxBearingY(sTextScale);
-            float lineStepPx = panel.padding * grid.cellSizeY + bearingY; // matches layout lineStep
-
-            if (item.color.a > 0.0f)
+            // Compute icon slot offset and draw icon if present.
+            // The ImGui window covers the row (or a centered square for toolbar tools) so clicks register.
+            float iconOffset = 0.0f;
+            if (line.iconDraw)
             {
-                float inset = (!item.sections.empty()) ? item.padding : panel.padding;
-                float bgX0 = grid.ToPixelsX(item.col) + grid.ToPixelsX(inset);
-                float bgY0 = grid.ToPixelsY(item.row) + grid.ToPixelsY(inset);
-                float bgX1 = grid.ToPixelsX(item.col + item.colSpan) - grid.ToPixelsX(inset);
-                float bgY1 = grid.ToPixelsY(item.row + item.rowSpan) - grid.ToPixelsY(inset);
+                float sRatio = line.iconSizeRatio > 0.0f ? line.iconSizeRatio : ICON_SIZE_RATIO;
+                float s = std::max(2.0f, std::round(font->FontSize * line.fontScale * sRatio));
+                iconOffset = 2.0f * s + 3.0f;
+                float midY = useSquareHit ? (winY + winH * 0.5f) : (btnY + baseH * 0.5f);
+                float iconLeft = useSquareHit ? (winX + (winW - iconOffset) * 0.5f) : vpx;
+                ImDrawList *dl = ImGui::GetForegroundDrawList();
+                line.iconDraw(dl, iconLeft, midY, s);
+            }
 
-                if (!item.id.empty() && item.showLabel)
+            ImGui::SetNextWindowPos(ImVec2(winX, winY));
+            ImGui::SetNextWindowSize(ImVec2(winW, winH));
+            std::string winId = "##val" + itemPath + "_" + std::to_string(i);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            if (ImGui::Begin(winId.c_str(), nullptr,
+                             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+            {
+                if (line.select.has_value())
                 {
-                    if (!item.sections.empty())
+                    // Segmented pill selector: N equal zones, accent pill behind active zone.
+                    Select &sel = *line.select;
+                    int n = static_cast<int>(sel.options.size());
+                    if (n > 0)
                     {
-                        // Sub-panel style: top-left header
-                        float spx = bgX0 + grid.ToPixelsX(item.padding);
-                        float spy = bgY0 + grid.ToPixelsY(item.padding) + bearingY;
-                        textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
+                        float pad = ImGui::GetStyle().FramePadding.x;
+                        ImFont *lblFont = bodyImFont ? bodyImFont : ImGui::GetFont();
+                        ImDrawList *dl = ImGui::GetWindowDrawList();
+
+                        // Optional left-side row title stored in SectionLine::text
+                        float titleW = 0.0f;
+                        if (!line.text.empty())
+                        {
+                            float lblSz = lblFont->FontSize;
+                            ImVec2 ts = lblFont->CalcTextSizeA(lblSz, FLT_MAX, 0.0f, line.text.c_str());
+                            titleW = ts.x + pad * 3.0f; // label + right gap before pill
+                            glm::vec4 tc = Color::GetUIText(2);
+                            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                            float ty = btnY + (baseH - lblSz) * 0.5f;
+                            dl->AddText(lblFont, lblSz, ImVec2(btnX + iconOffset + pad, ty), col, line.text.c_str());
+                        }
+
+                        float pillAreaX = btnX + titleW; // zones start after title
+                        float pillAreaW = btnW - titleW;
+                        float pillR = std::round(baseH * 0.35f);
+                        float s = std::max(2.0f, std::round(baseH * ICON_SIZE_RATIO));
+                        constexpr float iconGap = 3.0f;
+                        constexpr float zoneInset = 2.0f; // per side (2×2 = 4px total, matching layout)
+                        float lblSize = lblFont->FontSize;
+
+                        // Variable-width zones: active = icon + label, inactive = icon only.
+                        // Any surplus width from the available pill area goes to the active zone.
+                        std::vector<float> zoneWidths(n);
+                        float totalNatural = 0.0f;
+                        for (int zi = 0; zi < n; ++zi)
+                        {
+                            bool isActive = (zi == sel.activeIndex);
+                            float lw = 0.0f;
+                            if (isActive && !sel.options[zi].label.empty())
+                                lw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+                            zoneWidths[zi] = 2.0f * s + (lw > 0.0f ? iconGap + lw : 0.0f) + 2.0f * zoneInset;
+                            totalNatural += zoneWidths[zi];
+                        }
+                        float surplus = pillAreaW - totalNatural;
+                        if (surplus > 0.0f)
+                        {
+                            // Distribute surplus only to inactive (icon-only) zones so the
+                            // active zone width is purely content-driven and stays the same
+                            // across rows that share the same column (e.g. Theme vs Accent).
+                            int nInactive = n - 1; // exactly one active zone
+                            if (nInactive > 0)
+                            {
+                                float perInactive = surplus / static_cast<float>(nInactive);
+                                for (int zi = 0; zi < n; ++zi)
+                                    if (zi != sel.activeIndex)
+                                        zoneWidths[zi] += perInactive;
+                            }
+                        }
+
+                        float cumX = 0.0f;
+                        for (int zi = 0; zi < n; ++zi)
+                        {
+                            float thisW = zoneWidths[zi];
+                            float zx0 = pillAreaX + cumX;
+                            float zx1 = zx0 + thisW;
+                            bool isActive = (zi == sel.activeIndex);
+
+                            // Invisible button for click detection (local window coords)
+                            ImGui::SetCursorPos(ImVec2(titleW + cumX, 0));
+                            std::string btnId = "##sel" + std::to_string(i) + "_" + std::to_string(zi);
+                            ImGui::InvisibleButton(btnId.c_str(), ImVec2(thisW, baseH));
+                            bool hovered = ImGui::IsItemHovered();
+                            bool clicked = ImGui::IsItemClicked();
+                            if (hovered)
+                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+                            // Pill fill: active = accent, hovered-inactive = subtle tint
+                            if (isActive)
+                            {
+                                glm::vec4 ac = Color::GetAccent(item.layer + 1, 1.0f, ACCENT_SAT_MULT_HOVER);
+                                dl->AddRectFilled(ImVec2(zx0 + 2.f, btnY + 2.f), ImVec2(zx1 - 2.f, btnY + baseH - 2.f),
+                                                  ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)), pillR);
+                            }
+                            else if (hovered)
+                            {
+                                glm::vec4 hc = Color::GetAccent(item.layer + 1, 0.12f, ACCENT_SAT_MULT_HOVER);
+                                dl->AddRectFilled(ImVec2(zx0 + 2.f, btnY + 2.f), ImVec2(zx1 - 2.f, btnY + baseH - 2.f),
+                                                  ImGui::GetColorU32(ImVec4(hc.r, hc.g, hc.b, hc.a)), pillR);
+                            }
+
+                            float midZone = (zx0 + zx1) * 0.5f;
+                            float midRow = btnY + baseH * 0.5f;
+                            int depth = isActive ? 2 : 0;
+
+                            float labelW = 0.0f;
+                            if (isActive && !sel.options[zi].label.empty())
+                                labelW = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+
+                            // Centre icon + label together within the zone
+                            float contentW = 2.0f * s + (labelW > 0.0f ? iconGap + labelW : 0.0f);
+                            float contentStartX = midZone - contentW * 0.5f;
+
+                            // Clip to zone interior so nothing overflows
+                            dl->PushClipRect(ImVec2(zx0 + 2.f, btnY), ImVec2(zx1 - 2.f, btnY + baseH), true);
+
+                            if (sel.options[zi].iconDraw)
+                                sel.options[zi].iconDraw(dl, contentStartX, midRow, s);
+
+                            if (isActive && labelW > 0.0f)
+                            {
+                                float ty = btnY + (baseH - lblSize) * 0.5f;
+                                glm::vec4 tc = Color::GetUIText(depth);
+                                ImU32 lblCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                                dl->AddText(lblFont, lblSize, ImVec2(contentStartX + 2.0f * s + iconGap, ty), lblCol, sel.options[zi].label.c_str());
+                            }
+
+                            dl->PopClipRect();
+
+                            if (clicked && !isActive)
+                            {
+                                sel.activeIndex = zi;
+                                if (sel.onChange)
+                                    sel.onChange(zi);
+                            }
+                            else if (clicked && isActive)
+                            {
+                                if (sel.onActiveClick)
+                                    sel.onActiveClick();
+                            }
+
+                            cumX += thisW;
+                        }
+                        if (sel.postDraw)
+                            sel.postDraw();
+                    }
+                }
+                else if (line.imguiContent)
+                {
+                    if (pixelImFont)
+                        ImGui::PushFont(pixelImFont);
+                    ImGui::SetCursorPos(ImVec2(0, 0)); // ensure cursor starts at top-left of slot window
+                    line.imguiContent(winW, winH, iconOffset); // matches ImGui window size
+                    if (pixelImFont)
+                        ImGui::PopFont();
+                }
+                else
+                {
+                    // When the paragraph has a unified onClick, skip per-line InvisibleButton;
+                    // the paragraph-level window (submitted after all line windows) handles all input.
+                    if (line.onClick && !item.onClick)
+                    {
+                        ImGui::SetCursorPos(ImVec2(0, 0));
+                        if (ImGui::InvisibleButton(("##btn" + std::to_string(i)).c_str(), ImVec2(winW, winH)))
+                            line.onClick();
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    }
+                    // Centre the ink region in the visual slot
+                    float ty = btnY + (baseH - inkH) * 0.5f - inkY0;
+                    ImDrawList *dl = ImGui::GetWindowDrawList();
+                    float rowRadius = std::min(winW, winH) * UIStyle::FRAME_ROUNDING_RATIO;
+                    // Neutral dim fill — completed step
+                    if (line.dimFill)
+                    {
+                        glm::vec4 bg = Color::GetUIText(1);
+                        dl->AddRectFilled(ImVec2(winX, winY), ImVec2(winX + winW, winY + winH),
+                                          ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, 0.07f)), rowRadius);
+                    }
+                    // Accent fill — hover/active for per-line clickable lines only
+                    {
+                        bool hovered = line.onClick && !item.onClick && ImGui::IsItemHovered();
+                        bool active  = line.onClick && !item.onClick && ImGui::IsItemActive();
+                        if (hovered || active || line.selected)
+                        {
+                            int d = active ? item.layer + 2 : item.layer + 1;
+                            float alpha = active ? 0.18f : line.selected ? 0.20f
+                                                                         : 0.10f;
+                            glm::vec4 bg = Color::GetAccent(d, alpha, ACCENT_SAT_MULT_HOVER);
+                            dl->AddRectFilled(ImVec2(winX, winY), ImVec2(winX + winW, winY + winH),
+                                              ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), rowRadius);
+                        }
+                    }
+                    // Left accent bar — active step indicator, drawn over fills
+                    if (line.accentBar)
+                    {
+                        constexpr float barW = 3.0f;
+                        glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
+                        dl->AddRectFilled(ImVec2(winX + 1.0f, winY + 2.0f),
+                                          ImVec2(winX + 1.0f + barW, winY + winH - 2.0f),
+                                          ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
+                                          barW * 0.5f);
+                    }
+                    float tx = winX + iconOffset; // skip icon slot before drawing text
+                    if (!line.prefix.empty())
+                    {
+                        ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
+                        dl->AddText(font, renderSize, ImVec2(tx, ty), pc, line.prefix.c_str());
+                        tx += font->CalcTextSizeA(renderSize, FLT_MAX, 0.0f, line.prefix.c_str()).x;
+                    }
+                    if (!line.text.empty())
+                    {
+                        glm::vec4 tc = Color::GetUIText(line.textDepth);
+                        ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                        dl->AddText(font, renderSize, ImVec2(tx, ty), textCol, line.text.c_str());
+                    }
+                }
+            }
+            ImGui::End();
+            ImGui::PopStyleVar(2);
+            ++visibleI;
+        }
+
+        // Paragraph-level hit area — submitted last so it sits on top of all per-line windows.
+        // Covers the full bounding box with a single InvisibleButton.
+        if (item.onClick)
+        {
+            ImGui::SetNextWindowPos(ImVec2(px0, py0));
+            ImGui::SetNextWindowSize(ImVec2(px1 - px0, py1 - py0));
+            std::string paraWinId = "##para" + itemPath;
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            if (ImGui::Begin(paraWinId.c_str(), nullptr,
+                             ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+                                 ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
+            {
+                ImGui::SetCursorPos(ImVec2(0, 0));
+                if (ImGui::InvisibleButton("##parabtn", ImVec2(px1 - px0, py1 - py0)))
+                    item.onClick();
+                bool paraHovered = ImGui::IsItemHovered();
+                bool paraActive  = ImGui::IsItemActive();
+                if (paraHovered || paraActive)
+                {
+                    int d       = paraActive ? item.layer + 2 : item.layer + 1;
+                    float alpha = paraActive ? 0.18f : 0.10f;
+                    glm::vec4 bg = Color::GetAccent(d, alpha, ACCENT_SAT_MULT_HOVER);
+                    ImDrawList *fdl = ImGui::GetForegroundDrawList();
+                    fdl->AddRectFilled(ImVec2(px0, py0), ImVec2(px1, py1),
+                                       ImGui::GetColorU32(ImVec4(bg.r, bg.g, bg.b, bg.a)), pr);
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                }
+            }
+            ImGui::End();
+            ImGui::PopStyleVar(2);
+        }
+    };
+
+    // Render label for a Section header.
+    auto renderSection = [&](Section &sec, const std::string &parentPath) -> void
+    {
+        if (!sec.visible)
+            return;
+        std::string secPath = parentPath + "_" + sec.id;
+
+        if (sec.header.has_value())
+        {
+            // Wire chevron onto header line each frame (direction reflects current collapsed state).
+            Paragraph &hpara = sec.header->para;
+            if (!hpara.values.empty())
+            {
+                SectionLine &hl = hpara.values[0];
+                hl.iconSizeRatio = ICON_SIZE_RATIO_SMALL;
+                hl.iconDraw = Icons::Chevron(!sec.collapsed);
+                hl.onClick = [&sec, this]()
+                { sec.collapsed = !sec.collapsed; dirty = true; };
+            }
+            renderParagraph(hpara, secPath + "_header");
+        }
+
+        if (sec.collapsed)
+            return;
+
+        for (auto &para : sec.children)
+            renderParagraph(para, secPath + "_" + para.id);
+    };
+
+    // Render text for all panels.
+    for (auto &panel : panels)
+    {
+        if (!panel.visible)
+            continue;
+
+        std::string panelPath = "_" + panel.id;
+
+        // Render RootPanel header (anonymous containers have no header)
+        if (panel.header.has_value())
+            renderParagraph(panel.header->para, panelPath + "_header");
+        if (panel.subtitle.has_value())
+            renderParagraph(*panel.subtitle, panelPath + "_subtitle");
+        for (auto &child : panel.children)
+        {
+            std::visit([&](auto &el)
+                       {
+                using T = std::decay_t<decltype(el)>;
+                if constexpr (std::is_same_v<T, Section>)
+                    renderSection(el, panelPath);
+                else
+                    renderParagraph(el, panelPath + "_" + el.id); }, child);
+        }
+    }
+
+    // --- Debug layout overlay ---
+    if (debugLayout)
+    {
+        ImDrawList *dl = ImGui::GetForegroundDrawList();
+
+        auto drawDebugElement = [&](const UIElement &item)
+        {
+            if (!item.visible)
+                return;
+
+            float ox0 = grid.ToPixelsX(item.col);
+            float oy0 = grid.ToPixelsY(item.row);
+            float ox1 = grid.ToPixelsX(item.col + item.colSpan);
+            float oy1 = grid.ToPixelsY(item.row + item.rowSpan);
+
+            float cx0 = grid.ToPixelsX(item.col + item.margin + item.padding);
+            float cy0 = grid.ToPixelsY(item.row + item.margin + item.padding);
+            float cx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin - item.padding);
+            float cy1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin - item.padding);
+
+            auto fillRing = [&](float x0, float y0, float x1, float y1,
+                                float ix0, float iy0, float ix1, float iy1,
+                                ImU32 col)
+            {
+                dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x1, iy0), col);
+                dl->AddRectFilled(ImVec2(x0, iy1), ImVec2(x1, y1), col);
+                dl->AddRectFilled(ImVec2(x0, iy0), ImVec2(ix0, iy1), col);
+                dl->AddRectFilled(ImVec2(ix1, iy0), ImVec2(x1, iy1), col);
+            };
+            fillRing(ox0, oy0, ox1, oy1, cx0, cy0, cx1, cy1, IM_COL32(0, 140, 255, 70));
+            dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 200), 0.0f, 0, 1.0f);
+            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(0, 210, 90, 200), 0.0f, 0, 1.0f);
+        };
+
+        for (const auto &panel : panels)
+        {
+            // Match hit-testing: a hidden root panel must not contribute debug overlay
+            // (children keep visible=true; only the panel flag is toggled for tool switch).
+            if (!panel.visible)
+                continue;
+
+            drawDebugElement(panel);
+            if (panel.header.has_value())
+                drawDebugElement(panel.header->para);
+            if (panel.subtitle.has_value())
+                drawDebugElement(*panel.subtitle);
+
+            for (const auto &child : panel.children)
+            {
+                std::visit([&](const auto &el)
+                           {
+                    if constexpr (std::is_same_v<std::decay_t<decltype(el)>, Section>)
+                    {
+                        if (!el.visible)
+                            return;
+                        drawDebugElement(el);
+                        if (el.header.has_value())
+                            drawDebugElement(el.header->para);
+                        for (const auto &para : el.children)
+                            drawDebugElement(para);
                     }
                     else
                     {
-                        // Button style: centered
-                        float tw = textRenderer.MeasureWidth(item.id, sTextScale);
-                        float spx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
-                        float spy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f;
-                        textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
-                    }
-                }
-
-                float valueStart = item.showLabel ? 1.0f : 0.0f;
-                for (size_t i = 0; i < item.values.size(); i++)
-                {
-                    const auto &line = item.values[i];
-                    float tw = textRenderer.MeasureWidth(line.prefix + line.text, sTextScale);
-                    float vpx = bgX0 + (bgX1 - bgX0 - tw) * 0.5f;
-                    float vpy = bgY0 + (bgY1 - bgY0 + bearingY) * 0.5f + lineStepPx * (valueStart + static_cast<float>(i));
-                    if (!line.prefix.empty())
-                    {
-                        textRenderer.RenderText(line.prefix, vpx, vpy, sTextScale, line.prefixColor);
-                        vpx += textRenderer.MeasureWidth(line.prefix, sTextScale);
-                    }
-                    if (!line.text.empty())
-                        textRenderer.RenderText(line.text, vpx, vpy, sTextScale, Color::GetUIText(1));
-                }
-            }
-            else
-            {
-                if (!item.id.empty() && item.showLabel)
-                {
-                    float spx = slg.ToPixelsX(slg.padding);
-                    float spy = slg.ToPixelsY(slg.padding) + bearingY;
-                    textRenderer.RenderText(item.id, spx, spy, sTextScale, Color::GetUIText(1));
-                }
-
-                float valueStart = item.showLabel ? 1.0f : 0.0f;
-                for (size_t i = 0; i < item.values.size(); i++)
-                {
-                    const auto &line = item.values[i];
-                    float vpx = slg.ToPixelsX(slg.padding);
-                    float vpy = slg.ToPixelsY(slg.padding) + bearingY + lineStepPx * (valueStart + static_cast<float>(i));
-
-                    float btnX = vpx;
-                    float btnY = vpy - bearingY;
-                    float btnW = (slg.columns - 2.0f * slg.padding) * slg.cellSizeX;
-                    float btnH = bearingY;
-                    ImGui::SetNextWindowPos(ImVec2(btnX, btnY));
-                    ImGui::SetNextWindowSize(ImVec2(btnW, btnH));
-                    std::string winId = "##val_" + panel.id + "_" + item.id + "_" + std::to_string(i);
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-                    if (line.onClick)
-                    {
-                        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, btnH * 0.3f);
-                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.2f, 0.2f, 0.5f));
-                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 0.5f));
-                        if (pixelImFont)
-                            ImGui::PushFont(pixelImFont);
-                    }
-                    if (ImGui::Begin(winId.c_str(), nullptr,
-                                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings))
-                    {
-                        if (line.onClick)
-                        {
-                            if (ImGui::Button(("##btn" + std::to_string(i)).c_str(), ImVec2(btnW, btnH)))
-                                line.onClick();
-                            if (ImGui::IsItemHovered())
-                                ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                        }
-
-                        float pad = ImGui::GetStyle().FramePadding.x;
-                        float ty = btnY + (btnH - ImGui::GetFontSize()) * 0.5f;
-                        ImDrawList *dl = ImGui::GetWindowDrawList();
-                        float tx = btnX + pad;
-                        if (!line.prefix.empty())
-                        {
-                            ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                            dl->AddText(ImVec2(tx, ty), pc, line.prefix.c_str());
-                            tx += ImGui::CalcTextSize(line.prefix.c_str()).x;
-                        }
-                        if (!line.text.empty())
-                        {
-                            glm::vec4 tc = Color::GetUIText(1);
-                            ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                            dl->AddText(ImVec2(tx, ty), textCol, line.text.c_str());
-                        }
-                    }
-                    ImGui::End();
-                    if (line.onClick)
-                    {
-                        if (pixelImFont)
-                            ImGui::PopFont();
-                        ImGui::PopStyleColor(3);
-                        ImGui::PopStyleVar(1);
-                    }
-                    ImGui::PopStyleVar(2);
-                }
-            }
-        };
-
-        // Render section labels, values, and contents
-        for (const auto &section : panel.sections)
-        {
-            if (!section.visible)
-                continue;
-            renderItem(section, panel);
-            const Panel &contentParent = (section.color.a > 0.0f) ? section : panel;
-            for (const auto &content : section.sections)
-            {
-                if (!content.visible)
-                    continue;
-                renderItem(content, contentParent);
+                        drawDebugElement(el);
+                    } }, child);
             }
         }
     }
@@ -1264,7 +1794,7 @@ bool UIRenderer::HitTest(float pixelX, float pixelY) const
 
     for (const auto &panel : panels)
     {
-        if (!panel.visible || panel.color.a <= 0.0f)
+        if (!panel.visible || !panel.HasBackground())
             continue;
 
         if (cellX >= panel.col && cellX <= panel.col + panel.colSpan &&

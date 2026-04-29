@@ -1,5 +1,64 @@
 #include "ViewportRenderer.hpp"
+#include "ProjectionDepthMode.hpp"
+#include "RenderingExperiments.hpp"
+#include "UserTuning.hpp"
 #include "utils/log.hpp"
+
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+/// World units per pixel (ortho span on the long in-view axis ÷ shorter viewport side in pixels).
+/// For the XY reference grid, orbit tilts the view: in-plane line spacing projects ~×`1/|v·ẑ|`
+/// tighter on screen, so we scale `wpp` by that factor (same ≥1 px rule as zoom).
+/// `absViewDirDotZ` is `|dot(viewDirWorld, (0,0,1))|` in [0,1] (already `|viewDirWorld.z|` here).
+float DesiredGridLodSpacing(float orthoSize, float aspect, int widthPx, int heightPx,
+                            float absViewDirDotZ)
+{
+    const float halfW = orthoSize * std::fabs(aspect);
+    const float halfH = orthoSize;
+    const float wppLinear = (2.0f * std::max(halfW, halfH)) /
+                            static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
+    // Foreshortening: in-plane line spacing projects tighter when |view·ẑ| is small.
+    // Mild superlinear exponent between linear 1/|z| and the previous 1.5 (tune with floor).
+    const float foreshort = std::max(UserTuning::gridForeshortenFloor, std::abs(absViewDirDotZ));
+    const float wpp = wppLinear / std::pow(foreshort, UserTuning::gridForeshortenExponent);
+
+    const float minByPixels = UserTuning::gridLodMinPixelGap * wpp;
+
+    const float extent = Color::GRID_EXTENT;
+    const float spanWorld = 2.0f * extent;
+    const float budget = 4.0f * static_cast<float>(std::max(1, std::max(widthPx, heightPx)));
+    const float densityFloor = spanWorld / budget;
+
+    const float minWorldSpacing = std::max(minByPixels, densityFloor);
+
+    const float minWorldStep = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
+    const float maxWorldStep = std::max(minWorldStep, UserTuning::gridLodMaxWorldStep);
+    float s = minWorldStep;
+    while (s + 1e-8f < minWorldSpacing && s < maxWorldStep)
+        s *= 2.0f;
+    return std::min(maxWorldStep, s);
+}
+
+/// Small relative deadband so ortho jitter does not rebuild the grid mesh every frame.
+void ApplyGridLodHysteresis(float desired, float &current)
+{
+    if (!std::isfinite(desired) || desired <= 0.0f)
+        return;
+    if (!std::isfinite(current) || current <= 0.0f)
+    {
+        current = desired;
+        return;
+    }
+    const float kBand = std::max(1.001f, UserTuning::gridLodHysteresisBand);
+    if (desired > current * kBand)
+        current = desired;
+    else if (desired * kBand < current)
+        current = desired;
+}
+} // namespace
 
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
 {
@@ -24,9 +83,13 @@ ViewportRenderer::~ViewportRenderer()
 ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
     : shader(std::move(other.shader)),
       lineVAO(other.lineVAO), lineVBO(other.lineVBO),
-      lineIBO(other.lineIBO), lineIndexCount(other.lineIndexCount),
+      lineIBO(other.lineIBO),       lineIndexCount(other.lineIndexCount),
       gridIndexCount(other.gridIndexCount),
-      viewProjection(other.viewProjection)
+      viewProjection(other.viewProjection),
+      viewDirWorld(other.viewDirWorld),
+      axisWorldHalfExtent(other.axisWorldHalfExtent),
+      gridWorldSpacing(other.gridWorldSpacing),
+      drawGridOnCoplanarStencil(other.drawGridOnCoplanarStencil)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -45,6 +108,10 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         lineIndexCount = other.lineIndexCount;
         gridIndexCount = other.gridIndexCount;
         viewProjection = other.viewProjection;
+        viewDirWorld = other.viewDirWorld;
+        axisWorldHalfExtent = other.axisWorldHalfExtent;
+        gridWorldSpacing = other.gridWorldSpacing;
+        drawGridOnCoplanarStencil = other.drawGridOnCoplanarStencil;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -59,7 +126,36 @@ bool ViewportRenderer::InitializeShaders()
 
 void ViewportRenderer::SetCamera(Camera &camera)
 {
-    viewProjection = camera.GetProjectionMatrix() * camera.GetViewMatrix();
+    viewProjection = ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) *
+                     camera.GetViewMatrix();
+    const glm::vec3 forwardWorld = camera.orientation * glm::vec3(0.0f, 0.0f, 1.0f);
+    const float fLen = glm::length(forwardWorld);
+    if (fLen > 1e-8f)
+        viewDirWorld = glm::normalize(-forwardWorld);
+
+    // Near–top-down / bottom-up views: allow a second grid pass on stencil==1 pixels so the floor
+    // does not vanish when zoomed into a coplanar face; skip at grazing angles to keep vertical
+    // faces from showing the reference grid through depth ties.
+    drawGridOnCoplanarStencil = std::abs(viewDirWorld.z) > 0.62f;
+
+    const float want = DesiredGridLodSpacing(
+        camera.orthoSize, camera.aspectRatio, static_cast<int>(camera.widthWindow),
+        static_cast<int>(camera.heightWindow), viewDirWorld.z);
+    const float before = gridWorldSpacing;
+    ApplyGridLodHysteresis(want, gridWorldSpacing);
+    const float mag = std::max({1e-6f, before, gridWorldSpacing});
+    if (std::abs(gridWorldSpacing - before) > std::max(1e-7f, mag * 1e-5f))
+        RegenerateGrid();
+}
+
+void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
+{
+    axisWorldHalfExtent = std::max(1.0f, halfLength);
+}
+
+void ViewportRenderer::RegenerateGrid()
+{
+    Generate();
 }
 
 void ViewportRenderer::Generate()
@@ -67,13 +163,13 @@ void ViewportRenderer::Generate()
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
-    const float extent = GRID_EXTENT;
-    const float spacing = 1.0f;
+    const float extent = Color::GRID_EXTENT;
+    const float spacing = std::max(1.0f / 8192.0f, gridWorldSpacing);
 
     glm::vec3 gridColor = Color::GetGrid();
 
     // Grid lines parallel to X axis (varying Y)
-    for (float y = -extent; y <= extent; y += spacing)
+    for (float y = -extent; y <= extent + 1e-4f * spacing; y += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
         vertices.push_back({glm::vec3(-extent, y, 0.0f), gridColor});
@@ -83,7 +179,7 @@ void ViewportRenderer::Generate()
     }
 
     // Grid lines parallel to Y axis (varying X)
-    for (float x = -extent; x <= extent; x += spacing)
+    for (float x = -extent; x <= extent + 1e-4f * spacing; x += spacing)
     {
         uint32_t base = static_cast<uint32_t>(vertices.size());
         vertices.push_back({glm::vec3(x, -extent, 0.0f), gridColor});
@@ -94,7 +190,7 @@ void ViewportRenderer::Generate()
 
     gridIndexCount = static_cast<uint32_t>(indices.size());
 
-    const float axisExtent = 10000.0f;
+    const float axisExtent = axisWorldHalfExtent;
 
     // X axis (negative then positive)
     uint32_t base = static_cast<uint32_t>(vertices.size());
@@ -178,24 +274,81 @@ void ViewportRenderer::Render()
     shader.Use();
     shader.SetMat4("uViewProjection", viewProjection);
     shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uGridPlaneFade", 1.0f);
+    shader.SetFloat("uGridLodStep", gridWorldSpacing);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
+
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
+    glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
+
+    GLboolean blendWas = GL_FALSE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Write depth so later passes can test against the floor plane.
     glDepthMask(GL_TRUE);
 
     glBindVertexArray(lineVAO);
 
-    // Draw grid
+    // Draw grid only — axes are handled by RenderAxes() after the scene
     glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
 
-    // Draw axes on top of grid
-    glDisable(GL_DEPTH_TEST);
-    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
-    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
-                   (void *)(gridIndexCount * sizeof(uint32_t)));
-    glEnable(GL_DEPTH_TEST);
+    // Stencil==0 pass hides the grid on every solid pixel. Coplanar horizontal faces then erase the
+    // entire floor grid when zoomed in. When the view is mostly perpendicular to the XY plane,
+    // draw the grid again on stencil==1 pixels; clip Z bias + depth test keep it from winning
+    // through vertical walls in typical ortho setups.
+    if (drawGridOnCoplanarStencil)
+    {
+        glStencilFunc(GL_EQUAL, 1, 0xFF);
+        glDrawElements(GL_LINES, gridIndexCount, GL_UNSIGNED_INT, 0);
+    }
 
     glBindVertexArray(0);
+
+    glDisable(GL_STENCIL_TEST);
+
+    if (!blendWas)
+        glDisable(GL_BLEND);
+}
+
+void ViewportRenderer::RenderAxes()
+{
+    if (lineIndexCount == 0)
+        return;
+
+    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
+    if (axisIndexCount == 0)
+        return;
+
+    shader.Use();
+    shader.SetMat4("uViewProjection", viewProjection);
+    shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetFloat("uGridLodStep", 1.0f);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasAxesW());
+
+    // Only draw where stencil == 0 (open space, not covered by solid geometry)
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_EQUAL, 0, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+
+    glBindVertexArray(lineVAO);
+    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
+                   (void *)(gridIndexCount * sizeof(uint32_t)));
+    glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_STENCIL_TEST);
 }
 
 void ViewportRenderer::Shutdown()

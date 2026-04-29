@@ -1163,6 +1163,8 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/display.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h \
@@ -1374,6 +1376,7 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/gtc/quaternion.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ScenePick.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Wireframe/Wireframe.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer/Patch/patch.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox/earcut.hpp \
@@ -1381,15 +1384,19 @@ CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o: \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/rel_ops.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/as_const.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__utility/cmp.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/AnalysisRenderer/AnalysisRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer/ViewportRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Panel.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/PanelGrid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/UIGrid.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/Icons.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imconfig.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/TextRenderer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/Settings.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SessionLogger.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibDistanceType.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.hpp

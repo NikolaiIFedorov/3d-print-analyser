@@ -478,29 +478,29 @@ src/display/display.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.s
 .PHONY : src/display/display.cpp.s
 
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.o: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.o
+src/display/rendering/CalibPickSegments.o: src/display/rendering/CalibPickSegments.cpp.o
+.PHONY : src/display/rendering/CalibPickSegments.o
 
 # target to build an object file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.o
+src/display/rendering/CalibPickSegments.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/CalibPickSegments.cpp.o
+.PHONY : src/display/rendering/CalibPickSegments.cpp.o
 
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.i: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.i
+src/display/rendering/CalibPickSegments.i: src/display/rendering/CalibPickSegments.cpp.i
+.PHONY : src/display/rendering/CalibPickSegments.i
 
 # target to preprocess a source file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.i
+src/display/rendering/CalibPickSegments.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/CalibPickSegments.cpp.i
+.PHONY : src/display/rendering/CalibPickSegments.cpp.i
 
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.s: src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.s
+src/display/rendering/CalibPickSegments.s: src/display/rendering/CalibPickSegments.cpp.s
+.PHONY : src/display/rendering/CalibPickSegments.s
 
 # target to generate assembly for a file
-src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
-.PHONY : src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp.s
+src/display/rendering/CalibPickSegments.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/CalibPickSegments.cpp.s
+.PHONY : src/display/rendering/CalibPickSegments.cpp.s
 
 src/display/rendering/Camera/camera.o: src/display/rendering/Camera/camera.cpp.o
 .PHONY : src/display/rendering/Camera/camera.o
@@ -573,6 +573,30 @@ src/display/rendering/OpenGL/shaders/OpenGLShader.s: src/display/rendering/OpenG
 src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.s
 .PHONY : src/display/rendering/OpenGL/shaders/OpenGLShader.cpp.s
+
+src/display/rendering/ScenePick.o: src/display/rendering/ScenePick.cpp.o
+.PHONY : src/display/rendering/ScenePick.o
+
+# target to build an object file
+src/display/rendering/ScenePick.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.o
+.PHONY : src/display/rendering/ScenePick.cpp.o
+
+src/display/rendering/ScenePick.i: src/display/rendering/ScenePick.cpp.i
+.PHONY : src/display/rendering/ScenePick.i
+
+# target to preprocess a source file
+src/display/rendering/ScenePick.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.i
+.PHONY : src/display/rendering/ScenePick.cpp.i
+
+src/display/rendering/ScenePick.s: src/display/rendering/ScenePick.cpp.s
+.PHONY : src/display/rendering/ScenePick.s
+
+# target to generate assembly for a file
+src/display/rendering/ScenePick.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/ScenePick.cpp.s
+.PHONY : src/display/rendering/ScenePick.cpp.s
 
 src/display/rendering/SceneRenderer/Patch/patch.o: src/display/rendering/SceneRenderer/Patch/patch.cpp.o
 .PHONY : src/display/rendering/SceneRenderer/Patch/patch.o
@@ -669,6 +693,30 @@ src/display/rendering/UIRenderer/TextRenderer.s: src/display/rendering/UIRendere
 src/display/rendering/UIRenderer/TextRenderer.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/TextRenderer.cpp.s
 .PHONY : src/display/rendering/UIRenderer/TextRenderer.cpp.s
+
+src/display/rendering/UIRenderer/ToolPanel.o: src/display/rendering/UIRenderer/ToolPanel.cpp.o
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.o
+
+# target to build an object file
+src/display/rendering/UIRenderer/ToolPanel.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolPanel.cpp.o
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.cpp.o
+
+src/display/rendering/UIRenderer/ToolPanel.i: src/display/rendering/UIRenderer/ToolPanel.cpp.i
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.i
+
+# target to preprocess a source file
+src/display/rendering/UIRenderer/ToolPanel.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolPanel.cpp.i
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.cpp.i
+
+src/display/rendering/UIRenderer/ToolPanel.s: src/display/rendering/UIRenderer/ToolPanel.cpp.s
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.s
+
+# target to generate assembly for a file
+src/display/rendering/UIRenderer/ToolPanel.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolPanel.cpp.s
+.PHONY : src/display/rendering/UIRenderer/ToolPanel.cpp.s
 
 src/display/rendering/UIRenderer/UIRenderer.o: src/display/rendering/UIRenderer/UIRenderer.cpp.o
 .PHONY : src/display/rendering/UIRenderer/UIRenderer.o
@@ -934,6 +982,78 @@ src/logic/Analysis/utils/Slice.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s
 .PHONY : src/logic/Analysis/utils/Slice.cpp.s
 
+src/logic/Calibrate/CalibCompensation.o: src/logic/Calibrate/CalibCompensation.cpp.o
+.PHONY : src/logic/Calibrate/CalibCompensation.o
+
+# target to build an object file
+src/logic/Calibrate/CalibCompensation.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.o
+.PHONY : src/logic/Calibrate/CalibCompensation.cpp.o
+
+src/logic/Calibrate/CalibCompensation.i: src/logic/Calibrate/CalibCompensation.cpp.i
+.PHONY : src/logic/Calibrate/CalibCompensation.i
+
+# target to preprocess a source file
+src/logic/Calibrate/CalibCompensation.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.i
+.PHONY : src/logic/Calibrate/CalibCompensation.cpp.i
+
+src/logic/Calibrate/CalibCompensation.s: src/logic/Calibrate/CalibCompensation.cpp.s
+.PHONY : src/logic/Calibrate/CalibCompensation.s
+
+# target to generate assembly for a file
+src/logic/Calibrate/CalibCompensation.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.s
+.PHONY : src/logic/Calibrate/CalibCompensation.cpp.s
+
+src/logic/Calibrate/CalibDistanceType.o: src/logic/Calibrate/CalibDistanceType.cpp.o
+.PHONY : src/logic/Calibrate/CalibDistanceType.o
+
+# target to build an object file
+src/logic/Calibrate/CalibDistanceType.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o
+.PHONY : src/logic/Calibrate/CalibDistanceType.cpp.o
+
+src/logic/Calibrate/CalibDistanceType.i: src/logic/Calibrate/CalibDistanceType.cpp.i
+.PHONY : src/logic/Calibrate/CalibDistanceType.i
+
+# target to preprocess a source file
+src/logic/Calibrate/CalibDistanceType.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.i
+.PHONY : src/logic/Calibrate/CalibDistanceType.cpp.i
+
+src/logic/Calibrate/CalibDistanceType.s: src/logic/Calibrate/CalibDistanceType.cpp.s
+.PHONY : src/logic/Calibrate/CalibDistanceType.s
+
+# target to generate assembly for a file
+src/logic/Calibrate/CalibDistanceType.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.s
+.PHONY : src/logic/Calibrate/CalibDistanceType.cpp.s
+
+src/logic/Calibrate/CalibNominal.o: src/logic/Calibrate/CalibNominal.cpp.o
+.PHONY : src/logic/Calibrate/CalibNominal.o
+
+# target to build an object file
+src/logic/Calibrate/CalibNominal.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o
+.PHONY : src/logic/Calibrate/CalibNominal.cpp.o
+
+src/logic/Calibrate/CalibNominal.i: src/logic/Calibrate/CalibNominal.cpp.i
+.PHONY : src/logic/Calibrate/CalibNominal.i
+
+# target to preprocess a source file
+src/logic/Calibrate/CalibNominal.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.i
+.PHONY : src/logic/Calibrate/CalibNominal.cpp.i
+
+src/logic/Calibrate/CalibNominal.s: src/logic/Calibrate/CalibNominal.cpp.s
+.PHONY : src/logic/Calibrate/CalibNominal.s
+
+# target to generate assembly for a file
+src/logic/Calibrate/CalibNominal.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.s
+.PHONY : src/logic/Calibrate/CalibNominal.cpp.s
+
 src/logic/Import/OBJImport.o: src/logic/Import/OBJImport.cpp.o
 .PHONY : src/logic/Import/OBJImport.o
 
@@ -1102,6 +1222,102 @@ src/scene/scene.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
 .PHONY : src/scene/scene.cpp.s
 
+src/utils/SessionLogger.o: src/utils/SessionLogger.cpp.o
+.PHONY : src/utils/SessionLogger.o
+
+# target to build an object file
+src/utils/SessionLogger.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.o
+.PHONY : src/utils/SessionLogger.cpp.o
+
+src/utils/SessionLogger.i: src/utils/SessionLogger.cpp.i
+.PHONY : src/utils/SessionLogger.i
+
+# target to preprocess a source file
+src/utils/SessionLogger.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.i
+.PHONY : src/utils/SessionLogger.cpp.i
+
+src/utils/SessionLogger.s: src/utils/SessionLogger.cpp.s
+.PHONY : src/utils/SessionLogger.s
+
+# target to generate assembly for a file
+src/utils/SessionLogger.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SessionLogger.cpp.s
+.PHONY : src/utils/SessionLogger.cpp.s
+
+src/utils/Settings.o: src/utils/Settings.cpp.o
+.PHONY : src/utils/Settings.o
+
+# target to build an object file
+src/utils/Settings.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/Settings.cpp.o
+.PHONY : src/utils/Settings.cpp.o
+
+src/utils/Settings.i: src/utils/Settings.cpp.i
+.PHONY : src/utils/Settings.i
+
+# target to preprocess a source file
+src/utils/Settings.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/Settings.cpp.i
+.PHONY : src/utils/Settings.cpp.i
+
+src/utils/Settings.s: src/utils/Settings.cpp.s
+.PHONY : src/utils/Settings.s
+
+# target to generate assembly for a file
+src/utils/Settings.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/Settings.cpp.s
+.PHONY : src/utils/Settings.cpp.s
+
+src/utils/SystemAccent.o: src/utils/SystemAccent.mm.o
+.PHONY : src/utils/SystemAccent.o
+
+# target to build an object file
+src/utils/SystemAccent.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o
+.PHONY : src/utils/SystemAccent.mm.o
+
+src/utils/SystemAccent.i: src/utils/SystemAccent.mm.i
+.PHONY : src/utils/SystemAccent.i
+
+# target to preprocess a source file
+src/utils/SystemAccent.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.i
+.PHONY : src/utils/SystemAccent.mm.i
+
+src/utils/SystemAccent.s: src/utils/SystemAccent.mm.s
+.PHONY : src/utils/SystemAccent.s
+
+# target to generate assembly for a file
+src/utils/SystemAccent.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.s
+.PHONY : src/utils/SystemAccent.mm.s
+
+src/utils/SystemAppearance.o: src/utils/SystemAppearance.mm.o
+.PHONY : src/utils/SystemAppearance.o
+
+# target to build an object file
+src/utils/SystemAppearance.mm.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o
+.PHONY : src/utils/SystemAppearance.mm.o
+
+src/utils/SystemAppearance.i: src/utils/SystemAppearance.mm.i
+.PHONY : src/utils/SystemAppearance.i
+
+# target to preprocess a source file
+src/utils/SystemAppearance.mm.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.i
+.PHONY : src/utils/SystemAppearance.mm.i
+
+src/utils/SystemAppearance.s: src/utils/SystemAppearance.mm.s
+.PHONY : src/utils/SystemAppearance.s
+
+# target to generate assembly for a file
+src/utils/SystemAppearance.mm.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.s
+.PHONY : src/utils/SystemAppearance.mm.s
+
 src/utils/log.o: src/utils/log.cpp.o
 .PHONY : src/utils/log.o
 
@@ -1178,9 +1394,9 @@ help:
 	@echo "... src/display/display.o"
 	@echo "... src/display/display.i"
 	@echo "... src/display/display.s"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.o"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.i"
-	@echo "... src/display/rendering/AnalysisRenderer/AnalysisRenderer.s"
+	@echo "... src/display/rendering/CalibPickSegments.o"
+	@echo "... src/display/rendering/CalibPickSegments.i"
+	@echo "... src/display/rendering/CalibPickSegments.s"
 	@echo "... src/display/rendering/Camera/camera.o"
 	@echo "... src/display/rendering/Camera/camera.i"
 	@echo "... src/display/rendering/Camera/camera.s"
@@ -1190,6 +1406,9 @@ help:
 	@echo "... src/display/rendering/OpenGL/shaders/OpenGLShader.o"
 	@echo "... src/display/rendering/OpenGL/shaders/OpenGLShader.i"
 	@echo "... src/display/rendering/OpenGL/shaders/OpenGLShader.s"
+	@echo "... src/display/rendering/ScenePick.o"
+	@echo "... src/display/rendering/ScenePick.i"
+	@echo "... src/display/rendering/ScenePick.s"
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.o"
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.i"
 	@echo "... src/display/rendering/SceneRenderer/Patch/patch.s"
@@ -1202,6 +1421,9 @@ help:
 	@echo "... src/display/rendering/UIRenderer/TextRenderer.o"
 	@echo "... src/display/rendering/UIRenderer/TextRenderer.i"
 	@echo "... src/display/rendering/UIRenderer/TextRenderer.s"
+	@echo "... src/display/rendering/UIRenderer/ToolPanel.o"
+	@echo "... src/display/rendering/UIRenderer/ToolPanel.i"
+	@echo "... src/display/rendering/UIRenderer/ToolPanel.s"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.o"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.i"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.s"
@@ -1235,6 +1457,15 @@ help:
 	@echo "... src/logic/Analysis/utils/Slice.o"
 	@echo "... src/logic/Analysis/utils/Slice.i"
 	@echo "... src/logic/Analysis/utils/Slice.s"
+	@echo "... src/logic/Calibrate/CalibCompensation.o"
+	@echo "... src/logic/Calibrate/CalibCompensation.i"
+	@echo "... src/logic/Calibrate/CalibCompensation.s"
+	@echo "... src/logic/Calibrate/CalibDistanceType.o"
+	@echo "... src/logic/Calibrate/CalibDistanceType.i"
+	@echo "... src/logic/Calibrate/CalibDistanceType.s"
+	@echo "... src/logic/Calibrate/CalibNominal.o"
+	@echo "... src/logic/Calibrate/CalibNominal.i"
+	@echo "... src/logic/Calibrate/CalibNominal.s"
 	@echo "... src/logic/Import/OBJImport.o"
 	@echo "... src/logic/Import/OBJImport.i"
 	@echo "... src/logic/Import/OBJImport.s"
@@ -1256,6 +1487,18 @@ help:
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"
+	@echo "... src/utils/SessionLogger.o"
+	@echo "... src/utils/SessionLogger.i"
+	@echo "... src/utils/SessionLogger.s"
+	@echo "... src/utils/Settings.o"
+	@echo "... src/utils/Settings.i"
+	@echo "... src/utils/Settings.s"
+	@echo "... src/utils/SystemAccent.o"
+	@echo "... src/utils/SystemAccent.i"
+	@echo "... src/utils/SystemAccent.s"
+	@echo "... src/utils/SystemAppearance.o"
+	@echo "... src/utils/SystemAppearance.i"
+	@echo "... src/utils/SystemAppearance.s"
 	@echo "... src/utils/log.o"
 	@echo "... src/utils/log.i"
 	@echo "... src/utils/log.s"

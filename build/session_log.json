@@ -1,0 +1,12 @@
+{
+  "session_start": "2026-04-27T21:14:10Z",
+  "events": [
+    { "t_ms": 0, "type": "app_start" },
+    { "t_ms": 153, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
+    { "t_ms": 10720, "type": "file_import", "data": { "filename": "Analysis test.stl", "format": "stl", "points": 12, "edges": 30, "faces": 32, "solids": 1 } },
+    { "t_ms": 11054, "type": "analysis_run", "data": { "overhangs": 1, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
+    { "t_ms": 43460, "type": "file_import", "data": { "filename": "Test.stl", "format": "stl", "points": 56, "edges": 168, "faces": 194, "solids": 1 } },
+    { "t_ms": 43850, "type": "analysis_run", "data": { "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "overhang_angle": 45.00, "sharp_corner_angle": 100.00, "thin_min_width": 2.00, "min_feature_size": 0.40, "layer_height": 0.20 } },
+    { "t_ms": 108382, "type": "session_end", "data": { "points": 56, "edges": 168, "faces": 194, "solids": 1, "last_file": "Test.stl", "format": "stl", "overhang_angle": 50.50, "sharp_corner_angle": 160.00, "thin_min_width": 0.10, "min_feature_size": 0.10, "layer_height": 0.20, "overhangs": 0, "sharp_edges": 0, "thin_sections": 0, "small_features": 0, "camera_target": "[-4.9035, -4.7970, 1.1566]", "camera_ortho_size": 21.46, "camera_position": "[-5.2021, -4.8242, 6.1476]", "camera_distance": 5.00, "camera_quat_w": 0.738138, "camera_quat_x": 0.022151, "camera_quat_y": -0.020226, "camera_quat_z": -0.673982, "camera_near_plane": -1702.62, "camera_far_plane": 1689.67, "window_logical_w": 1280, "window_logical_h": 720, "window_pixels_w": 1280, "window_pixels_h": 720, "active_tool": "analysis", "viewport_analysis_enabled": true, "depth_experiment_ordinal": 2 } }
+  ]
+}

@@ -1,6 +1,44 @@
 #include "log.hpp"
 #include "thread"
 
+#include <mutex>
+#include <cstdlib>
+
+namespace
+{
+std::mutex gLogWriteMutex;
+LogVerbosity gLogVerbosity = LogVerbosity::NORMAL;
+
+bool ShouldEmit(Level level)
+{
+    switch (gLogVerbosity)
+    {
+    case LogVerbosity::QUIET:
+        return level == Level::WARN || level == Level::ERROR;
+    case LogVerbosity::NORMAL:
+        return level == Level::SESSION || level == Level::WARN || level == Level::ERROR;
+    case LogVerbosity::VERBOSE:
+        return true;
+    default:
+        return true;
+    }
+}
+
+LogVerbosity ParseVerbosityFromEnv()
+{
+    const char *value = std::getenv("CAD_LOG_VERBOSITY");
+    if (value == nullptr)
+        return LogVerbosity::NORMAL;
+
+    const std::string raw(value);
+    if (raw == "quiet")
+        return LogVerbosity::QUIET;
+    if (raw == "verbose")
+        return LogVerbosity::VERBOSE;
+    return LogVerbosity::NORMAL;
+}
+}
+
 std::string Log::NumToStr(double douNum, bool format)
 {
     std::string strNum;
@@ -73,6 +111,10 @@ std::string Log::GetLevelTag(Level level, std::string &msg)
     case Level::BACKGROUND:
         level_str = ">BACK";
         color = "\033[90m"; // Gray
+        break;
+    case Level::SESSION:
+        level_str = "$SESS";
+        color = "\033[36m"; // Cyan
         break;
     default:
         level_str = "?info";
@@ -235,8 +277,19 @@ void Log::SetAllFilter(bool state)
     allFilter = state;
 }
 
+void Log::SetVerbosity(LogVerbosity verbosity)
+{
+    gLogVerbosity = verbosity;
+}
+
+LogVerbosity Log::GetVerbosity()
+{
+    return gLogVerbosity;
+}
+
 void Log::Start()
 {
+    SetVerbosity(ParseVerbosityFromEnv());
     Split(Level::BACKGROUND);
     Void("Program started");
     Split(Level::BACKGROUND);
@@ -334,9 +387,13 @@ bool Log::Msg(const std::string &msg, const std::source_location &loc, const Lev
 
 void Log::Write(const std::string &msg, const std::source_location &loc, Level level, bool returnLog)
 {
+    std::lock_guard<std::mutex> lock(gLogWriteMutex);
+
     if (allFilter)
         return;
-    if (debugFilter == true && level != Level::DEBUG)
+    if (!ShouldEmit(level))
+        return;
+    if (debugFilter == true && level != Level::DEBUG && level != Level::SESSION)
         return;
 
     double duration = GetDuration();
@@ -377,6 +434,40 @@ void Log::Info(const std::string &msg, std::source_location loc, bool returnLog)
 void Log::Background(const std::string &msg, const std::source_location &loc, bool returnLog)
 {
     Write(msg, loc, Level::BACKGROUND, returnLog);
+}
+
+void Log::Session(const std::string &msg, const std::source_location &loc, bool returnLog)
+{
+    Write(msg, loc, Level::SESSION, returnLog);
+}
+
+// ── ToStr overloads ─────────────────────────────────────────────────────────
+
+std::string Log::ToStr(const std::string &v) { return v; }
+std::string Log::ToStr(const char *v) { return v ? std::string(v) : ""; }
+std::string Log::ToStr(bool v) { return v ? "true" : "false"; }
+
+std::string Log::ToStr(const glm::vec2 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m)\033[0m";
+}
+
+std::string Log::ToStr(const glm::vec3 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m, \033[0m" + NumToStr(v.z) +
+           "\033[90m)\033[0m";
+}
+
+std::string Log::ToStr(const glm::dvec3 &v)
+{
+    return "\033[90m(\033[0m" + NumToStr(v.x) +
+           "\033[90m, \033[0m" + NumToStr(v.y) +
+           "\033[90m, \033[0m" + NumToStr(v.z) +
+           "\033[90m)\033[0m";
 }
 
 bool Log::Erase(std::string &str, std::string start, char end)

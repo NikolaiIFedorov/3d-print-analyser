@@ -76,5 +76,8 @@
         "-stdlib=libc++"
     ],
     "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
-    "cmake.cmakePath": "/opt/homebrew/bin/cmake"
+    "cmake.cmakePath": "/opt/homebrew/bin/cmake",
+    "chat.tools.terminal.autoApprove": {
+        "cmake": true
+    }
 }

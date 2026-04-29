@@ -1,8 +1,7 @@
 #pragma once
 
-#include <algorithm>
-#include <deque>
 #include <unordered_map>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -23,36 +22,33 @@ private:
     };
 
     Display *display;
-    std::unordered_map<SDL_FingerID, Touch> activeTouches;
-
-    enum class GestureType
-    {
-        None,
-        Pan,
-        Zoom,
-        Orbit
-    };
-    GestureType currentGesture = GestureType::None;
-    bool gestureLocked = false;
-    SDL_FingerID orbitFingerID = 0;
-
-    struct TouchAccum
-    {
-        float dx = 0, dy = 0;
-    };
-    std::unordered_map<SDL_FingerID, std::deque<TouchAccum>> touchHistory;
-    int gestureFrames = 0;
     bool rightMouseDown = false;
     bool middleMouseDown = false;
-    static constexpr float MOUSE_SENSITIVITY = 0.003f;
-    static constexpr int LOCK_FRAMES = 12;
-    static constexpr int WINDOW_SIZE = 4;
-    static constexpr float ORBIT_RATIO_THRESHOLD = 0.45f;
-    static constexpr float TOUCH_DEADZONE = 0.001f;
 
-    static Touch signTouch(const Touch &touch);
-    GestureType classifyTwoFinger();
-    void resetGestureState();
-    void trackpadGestures();
+    /// Tracked for two-finger trackpad (touch) pan. Order = contact order; use first two when ≥2.
+    std::vector<SDL_FingerID> fingerArrivalOrder;
+    std::unordered_map<SDL_FingerID, Touch> activeTouches;
+
+    /// Sums 2-finger FINGER_MOTION in one `handleEvents` pass; applied after draining the queue.
+    float touchPanAccDx = 0.0f;
+    float touchPanAccDy = 0.0f;
+    int touchPanEventCount = 0;
+    /// Processed after draining the event queue so FINGER* updates `activeTouches` before suppress checks.
+    std::vector<SDL_Event> pendingMouseWheel;
+    /// After RMB/MMB release or touch pan, ignore unmodified wheel zoom/roll briefly (trackpad inertia).
+    Uint64 suppressCameraWheelUntilMs = 0;
+
+    /// Normalized finger deltas: per-event gate uses hypot(dx,dy); batch apply also rejects tiny means.
+    static constexpr float kTouchDeadzone = 0.00006f;
+
+    void clearTouchState();
+    void beginTouchPanAccumForFrame();
+    void applyBatchedTwoFingerPan();
+    void twoFingerOrMouseBridgePanOrbit(const SDL_Event &event);
+    void syncWindowRelativeMouseMode();
+    /// If two-finger trackpad is also sent as `MOUSE_WHEEL`, skip unmodified roll/zoom (FINGER already pans).
+    /// Does not apply when Alt/Shift/Ctrl + wheel (explicit Orbit/Zoom/Roll).
+    bool shouldSuppressRedundantTrackpadScroll(const SDL_Event &wheel) const;
     void mouseGestures(const SDL_Event &event);
+    bool processEvent(const SDL_Event &event);
 };

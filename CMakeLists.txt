@@ -38,7 +38,11 @@ include_directories(include/earcut.hpp-2.2.4/include/)
 
 add_executable(CAD_OpenGL
     src/main.cpp
-    src/utils/log.cpp  
+    src/utils/log.cpp
+    src/utils/SessionLogger.cpp
+    src/utils/Settings.cpp
+    src/utils/SystemAccent.mm
+    src/utils/SystemAppearance.mm  
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
@@ -47,9 +51,11 @@ add_executable(CAD_OpenGL
     src/display/rendering/color.cpp
     src/display/rendering/UIRenderer/UIRenderer.cpp
     src/display/rendering/UIRenderer/TextRenderer.cpp
-    src/display/rendering/AnalysisRenderer/AnalysisRenderer.cpp
+    src/display/rendering/UIRenderer/ToolPanel.cpp
     src/display/rendering/ViewportRenderer/ViewportRenderer.cpp
     src/display/rendering/Camera/camera.cpp
+    src/display/rendering/ScenePick.cpp
+    src/display/rendering/CalibPickSegments.cpp
     src/display/display.cpp
     src/input/Input.cpp
     src/input/FileImport.cpp
@@ -62,6 +68,9 @@ add_executable(CAD_OpenGL
     src/logic/Analysis/SharpCorner/SharpCorner.cpp
     src/logic/Analysis/SmallFeature/SmallFeature.cpp
     src/logic/Analysis/utils/Slice.cpp
+    src/logic/Calibrate/CalibDistanceType.cpp
+    src/logic/Calibrate/CalibNominal.cpp
+    src/logic/Calibrate/CalibCompensation.cpp
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp
@@ -92,24 +101,18 @@ add_custom_command(TARGET CAD_OpenGL POST_BUILD
         ${CMAKE_BINARY_DIR}/shaders
 )
 
-add_custom_command(TARGET CAD_OpenGL POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer/shaders
-        ${CMAKE_BINARY_DIR}/shaders
-)
-
 target_include_directories(CAD_OpenGL PRIVATE
     ${CMAKE_SOURCE_DIR}/include/glad/include
     ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/src/logic
+    ${CMAKE_SOURCE_DIR}/src/logic/Calibrate
     ${CMAKE_SOURCE_DIR}/src/display
     ${CMAKE_SOURCE_DIR}/src/display/window
     ${CMAKE_SOURCE_DIR}/src/display/rendering/Camera
     ${CMAKE_SOURCE_DIR}/src/display/rendering/OpenGL
     ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
-    ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer
     ${CMAKE_SOURCE_DIR}/src/display/rendering/ViewportRenderer
     ${CMAKE_SOURCE_DIR}/src/display/rendering/UIRenderer
     ${CMAKE_SOURCE_DIR}/src/scene
@@ -128,5 +131,6 @@ target_link_libraries(CAD_OpenGL
 if(APPLE)
     target_link_libraries(CAD_OpenGL
         "-framework OpenGL"
+        "-framework AppKit"
     )
 endif()

@@ -9,6 +9,7 @@ enum class FaceFlawKind
     OVERHANG,
     THIN_SECTION,
     SMALL_FEATURE,
+    STRINGING,
     NONE,
 };
 

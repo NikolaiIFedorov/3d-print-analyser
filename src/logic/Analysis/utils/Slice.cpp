@@ -127,6 +127,9 @@ std::vector<Layer> Slice::Range(const Solid *solid, double zMin, double zMax, do
 {
     std::vector<Layer> layers;
 
+    if (layerHeight <= 0.0)
+        return layers;
+
     for (double z = zMin + layerHeight; z < zMax; z += layerHeight)
     {
         layers.push_back(At(solid, z));

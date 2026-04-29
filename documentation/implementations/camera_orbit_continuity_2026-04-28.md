@@ -1,0 +1,41 @@
+# Camera orbit — quaternion + pitch-axis continuity (2026-04-28)
+
+## Problem
+
+Tilting the view (world Z on screen) seemed to stop near ~45°; pushing further made the Z axis **jump** as if the reference changed.
+
+## Likely causes
+
+1. **`glm::quat_cast(mat3)`** returns either **q** or **−q** for the same rotation; picking the wrong hemisphere vs the previous frame yields an apparent **~180°** flip (world axes suddenly “re-point”).
+2. **Pitch about `cross(Z, f)`** is the turntable **latitude** tangent, not the screen’s vertical tilt axis once the view is yawed—vertical mouse then couples poorly into “more top-down,” which reads as a **~45° stall** and odd Z motion.
+
+## Approach
+
+- After `quat_cast(M_new)` and after polar snap `quat_cast(mat3(r,u,f))`, if `dot(q, orientation) < 0`, use **−q** (hemisphere continuity).
+- **Pitch** about **`normalize(R_yaw * R_ori * e_x)`** (camera right after yaw) so vertical drag matches intuitive tilt toward the XY plan from oblique views; fallback to `cross(Z, f)` if degenerate.
+
+## Outcome
+
+- `cmake --build build --target CAD_OpenGL` succeeded.
+
+## Follow-up — pitch about camera right (screen-vertical orbit)
+
+Quat hemisphere kept. **Pitch axis** changed from `normalize(cross(Z, fAfterYaw))` (turntable latitude tangent) to **`normalize(M_yaw * R_ori * e_x)`** (camera right after horizontal yaw). That aligns vertical mouse drag with **tilt toward/away from plan** when coming from an XZ-style oblique view; the old axis often left colatitude “stuck” around ~45° while the on-screen Z line still moved from mixing yaw/pitch in non-screen axes.
+
+Removed **lastOrbitPitchAxis** continuity (could fight legitimate axis changes); pitch axis is now unambiguous each frame.
+
+## Follow-up — plan singularity snap (same day)
+
+**Idea:** Near the classic “view along ±world Z” / lookAt-degenerate cone, snap orientation to an **exact** plan basis (`f = ±(0,0,1)`), preserving which side of the XY plane and approximate screen azimuth (project current camera +X onto XY). Small snap is acceptable UX.
+
+**Implementation:** Removed the old **1e−5 rad** polar offset branch inside `Orbit`; after each orbit step set `orientation = qNew` then `SnapOrientationToCanonicalPlanIfNearWorldZ` when colatitude is within **1°** of ±Z (`kPolarSnapRad`; was 7°, tightened after UX feedback). Target, distance, and ortho zoom unchanged.
+
+**Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.
+
+## Follow-up — principal faces ±X / ±Y / ±Z at 3° (later)
+
+**Idea:** Same snap pattern for **XZ** (view along ±Y) and **YZ** (view along ±X), not only XY / ±Z, so orbit can land on canonical orthographic faces without an orientation cube.
+
+**Implementation:** Replaced Z-only helper with `SnapOrientationToCanonicalPrincipalViewIfNearAxis`: within **3°** of the nearest world ±X, ±Y, or ±Z (by largest `|f·axis|` on unit target→camera `f`), snap `f` to that sign axis; build `r` by projecting camera +X onto the plane ⊥ `fSnap`; `u = cross(fSnap,r)`; quat hemisphere continuity unchanged.
+
+**Outcome:** `cmake --build build --target CAD_OpenGL` succeeded.

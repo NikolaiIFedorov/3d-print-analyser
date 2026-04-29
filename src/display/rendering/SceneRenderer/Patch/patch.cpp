@@ -1,4 +1,5 @@
 #include "patch.hpp"
+#include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 
 static void CreatePlaneCoordinateSystem(const glm::dvec3 &normal,
@@ -30,18 +31,34 @@ static glm::dvec2 ProjectPointToPlane(const glm::dvec3 &point3D,
         glm::dot(relativePos, vAxis));
 }
 
-void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4], const AnalysisResults *results) const
+void Patch::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, int viewport[4],
+                     const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices, results);
+        GenerateSolid(&solid, vertices, indices, viewport, results, pickOut);
 
+    GenerateLoose(scene, vertices, indices, viewport, results, pickOut);
+}
+
+void Patch::GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                          int viewport[4], const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
+{
+    (void)viewport;
+    AddSolid(solid, vertices, indices, results, pickOut);
+}
+
+void Patch::GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                          int viewport[4], const AnalysisResults *results, std::vector<PickTriangle> *pickOut) const
+{
+    (void)viewport;
     for (const Face &face : scene->faces)
-        AddFace(&face, vertices, indices, false, results);
+        AddFace(&face, vertices, indices, false, results, pickOut);
 }
 
 void Patch::AddFace(const Face *face,
                     std::vector<Vertex> &vertices,
-                    std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results) const
+                    std::vector<uint32_t> &indices, bool isSolid, const AnalysisResults *results,
+                    std::vector<PickTriangle> *pickOut) const
 {
     if (face->dependency != nullptr && !isSolid)
         return;
@@ -111,7 +128,6 @@ void Patch::AddFace(const Face *face,
         return;
 
     // Ensure consistent winding for earcut: outer loop CCW, inner loops CW
-    if (polygon.size() > 1)
     {
         auto signedArea2D = [](const std::vector<Point2D> &loop) -> double
         {
@@ -142,6 +158,13 @@ void Patch::AddFace(const Face *face,
         }
     }
 
+    std::vector<glm::dvec3> flatPositions;
+    for (const auto &loopPositions : allLoopPositions)
+    {
+        for (const glm::dvec3 &pos : loopPositions)
+            flatPositions.push_back(pos);
+    }
+
     std::vector<uint32_t> triangleIndices = mapbox::earcut<uint32_t>(polygon);
 
     if (triangleIndices.empty())
@@ -153,6 +176,32 @@ void Patch::AddFace(const Face *face,
         return;
     }
 
+    // Determine face color: use analysis flaw color if available, else default.
+    glm::vec3 faceColor = Color::GetFace();
+    if (results)
+    {
+        auto itFlat = results->faceFlaws.find(face);
+        if (itFlat != results->faceFlaws.end() && itFlat->second != FaceFlawKind::NONE)
+        {
+            faceColor = glm::vec3(Color::GetFace(itFlat->second));
+        }
+        else
+        {
+            for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
+            {
+                for (const auto &ff : faceFlawList)
+                {
+                    if (ff.face == face)
+                    {
+                        faceColor = glm::vec3(Color::GetFace(ff.flaw));
+                        goto colorResolved;
+                    }
+                }
+            }
+        colorResolved:;
+        }
+    }
+
     uint32_t baseVertexIndex = vertices.size();
 
     for (const auto &loopPositions : allLoopPositions)
@@ -161,27 +210,47 @@ void Patch::AddFace(const Face *face,
         {
             Vertex v;
             v.position = glm::vec3(pos);
-            v.color = Color::GetFace();
+            v.color = faceColor;
             v.normal = glm::vec3(faceNormal);
 
             vertices.push_back(v);
         }
     }
 
-    for (uint32_t idx : triangleIndices)
+    for (size_t i = 0; i + 2 < triangleIndices.size(); i += 3)
     {
-        indices.push_back(baseVertexIndex + idx);
+        const uint32_t ia = triangleIndices[i];
+        const uint32_t ib = triangleIndices[i + 1];
+        const uint32_t ic = triangleIndices[i + 2];
+
+        if (RenderingExperiments::kCullDegeneratePatchTriangles)
+        {
+            const glm::dvec3 &p0 = flatPositions[ia];
+            const glm::dvec3 &p1 = flatPositions[ib];
+            const glm::dvec3 &p2 = flatPositions[ic];
+            const glm::dvec3 e1 = p1 - p0;
+            const glm::dvec3 e2 = p2 - p0;
+            const double crossLen = glm::length(glm::cross(e1, e2));
+            if (crossLen < RenderingExperiments::kDegeneratePatchMinCrossLen)
+                continue;
+        }
+
+        indices.push_back(baseVertexIndex + ia);
+        indices.push_back(baseVertexIndex + ib);
+        indices.push_back(baseVertexIndex + ic);
+
+        if (pickOut != nullptr)
+            pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
     }
 }
 
 void Patch::AddSolid(const Solid *solid,
                      std::vector<Vertex> &vertices,
-                     std::vector<uint32_t> &indices, const AnalysisResults *results) const
+                     std::vector<uint32_t> &indices, const AnalysisResults *results,
+                     std::vector<PickTriangle> *pickOut) const
 {
     for (const Face *face : solid->faces)
-    {
-        AddFace(face, vertices, indices, true, results);
-    }
+        AddFace(face, vertices, indices, true, results, pickOut);
 }
 
 std::vector<glm::dvec3> Patch::TessellateCurveToPoints(

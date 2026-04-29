@@ -1135,5 +1135,4 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/SharpCorner/SharpCorner.hpp
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp

@@ -1,4 +1,5 @@
 #include "STLImport.hpp"
+#include "GeometryExperiments.hpp"
 #include "scene/scene.hpp"
 #include "utils/log.hpp"
 
@@ -6,6 +7,7 @@
 #include <array>
 #include <map>
 #include <cstring>
+#include <chrono>
 
 struct Vec3Compare
 {
@@ -47,8 +49,10 @@ static Point *GetOrCreatePoint(Scene *scene, std::map<glm::dvec3, Point *, Vec3C
     return p;
 }
 
-static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCount)
+static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCount, STLImportStats *stats)
 {
+    using Clock = std::chrono::steady_clock;
+    const Clock::time_point tStart = Clock::now();
     std::map<glm::dvec3, Point *, Vec3Compare> pointMap;
     std::vector<Face *> faces;
     faces.reserve(triangleCount);
@@ -79,20 +83,47 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
         Edge *e3 = scene->CreateEdge(pts[2], pts[0]);
 
         Face *f = scene->CreateFace({{e1, e2, e3}});
+
+        // Use the stored STL normal to ensure the face normal is outward-pointing.
+        glm::dvec3 storedNormal(data[0], data[1], data[2]);
+        if (glm::length(storedNormal) > 0.5)
+        {
+            auto *planar = dynamic_cast<PlanarSurface *>(f->surface.get());
+            if (planar && glm::dot(planar->data.normal, storedNormal) < 0.0)
+                planar->data.normal = -planar->data.normal;
+        }
+
         faces.push_back(f);
     }
 
+    double parseMs = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+    double mergeMs = 0.0;
     if (!faces.empty())
     {
+        const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        scene->MergeCoplanarFaces(solid);
+        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
+            scene->MergeCoplanarFaces(solid);
+        mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 
+    if (stats != nullptr)
+    {
+        stats->isBinary = true;
+        stats->triangleCount = triangleCount;
+        stats->uniquePoints = pointMap.size();
+        stats->faces = faces.size();
+        stats->parseMs = parseMs;
+        stats->mergeMs = mergeMs;
+        stats->totalMs = parseMs + mergeMs;
+    }
     return true;
 }
 
-static bool ImportASCII(std::ifstream &file, Scene *scene)
+static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats)
 {
+    using Clock = std::chrono::steady_clock;
+    const Clock::time_point tStart = Clock::now();
     std::map<glm::dvec3, Point *, Vec3Compare> pointMap;
     std::vector<Face *> faces;
 
@@ -123,19 +154,45 @@ static bool ImportASCII(std::ifstream &file, Scene *scene)
         Edge *e3 = scene->CreateEdge(pts[2], pts[0]);
 
         Face *f = scene->CreateFace({{e1, e2, e3}});
+
+        // ASCII STL spec mandates CCW vertex order viewed from outside.
+        {
+            glm::dvec3 expectedNormal = glm::normalize(
+                glm::cross(pts[1]->position - pts[0]->position,
+                           pts[2]->position - pts[0]->position));
+            auto *planar = dynamic_cast<PlanarSurface *>(f->surface.get());
+            if (planar && glm::dot(planar->data.normal, expectedNormal) < 0.0)
+                planar->data.normal = -planar->data.normal;
+        }
+
         faces.push_back(f);
     }
 
+    double parseMs = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+    double mergeMs = 0.0;
     if (!faces.empty())
     {
+        const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        scene->MergeCoplanarFaces(solid);
+        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
+            scene->MergeCoplanarFaces(solid);
+        mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 
+    if (stats != nullptr)
+    {
+        stats->isBinary = false;
+        stats->triangleCount = 0;
+        stats->uniquePoints = pointMap.size();
+        stats->faces = faces.size();
+        stats->parseMs = parseMs;
+        stats->mergeMs = mergeMs;
+        stats->totalMs = parseMs + mergeMs;
+    }
     return true;
 }
 
-bool STLImport::Import(const std::string &filePath, Scene *scene)
+bool STLImport::Import(const std::string &filePath, Scene *scene, STLImportStats *stats)
 {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
@@ -145,7 +202,7 @@ bool STLImport::Import(const std::string &filePath, Scene *scene)
     if (IsBinarySTL(file, triangleCount))
     {
         LOG_DESC("Importing binary STL: " + filePath)
-        return ImportBinary(file, scene, triangleCount);
+        return ImportBinary(file, scene, triangleCount, stats);
     }
 
     file.clear();
@@ -157,5 +214,5 @@ bool STLImport::Import(const std::string &filePath, Scene *scene)
         return LOG_FALSE("Failed to reopen STL file as text: " + filePath);
 
     LOG_DESC("Importing ASCII STL: " + filePath)
-    return ImportASCII(file, scene);
+    return ImportASCII(file, scene, stats);
 }

@@ -1,12 +1,23 @@
 #include "Wireframe.hpp"
 #include "utils/utils.hpp"
-#include <unordered_set>
+#include <unordered_map>
 
 void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
     for (const Solid &solid : scene->solids)
-        AddSolid(&solid, vertices, indices, results);
+        GenerateSolid(&solid, vertices, indices, results);
 
+    GenerateLoose(scene, vertices, indices);
+}
+
+void Wireframe::GenerateSolid(const Solid *solid, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices,
+                              const AnalysisResults *results) const
+{
+    AddSolid(solid, vertices, indices, results);
+}
+
+void Wireframe::GenerateLoose(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices) const
+{
     for (const Face &face : scene->faces)
         AddFace(&face, vertices, indices, false);
 
@@ -30,20 +41,23 @@ void Wireframe::AddPoint(const Point *point,
 
 void Wireframe::AddEdge(const Edge *edge,
                         std::vector<Vertex> &vertices,
-                        std::vector<uint32_t> &indices, bool isFace) const
+                        std::vector<uint32_t> &indices, bool isFace,
+                        const glm::vec3 *colorOverride) const
 {
     if (!edge->dependencies.empty() && !isFace)
         return;
 
+    const glm::vec3 color = colorOverride ? *colorOverride : Color::GetEdge();
     if (edge->curve == nullptr)
-        AddLineEdge(edge, vertices, indices);
+        AddLineEdge(edge, vertices, indices, color);
     else
-        AddCurvedEdge(edge, vertices, indices);
+        AddCurvedEdge(edge, vertices, indices, color);
 }
 
 void Wireframe::AddLineEdge(const Edge *edge,
                             std::vector<Vertex> &vertices,
-                            std::vector<uint32_t> &indices) const
+                            std::vector<uint32_t> &indices,
+                            const glm::vec3 &color) const
 {
     const Point *p0 = edge->startPoint;
     const Point *p1 = edge->endPoint;
@@ -52,10 +66,10 @@ void Wireframe::AddLineEdge(const Edge *edge,
 
     Vertex v0, v1;
     v0.position = glm::vec3(p0->position);
-    v0.color = Color::GetEdge();
+    v0.color = color;
 
     v1.position = glm::vec3(p1->position);
-    v1.color = Color::GetEdge();
+    v1.color = color;
 
     vertices.push_back(v0);
     vertices.push_back(v1);
@@ -66,7 +80,8 @@ void Wireframe::AddLineEdge(const Edge *edge,
 
 void Wireframe::AddCurvedEdge(const Edge *edge,
                               std::vector<Vertex> &vertices,
-                              std::vector<uint32_t> &indices) const
+                              std::vector<uint32_t> &indices,
+                              const glm::vec3 &color) const
 {
     const Point *p0 = edge->startPoint;
     if (p0 == nullptr)
@@ -76,7 +91,7 @@ void Wireframe::AddCurvedEdge(const Edge *edge,
     if (p1 == nullptr)
         return;
 
-    TessellateCurve(edge->curve, p0->position, p1->position, vertices, indices);
+    TessellateCurve(edge->curve, p0->position, p1->position, vertices, indices, color);
 }
 
 void Wireframe::AddFace(const Face *face,
@@ -99,12 +114,13 @@ void Wireframe::AddSolid(const Solid *solid,
 {
     if (results)
     {
-        std::unordered_set<const Edge *> flawedEdges;
+        // Build a map from edge pointer to flaw color for O(1) lookup
+        std::unordered_map<const Edge *, glm::vec3> edgeColors;
         auto it = results->edgeFlaws.find(solid);
         if (it != results->edgeFlaws.end())
         {
             for (const auto &ef : it->second)
-                flawedEdges.insert(ef.edge);
+                edgeColors[ef.edge] = glm::vec3(Color::GetEdge(ef.flaw));
         }
 
         for (auto face : solid->faces)
@@ -113,8 +129,9 @@ void Wireframe::AddSolid(const Solid *solid,
             {
                 for (const auto &orientedEdge : loop)
                 {
-                    if (flawedEdges.count(orientedEdge.edge))
-                        AddEdge(orientedEdge.edge, vertices, indices, true);
+                    auto colorIt = edgeColors.find(orientedEdge.edge);
+                    const glm::vec3 *colorOverride = (colorIt != edgeColors.end()) ? &colorIt->second : nullptr;
+                    AddEdge(orientedEdge.edge, vertices, indices, true, colorOverride);
                 }
             }
         }
@@ -130,7 +147,8 @@ void Wireframe::TessellateCurve(const Curve *curve,
                                 const glm::dvec3 &start,
                                 const glm::dvec3 &end,
                                 std::vector<Vertex> &vertices,
-                                std::vector<uint32_t> &indices) const
+                                std::vector<uint32_t> &indices,
+                                const glm::vec3 &color) const
 {
     int segments = 16; // TODO: Make adaptive segments
 
@@ -144,8 +162,8 @@ void Wireframe::TessellateCurve(const Curve *curve,
 
         uint32_t baseIndex = vertices.size();
 
-        vertices.push_back({glm::vec3(p0), Color::GetEdge()});
-        vertices.push_back({glm::vec3(p1), Color::GetEdge()});
+        vertices.push_back({glm::vec3(p0), color});
+        vertices.push_back({glm::vec3(p1), color});
         indices.push_back(baseIndex);
 
         indices.push_back(baseIndex + 1);

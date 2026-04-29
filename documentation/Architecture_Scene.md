@@ -145,7 +145,7 @@ No new dependencies introduced.
 
 ### Conforming
 - **Memory management**: `unique_ptr` for polymorphic types, deque for value types, no raw new/delete.
-- **Naming**: `PascalCase` for types, `camelCase` for members, matches `best_practices.md`.
+- **Naming**: `PascalCase` for types, `camelCase` for members, matches `practices/best_practices.md`.
 - **Null checks**: `CreateEdge` validates start/end points before construction.
 - **Logging**: Every factory method logs its action via the `LOG_VOID` macro.
 

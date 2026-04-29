@@ -1,11 +1,19 @@
 #include "scene.hpp"
 #include "utils/log.hpp"
 
+namespace
+{
+// Import and rebuild can create many entities; keep scene-construction logs off by default.
+inline constexpr bool kLogSceneConstruction = false;
+inline constexpr bool kLogMergeDebug = false;
+}
+
 Point *Scene::CreatePoint(const glm::dvec3 &position)
 {
     points.emplace_back(position);
 
-    LOG_VOID("Created point");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created point");
 
     return &points.back();
 }
@@ -39,7 +47,8 @@ Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint)
     startPoint->dependencies.insert(&edge);
     endPoint->dependencies.insert(&edge);
 
-    LOG_VOID("Created line edge");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created line edge");
 
     return &edge;
 }
@@ -51,7 +60,8 @@ Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint, Curve *curve)
     edge->curve = curve;
     curve->dependencies.insert(edge);
 
-    LOG_VOID("Created line edge");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created line edge");
 
     return edge;
 }
@@ -64,7 +74,8 @@ Edge *Scene::CreateEdge(Point *startPoint, Point *endPoint, const std::vector<Po
     for (Point *point : bridgePoints)
         point->dependencies.insert(edge);
 
-    LOG_VOID("Created poly line edge");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created poly line edge");
 
     return edge;
 }
@@ -77,7 +88,8 @@ Curve *Scene::CreateCurve(glm::dvec3 centerPosition, double radius)
 
     curves.push_back(std::make_unique<ArcCurve>(arc));
 
-    LOG_VOID("Created arc curve");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created arc curve");
 
     return curves.back().get();
 }
@@ -87,7 +99,8 @@ Curve *Scene::CreateCurve(const tinynurbs::RationalCurve3d &nurbs)
     curves.push_back(std::make_unique<NurbsCurve>(
         std::make_unique<tinynurbs::RationalCurve3d>(nurbs)));
 
-    LOG_VOID("Created nurbs curve");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created nurbs curve");
 
     return curves.back().get();
 }
@@ -105,7 +118,8 @@ Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &loops)
             orientedEdge.edge->dependencies.insert(&face);
     }
 
-    LOG_VOID("Created planar face");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created planar face");
 
     return &face;
 }
@@ -125,7 +139,8 @@ Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, const
                 orientedEdge.edge->dependencies.insert(&face);
     }
 
-    LOG_VOID("Created nurbs face");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created nurbs face");
 
     return &face;
 }
@@ -140,7 +155,8 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     for (Face *face : faces)
         face->dependency = &solid;
 
-    LOG_VOID("Created solid");
+    if constexpr (kLogSceneConstruction)
+        LOG_VOID("Created solid");
 
     return &solid;
 }
@@ -160,22 +176,34 @@ void Scene::MergeCoplanarFaces(Solid *solid)
                     if (oe.edge->dependencies.size() >= 2)
                         multiDepEdges++;
                 }
-        LOG_DEBU("Edges: " + std::to_string(totalEdges) + ", shared: " + std::to_string(multiDepEdges));
+        if constexpr (kLogMergeDebug)
+            LOG_DEBU("Edges: " + std::to_string(totalEdges) + ", shared: " + std::to_string(multiDepEdges));
     }
 
     // Find an adjacent coplanar face to merge with
     auto findMergePair = [&](Face *fi) -> Face *
     {
-        glm::dvec3 ni = glm::normalize(fi->GetSurface().GetNormal());
+        if (!fi->GetSurface().IsPlanar())
+            return nullptr;
+        const PlanarData &di = static_cast<const PlanarSurface *>(&fi->GetSurface())->data;
+        glm::dvec3 ni = glm::normalize(di.normal);
+
         for (const auto &loop : fi->loops)
             for (const auto &oe : loop)
                 for (Face *candidate : oe.edge->dependencies)
                 {
                     if (candidate == fi || candidate->dependency != solid)
                         continue;
-                    glm::dvec3 nj = glm::normalize(candidate->GetSurface().GetNormal());
-                    if (glm::dot(ni, nj) > 1.0 - normalTolerance)
-                        return candidate;
+                    if (!candidate->GetSurface().IsPlanar())
+                        continue;
+                    const PlanarData &dj = static_cast<const PlanarSurface *>(&candidate->GetSurface())->data;
+                    glm::dvec3 nj = glm::normalize(dj.normal);
+                    if (glm::dot(ni, nj) <= 1.0 - normalTolerance)
+                        continue;
+                    // Must also lie on the same plane (same d value)
+                    if (std::abs(di.d - dj.d) > 1e-4)
+                        continue;
+                    return candidate;
                 }
         return nullptr;
     };
@@ -363,5 +391,6 @@ void Scene::MergeCoplanarFaces(Solid *solid)
         }
     }
 
-    LOG_DEBU("Merged to " + std::to_string(solid->faces.size()) + " faces");
+    if constexpr (kLogMergeDebug)
+        LOG_DEBU("Merged to " + std::to_string(solid->faces.size()) + " faces");
 }

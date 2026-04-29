@@ -231,6 +231,28 @@ void TextRenderer::RenderText(const std::string &text, float x, float y,
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+PixelBounds TextRenderer::MeasureBounds(const std::string &text, float x, float y, float scale) const
+{
+    PixelBounds bounds;
+    float cursorX = x;
+    for (char c : text)
+    {
+        auto it = glyphs.find(c);
+        if (it == glyphs.end())
+            continue;
+        const auto &g = it->second;
+        float xPos = cursorX + static_cast<float>(g.bearing.x) * scale;
+        float yPos = y - static_cast<float>(g.bearing.y) * scale;
+        float w = static_cast<float>(g.size.x) * scale;
+        float h = static_cast<float>(g.size.y) * scale;
+        // All four corners of the glyph quad — identical to RenderText's quad vertices
+        bounds.expand(xPos, yPos);
+        bounds.expand(xPos + w, yPos + h);
+        cursorX += static_cast<float>(g.advance >> 6) * scale;
+    }
+    return bounds;
+}
+
 float TextRenderer::MeasureWidth(const std::string &text, float scale) const
 {
     float width = 0.0f;

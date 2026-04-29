@@ -2,175 +2,189 @@
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_touch.h>
+
+#include <algorithm>
+#include <cmath>
+
+namespace
+{
+
+/// True if any SDL touch device currently reports ≥1 finger down (physical contact on trackpad / screen).
+static bool anySdlTouchFingerDown()
+{
+    int nDevices = 0;
+    SDL_TouchID *devices = SDL_GetTouchDevices(&nDevices);
+    if (devices == nullptr)
+        return false;
+    for (int i = 0; i < nDevices; ++i)
+    {
+        int nFingers = 0;
+        SDL_Finger **fgs = SDL_GetTouchFingers(devices[i], &nFingers);
+        if (fgs != nullptr)
+            SDL_free(fgs);
+        if (nFingers > 0)
+        {
+            SDL_free(devices);
+            return true;
+        }
+    }
+    SDL_free(devices);
+    return false;
+}
+
+/// True if SDL’s touch layer sees ≥2 fingers (e.g. trackpad; often still true when duplicate scroll arrives).
+static bool sdlHasMultiTouchContact()
+{
+    int nDevices = 0;
+    SDL_TouchID *devices = SDL_GetTouchDevices(&nDevices);
+    if (devices == nullptr)
+    {
+        return false;
+    }
+    for (int i = 0; i < nDevices; ++i)
+    {
+        int nFingers = 0;
+        SDL_Finger **fgs = SDL_GetTouchFingers(devices[i], &nFingers);
+        if (fgs != nullptr)
+        {
+            SDL_free(fgs);
+        }
+        if (nFingers >= 2)
+        {
+            SDL_free(devices);
+            return true;
+        }
+    }
+    SDL_free(devices);
+    return false;
+}
+
+}  // namespace
+
 Input::Input(Display *display)
     : display(display)
 {
-    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
 }
 
-Input::Touch Input::signTouch(const Touch &touch)
+void Input::clearTouchState()
 {
-    float dx = (touch.dx < 0) ? -1.0f : (touch.dx > 0) ? 1.0f
-                                                       : 0.0f;
-    float dy = (touch.dy < 0) ? -1.0f : (touch.dy > 0) ? 1.0f
-                                                       : 0.0f;
-    return {dx, dy, 0, 0};
+    activeTouches.clear();
+    fingerArrivalOrder.clear();
+    touchPanAccDx = 0.0f;
+    touchPanAccDy = 0.0f;
+    touchPanEventCount = 0;
 }
 
-Input::GestureType Input::classifyTwoFinger()
+void Input::beginTouchPanAccumForFrame()
 {
-    if (activeTouches.size() != 2)
-        return GestureType::None;
+    touchPanAccDx = 0.0f;
+    touchPanAccDy = 0.0f;
+    touchPanEventCount = 0;
+}
 
-    auto at1 = activeTouches.begin();
-    auto at2 = std::next(at1);
-
-    auto h1_it = touchHistory.find(at1->first);
-    auto h2_it = touchHistory.find(at2->first);
-
-    if (h1_it == touchHistory.end() || h2_it == touchHistory.end())
-        return GestureType::None;
-
-    auto &h1 = h1_it->second;
-    auto &h2 = h2_it->second;
-
-    if (h1.empty() || h2.empty())
-        return GestureType::None;
-
-    int n1 = static_cast<int>(std::min(h1.size(), static_cast<size_t>(WINDOW_SIZE)));
-    int n2 = static_cast<int>(std::min(h2.size(), static_cast<size_t>(WINDOW_SIZE)));
-
-    float sum1dx = 0, sum1dy = 0, sum2dx = 0, sum2dy = 0;
-    for (int i = static_cast<int>(h1.size()) - n1; i < static_cast<int>(h1.size()); i++)
+void Input::applyBatchedTwoFingerPan()
+{
+    if (touchPanEventCount <= 0)
     {
-        sum1dx += h1[i].dx;
-        sum1dy += h1[i].dy;
-    }
-    for (int i = static_cast<int>(h2.size()) - n2; i < static_cast<int>(h2.size()); i++)
-    {
-        sum2dx += h2[i].dx;
-        sum2dy += h2[i].dy;
-    }
-
-    float mag1 = std::sqrt(sum1dx * sum1dx + sum1dy * sum1dy);
-    float mag2 = std::sqrt(sum2dx * sum2dx + sum2dy * sum2dy);
-
-    float maxMag = std::max(mag1, mag2);
-    float minMag = std::min(mag1, mag2);
-
-    if (maxMag < 1e-6f)
-        return GestureType::None;
-
-    float ratio = minMag / maxMag;
-
-    if (ratio < ORBIT_RATIO_THRESHOLD)
-        return GestureType::Orbit;
-
-    float dot = sum1dx * sum2dx + sum1dy * sum2dy;
-    return (dot >= 0) ? GestureType::Pan : GestureType::Zoom;
-}
-
-void Input::resetGestureState()
-{
-    currentGesture = GestureType::None;
-    gestureLocked = false;
-    orbitFingerID = 0;
-    touchHistory.clear();
-    gestureFrames = 0;
-}
-
-void Input::trackpadGestures()
-{
-    SDL_Keymod mod = SDL_GetModState();
-    if ((mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT))
         return;
-
-    if (activeTouches.size() == 2)
-    {
-        Touch p1 = activeTouches.begin()->second;
-        Touch p2 = std::next(activeTouches.begin())->second;
-        Touch c = {(p1.dx + p2.dx) / 2.0f, (p1.dy + p2.dy) / 2.0f};
-
-        if (!gestureLocked)
-        {
-            gestureFrames++;
-            GestureType detected = classifyTwoFinger();
-            if (detected != GestureType::None)
-                currentGesture = detected;
-            if (gestureFrames >= LOCK_FRAMES && currentGesture != GestureType::None)
-                gestureLocked = true;
-        }
-
-        if (currentGesture == GestureType::None)
-            return;
-
-        switch (currentGesture)
-        {
-        case GestureType::Pan:
-            display->Pan(c.dx, c.dy, true);
-            break;
-        case GestureType::Orbit:
-        {
-            // Re-evaluate moving finger until gesture is locked
-            if (!gestureLocked || orbitFingerID == 0)
-            {
-                auto it1 = activeTouches.begin();
-                auto it2 = std::next(it1);
-                auto h1 = touchHistory.find(it1->first);
-                auto h2 = touchHistory.find(it2->first);
-                float hm1 = 0, hm2 = 0;
-                if (h1 != touchHistory.end())
-                    for (auto &s : h1->second)
-                        hm1 += std::sqrt(s.dx * s.dx + s.dy * s.dy);
-                if (h2 != touchHistory.end())
-                    for (auto &s : h2->second)
-                        hm2 += std::sqrt(s.dx * s.dx + s.dy * s.dy);
-                orbitFingerID = (hm1 > hm2) ? it1->first : it2->first;
-            }
-            auto movingIt = activeTouches.find(orbitFingerID);
-            if (movingIt != activeTouches.end())
-            {
-                Touch &moving = movingIt->second;
-                display->Orbit(moving.dx * 1.0f, -moving.dy * 1.0f);
-            }
-            break;
-        }
-        case GestureType::Zoom:
-        {
-            float d1 = std::sqrt(p1.dx * p1.dx + p1.dy * p1.dy);
-            float d2 = std::sqrt(p2.dx * p2.dx + p2.dy * p2.dy);
-
-            float zoomAmount = d1 + d2;
-
-            if (p1.y > p2.y)
-                zoomAmount = zoomAmount * signTouch(p1).dy;
-            else
-                zoomAmount = zoomAmount * signTouch(p2).dy;
-
-            float mx, my;
-            SDL_GetMouseState(&mx, &my);
-            glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
-            display->Zoom(zoomAmount, cursorWorld);
-            break;
-        }
-        default:
-            break;
-        }
     }
+    int w = 0, h = 0;
+    SDL_GetWindowSize(display->GetWindow(), &w, &h);
+    if (w > 0 && h > 0)
+    {
+        ImGuiIO &imguiIo = ImGui::GetIO();
+        // Two fingers span a wide region; any-finger hit-test falsely drops pans when one contact
+        // sits over panels while the gesture centroid remains on the viewport.
+        float sx = 0.0f, sy = 0.0f;
+        for (const auto &kv : activeTouches)
+        {
+            sx += kv.second.x;
+            sy += kv.second.y;
+        }
+        const float inv = 1.0f / static_cast<float>(activeTouches.size());
+        const float px = sx * inv * static_cast<float>(w);
+        const float py = sy * inv * static_cast<float>(h);
+        if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
+            return;
+    }
+    const float n = static_cast<float>(touchPanEventCount);
+    const float cdx = touchPanAccDx / n;
+    const float cdy = touchPanAccDy / n;
+    if (std::abs(cdx) < kTouchDeadzone && std::abs(cdy) < kTouchDeadzone)
+    {
+        return;
+    }
+    const float s = display->mouseSensitivity / 30.0f;
+    display->Pan(cdx * s, cdy * s, true);
+    suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+}
+
+void Input::twoFingerOrMouseBridgePanOrbit(const SDL_Event &event)
+{
+    const float sm = display->mouseSensitivity / 30.0f;
+    if (middleMouseDown)
+    {
+        display->Orbit(event.tfinger.dx * sm, event.tfinger.dy * sm);
+    }
+    else
+    {
+        display->Pan(event.tfinger.dx * sm, event.tfinger.dy * sm, true);
+    }
+}
+
+void Input::syncWindowRelativeMouseMode()
+{
+    const bool want = rightMouseDown || middleMouseDown;
+    SDL_SetWindowRelativeMouseMode(display->GetWindow(), want);
+}
+
+bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
+{
+    if (event.type != SDL_EVENT_MOUSE_WHEEL)
+    {
+        return false;
+    }
+    // Modifier + wheel is an explicit Orbit/Zoom/Roll, not a duplicate of 2-finger trackpad pan.
+    const SDL_Keymod mod = SDL_GetModState();
+    if ((mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL))
+    {
+        return false;
+    }
+    if (event.wheel.which == SDL_TOUCH_MOUSEID)
+    {
+        return true;
+    }
+    if (activeTouches.size() >= 2U)
+    {
+        return true;
+    }
+    return sdlHasMultiTouchContact();
 }
 
 void Input::mouseGestures(const SDL_Event &event)
 {
+    ImGuiIO &io = ImGui::GetIO();
     switch (event.type)
     {
     case SDL_EVENT_MOUSE_WHEEL:
     {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        if (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my))
+            break;
         SDL_Keymod mod = SDL_GetModState();
+        const bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
+        const Uint64 now = SDL_GetTicks();
+        if (now < suppressCameraWheelUntilMs && !hasModifier)
+            break;
+        // Trackpad scroll synthesized as wheel with no finger contact is usually inertia after a gesture lift.
+        if (!hasModifier && event.wheel.which == SDL_TOUCH_MOUSEID && !anySdlTouchFingerDown())
+            break;
         float x = event.wheel.x;
         float y = event.wheel.y;
-        bool hasModifier = (mod & SDL_KMOD_ALT) || (mod & SDL_KMOD_SHIFT) || (mod & SDL_KMOD_CTRL);
-        bool trackpadActive = activeTouches.size() >= 2;
-        if (hasModifier || !trackpadActive)
+        if (hasModifier)
         {
             if (mod & SDL_KMOD_ALT)
             {
@@ -183,24 +197,23 @@ void Input::mouseGestures(const SDL_Event &event)
             }
             else if (mod & SDL_KMOD_SHIFT)
             {
-                // macOS swaps scroll axes when Shift is held
                 float val = (y != 0.0f) ? y : x;
                 float mx, my;
                 SDL_GetMouseState(&mx, &my);
                 glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
                 display->Zoom(val * 0.05f, cursorWorld);
             }
-            else
+        }
+        else
+        {
+            if (x != 0.0f)
+                display->Roll(x * 0.05f);
+            if (y != 0.0f)
             {
-                if (x != 0.0f)
-                    display->Roll(x * 0.05f);
-                if (y != 0.0f)
-                {
-                    float mx, my;
-                    SDL_GetMouseState(&mx, &my);
-                    glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
-                    display->Zoom(y * 0.05f, cursorWorld);
-                }
+                float mx, my;
+                SDL_GetMouseState(&mx, &my);
+                glm::vec3 cursorWorld = display->ScreenToWorld(mx, my);
+                display->Zoom(y * 0.05f, cursorWorld);
             }
         }
         break;
@@ -208,22 +221,27 @@ void Input::mouseGestures(const SDL_Event &event)
     case SDL_EVENT_MOUSE_BUTTON_DOWN:
         if (event.button.button == SDL_BUTTON_LEFT)
         {
-            // UI interaction will be handled by ImGui later
+            display->TryCommitCalibrateFacePick(static_cast<float>(event.button.x),
+                                                static_cast<float>(event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 rightMouseDown = true;
-                SDL_SetWindowRelativeMouseMode(display->GetWindow(), true);
+                syncWindowRelativeMouseMode();
             }
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
-            if (!display->HitTestUI(event.button.x, event.button.y))
+            const float bx = static_cast<float>(event.button.x);
+            const float by = static_cast<float>(event.button.y);
+            if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 middleMouseDown = true;
-                SDL_SetWindowRelativeMouseMode(display->GetWindow(), true);
+                syncWindowRelativeMouseMode();
             }
         }
         break;
@@ -235,113 +253,223 @@ void Input::mouseGestures(const SDL_Event &event)
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             rightMouseDown = false;
-            if (!middleMouseDown)
-                SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+            syncWindowRelativeMouseMode();
+            display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
             middleMouseDown = false;
-            if (!rightMouseDown)
-                SDL_SetWindowRelativeMouseMode(display->GetWindow(), false);
+            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+            syncWindowRelativeMouseMode();
+            display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         break;
     case SDL_EVENT_MOUSE_MOTION:
-        if (middleMouseDown)
-            display->Orbit(event.motion.xrel * MOUSE_SENSITIVITY,
-                           -event.motion.yrel * MOUSE_SENSITIVITY);
-        else if (rightMouseDown)
-            display->Pan(event.motion.xrel * MOUSE_SENSITIVITY,
-                         event.motion.yrel * MOUSE_SENSITIVITY, false);
+    {
+        // While RMB/MMB orbit or pan is active, ignore UI/ImGui under the cursor so a drag that
+        // started on the viewport is not cancelled when the pointer crosses panels (WantCaptureMouse
+        // and hit-tests still gate starting a new drag on mouse-down).
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        const bool viewportNavDrag = middleMouseDown || rightMouseDown;
+        const bool blockNav = !viewportNavDrag &&
+                              (io.WantCaptureMouse || display->HitTestUI(mx, my) || display->HitTestImGui(mx, my));
+        if (middleMouseDown && !blockNav)
+            display->Orbit(event.motion.xrel * display->mouseSensitivity * 1e-4f,
+                           event.motion.yrel * display->mouseSensitivity * 1e-4f);
+        else if (rightMouseDown && !blockNav)
+            display->Pan(event.motion.xrel * display->mouseSensitivity * 1e-4f,
+                         event.motion.yrel * display->mouseSensitivity * 1e-4f, false);
+        else
+            display->UpdatePickHover(static_cast<float>(event.motion.x), static_cast<float>(event.motion.y));
         break;
+    }
     default:
         break;
     }
 }
 
+bool Input::processEvent(const SDL_Event &event)
+{
+    ImGui_ImplSDL3_ProcessEvent(&event);
+    ImGuiIO &io = ImGui::GetIO();
+
+    switch (event.type)
+    {
+    case SDL_EVENT_QUIT:
+        return false;
+    case SDL_EVENT_WINDOW_FOCUS_LOST:
+        clearTouchState();
+        if (rightMouseDown || middleMouseDown)
+        {
+            rightMouseDown = false;
+            middleMouseDown = false;
+            syncWindowRelativeMouseMode();
+        }
+        break;
+    case SDL_EVENT_FINGER_CANCELED:
+        // Always sync hardware touch model; skipping here desyncs nContacts vs real fingers.
+        clearTouchState();
+        break;
+    case SDL_EVENT_FINGER_DOWN:
+    {
+        const SDL_TouchFingerEvent &tf = event.tfinger;
+        if (std::find(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID) == fingerArrivalOrder.end())
+        {
+            fingerArrivalOrder.push_back(tf.fingerID);
+        }
+        activeTouches[tf.fingerID] = Touch{0.0f, 0.0f, tf.x, tf.y};
+        break;
+    }
+    case SDL_EVENT_FINGER_UP:
+    {
+        const SDL_TouchFingerEvent &tf = event.tfinger;
+        activeTouches.erase(tf.fingerID);
+        fingerArrivalOrder.erase(
+            std::remove(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID),
+            fingerArrivalOrder.end());
+        break;
+    }
+    case SDL_EVENT_FINGER_MOTION:
+    {
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
+        {
+            break;
+        }
+        const SDL_TouchFingerEvent &tf = event.tfinger;
+        if (activeTouches.find(tf.fingerID) == activeTouches.end())
+        {
+            if (std::find(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID) == fingerArrivalOrder.end())
+            {
+                fingerArrivalOrder.push_back(tf.fingerID);
+            }
+        }
+        activeTouches[tf.fingerID] = Touch{tf.dx, tf.dy, tf.x, tf.y};
+
+        const size_t nContacts = activeTouches.size();
+        if (nContacts == 1U && (rightMouseDown || middleMouseDown))
+        {
+            // Mouse button started navigation on the viewport; do not cancel when the finger centroid
+            // moves over UI (same policy as MOUSE_MOTION + HitTest*).
+            if (std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
+            {
+                twoFingerOrMouseBridgePanOrbit(event);
+            }
+        }
+        else if (nContacts >= 2U)
+        {
+            // Two-finger scroll + Shift/Alt is handled via MOUSE_WHEEL (orbit/zoom); do not also pan from FINGER_MOTION.
+            const SDL_Keymod mod = SDL_GetModState();
+            const bool wheelOverridesTwoFingerPan =
+                (mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0;
+            // Use hypot so brief reversals (both |dx| and |dy| tiny for a frame) still contribute when
+            // the vector magnitude is meaningful; skip (0,0) so a stationary second finger does not dilute the mean.
+            if (!wheelOverridesTwoFingerPan &&
+                std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
+            {
+                touchPanAccDx += tf.dx;
+                touchPanAccDy += tf.dy;
+                ++touchPanEventCount;
+            }
+        }
+        break;
+    }
+    case SDL_EVENT_WINDOW_RESIZED:
+    {
+        int width = event.window.data1;
+        int height = event.window.data2;
+        if (height > 0)
+        {
+            display->SetAspectRatio(width, height);
+        }
+        break;
+    }
+    case SDL_EVENT_SYSTEM_THEME_CHANGED:
+        if (display->themeMode == Display::ThemeMode::System)
+            display->ApplyTheme();
+        break;
+    case SDL_EVENT_KEY_DOWN:
+        // Bug marker must work even when ImGui wants the keyboard (e.g. focused DragFloat).
+        if (event.key.scancode == SDL_SCANCODE_SLASH && !event.key.repeat)
+        {
+            display->MarkBug();
+            break;
+        }
+        if (io.WantCaptureKeyboard)
+            break;
+        if (event.key.scancode == SDL_SCANCODE_GRAVE)
+        {
+            UIRenderer *ui = display->GetUIRenderer();
+            ui->SetDebugLayout(!ui->GetDebugLayout());
+            break;
+        }
+        if (event.key.scancode == SDL_SCANCODE_SPACE)
+        {
+            if (!event.key.repeat)
+                display->ResetCameraView();
+            break;
+        }
+        break;
+    case SDL_EVENT_MOUSE_WHEEL:
+        pendingMouseWheel.push_back(event);
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_UP:
+        // Always release navigation buttons even when ImGui has capture (otherwise RMB stays "down").
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (io.WantCaptureMouse)
+            break;
+        mouseGestures(event);
+        break;
+    case SDL_EVENT_MOUSE_MOTION:
+        // During viewport orbit/pan, ImGui may take WantCaptureMouse once the cursor is over a
+        // widget; still deliver motion so the in-progress gesture does not stop mid-drag.
+        if (io.WantCaptureMouse && !rightMouseDown && !middleMouseDown)
+            break;
+        mouseGestures(event);
+        break;
+    default:
+        break;
+    }
+    return true;
+}
+
 bool Input::handleEvents()
 {
-    bool hadEvents = false;
+    beginTouchPanAccumForFrame();
     SDL_Event event;
-    while (SDL_PollEvent(&event))
+    const ImGuiIO &io = ImGui::GetIO();
+    const Sint32 timeoutMs = io.WantTextInput      ? 50
+                             : io.WantCaptureMouse ? 16
+                                                   : -1;
+    if (!SDL_WaitEventTimeout(&event, timeoutMs))
     {
-        hadEvents = true;
-        // Feed events to ImGui first
-        ImGui_ImplSDL3_ProcessEvent(&event);
-        ImGuiIO &io = ImGui::GetIO();
-
-        switch (event.type)
-        {
-        case SDL_EVENT_QUIT:
-            return false;
-        case SDL_EVENT_WINDOW_RESIZED:
-        {
-            int width = event.window.data1;
-            int height = event.window.data2;
-            if (height > 0)
-            {
-                display->SetAspectRatio(width, height);
-            }
-            break;
-        }
-        case SDL_EVENT_KEY_DOWN:
-            if (io.WantCaptureKeyboard)
-                break;
-            [[fallthrough]];
-        case SDL_EVENT_MOUSE_WHEEL:
-            mouseGestures(event);
-            break;
-        case SDL_EVENT_MOUSE_BUTTON_DOWN:
-        case SDL_EVENT_MOUSE_BUTTON_UP:
-        case SDL_EVENT_MOUSE_MOTION:
-            if (io.WantCaptureMouse)
-                break;
-            if (activeTouches.size() < 2)
-                mouseGestures(event);
-            break;
-        case SDL_EVENT_FINGER_DOWN:
-            activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            touchHistory[event.tfinger.fingerID].clear();
-            if (activeTouches.size() >= 2 && currentGesture != GestureType::Orbit)
-            {
-                currentGesture = GestureType::None;
-                gestureFrames = 0;
-                for (auto &[id, hist] : touchHistory)
-                    hist.clear();
-            }
-            break;
-        case SDL_EVENT_FINGER_UP:
-            activeTouches.erase(event.tfinger.fingerID);
-            touchHistory.erase(event.tfinger.fingerID);
-            if (activeTouches.size() < 2)
-                resetGestureState();
-            break;
-        case SDL_EVENT_FINGER_MOTION:
-        {
-            activeTouches[event.tfinger.fingerID] = {event.tfinger.dx, event.tfinger.dy, event.tfinger.x, event.tfinger.y};
-            float fdx = event.tfinger.dx;
-            float fdy = event.tfinger.dy;
-            float fmag = std::sqrt(fdx * fdx + fdy * fdy);
-            if (fmag < TOUCH_DEADZONE)
-            {
-                fdx = 0.0f;
-                fdy = 0.0f;
-            }
-            auto &hist = touchHistory[event.tfinger.fingerID];
-            hist.push_back({fdx, fdy});
-            if (hist.size() > WINDOW_SIZE)
-                hist.pop_front();
-            trackpadGestures();
-            break;
-        }
-        case SDL_EVENT_FINGER_CANCELED:
-            activeTouches.clear();
-            resetGestureState();
-            break;
-        }
+        display->renderDirty = true;
+        return true;
     }
 
-    if (hadEvents)
-        display->renderDirty = true;
+    if (!processEvent(event))
+        return false;
 
+    while (SDL_PollEvent(&event))
+    {
+        if (!processEvent(event))
+            return false;
+    }
+
+    for (const SDL_Event &we : pendingMouseWheel)
+    {
+        if (!shouldSuppressRedundantTrackpadScroll(we))
+        {
+            mouseGestures(we);
+        }
+    }
+    pendingMouseWheel.clear();
+
+    applyBatchedTwoFingerPan();
+
+    display->renderDirty = true;
     return true;
 }

@@ -1,43 +1,296 @@
 #include "display.hpp"
+#include "imgui_internal.h"
 #include "rendering/color.hpp"
+#include <algorithm>
+#include "rendering/UIRenderer/UIStyle.hpp"
+#include "rendering/UIRenderer/Icons.hpp"
+#include "rendering/UIRenderer/ToolPanel.hpp"
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
 #include "logic/Analysis/SmallFeature/SmallFeature.hpp"
+#include "logic/Analysis/ThinSection/ThinSection.hpp"
 #include "logic/Import/STLImport.hpp"
+#include "utils/SystemAccent.hpp"
+#include "utils/SystemAppearance.hpp"
 
+#include <filesystem>
+#include <mutex>
 #include <unordered_set>
 #include <queue>
 #include <cstdio>
+#include <random>
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
+#include "rendering/ScenePick.hpp"
+#include "Geometry/Edge.hpp"
+#include "CalibNominal.hpp"
+#include "CalibCompensation.hpp"
+#include <cmath>
+#include <limits>
+#include <chrono>
 
-static constexpr double kOverhangPresets[] = {30.0, 45.0, 60.0};
-static constexpr double kSharpCornerPresets[] = {80.0, 100.0, 120.0};
-static constexpr double kFeatureSizePresets[] = {0.5, 1.0, 1.5, 2.0};
-static constexpr double kLayerHeightPresets[] = {0.1, 0.2, 0.3};
+#include "ViewportDepthExperiments.hpp"
+#include "RenderingExperiments.hpp"
+#include "UserTuning.hpp"
+#include "scene/scene.hpp"
 
-template <int N>
-static double NextPreset(double current, const double (&presets)[N])
+namespace
 {
-    for (int i = 0; i < N; i++)
+
+const Face *ResolveCalibFaceForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
+{
+    if (pickedFace != nullptr)
+        return pickedFace;
+    if (pickedEdge == nullptr || pickedEdge->dependencies.empty())
+        return nullptr;
+    const Face *best = nullptr;
+    for (Face *fp : pickedEdge->dependencies)
     {
-        if (std::abs(presets[i] - current) < 1e-9)
-            return presets[(i + 1) % N];
+        const Face *f = fp;
+        if (best == nullptr || f < best)
+            best = f;
     }
-    return presets[0];
+    return best;
 }
 
-Display::Display(int16_t width, int16_t height, const char *title, Scene *scene) : window(InitWindow(width, height, title)), renderer(GetWindow()), analysisRenderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/Helvetica.ttc"), camera(width, height), scene(scene)
+CalibrateDistance::PickRef ResolveCalibPickRefForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
 {
+    CalibrateDistance::PickRef out;
+    out.face = ResolveCalibFaceForWorkflow(pickedFace, pickedEdge);
+    out.edge = pickedEdge;
+    return out;
+}
+
+bool CalibSlotHasPick(const Face *f, const Edge *e)
+{
+    return f != nullptr || e != nullptr;
+}
+
+} // namespace
+
+namespace
+{
+// Set false to restore legacy ±100000 ortho depth (wider slab, coarser depth steps).
+inline constexpr bool kTightenOrthoClipPlanes = true;
+
+/// Ray `o + h * d` (world axis from origin: `d` is column of V⁻¹ omitted — here `d = V_linear * axis`).
+/// Returns max `h >= 0` inside the ortho view slab in view space (symmetric XY, Z in [zLo,zHi]).
+static float RayOrthoSlabMaxPositiveH(const glm::vec3 &o, const glm::vec3 &d,
+                                      float halfW, float halfH,
+                                      float zLo, float zHi)
+{
+    float tEnter = 0.0f;
+    float tExit = 1.0e30f;
+
+    auto clip = [&](float po, float pd, float lo, float hi)
+    {
+        if (std::fabs(pd) < 1e-12f)
+        {
+            if (po < lo || po > hi)
+                tExit = -1.0f;
+            return;
+        }
+        const float inv = 1.0f / pd;
+        float t0 = (lo - po) * inv;
+        float t1 = (hi - po) * inv;
+        if (t0 > t1)
+            std::swap(t0, t1);
+        tEnter = std::max(tEnter, t0);
+        tExit = std::min(tExit, t1);
+    };
+
+    clip(o.x, d.x, -halfW, halfW);
+    clip(o.y, d.y, -halfH, halfH);
+    clip(o.z, d.z, zLo, zHi);
+
+    if (tExit < tEnter || tExit < 0.0f)
+        return 0.0f;
+    const float enterClamped = std::max(0.0f, tEnter);
+    if (tExit < enterClamped)
+        return 0.0f;
+    return tExit;
+}
+
+/// World-space half-length of axis lines — must match `ViewportRenderer` mesh and ortho clip.
+/// Extent follows the ortho frustum along each principal direction from the world origin so axes
+/// reach the viewport edges after rotation/pan; still at least the grid diameter for huge grids.
+inline float OrthoClipAxisWorldHalfExtent(const Camera &cam)
+{
+    const float gridReach = Color::GRID_EXTENT * 2.0f;
+
+    const glm::mat4 V = cam.GetViewMatrix();
+    const float halfW = cam.orthoSize * std::fabs(cam.aspectRatio);
+    const float halfH = cam.orthoSize;
+    const float zLo = std::min(cam.nearPlane, cam.farPlane);
+    const float zHi = std::max(cam.nearPlane, cam.farPlane);
+
+    const glm::vec4 o4 = V * glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    const float ow = std::max(1e-12f, std::fabs(o4.w));
+    const glm::vec3 o = glm::vec3(o4) / ow;
+
+    float best = 1.0f;
+    for (int ax = 0; ax < 3; ++ax)
+    {
+        for (float s : {-1.0f, 1.0f})
+        {
+            glm::vec3 wd(0.0f);
+            wd[ax] = s;
+            const glm::vec3 d = glm::vec3(V * glm::vec4(wd, 0.0f));
+            if (glm::length(d) < 1e-12f)
+                continue;
+            const float hExit = RayOrthoSlabMaxPositiveH(o, d, halfW, halfH, zLo, zHi);
+            best = std::max(best, hExit);
+        }
+    }
+
+    const float withMargin = best * 1.08f + 2.0f;
+    return std::min(std::max(gridReach, withMargin), 1.0e6f);
+}
+
+void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldHalfExtent)
+{
+    if (!kTightenOrthoClipPlanes)
+    {
+        camera.nearPlane = -100000.0f;
+        camera.farPlane = 100000.0f;
+        return;
+    }
+
+    glm::mat4 V = camera.GetViewMatrix();
+    float minZ = std::numeric_limits<float>::infinity();
+    float maxZ = -std::numeric_limits<float>::infinity();
+
+    auto addWorld = [&](const glm::vec3 &p)
+    {
+        glm::vec4 v = V * glm::vec4(p, 1.0f);
+        const float w = std::max(1e-12f, std::abs(v.w));
+        const float z = v.z / w;
+        minZ = std::min(minZ, z);
+        maxZ = std::max(maxZ, z);
+    };
+
+    if (scene != nullptr)
+    {
+        for (const auto &pt : scene->points)
+            addWorld(glm::vec3(pt.position));
+    }
+
+    const float ext = Color::GRID_EXTENT;
+    addWorld(glm::vec3(-ext, -ext, 0.0f));
+    addWorld(glm::vec3(ext, ext, 0.0f));
+    addWorld(glm::vec3(-ext, ext, 0.0f));
+    addWorld(glm::vec3(ext, -ext, 0.0f));
+
+    const float ax = std::max(1.0f, axisWorldHalfExtent);
+    addWorld(glm::vec3(ax, 0.0f, 0.0f));
+    addWorld(glm::vec3(-ax, 0.0f, 0.0f));
+    addWorld(glm::vec3(0.0f, ax, 0.0f));
+    addWorld(glm::vec3(0.0f, -ax, 0.0f));
+    addWorld(glm::vec3(0.0f, 0.0f, ax));
+    addWorld(glm::vec3(0.0f, 0.0f, -ax));
+
+    if (!std::isfinite(minZ) || !std::isfinite(maxZ) || minZ >= maxZ)
+    {
+        camera.nearPlane = -100000.0f;
+        camera.farPlane = 100000.0f;
+        return;
+    }
+
+    const float span = maxZ - minZ;
+    // Keep clip bounds conservative so close-up navigation does not clip near surfaces when
+    // scene extrema are sparse (e.g. coarse topology vs shaded/tessellated geometry).
+    const float pad = std::max(120.0f, span * 0.3f);
+    camera.nearPlane = minZ - pad;
+    camera.farPlane = maxZ + pad;
+}
+} // namespace
+
+float Display::SyncViewportAxisForDepthClip()
+{
+    const float h = OrthoClipAxisWorldHalfExtent(camera);
+    if (std::isnan(lastSyncedAxisWorldHalfExtent) ||
+        std::abs(h - lastSyncedAxisWorldHalfExtent) >
+            std::max(0.5f, 0.015f * std::max(1.0f, h)))
+    {
+        lastSyncedAxisWorldHalfExtent = h;
+        viewportRenderer.SetAxisWorldHalfExtent(h);
+        viewportRenderer.RegenerateGrid();
+    }
+    return h;
+}
+
+void Display::ApplyTheme()
+{
+    bool dark;
+    switch (themeMode)
+    {
+    case ThemeMode::Light:
+        dark = false;
+        break;
+    case ThemeMode::Dark:
+        dark = true;
+        break;
+    default: // ThemeMode::System
+        dark = (SDL_GetSystemTheme() != SDL_SYSTEM_THEME_LIGHT);
+        break;
+    }
+    Color::SetAppearance(dark);
+    dark ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
+    uiRenderer.MarkDirty();
+    viewportRenderer.RegenerateGrid();
+    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+        MarkStyleDirty();
+    MarkPickDirty();
+}
+
+Display::Display(int16_t width, int16_t height, const char *title) : window(InitWindow(width, height, title)), renderer(GetWindow()), viewportRenderer(GetWindow()), uiRenderer(GetWindow(), "/System/Library/Fonts/SFNS.ttf"), camera(width, height)
+{
+    scene = &baseScene;
+    // Apply system appearance and accent color before any UI is constructed.
+    // themeMode defaults to System — SDL_GetSystemTheme() is called inside ApplyTheme().
+    {
+        float hue, sat;
+        if (SystemAccent::GetHueSat(hue, sat))
+            Color::SetAccent(hue, sat);
+        // Bootstrap: set appearance directly so viewportRenderer gets the right colors before ApplyTheme.
+        bool dark = (SDL_GetSystemTheme() != SDL_SYSTEM_THEME_LIGHT);
+        Color::SetAppearance(dark);
+        viewportRenderer.RegenerateGrid();
+    }
+
+    // Initialize ImGui
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    Color::IsDark() ? ImGui::StyleColorsDark() : ImGui::StyleColorsLight();
+    ImFontConfig avenirCfg;
+    avenirCfg.FontNo = 4; // Avenir Heavy — used for headers (textDepth >= 3) and as ImGui default
+    ImFont *heavyFont = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 19.0f, &avenirCfg);
+    ImFontConfig avenirBookCfg;
+    avenirBookCfg.FontNo = 0; // Avenir Book — used for body text (textDepth <= 2)
+    ImFont *bodyFont = io.Fonts->AddFontFromFileTTF("/System/Library/Fonts/Avenir.ttc", 17.0f, &avenirBookCfg);
+    ImFont *pixelFont = io.Fonts->AddFontDefault();
+    ImGui_ImplSDL3_InitForOpenGL(window, glContext);
+    ImGui_ImplOpenGL3_Init("#version 330");
+    uiRenderer.SetPixelImFont(pixelFont);
+    uiRenderer.SetBodyImFont(bodyFont);
+    uiRenderer.SetHeavyImFont(heavyFont);
+
     InitUI();
+    LoadSettings();
+    RefreshStatusStripIdleText();
     SDL_AddEventWatch(ResizeEventWatcher, this);
+
     LOG_VOID("Initialized display");
 }
 
 SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title)
 {
+    // macOS: built-in trackpad reports 2-finger drags as touch, not as mouse wheel, so we can
+    // map them to pan. Physical scroll wheels still use SDL_EVENT_MOUSE_WHEEL.
     SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
@@ -52,6 +305,19 @@ SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+    const int msaaSamples = RenderingExperiments::kGlFramebufferMsaaSamples;
+    if (msaaSamples > 0)
+    {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, msaaSamples);
+    }
+    else
+    {
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+    }
 
     windowWidth = width;
     windowHeight = height;
@@ -94,9 +360,14 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    SaveSettings();
+    SystemAppearance::ClearChangeCallback();
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+
     SDL_RemoveEventWatch(ResizeEventWatcher, this);
     uiRenderer.Shutdown();
-    analysisRenderer.Shutdown();
     viewportRenderer.Shutdown();
     renderer.Shutdown();
     if (glContext)
@@ -106,100 +377,610 @@ void Display::Shutdown()
     SDL_Quit();
 }
 
+void Display::LoadSettings()
+{
+    Settings loaded;
+    if (!loaded.Load(Settings::DefaultPath()))
+        return; // No file yet — keep all defaults.
+
+    // Analysis
+    overhangAngle = loaded.overhangAngle;
+    sharpCornerAngle = loaded.sharpCornerAngle;
+    minFeatureSize = loaded.minFeatureSize;
+    thinMinWidth = loaded.thinMinWidth;
+    layerHeight = loaded.layerHeight;
+
+    // Appearance
+    settingsAccentHue = loaded.accentHue;
+    settingsAccentSat = loaded.accentSat;
+    settingsAccentUseSystem = loaded.accentUseSystem;
+    if (!settingsAccentUseSystem)
+        Color::SetAccent(settingsAccentHue, settingsAccentSat);
+
+    themeMode = static_cast<ThemeMode>(std::clamp(loaded.themeMode, 0, 2));
+    UserTuning::contrast = std::clamp(loaded.contrast, 0.0f, 1.0f);
+    UserTuning::DeriveFromContrast();
+    Color::SetUiDepthStep(UserTuning::uiDepthStep);
+    ApplyTheme();
+    MarkStyleDirty();
+    MarkPickDirty();
+
+    // Viewport
+    Color::GRID_EXTENT = loaded.gridExtent;
+    UserTuning::lod = std::clamp(loaded.lod, 0.0f, 1.0f);
+    UserTuning::DeriveFromLod();
+    lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+    (void)SyncViewportAxisForDepthClip();
+
+    // Navigation
+    mouseSensitivity = loaded.mouseSensitivity;
+    UserTuning::snap = std::clamp(loaded.snap, 0.0f, 1.0f);
+    UserTuning::DeriveFromSnap();
+
+    // Re-run analysis with restored parameters.
+    RebuildAnalysis();
+    MarkGeometryDirtyAll();
+
+    // Settings UI was built before load — sync pill indices to restored state.
+    if (uiAppearanceThemeSelect)
+        uiAppearanceThemeSelect->activeIndex = static_cast<int>(themeMode);
+    if (uiAppearanceAccentSelect)
+        uiAppearanceAccentSelect->activeIndex = settingsAccentUseSystem ? 0 : 1;
+    uiRenderer.MarkDirty();
+}
+
+void Display::SaveSettings()
+{
+    settings.overhangAngle = overhangAngle;
+    settings.sharpCornerAngle = sharpCornerAngle;
+    settings.minFeatureSize = minFeatureSize;
+    settings.thinMinWidth = thinMinWidth;
+    settings.layerHeight = layerHeight;
+    settings.accentHue = settingsAccentHue;
+    settings.accentSat = settingsAccentSat;
+    settings.accentUseSystem = settingsAccentUseSystem;
+    settings.themeMode = static_cast<int>(themeMode);
+    settings.contrast = UserTuning::contrast;
+    settings.gridExtent = Color::GRID_EXTENT;
+    settings.lod = UserTuning::lod;
+    settings.mouseSensitivity = mouseSensitivity;
+    settings.snap = UserTuning::snap;
+    settings.Save(Settings::DefaultPath());
+}
+
 void Display::RebuildAnalysis()
 {
+    // Hold the pipeline mutex for the whole rebuild so `Clear` + `Add*` cannot interleave with an
+    // in-flight `AnalyzeScene` on the worker (would otherwise corrupt analyzer lists / thresholds).
+    std::lock_guard<std::recursive_mutex> pipelineLock(Analysis::Instance().PipelineMutex());
     Analysis::Instance().Clear();
     Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>(overhangAngle));
-    auto sharpCorner = std::make_unique<SharpCorner>(sharpCornerAngle);
-    const SharpCorner *sharpCornerPtr = sharpCorner.get();
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize, 3.0, sharpCornerPtr));
-    Analysis::Instance().AddEdgeAnalysis(std::move(sharpCorner));
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize));
+    Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>(layerHeight, thinMinWidth));
+    Analysis::Instance().AddEdgeAnalysis(std::make_unique<SharpCorner>(sharpCornerAngle));
 }
 
 void Display::UpdateCamera()
 {
     cameraDirty = true;
+    renderDirty = true;
 }
 
 void Display::Render()
 {
-    glClearColor(BASE, BASE, BASE, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    auto bg = Color::GetBase();
+    glClearColor(bg.r, bg.g, bg.b, 1.0f);
+    if (RenderingExperiments::kReverseZDepth)
+    {
+        glClearDepth(0.0);
+        glDepthFunc(GL_GEQUAL);
+    }
+    else
+    {
+        glClearDepth(1.0);
+        glDepthFunc(GL_LEQUAL);
+    }
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+    // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
+    glDisable(GL_CULL_FACE);
+
+    const bool cullOpaqueTriangles = ViewportDepthExperiments::IsBackFaceCull() ||
+                                   RenderingExperiments::kCullBackFacesOpaquePatches;
+    if (cullOpaqueTriangles)
+    {
+        glEnable(GL_CULL_FACE);
+        glCullFace(GL_BACK);
+        glFrontFace(GL_CCW);
+    }
+
+    // Mark only the solid surface pixels in the stencil buffer (value = 1).
+    // Lines are excluded — their geometry-shader quads extend beyond silhouettes
+    // and would bleed into the stencil, incorrectly clipping axes.
+    glEnable(GL_STENCIL_TEST);
+    glStencilFunc(GL_ALWAYS, 1, 0xFF);
+    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    renderer.RenderPatches();
+    renderer.RenderPickHighlight();
+    if (cullOpaqueTriangles)
+        glDisable(GL_CULL_FACE);
+
+    glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
+    if (!RenderingExperiments::kDebugSkipSceneWireframe)
+        renderer.RenderWireframe();
+    // Calibrate edge picks: thick accent lines on top of wireframe (same GS line pipeline).
+    renderer.RenderPickHighlightLines(6.0f);
+
+    // Grid after solid + wireframe: stencil==0 only so lines do not bleed onto filled surfaces;
+    // clip Z bias still keeps axes > grid > scene where stencil allows.
     viewportRenderer.Render();
-    renderer.Render();
-    analysisRenderer.Render();
+
+    viewportRenderer.RenderAxes();
+
+    glDisable(GL_STENCIL_TEST);
+
+    // Start ImGui frame
+    if (pendingFileTabsRebuild)
+    {
+        pendingFileTabsRebuild = false;
+        RebuildFileTabs();
+    }
+
+    if (pendingToolSwitch)
+    {
+        pendingToolSwitch = false;
+        ClearPickHover();
+        ClearCalibrateFacePicks();
+        calibStepPoint1 = Icons::StepState::Active;
+        calibStepPoint2 = Icons::StepState::Active;
+        if (calibPara_Point1)
+            calibPara_Point1->selected = true;
+        if (calibPara_Point2)
+            calibPara_Point2->selected = false;
+        uiRenderer.MarkDirty();
+        bool nowAnalysis = (activeTool == ActiveTool::Analysis);
+        uiAnalysis->visible = nowAnalysis;
+        uiCalibrate->visible = !nowAnalysis;
+        if (analysisEnabled != nowAnalysis)
+        {
+            analysisEnabled = nowAnalysis;
+            UpdateScene();
+        }
+        uiRenderer.MarkDirty();
+        SyncToolbarToolVisualState();
+    }
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+
     uiRenderer.Render();
+
+    // Finish ImGui frame
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
     SDL_GL_SwapWindow(window);
 }
 
 void Display::UpdateScene()
 {
-    sceneDirty = true;
+    MarkGeometryDirtyAll();
+}
+
+void Display::ScheduleNode(InvalidationNode node)
+{
+    const size_t idx = static_cast<size_t>(node);
+    if ((scheduledNodes & NodeBit(node)) == 0)
+        invalidationStats.scheduled[idx]++;
+    scheduledNodes |= NodeBit(node);
+}
+
+void Display::MarkStyleDirty()
+{
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
+    }
+    pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
+    analysisRequestId++;
+
+    styleDirty = true;
+    ScheduleNode(InvalidationNode::Style);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
+    renderDirty = true;
+}
+
+void Display::MarkGeometryDirtyAll()
+{
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
+    }
+    pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
+    lastCommittedAnalysisForRecolor.reset();
+    analysisRequestId++;
+
+    geometryDirtyAll = true;
+    geometryDirtySolids.clear();
+    ScheduleNode(InvalidationNode::Geometry);
+    ScheduleNode(InvalidationNode::Analysis);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
+    renderDirty = true;
+}
+
+void Display::MarkGeometryDirtySolid(const Solid *solid)
+{
+    if (solid == nullptr)
+    {
+        MarkGeometryDirtyAll();
+        return;
+    }
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
+    }
+    pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
+    lastCommittedAnalysisForRecolor.reset();
+    analysisRequestId++;
+
+    if (!geometryDirtyAll)
+        geometryDirtySolids.insert(solid);
+    ScheduleNode(InvalidationNode::Geometry);
+    ScheduleNode(InvalidationNode::Analysis);
+    ScheduleNode(InvalidationNode::Pick);
+    ScheduleNode(InvalidationNode::UI);
+    renderDirty = true;
+}
+
+void Display::MarkPickDirty()
+{
+    pickDirty = true;
+    ScheduleNode(InvalidationNode::Pick);
+    renderDirty = true;
+}
+
+void Display::InvalidationSkip(InvalidationNode node)
+{
+    invalidationStats.skipped[static_cast<size_t>(node)]++;
+}
+
+void Display::InvalidationExec(InvalidationNode node)
+{
+    invalidationStats.executed[static_cast<size_t>(node)]++;
+}
+
+void Display::InvalidationGuardrailViolation()
+{
+    invalidationStats.guardrailViolations++;
+}
+
+void Display::ClearScheduledNodes()
+{
+    scheduledNodes = 0;
+}
+
+void Display::RunPickNode()
+{
+    // Pick mesh refresh must run after geometry/style has fully settled.
+    // Never force a sync fallback rebuild from here; geometry/style work owns rebuild cadence.
+    if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
+    {
+        InvalidationGuardrailViolation();
+        InvalidationSkip(InvalidationNode::Pick);
+        return;
+    }
+
+    if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
+        calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr)
+    {
+        RebuildPickHighlightMesh();
+        InvalidationExec(InvalidationNode::Pick);
+        return;
+    }
+    InvalidationSkip(InvalidationNode::Pick);
+}
+
+void Display::RunUiNode()
+{
+    InvalidationExec(InvalidationNode::UI);
 }
 
 void Display::Frame()
 {
-    if (!cameraDirty && !sceneDirty)
-        return;
+    ProcessDeferredImportIfAny();
+    const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
 
+    const float axisH = SyncViewportAxisForDepthClip();
+    ApplyOrthoClipFromViewBounds(camera, scene, axisH);
+
+    const bool cameraMovedForPick = cameraDirty;
+
+    // Always sync projection + view to GPU: `ApplyOrthoClipFromViewBounds` updates near/far
+    // every frame from the current view matrix; previously we only pushed matrices when
+    // `cameraDirty`, so clip planes and `OpenGLRenderer` projection could diverge.
+    renderer.SetCamera(camera);
+    viewportRenderer.SetCamera(camera);
     if (cameraDirty)
-    {
-        renderer.SetCamera(camera);
-        analysisRenderer.SetCamera(camera);
-        viewportRenderer.SetCamera(camera);
         cameraDirty = false;
+
+    if (pendingAnalysisTask.has_value())
+    {
+        std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
+        if (analysisReady.has_value())
+        {
+            pendingAnalysisTask.reset();
+            pendingAnalysisScene = nullptr;
+            if (analysisReady->ok && !analysisReady->cancelled &&
+                analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
+            {
+                pendingAnalysisTint = std::move(*analysisReady);
+                styleDirty = true;
+                ScheduleNode(InvalidationNode::Style);
+                ScheduleNode(InvalidationNode::Analysis);
+                ScheduleNode(InvalidationNode::Pick);
+                ScheduleNode(InvalidationNode::UI);
+                renderDirty = true;
+            }
+        }
     }
 
-    if (sceneDirty)
+    if (analysisEnabled && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
+        !styleDirty && !pendingAnalysisTask.has_value() && !activeAnalysisTintForRebuild.has_value())
     {
+        pendingAnalysisAfterGeometryRebuild = false;
+        const uint64_t requestId = ++analysisRequestId;
+        const Scene *sceneForAnalysis = scene;
+        pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                                                {
+                                                    AsyncAnalysisResult out;
+                                                    out.scene = sceneForAnalysis;
+                                                    out.requestId = requestId;
+                                                    if (token.IsCancellationRequested())
+                                                    {
+                                                        out.cancelled = true;
+                                                        return out;
+                                                    }
+                                                    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                    if (token.IsCancellationRequested())
+                                                    {
+                                                        out.cancelled = true;
+                                                        return out;
+                                                    }
+                                                    out.ok = true;
+                                                    return out;
+                                                });
+        pendingAnalysisScene = sceneForAnalysis;
+    }
+
+    // Keep processing cards synchronized even when no invalidation pass runs
+    // (e.g. import busy / queued states while geometry flags are currently clean).
+    const bool hasModelNow = !scene->solids.empty() || !scene->faces.empty();
+    const bool geometryOrStyleWorkNow = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
+    RefreshToolProcessingCards(hasModelNow, geometryOrStyleWorkNow, ranMainThreadApplyTask);
+
+    if (!ranMainThreadApplyTask && (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty))
+    {
+        ScheduleNode(InvalidationNode::Geometry);
+        if (styleDirty)
+            ScheduleNode(InvalidationNode::Style);
+        if (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty)
+            ScheduleNode(InvalidationNode::Analysis);
+        ScheduleNode(InvalidationNode::Pick);
+        ScheduleNode(InvalidationNode::UI);
+
         bool hasModel = !scene->solids.empty() || !scene->faces.empty();
 
+        const bool geometryOrStyleWork = geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty;
+
         // Toggle Analysis panel sections based on model presence
-        uiRenderer.SetSectionVisible("Analysis", "Import file", !hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Result", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Verdict", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Overhang angle", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Sharp corner", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Min feature", hasModel);
-        uiRenderer.SetSectionVisible("Analysis", "Layer height", hasModel);
+        if (uiImportPara)
+            uiImportPara->visible = !hasModel;
+        if (uiResult)
+            uiResult->visible = hasModel;
+        if (uiVerdict)
+            uiVerdict->visible = hasModel;
+        RefreshToolProcessingCards(hasModel, geometryOrStyleWork, ranMainThreadApplyTask);
+        uiRenderer.MarkDirty();
 
-        // Update parameter display values
-        if (hasModel)
+        bool geometryRebuildComplete = true;
+        bool hasAnalysisThisFrame = false;
+        if (analysisEnabled && pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene &&
+            styleDirty)
         {
-            char buf[32];
-
-            glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
-                                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
-                                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
-            glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
-            glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
-                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
-                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
-
-            uiRenderer.SetSectionValue("Analysis", "Overhang angle",
-                                       {{std::to_string((int)overhangAngle), " deg", overhangColor}});
-            uiRenderer.SetSectionValue("Analysis", "Sharp corner",
-                                       {{std::to_string((int)sharpCornerAngle), " deg", edgeColor}});
-            snprintf(buf, sizeof(buf), "%.1f", minFeatureSize);
-            uiRenderer.SetSectionValue("Analysis", "Min feature",
-                                       {{std::string(buf), " mm", thinColor}});
-            snprintf(buf, sizeof(buf), "%.1f", layerHeight);
-            uiRenderer.SetSectionValue("Analysis", "Layer height",
-                                       {{std::string(buf), " mm", Color::GetUIText(1)}});
+            activeAnalysisTintForRebuild.emplace(std::move(pendingAnalysisTint->results));
+            activeAnalysisTintIdentityForRebuild = pendingAnalysisTint->requestId;
+            pendingAnalysisTint.reset();
+            hasAnalysisThisFrame = true;
+            if (!geometryDirtyAll && geometryDirtySolids.empty())
+                geometryDirtyAll = true;
+        }
+        else
+        {
+            // Do not queue another worker while a prior run's tint is still being applied to geometry
+            // (activeAnalysisTintForRebuild); otherwise the next frame can submit AnalyzeScene again,
+            // pendingAnalysisTask flips on, and Result/Verdict hide right after they were shown.
+            const bool shouldLaunchAsyncAnalysis =
+                geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
+                !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value() &&
+                !activeAnalysisTintForRebuild.has_value();
+            if (shouldLaunchAsyncAnalysis && !renderer.FullRebuildInProgress())
+            {
+                pendingAnalysisAfterGeometryRebuild = false;
+                const uint64_t requestId = analysisRequestId;
+                const Scene *sceneForAnalysis = scene;
+                pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                                                        {
+                                                            AsyncAnalysisResult out;
+                                                            out.scene = sceneForAnalysis;
+                                                            out.requestId = requestId;
+                                                            if (token.IsCancellationRequested())
+                                                            {
+                                                                out.cancelled = true;
+                                                                return out;
+                                                            }
+                                                            out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                            if (token.IsCancellationRequested())
+                                                            {
+                                                                out.cancelled = true;
+                                                                return out;
+                                                            }
+                                                            out.ok = true;
+                                                            return out;
+                                                        });
+                pendingAnalysisScene = sceneForAnalysis;
+            }
+            else if (shouldLaunchAsyncAnalysis)
+            {
+                // Geometry work is still in-flight; launch analysis as soon as the rebuild drains.
+                pendingAnalysisAfterGeometryRebuild = true;
+            }
         }
 
-        AnalysisResults results;
-        if (analysisEnabled)
-            results = Analysis::Instance().AnalyzeScene(scene);
+        const AnalysisResults *activeTintPtr =
+            activeAnalysisTintForRebuild.has_value() ? &*activeAnalysisTintForRebuild : nullptr;
+        const uint64_t activeTintId =
+            activeAnalysisTintForRebuild.has_value() ? activeAnalysisTintIdentityForRebuild : 0;
 
-        renderer.UpdateScene(scene, analysisEnabled ? &results : nullptr);
-        if (analysisEnabled)
+        if (geometryDirtyAll)
         {
-            analysisRenderer.Update(scene, results);
+            geometryRebuildComplete =
+                renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
+            InvalidationExec(InvalidationNode::Geometry);
+            if (!geometryRebuildComplete)
+            {
+                // Keep scheduling geometry work until incremental rebuild completes.
+                renderDirty = true;
+                pickDirty = true;
+            }
+        }
+        else if (!geometryDirtySolids.empty())
+        {
+            renderer.RebuildSolids(scene, geometryDirtySolids, activeTintPtr);
+            InvalidationExec(InvalidationNode::Geometry);
+        }
+        else if (styleDirty)
+        {
+            if (hasAnalysisThisFrame)
+            {
+                // Applying fresh analysis often changes rendered topology enough to force
+                // a full rebuild. Route through the same incremental path to avoid a hitch.
+                geometryDirtyAll = true;
+                geometryRebuildComplete =
+                    renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
+                InvalidationExec(InvalidationNode::Geometry);
+                if (!geometryRebuildComplete)
+                {
+                    renderDirty = true;
+                    pickDirty = true;
+                }
+            }
+            else
+            {
+                const AnalysisResults *recolorPtr = nullptr;
+                if (analysisEnabled && lastCommittedAnalysisForRecolor.has_value())
+                    recolorPtr = &*lastCommittedAnalysisForRecolor;
+                renderer.RecolorOnly(scene, recolorPtr);
+                InvalidationExec(InvalidationNode::Style);
+            }
+        }
 
+        auto stillPickable = [&](const Face *f) -> bool
+        {
+            if (f == nullptr)
+                return true;
+            for (const PickTriangle &tri : renderer.GetPickTriangles())
+            {
+                if (tri.face == f)
+                    return true;
+            }
+            return false;
+        };
+
+        auto stillPickableEdge = [&](const Edge *e) -> bool
+        {
+            if (e == nullptr)
+                return true;
+            for (const PickSegment &ps : renderer.GetPickSegments())
+            {
+                if (ps.edge == e)
+                    return true;
+            }
+            return false;
+        };
+
+        if (hoverPickFace != nullptr && !stillPickable(hoverPickFace))
+        {
+            hoverPickFace = nullptr;
+            pickDirty = true;
+        }
+        if (hoverPickEdge != nullptr && !stillPickableEdge(hoverPickEdge))
+        {
+            hoverPickEdge = nullptr;
+            pickDirty = true;
+        }
+
+        bool calibPickInvalidated = false;
+        if (calibFacePoint1 != nullptr && !stillPickable(calibFacePoint1))
+        {
+            calibFacePoint1 = nullptr;
+            calibStepPoint1 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+            pickDirty = true;
+        }
+        if (calibEdgePoint1 != nullptr && !stillPickableEdge(calibEdgePoint1))
+        {
+            calibEdgePoint1 = nullptr;
+            calibStepPoint1 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+            pickDirty = true;
+        }
+        if (calibFacePoint2 != nullptr && !stillPickable(calibFacePoint2))
+        {
+            calibFacePoint2 = nullptr;
+            calibStepPoint2 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+            pickDirty = true;
+        }
+        if (calibEdgePoint2 != nullptr && !stillPickableEdge(calibEdgePoint2))
+        {
+            calibEdgePoint2 = nullptr;
+            calibStepPoint2 = Icons::StepState::Active;
+            calibPickInvalidated = true;
+            pickDirty = true;
+        }
+        if (calibPickInvalidated)
+        {
+            uiRenderer.MarkDirty();
+            RefreshCalibWorkflow();
+        }
+        else if (CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) &&
+                 CalibSlotHasPick(calibFacePoint2, calibEdgePoint2))
+        {
+            RefreshCalibCompensation();
+            uiRenderer.MarkDirty();
+        }
+
+        RunPickNode();
+
+        if (hasAnalysisThisFrame)
+        {
+            AnalysisResults &results = *activeAnalysisTintForRebuild;
+            InvalidationExec(InvalidationNode::Analysis);
             // Count flaws per type and push to UI
             size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
 
@@ -243,6 +1024,9 @@ void Display::Frame()
                 }
             }
 
+            // Collect thin-section and small-feature faces for BFS grouping
+            std::unordered_set<const Face *> thinSectionFaces;
+            std::unordered_set<const Face *> smallFeatureFaces;
             for (const auto &[solid, flaws] : results.faceFlawRanges)
             {
                 for (const auto &ff : flaws)
@@ -250,13 +1034,81 @@ void Display::Frame()
                     switch (ff.flaw)
                     {
                     case FaceFlawKind::THIN_SECTION:
-                        thinSections++;
+                        if (ff.face && !ff.face->loops.empty())
+                            thinSectionFaces.insert(ff.face);
                         break;
                     case FaceFlawKind::SMALL_FEATURE:
-                        smallFeatures++;
+                        if (ff.face && !ff.face->loops.empty())
+                            smallFeatureFaces.insert(ff.face);
                         break;
                     default:
                         break;
+                    }
+                }
+            }
+
+            // Count connected components of adjacent thin-section faces
+            {
+                std::unordered_set<const Face *> visited;
+                for (const Face *seed : thinSectionFaces)
+                {
+                    if (visited.count(seed))
+                        continue;
+                    thinSections++;
+                    std::queue<const Face *> bfs;
+                    bfs.push(seed);
+                    visited.insert(seed);
+                    while (!bfs.empty())
+                    {
+                        const Face *current = bfs.front();
+                        bfs.pop();
+                        for (const auto &loop : current->loops)
+                        {
+                            for (const auto &oe : loop)
+                            {
+                                for (Face *neighbor : oe.edge->dependencies)
+                                {
+                                    if (thinSectionFaces.count(neighbor) && !visited.count(neighbor))
+                                    {
+                                        visited.insert(neighbor);
+                                        bfs.push(neighbor);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Count connected components of adjacent small-feature faces
+            {
+                std::unordered_set<const Face *> visited;
+                for (const Face *seed : smallFeatureFaces)
+                {
+                    if (visited.count(seed))
+                        continue;
+                    smallFeatures++;
+                    std::queue<const Face *> bfs;
+                    bfs.push(seed);
+                    visited.insert(seed);
+                    while (!bfs.empty())
+                    {
+                        const Face *current = bfs.front();
+                        bfs.pop();
+                        for (const auto &loop : current->loops)
+                        {
+                            for (const auto &oe : loop)
+                            {
+                                for (Face *neighbor : oe.edge->dependencies)
+                                {
+                                    if (smallFeatureFaces.count(neighbor) && !visited.count(neighbor))
+                                    {
+                                        visited.insert(neighbor);
+                                        bfs.push(neighbor);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -269,49 +1121,297 @@ void Display::Frame()
                 }
             }
 
+            // Compute 3D bounding boxes per flaw category for click-to-frame
+            auto expandBounds = [](glm::vec3 &bMin, glm::vec3 &bMax, const glm::dvec3 &p)
+            {
+                glm::vec3 fp(p);
+                bMin = glm::min(bMin, fp);
+                bMax = glm::max(bMax, fp);
+            };
+            auto expandFaceBounds = [&](glm::vec3 &bMin, glm::vec3 &bMax, const Face *face)
+            {
+                for (const auto &loop : face->loops)
+                    for (const auto &oe : loop)
+                    {
+                        expandBounds(bMin, bMax, oe.edge->startPoint->position);
+                        expandBounds(bMin, bMax, oe.edge->endPoint->position);
+                    }
+            };
+
+            constexpr float INF = std::numeric_limits<float>::max();
+            glm::vec3 overhangMin(INF), overhangMax(-INF);
+            glm::vec3 thinMin(INF), thinMax(-INF);
+            glm::vec3 smallMin(INF), smallMax(-INF);
+            glm::vec3 sharpMin(INF), sharpMax(-INF);
+
+            // Overhang face bounds
+            for (const Face *face : overhangFaces)
+                expandFaceBounds(overhangMin, overhangMax, face);
+
+            // Thin section / small feature bounds from faceFlawRanges
+            for (const auto &[solid, flaws] : results.faceFlawRanges)
+            {
+                for (const auto &ff : flaws)
+                {
+                    if (ff.flaw == FaceFlawKind::THIN_SECTION && ff.face)
+                        expandFaceBounds(thinMin, thinMax, ff.face);
+                    else if (ff.flaw == FaceFlawKind::SMALL_FEATURE && ff.face)
+                        expandFaceBounds(smallMin, smallMax, ff.face);
+                }
+            }
+
+            // Sharp edge bounds
+            for (const auto &[solid, edgeVec] : results.edgeFlaws)
+            {
+                for (const auto &e : edgeVec)
+                {
+                    if (e.flaw == EdgeFlawKind::SHARP_CORNER && e.edge)
+                    {
+                        expandBounds(sharpMin, sharpMax, e.edge->startPoint->position);
+                        expandBounds(sharpMin, sharpMax, e.edge->endPoint->position);
+                    }
+                }
+            }
+
             // Bright versions of flaw colors for UI text
             glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
             glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.2f, 1.0f);
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
+                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f);
             glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
                                             Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
 
-            std::vector<SectionLine> lines;
-            if (overhangs > 0)
-                lines.push_back({std::to_string(overhangs), " overhang" + std::string(overhangs > 1 ? "s" : ""), overhangColor});
-            if (thinSections > 0)
-                lines.push_back({std::to_string(thinSections), " thin section" + std::string(thinSections > 1 ? "s" : ""), thinColor});
-            if (smallFeatures > 0)
-                lines.push_back({std::to_string(smallFeatures), " small feature" + std::string(smallFeatures > 1 ? "s" : ""), thinColor});
-            if (sharpEdges > 0)
-                lines.push_back({std::to_string(sharpEdges), " sharp edge" + std::string(sharpEdges > 1 ? "s" : ""), edgeColor});
-            if (lines.empty())
-                lines.push_back({"", "No flaws", Color::GetUIText(1)});
+            auto makeFrameCallback = [this](glm::vec3 bMin, glm::vec3 bMax) -> std::function<void()>
+            {
+                if (bMin.x > bMax.x)
+                    return nullptr; // no valid bounds
+                return [this, bMin, bMax]()
+                {
+                    camera.FrameBounds(bMin, bMax);
+                    cameraDirty = true;
+                    renderDirty = true;
+                };
+            };
 
-            uiRenderer.SetSectionValue("Analysis", "Result", lines);
+            // Write live flaw state — read each frame by the imguiContent lambdas in uiResult
+            flawOverhang.count = overhangs;
+            flawOverhang.frameCallback = makeFrameCallback(overhangMin, overhangMax);
+            flawSharp.count = sharpEdges;
+            flawSharp.frameCallback = makeFrameCallback(sharpMin, sharpMax);
+            flawThin.count = thinSections;
+            flawThin.frameCallback = makeFrameCallback(thinMin, thinMax);
+            flawSmall.count = smallFeatures;
+            flawSmall.frameCallback = makeFrameCallback(smallMin, smallMax);
+
+            // Log analysis results to session
+            {
+                auto &sl = SessionLogger::Instance();
+                sl.state.overhangs = overhangs;
+                sl.state.sharpEdges = sharpEdges;
+                sl.state.thinSections = thinSections;
+                sl.state.smallFeatures = smallFeatures;
+                sl.LogAnalysisRun();
+            }
+
+            // Two-tier verdict
+            bool hasVisual = (overhangs > 0) || (thinSections > 0);
+            bool hasPrecision = (smallFeatures > 0) || (sharpEdges > 0);
+
+            glm::vec4 passColor = glm::vec4(0.4f, 0.8f, 0.4f, 1.0f);
+            glm::vec4 failColor = glm::vec4(0.9f, 0.4f, 0.4f, 1.0f);
+
+            std::vector<SectionLine> verdictLines;
+            if (hasVisual && hasPrecision)
+                verdictLines.push_back({"Some areas might not print well or accurately", "", failColor});
+            else if (hasVisual)
+                verdictLines.push_back({"Some areas might not print well", "", failColor});
+            else if (hasPrecision)
+                verdictLines.push_back({"Some areas might not print accurately", "", failColor});
+            else
+            {
+                verdictLines.push_back({"No issues detected", "", passColor});
+
+                // Contextual printing tip based on model geometry
+                glm::dvec3 modelMin(std::numeric_limits<double>::max());
+                glm::dvec3 modelMax(std::numeric_limits<double>::lowest());
+                size_t totalLoops = 0;
+
+                for (const auto &face : scene->faces)
+                {
+                    totalLoops += face.loops.size();
+                    for (const auto &loop : face.loops)
+                        for (const auto &oe : loop)
+                        {
+                            const auto &p = oe.edge->startPoint->position;
+                            modelMin = glm::min(modelMin, p);
+                            modelMax = glm::max(modelMax, p);
+                        }
+                }
+
+                double height = modelMax.z - modelMin.z;
+                double footprintX = modelMax.x - modelMin.x;
+                double footprintY = modelMax.y - modelMin.y;
+                double footprintArea = footprintX * footprintY;
+                double footprintDiag = std::sqrt(footprintX * footprintX + footprintY * footprintY);
+
+                struct Tip
+                {
+                    const char *text;
+                    float weight;
+                };
+                std::vector<Tip> tips = {
+                    {"Remember to clean your build plate!", 1.0f},
+                    {"A brim can help with bed adhesion", 1.0f},
+                    {"Keep your filament dry", 1.0f},
+                    {"Level your bed before printing", 1.0f},
+                    {"Check your nozzle for wear", 0.5f},
+                };
+
+                // Tall & narrow → adhesion tips
+                if (footprintDiag > 0 && height / footprintDiag > 1.5)
+                {
+                    tips[0].weight += 3.0f; // clean build plate
+                    tips[1].weight += 3.0f; // brim
+                }
+
+                // Large footprint → level bed matters more
+                if (footprintArea > 2500.0) // > ~50x50 mm
+                    tips[3].weight += 3.0f;
+
+                // Only re-roll the tip when transitioning from flawed → pass
+                if (!lastVerdictWasPass)
+                {
+                    float totalWeight = 0;
+                    for (const auto &t : tips)
+                        totalWeight += t.weight;
+
+                    static std::mt19937 rng(std::random_device{}());
+                    std::uniform_real_distribution<float> dist(0.0f, totalWeight);
+                    float r = dist(rng);
+                    cachedTip = tips[0].text;
+                    float cumulative = 0;
+                    for (const auto &t : tips)
+                    {
+                        cumulative += t.weight;
+                        if (r < cumulative)
+                        {
+                            cachedTip = t.text;
+                            break;
+                        }
+                    }
+                }
+
+                glm::vec4 tipColor(0.55f, 0.55f, 0.55f, 1.0f);
+                verdictLines.push_back({cachedTip, "", tipColor});
+            }
+
+            bool verdictIsPass = !hasVisual && !hasPrecision;
+            lastVerdictWasPass = verdictIsPass;
+            if (uiVerdict)
+                uiVerdict->values = std::move(verdictLines);
         }
         else
         {
-            analysisRenderer.Clear();
-            uiRenderer.SetSectionValue("Analysis", "Result", {});
+            InvalidationSkip(InvalidationNode::Analysis);
+            // Only clear live analysis UI when analysis is off. When analysis is on, geometry/style
+            // can stay dirty across many frames (incremental rebuild); clearing here would erase
+            // counts/verdict the frame after async results were applied.
+            if (geometryOrStyleWork && !analysisEnabled)
+            {
+                lastVerdictWasPass = false;
+                flawOverhang = {};
+                flawSharp = {};
+                flawThin = {};
+                flawSmall = {};
+                if (uiVerdict)
+                    uiVerdict->values = {};
+            }
         }
-        sceneDirty = false;
+        if (geometryOrStyleWork && skipAnalysisForNextGeometryRebuild)
+        {
+            // Import handoff: keep the first rebuild responsive, then request one
+            // follow-up style/analysis pass once geometry is visible.
+            skipAnalysisForNextGeometryRebuild = false;
+            pendingAnalysisAfterGeometryRebuild = true;
+        }
+        if (geometryRebuildComplete)
+        {
+            geometryDirtyAll = false;
+            geometryDirtySolids.clear();
+            styleDirty = false;
+            pickDirty = false;
+            if (activeAnalysisTintForRebuild.has_value())
+            {
+                lastCommittedAnalysisForRecolor = std::move(*activeAnalysisTintForRebuild);
+                activeAnalysisTintForRebuild.reset();
+            }
+            else
+            {
+                lastCommittedAnalysisForRecolor.reset();
+                activeAnalysisTintForRebuild.reset();
+            }
+            activeAnalysisTintIdentityForRebuild = 0;
+        }
+        else
+        {
+            // Leave dirty flags latched so the next frame continues incremental rebuild.
+            geometryDirtyAll = true;
+        }
+        // Re-sync cards after tint consumption / verdict fill (first Refresh in this block ran before that work).
+        RefreshToolProcessingCards(hasModel, geometryOrStyleWork, ranMainThreadApplyTask);
+        InvalidationExec(InvalidationNode::UI);
+        ClearScheduledNodes();
     }
 
-    Render();
+    if (cameraMovedForPick)
+    {
+        float mx, my;
+        SDL_GetMouseState(&mx, &my);
+        UpdatePickHover(mx, my);
+    }
+
+    if (!statusStripImportBusy)
+        RefreshStatusStripIdleText();
+
+    if (statusStripImportBusy || pendingImportTask.has_value())
+        renderDirty = true;
+
+    if (renderDirty)
+    {
+        Render();
+        renderDirty = false;
+    }
 }
 
 void Display::SetAspectRatio(const uint16_t width, const uint16_t height)
 {
-    glViewport(0, 0, width, height);
-    camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(height));
+    windowWidth = static_cast<int16_t>(width);
+    windowHeight = static_cast<int16_t>(height);
+
+    // Use physical pixels for the GL viewport so Retina/HiDPI framebuffers
+    // are covered correctly. Logical dimensions are still used for the camera
+    // and UI (aspect ratio is identical; UI uses its own coordinate space).
+    int physW, physH;
+    SDL_GetWindowSizeInPixels(window, &physW, &physH);
+    glViewport(0, 0, physW, physH);
+
+    camera.SetAspectRatio(static_cast<float>(width) / static_cast<float>(std::max<uint16_t>(1, height)),
+                          width, height);
     uiRenderer.SetScreenSize(width, height);
 
-    UpdateCamera();
+    const float axisH = SyncViewportAxisForDepthClip();
+    ApplyOrthoClipFromViewBounds(camera, scene, axisH);
+
+    // Push updated matrices to the renderers immediately. ResizeEventWatcher
+    // calls Render() before Frame() has a chance to process cameraDirty, so
+    // the renderer must have the fresh projection before that Render() runs.
+    renderer.SetCamera(camera);
+    viewportRenderer.SetCamera(camera);
+
+    renderDirty = true;
 }
 
 void Display::Zoom(const float offsetY, const glm::vec3 &posCursotr)
@@ -335,6 +1435,324 @@ glm::vec3 Display::ScreenToWorld(float pixelX, float pixelY) const
     return camera.target + right * ndcX * camera.orthoSize * camera.aspectRatio + up * ndcY * camera.orthoSize;
 }
 
+PickFilter Display::GetActivePickFilter() const
+{
+    if (activeTool != ActiveTool::Calibrate)
+        return PickFilter::None;
+    if (!calibPara_Point1 || !calibPara_Point1->visible)
+        return PickFilter::None;
+    if (!scene || (scene->solids.empty() && scene->faces.empty()))
+        return PickFilter::None;
+
+    const bool awaitingPoint1Pick = calibPara_Point1->selected;
+    const bool awaitingPoint2Pick =
+        calibPara_Point2 && calibPara_Point2->selected && calibStepPoint1 == Icons::StepState::Done;
+    if (!awaitingPoint1Pick && !awaitingPoint2Pick)
+        return PickFilter::None;
+
+    return PickFilter::Faces;
+}
+
+void Display::ClearPickHover()
+{
+    hoverPickFace = nullptr;
+    hoverPickEdge = nullptr;
+    MarkPickDirty();
+}
+
+void Display::ClearCalibrateFacePicks()
+{
+    calibFacePoint1 = nullptr;
+    calibFacePoint2 = nullptr;
+    calibEdgePoint1 = nullptr;
+    calibEdgePoint2 = nullptr;
+    RefreshCalibWorkflow();
+    MarkPickDirty();
+}
+
+void Display::SetHoverCalibPick(const Face *face, const Edge *edge)
+{
+    if (hoverPickFace == face && hoverPickEdge == edge)
+    {
+        if (face != nullptr || edge != nullptr)
+            return;
+        if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
+            calibEdgePoint2 != nullptr)
+            return;
+        if (pickHighlightIndices.empty())
+            return;
+    }
+    hoverPickFace = face;
+    hoverPickEdge = edge;
+    MarkPickDirty();
+}
+
+void Display::RebuildPickHighlightMesh()
+{
+    pickHighlightVertices.clear();
+    pickHighlightIndices.clear();
+    pickHighlightLineVertices.clear();
+    pickHighlightLineIndices.clear();
+
+    const std::vector<PickTriangle> &tris = renderer.GetPickTriangles();
+    uint32_t nextVert = 0;
+
+    auto appendFaceTris = [&](const Face *face, float accentDepthSteps, float satMult)
+    {
+        if (face == nullptr)
+            return;
+        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
+        for (const PickTriangle &tri : tris)
+        {
+            if (tri.face != face)
+                continue;
+            const glm::dvec3 e1 = tri.v1 - tri.v0;
+            const glm::dvec3 e2 = tri.v2 - tri.v0;
+            glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+            if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                n = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            pickHighlightVertices.push_back({glm::vec3(tri.v0), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v1), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v2), accent, n});
+            pickHighlightIndices.push_back(nextVert);
+            pickHighlightIndices.push_back(nextVert + 1);
+            pickHighlightIndices.push_back(nextVert + 2);
+            nextVert += 3;
+        }
+    };
+
+    appendFaceTris(calibFacePoint1, 1.0f, 0.72f);
+    appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
+
+    const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
+    const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
+    auto appendEdgeLines = [&](const Edge *edge, float accentDepthSteps, float satMult)
+    {
+        if (edge == nullptr)
+            return;
+        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
+        for (const PickSegment &ps : segPick)
+        {
+            if (ps.edge != edge)
+                continue;
+            const uint32_t base = static_cast<uint32_t>(pickHighlightLineVertices.size());
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v0), accent, lineNormal});
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v1), accent, lineNormal});
+            pickHighlightLineIndices.push_back(base);
+            pickHighlightLineIndices.push_back(base + 1);
+        }
+    };
+
+    appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
+    appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
+
+    const Face *hoverDraw = hoverPickFace;
+    if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
+        hoverDraw = nullptr;
+    appendFaceTris(hoverDraw, 0.5f, 0.5f);
+
+    const Edge *hoverEdgeDraw = hoverPickEdge;
+    if (hoverEdgeDraw == calibEdgePoint1 || hoverEdgeDraw == calibEdgePoint2)
+        hoverEdgeDraw = nullptr;
+    appendEdgeLines(hoverEdgeDraw, 0.5f, 0.5f);
+
+    renderer.UploadPickHighlightMesh(pickHighlightVertices, pickHighlightIndices);
+    renderer.UploadPickHighlightLineMesh(pickHighlightLineVertices, pickHighlightLineIndices);
+}
+
+Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const
+{
+    CalibPickHit out;
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    glm::dvec3 ro, rd;
+    ScenePick::OrthoPickRay(camera, w, h, pixelX, pixelY, ro, rd);
+
+    double faceT = 0.0;
+    const Face *face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces, &faceT);
+
+    const double halfH = static_cast<double>(camera.orthoSize);
+    const double worldPerPx =
+        std::max(2.0 * halfH / std::max(1, h), 2.0 * halfH * static_cast<double>(camera.aspectRatio) / std::max(1, w));
+    const double tol = 10.0 * worldPerPx;
+    const double maxDistSq = tol * tol;
+
+    double edgeT = 0.0;
+    double edgeDistSq = 0.0;
+    const Edge *edge = ScenePick::PickClosestEdgeAlongRay(renderer.GetPickSegments(), ro, rd, maxDistSq, &edgeT,
+                                                           &edgeDistSq);
+
+    if (face == nullptr && edge == nullptr)
+        return out;
+
+    if (face == nullptr)
+    {
+        out.edge = edge;
+        return out;
+    }
+    if (edge == nullptr)
+    {
+        out.face = face;
+        return out;
+    }
+
+    constexpr double kRayEps = 1e-4;
+    constexpr double kTightEdgeFrac = 0.04;
+    if (edgeDistSq < maxDistSq * kTightEdgeFrac && edgeT < faceT + kRayEps * (1.0 + std::abs(faceT)))
+    {
+        out.edge = edge;
+        return out;
+    }
+    if (edgeT + kRayEps < faceT)
+    {
+        out.edge = edge;
+        return out;
+    }
+    out.face = face;
+    return out;
+}
+
+void Display::UpdatePickHover(float pixelX, float pixelY)
+{
+    ImGuiIO &io = ImGui::GetIO();
+    const SDL_MouseButtonFlags buttons = SDL_GetMouseState(nullptr, nullptr);
+    const bool viewportNav = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0 ||
+                             (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
+
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY) || viewportNav)
+    {
+        SetHoverCalibPick(nullptr, nullptr);
+        return;
+    }
+    if (GetActivePickFilter() == PickFilter::None)
+    {
+        SetHoverCalibPick(nullptr, nullptr);
+        return;
+    }
+
+    const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    SetHoverCalibPick(hit.face, hit.edge);
+}
+
+void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
+{
+    if (activeTool != ActiveTool::Calibrate)
+        return;
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY))
+        return;
+    if (!calibPara_Point1 || !calibPara_Point1->visible)
+        return;
+
+    const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    if (hit.face == nullptr && hit.edge == nullptr)
+        return;
+
+    if (calibPara_Point1->selected)
+    {
+        calibFacePoint1 = hit.face;
+        calibEdgePoint1 = hit.edge;
+        calibStepPoint1 = Icons::StepState::Done;
+        calibPara_Point1->selected = false;
+        calibPara_Point2->selected = true;
+    }
+    else if (calibPara_Point2 && calibPara_Point2->selected)
+    {
+        if (calibStepPoint1 != Icons::StepState::Done)
+            return;
+        calibFacePoint2 = hit.face;
+        calibEdgePoint2 = hit.edge;
+        calibStepPoint2 = Icons::StepState::Done;
+        calibPara_Point2->selected = false;
+    }
+    else
+        return;
+
+    RefreshCalibWorkflow();
+    uiRenderer.MarkDirty();
+    MarkPickDirty();
+}
+
+void Display::RefreshCalibWorkflow()
+{
+    if (!scene)
+    {
+        calibWorkflow = CalibWorkflow::None;
+        RefreshCalibCompensation();
+        RefreshCalibDerivedRowVisible();
+        return;
+    }
+    std::unordered_set<const Edge *> holeEdges;
+    CalibrateDistance::RebuildHoleEdgeSet(*scene, holeEdges);
+    const double layerMm = static_cast<double>(layerHeight);
+    const CalibrateDistance::PickRef r1 = ResolveCalibPickRefForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const CalibrateDistance::PickRef r2 = ResolveCalibPickRefForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (r1.face != nullptr && r2.face != nullptr)
+        calibWorkflow = CalibrateDistance::CombinePickedFaces(r1, r2, scene, layerMm, holeEdges);
+    else if (r1.face != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(r1, scene, layerMm, holeEdges);
+    else if (r2.face != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(r2, scene, layerMm, holeEdges);
+    else
+        calibWorkflow = CalibWorkflow::None;
+
+    RefreshCalibCompensation();
+    RefreshCalibDerivedRowVisible();
+}
+
+void Display::RefreshCalibDerivedRowVisible()
+{
+    if (!calibPara_Derived)
+        return;
+
+    bool next = false;
+    if (calibSec_Parameters && calibSec_Parameters->visible)
+    {
+        const bool importDone = calibStepImport == Icons::StepState::Done;
+        const bool firstFaceDone = calibStepPoint1 == Icons::StepState::Done;
+        next = importDone && firstFaceDone;
+    }
+
+    if (calibPara_Derived->visible != next)
+    {
+        calibPara_Derived->visible = next;
+        uiRenderer.MarkDirty();
+    }
+}
+
+void Display::RefreshCalibCompensation()
+{
+    calibContourScale = 1.0f;
+    calibHoleOffsetMm = 0.0f;
+    calibElephantFootMm = 0.0f;
+    calibCompensationValid = false;
+    calibNominal = 0.0f;
+
+    const Face *spanA = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const Face *spanB = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (scene == nullptr || spanA == nullptr || spanB == nullptr)
+        return;
+
+    const CalibrateNominal::SpanResult span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
+    if (!span.valid)
+        return;
+
+    calibNominal = span.nominalMm;
+    if (calibWorkflow == CalibWorkflow::None)
+        return;
+
+    const CalibrateCompensation::Values vals =
+        CalibrateCompensation::Compute(calibWorkflow, calibNominal, calibMeasured);
+    if (!vals.valid)
+        return;
+
+    calibContourScale = vals.contourScale;
+    calibHoleOffsetMm = vals.holeRadiusOffsetMm;
+    calibElephantFootMm = vals.elephantFootExcessMm;
+    calibCompensationValid = true;
+}
+
 void Display::snapInput(float &x, float &y)
 {
     if (std::abs(x) <= std::abs(y) * 0.5f)
@@ -343,9 +1761,9 @@ void Display::snapInput(float &x, float &y)
         y = 0;
 }
 
-void Display::Orbit(float offsetY, float offsetX)
+void Display::Orbit(float offsetX, float offsetY)
 {
-    camera.Orbit(offsetY, offsetX);
+    camera.Orbit(offsetX, offsetY);
 
     UpdateCamera();
 }
@@ -383,105 +1801,1696 @@ void Display::FrameScene()
     UpdateCamera();
 }
 
+void Display::ResetCameraView()
+{
+    camera.ResetHomeView();
+    UpdateCamera();
+}
+
 bool Display::HitTestUI(float pixelX, float pixelY) const
 {
     return uiRenderer.HitTest(pixelX, pixelY);
 }
 
-bool Display::HandleClick(float pixelX, float pixelY)
+bool Display::HitTestImGui(float pixelX, float pixelY) const
 {
-    return uiRenderer.HandleClick(pixelX, pixelY);
+    ImGuiContext *ctx = ImGui::GetCurrentContext();
+    if (ctx == nullptr)
+        return false;
+    ImGuiWindow *hovered = nullptr;
+    ImGuiWindow *hoveredUnderMoving = nullptr;
+    ImGui::FindHoveredWindowEx(ImVec2(pixelX, pixelY), false, &hovered, &hoveredUnderMoving);
+    return hovered != nullptr;
+}
+
+void Display::MarkBug()
+{
+    auto &sl = SessionLogger::Instance();
+    FillSessionReproState(sl.state);
+    sl.LogBugMarker();
+}
+
+void Display::FillSessionReproState(SessionState &s) const
+{
+    if (scene != nullptr)
+    {
+        s.points = scene->points.size();
+        s.edges = scene->edges.size();
+        s.faces = scene->faces.size();
+        s.solids = scene->solids.size();
+    }
+
+    s.overhangAngle = overhangAngle;
+    s.sharpCornerAngle = sharpCornerAngle;
+    s.thinMinWidth = thinMinWidth;
+    s.minFeatureSize = minFeatureSize;
+    s.layerHeight = layerHeight;
+
+    s.cameraTarget = camera.target;
+    s.cameraOrthoSize = camera.orthoSize;
+    s.cameraPosition = camera.GetPosition();
+    s.cameraDistance = camera.distance;
+    s.cameraQuatW = camera.orientation.w;
+    s.cameraQuatX = camera.orientation.x;
+    s.cameraQuatY = camera.orientation.y;
+    s.cameraQuatZ = camera.orientation.z;
+    s.cameraNearPlane = camera.nearPlane;
+    s.cameraFarPlane = camera.farPlane;
+
+    s.windowLogicalW = static_cast<int>(windowWidth);
+    s.windowLogicalH = static_cast<int>(windowHeight);
+    if (window != nullptr)
+        SDL_GetWindowSizeInPixels(window, &s.windowPixelsW, &s.windowPixelsH);
+    else
+    {
+        s.windowPixelsW = 0;
+        s.windowPixelsH = 0;
+    }
+
+    s.activeToolOrdinal = (activeTool == ActiveTool::Calibrate) ? 1u : 0u;
+    s.viewportAnalysisEnabled = analysisEnabled;
+    s.depthExperimentOrdinal = static_cast<uint8_t>(ViewportDepthExperiments::Active());
+}
+
+void Display::SyncToolbarToolVisualState()
+{
+    if (toolbarAnalysisLine && toolbarCalibrateLine && uiAnalysis && uiCalibrate)
+    {
+        toolbarAnalysisLine->selected =
+            (activeTool == ActiveTool::Analysis && uiAnalysis->visible);
+        toolbarCalibrateLine->selected =
+            (activeTool == ActiveTool::Calibrate && uiCalibrate->visible);
+    }
+    uiRenderer.MarkDirty();
+}
+
+void Display::SyncStatusStripTextLine()
+{
+    if (statusStripTextLine != nullptr)
+        statusStripTextLine->text = statusStripLine;
+    uiRenderer.MarkDirty();
+}
+
+void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask)
+{
+    bool changed = false;
+    auto setVisible = [&](Paragraph *p, bool visible)
+    {
+        if (!p)
+            return;
+        if (p->visible != visible)
+        {
+            p->visible = visible;
+            changed = true;
+        }
+    };
+    auto setBool = [&](bool &dst, bool value)
+    {
+        if (dst != value)
+        {
+            dst = value;
+            changed = true;
+        }
+    };
+    auto setFloat = [&](float &dst, float value)
+    {
+        if (std::fabs(dst - value) > 1e-6f)
+        {
+            dst = value;
+            changed = true;
+        }
+    };
+    auto setText = [&](Paragraph *p, const std::string &text)
+    {
+        if (!p || p->values.empty())
+            return;
+        if (p->values[0].text != text)
+        {
+            p->values[0].text = text;
+            changed = true;
+        }
+    };
+
+    const bool hasCommittedAnalysis = lastCommittedAnalysisForRecolor.has_value();
+    const bool queueingFirstAnalysis = pendingAnalysisAfterGeometryRebuild && !hasCommittedAnalysis;
+    const bool pendingTintThisScene =
+        pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene;
+    const bool analysisRenderingInScene =
+        analysisEnabled && activeAnalysisTintForRebuild.has_value() && renderer.FullRebuildInProgress();
+    // Hide verdict/counts only while a worker run is in flight or a completed run is still queued for tint apply.
+    // Do NOT include queueingFirstAnalysis here: it stays true until geometry rebuild commits recolor, which is
+    // the same window as GPU incremental rebuild — hiding panels on it kept counts/verdict off after results exist.
+    const bool analysisPipelineWaiting =
+        analysisEnabled && (pendingAnalysisTask.has_value() || pendingTintThisScene);
+    // Processing card + bar: full pipeline including "waiting to launch" and GPU tint application.
+    const bool analysisBusy =
+        analysisEnabled &&
+        (queueingFirstAnalysis || analysisPipelineWaiting || analysisRenderingInScene);
+
+    if (!analysisBusy)
+    {
+        ++analysisProcessingIdleStreak;
+        if (analysisProcessingIdleStreak >= 3)
+            setFloat(analysisUiProgressCarry01, 0.f);
+    }
+    else
+    {
+        analysisProcessingIdleStreak = 0;
+        float phaseFloor = 0.f;
+        float phaseCap = 1.0f;
+        const char *phaseTitle = "Working on analysis...";
+        if (queueingFirstAnalysis)
+        {
+            phaseFloor = 0.22f;
+            phaseCap = 0.30f;
+            phaseTitle = "Queueing analysis...";
+        }
+        else if (pendingAnalysisTask.has_value())
+        {
+            phaseFloor = 0.48f;
+            // Never drive the bar to “complete” while the worker is still running — results stay hidden until busy clears.
+            phaseCap = 0.62f;
+            phaseTitle = "Analysing faces...";
+        }
+        else if (pendingTintThisScene)
+        {
+            phaseFloor = 0.68f;
+            phaseCap = 0.80f;
+            phaseTitle = "Applying analysis...";
+        }
+        else if (analysisRenderingInScene)
+        {
+            phaseFloor = 0.82f;
+            phaseCap = 0.995f;
+            phaseTitle = "Rendering analysis...";
+        }
+        analysisUiProgressCarry01 = std::max(analysisUiProgressCarry01, phaseFloor);
+        analysisUiProgressCarry01 = std::min(analysisUiProgressCarry01, phaseCap);
+        // Creep only while GPU incremental rebuild is applying tints (bar may approach full before panel unlocks).
+        if (analysisRenderingInScene)
+            analysisUiProgressCarry01 = std::min(phaseCap, analysisUiProgressCarry01 + 0.0035f);
+        if (uiAnalysisProcessing)
+        {
+            setText(uiAnalysisProcessing, phaseTitle);
+            setFloat(uiAnalysisProcessing->accentProgress01, analysisUiProgressCarry01);
+        }
+    }
+
+    if (uiAnalysisProcessing)
+    {
+        setVisible(uiAnalysisProcessing, analysisBusy && hasModel);
+        setBool(uiAnalysisProcessing->accentProgressBar, uiAnalysisProcessing->visible);
+        if (!uiAnalysisProcessing->visible)
+            setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
+    }
+    if (uiResult)
+        setVisible(uiResult, hasModel && !analysisPipelineWaiting);
+    if (uiVerdict)
+        setVisible(uiVerdict, hasModel && !analysisPipelineWaiting);
+
+    // Import progress lives in the Files bar tab; keep Calibrate panel unobstructed during import.
+    const bool calibrateBusy =
+        hasModel && (geometryOrStyleWork || ranMainThreadApplyTask || renderer.FullRebuildInProgress());
+    if (uiCalibrateProcessing)
+    {
+        const bool show = calibrateBusy && uiCalibrate && uiCalibrate->visible;
+        setVisible(uiCalibrateProcessing, show);
+        setBool(uiCalibrateProcessing->accentProgressBar, show);
+        setFloat(uiCalibrateProcessing->accentProgress01, statusStripImportProgress01 >= 0.0f ? statusStripImportProgress01 : -1.0f);
+        if (show)
+        {
+            setText(uiCalibrateProcessing, statusStripImportBusy ? "Importing model..." : "Refreshing calibration...");
+            if (!statusStripImportBusy && uiCalibrateProcessing->accentProgress01 < 0.0f)
+                setFloat(uiCalibrateProcessing->accentProgress01, 0.75f);
+        }
+    }
+
+    if (calibSec_Prerequisites)
+    {
+        if (calibSec_Prerequisites->visible != !calibrateBusy)
+        {
+            calibSec_Prerequisites->visible = !calibrateBusy;
+            changed = true;
+        }
+    }
+    if (calibSec_Parameters)
+    {
+        const bool nextVisible = !calibrateBusy && calibStepImport == Icons::StepState::Done;
+        if (calibSec_Parameters->visible != nextVisible)
+        {
+            calibSec_Parameters->visible = nextVisible;
+            changed = true;
+        }
+    }
+    RefreshCalibDerivedRowVisible();
+    if (changed)
+        uiRenderer.MarkDirty();
+}
+
+void Display::RefreshStatusStripIdleText()
+{
+    if (statusStripImportBusy)
+    {
+        if (uiStatusStrip)
+        {
+            uiStatusStrip->visible = true;
+            SyncStatusStripTextLine();
+        }
+        return;
+    }
+    if (scene == nullptr)
+    {
+        statusStripLine.clear();
+        if (statusStripTextLine != nullptr)
+            statusStripTextLine->text.clear();
+        if (uiStatusStrip)
+        {
+            uiStatusStrip->visible = false;
+            uiRenderer.MarkDirty();
+        }
+        return;
+    }
+    const size_t nSol = scene->solids.size();
+    const unsigned renderedVerts = static_cast<unsigned>(renderer.UploadedTriangleVertexCount() +
+                                                          renderer.UploadedLineVertexCount());
+    char buf[256];
+    const unsigned long long fullRebuilds = static_cast<unsigned long long>(renderer.FullRebuildCount());
+    const unsigned long long partialRebuilds = static_cast<unsigned long long>(renderer.PartialRebuildCount());
+    const unsigned long long recolors = static_cast<unsigned long long>(renderer.RecolorOnlyCount());
+    const unsigned long long guardViol = static_cast<unsigned long long>(invalidationStats.guardrailViolations);
+    const unsigned long long fallbackCnt = static_cast<unsigned long long>(invalidationStats.fallbackToFullRebuild);
+    const unsigned long long geomExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Geometry)]);
+    const unsigned long long styleExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Style)]);
+    const unsigned long long pickExec =
+        static_cast<unsigned long long>(invalidationStats.executed[static_cast<size_t>(InvalidationNode::Pick)]);
+    const char *analysisState = "off";
+    if (analysisEnabled)
+    {
+        analysisState = "idle";
+        if (pendingAnalysisTask.has_value())
+            analysisState = (pendingAnalysisScene == scene) ? "running" : "running(other)";
+        else if (pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene)
+            analysisState = "ready";
+        else if (pendingAnalysisAfterGeometryRebuild)
+            analysisState = "queued";
+        else if (renderer.FullRebuildInProgress() && activeAnalysisTintForRebuild.has_value())
+            analysisState = "applying";
+        else if (lastCommittedAnalysisForRecolor.has_value())
+            analysisState = "applied";
+    }
+    if (nSol == 1)
+        snprintf(buf, sizeof(buf),
+                 "1 solid, %u verts | A:%s | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 renderedVerts, analysisState, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec, pickExec,
+                 guardViol, fallbackCnt);
+    else
+        snprintf(buf, sizeof(buf),
+                 "%zu solids, %u verts | A:%s | R f:%llu p:%llu c:%llu | G:%llu S:%llu P:%llu | guard:%llu fb:%llu",
+                 nSol, renderedVerts, analysisState, fullRebuilds, partialRebuilds, recolors, geomExec, styleExec,
+                 pickExec, guardViol, fallbackCnt);
+    statusStripLine.assign(buf);
+    if (uiStatusStrip)
+        uiStatusStrip->visible = true;
+    SyncStatusStripTextLine();
+}
+
+void Display::CompleteFileImport(const std::string &path)
+{
+    // Legacy synchronous path retained as fallback. Normal imports are now handled
+    // by ProcessDeferredImportIfAny() using an async worker.
+    auto ext = path.substr(path.find_last_of('.') + 1);
+    std::string lower;
+    for (char c : ext)
+        lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+    auto importedScene = std::make_unique<Scene>();
+    if (lower == "stl")
+        STLImport::Import(path, importedScene.get());
+    else if (lower == "obj")
+        OBJImport::Import(path, importedScene.get());
+    else if (lower == "3mf")
+        ThreeMFImport::Import(path, importedScene.get());
+
+    ownedScenes.push_back(std::move(importedScene));
+    activeSceneIndex = ownedScenes.size() - 1;
+    scene = ownedScenes.back().get();
+    FrameScene();
+    UpdateScene();
+
+    std::string filename = path.substr(path.find_last_of("/\\") + 1);
+
+    {
+        auto &sl = SessionLogger::Instance();
+        sl.state.lastFilename = filename;
+        sl.state.lastFormat = lower;
+        sl.state.points = scene->points.size();
+        sl.state.edges = scene->edges.size();
+        sl.state.faces = scene->faces.size();
+        sl.state.solids = scene->solids.size();
+        sl.LogFileImport(filename, lower);
+    }
+
+    openFiles.push_back(filename);
+    RebuildFileTabs();
+
+    calibStepImport = Icons::StepState::Done;
+    ClearCalibrateFacePicks();
+    calibPara_Import->visible = false;
+    calibPara_Point1->visible = true;
+    calibPara_Point1->selected = true;
+    calibStepPoint1 = Icons::StepState::Active;
+    calibPara_Point2->visible = true;
+    calibStepPoint2 = Icons::StepState::Active;
+    if (calibSec_Parameters)
+        calibSec_Parameters->visible = true;
+    RefreshCalibDerivedRowVisible();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+
+    // After returning from the native file dialog, macOS can deliver a short tail of synthesized
+    // wheel/touch events (trackpad inertia / focus handoff). They should not drive camera gestures.
+    SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
+    SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+
+    statusStripImportBusy = false;
+    statusStripImportProgress01 = -1.0f;
+    pendingImportTabStem.clear();
+    pendingFileTabsRebuild = true;
+    RefreshStatusStripIdleText();
+}
+
+void Display::ProcessDeferredImportIfAny()
+{
+    using namespace std::chrono_literals;
+
+    if (pendingImportTask.has_value())
+    {
+        std::optional<AsyncImportResult> readyResult = pendingImportTask->TryTake();
+        if (!readyResult.has_value())
+            return;
+        AsyncImportResult result = std::move(*readyResult);
+        pendingImportTask.reset();
+
+        if (!result.ok || !result.importedScene)
+        {
+            if (!result.cancelled)
+                LOG_WARN("Import failed for", result.path);
+            statusStripImportBusy = false;
+            statusStripImportProgress01 = -1.0f;
+            pendingImportTabStem.clear();
+            pendingFileTabsRebuild = true;
+            RefreshStatusStripIdleText();
+            return;
+        }
+
+        struct ImportApplyState
+        {
+            AsyncImportResult result;
+            std::string filename;
+            double frameSceneMs = 0.0;
+            double updateSceneMs = 0.0;
+        };
+
+        auto state = std::make_shared<ImportApplyState>();
+        state->result = std::move(result);
+        state->filename = state->result.path.substr(state->result.path.find_last_of("/\\") + 1);
+
+        mainThreadPipeline.Enqueue("import-attach-scene", [this, state](double) -> bool
+                                   {
+                                       ownedScenes.push_back(std::move(state->result.importedScene));
+                                       activeSceneIndex = ownedScenes.size() - 1;
+                                       scene = ownedScenes.back().get();
+                                       skipAnalysisForNextGeometryRebuild = true;
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-frame-scene", [this, state](double) -> bool
+                                   {
+                                       using Clock = std::chrono::steady_clock;
+                                       const Clock::time_point tStart = Clock::now();
+                                       FrameScene();
+                                       state->frameSceneMs =
+                                           std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-update-scene", [this, state](double) -> bool
+                                   {
+                                       using Clock = std::chrono::steady_clock;
+                                       const Clock::time_point tStart = Clock::now();
+                                       UpdateScene();
+                                       state->updateSceneMs =
+                                           std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
+                                       return true;
+                                   });
+
+        mainThreadPipeline.Enqueue("import-finalize-ui", [this, state](double) -> bool
+                                   {
+                                       if (state->result.lower == "stl" && state->result.hasStlStats)
+                                       {
+                                           const double pipelineMs =
+                                               state->result.importerMs + state->frameSceneMs + state->updateSceneMs;
+                                           LOG_INFO("Import timing STL parseMs", state->result.stlParseMs,
+                                                    "mergeMs", state->result.stlMergeMs,
+                                                    "stlTotalMs", state->result.stlTotalMs,
+                                                    "importerMs", state->result.importerMs,
+                                                    "frameSceneMs", state->frameSceneMs,
+                                                    "updateSceneMs", state->updateSceneMs,
+                                                    "pipelineMs", pipelineMs,
+                                                    "triangles", state->result.stlTriangles,
+                                                    "uniquePoints", state->result.stlUniquePoints,
+                                                    "faces", state->result.stlFaces);
+                                       }
+
+                                       auto &sl = SessionLogger::Instance();
+                                       sl.state.lastFilename = state->filename;
+                                       sl.state.lastFormat = state->result.lower;
+                                       sl.state.points = scene->points.size();
+                                       sl.state.edges = scene->edges.size();
+                                       sl.state.faces = scene->faces.size();
+                                       sl.state.solids = scene->solids.size();
+                                       sl.LogFileImport(state->filename, state->result.lower);
+
+                                       pendingImportTabStem.clear();
+                                       openFiles.push_back(state->filename);
+                                       RebuildFileTabs();
+
+                                       calibStepImport = Icons::StepState::Done;
+                                       ClearCalibrateFacePicks();
+                                       calibPara_Import->visible = false;
+                                       calibPara_Point1->visible = true;
+                                       calibPara_Point1->selected = true;
+                                       calibStepPoint1 = Icons::StepState::Active;
+                                       calibPara_Point2->visible = true;
+                                       calibStepPoint2 = Icons::StepState::Active;
+                                       if (calibSec_Parameters)
+                                           calibSec_Parameters->visible = true;
+                                       RefreshCalibDerivedRowVisible();
+                                       uiRenderer.MarkDirty();
+                                       renderDirty = true;
+
+                                       SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
+                                       SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+
+                                       statusStripImportBusy = false;
+                                       statusStripImportProgress01 = -1.0f;
+                                       RefreshStatusStripIdleText();
+                                       return true;
+                                   });
+        return;
+    }
+
+    if (!deferredImportPath)
+        return;
+    std::string path = std::move(*deferredImportPath);
+    deferredImportPath.reset();
+
+    const std::string fname = std::filesystem::path(path).filename().string();
+    pendingImportTabStem = std::filesystem::path(path).stem().string();
+    if (uiVerdict)
+        uiVerdict->values.clear();
+    lastVerdictWasPass = false;
+    flawOverhang = {};
+    flawSharp = {};
+    flawThin = {};
+    flawSmall = {};
+    statusStripImportBusy = true;
+    statusStripImportProgress01 = -1.0f;
+    statusStripLine = "Importing " + fname + "…";
+    pendingFileTabsRebuild = true;
+    if (uiStatusStrip)
+        uiStatusStrip->visible = true;
+    SyncStatusStripTextLine();
+    Render();
+
+    mainThreadPipeline.Clear();
+
+    if (pendingImportTask.has_value())
+    {
+        pendingImportTask->RequestCancel();
+        pendingImportTask.reset();
+    }
+
+    pendingImportTask = taskRunner.Submit([path](const TaskRunner::CancellationToken &token) -> AsyncImportResult
+                                          {
+                                              using Clock = std::chrono::steady_clock;
+                                              AsyncImportResult result;
+                                              result.path = path;
+
+                                              auto ext = path.substr(path.find_last_of('.') + 1);
+                                              for (char c : ext)
+                                                  result.lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+
+                                              if (token.IsCancellationRequested())
+                                              {
+                                                  result.cancelled = true;
+                                                  return result;
+                                              }
+
+                                              result.importedScene = std::make_unique<Scene>();
+                                              const Clock::time_point tImporterStart = Clock::now();
+
+                                              if (result.lower == "stl")
+                                              {
+                                                  STLImportStats stlStats;
+                                                  result.ok = STLImport::Import(path, result.importedScene.get(), &stlStats);
+                                                  result.hasStlStats = result.ok;
+                                                  if (result.hasStlStats)
+                                                  {
+                                                      result.stlParseMs = stlStats.parseMs;
+                                                      result.stlMergeMs = stlStats.mergeMs;
+                                                      result.stlTotalMs = stlStats.totalMs;
+                                                      result.stlTriangles = stlStats.triangleCount;
+                                                      result.stlUniquePoints = stlStats.uniquePoints;
+                                                      result.stlFaces = stlStats.faces;
+                                                  }
+                                              }
+                                              else if (result.lower == "obj")
+                                              {
+                                                  result.ok = OBJImport::Import(path, result.importedScene.get());
+                                              }
+                                              else if (result.lower == "3mf")
+                                              {
+                                                  result.ok = ThreeMFImport::Import(path, result.importedScene.get());
+                                              }
+                                              else
+                                              {
+                                                  result.ok = false;
+                                              }
+
+                                              if (token.IsCancellationRequested())
+                                              {
+                                                  result.cancelled = true;
+                                                  result.ok = false;
+                                              }
+
+                                              result.importerMs = std::chrono::duration<double, std::milli>(Clock::now() - tImporterStart).count();
+                                              if (!result.ok)
+                                                  result.importedScene.reset();
+                                              return result;
+                                          });
+}
+
+void Display::DoFileImport()
+{
+    FileImport::OpenFileDialog(window, [this](const std::string &path)
+                               {
+                                   deferredImportPath = path;
+                                   renderDirty = true;
+                               });
+}
+
+void Display::RebuildFileTabs()
+{
+    // Compact tab style: natural layer-2 paragraph defaults (margin=INSET, padding=0) — matches Analysis children.
+
+    const bool showPendingImportTab =
+        !pendingImportTabStem.empty() && (statusStripImportBusy || pendingImportTask.has_value());
+
+    uiFiles->children.clear();
+    uiFiles->children.reserve(openFiles.size() + 1 + (showPendingImportTab ? 1 : 0)); // tabs + optional import + "+"
+
+    for (size_t i = 0; i < openFiles.size(); i++)
+    {
+        // Use "file_N" as the paragraph id — unique even if two files share the same name.
+        // Visible label comes from line.text, not the id.
+        Paragraph &tab = uiFiles->AddParagraph("file_" + std::to_string(i));
+        tab.values.reserve(1);
+        SectionLine &line = tab.values.emplace_back();
+        line.text = std::filesystem::path(openFiles[i]).stem().string();
+        line.selected = (i == activeSceneIndex);
+        line.onClick = [this, i]()
+        {
+            ClearPickHover();
+            ClearCalibrateFacePicks();
+            calibStepPoint1 = Icons::StepState::Active;
+            calibStepPoint2 = Icons::StepState::Active;
+            if (calibPara_Point1)
+                calibPara_Point1->selected = true;
+            if (calibPara_Point2)
+                calibPara_Point2->selected = false;
+
+            scene = ownedScenes[i].get();
+            activeSceneIndex = i;
+            UpdateScene();
+            FrameScene();
+            pendingFileTabsRebuild = true;
+            uiRenderer.MarkDirty();
+        };
+    }
+
+    if (showPendingImportTab)
+    {
+        Paragraph &impTab = uiFiles->AddParagraph("file_pending_import");
+        impTab.values.reserve(1);
+        SectionLine &impLine = impTab.values.emplace_back();
+        impLine.text.clear();
+        impLine.bold = false;
+        impLine.textDepth = 2;
+        impLine.getMinContentWidthPx = [this]()
+        {
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                return 160.0f;
+            const std::string preview = std::string("Importing ") + pendingImportTabStem;
+            return f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, preview.c_str()).x + ImGui::GetStyle().FramePadding.x * 4.0f;
+        };
+        impLine.imguiContent = [this](float w, float h, float /*iconOffset*/)
+        {
+            if (pendingImportTabStem.empty())
+                return;
+            ImDrawList *dl = ImGui::GetWindowDrawList();
+            const ImVec2 o = ImGui::GetCursorScreenPos();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const std::string title = std::string("Importing ") + pendingImportTabStem;
+            glm::vec4 tc = Color::GetUIText(2);
+            ImFont *font = uiRenderer.GetPixelImFont() ? uiRenderer.GetPixelImFont() : ImGui::GetFont();
+            const float fs = font->FontSize;
+            dl->AddText(font, fs, ImVec2(o.x + pad, o.y + pad * 0.5f),
+                        ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a)), title.c_str());
+
+            constexpr float barH = 4.0f;
+            const float barY = o.y + h - barH - pad * 0.75f;
+            const float bx0 = o.x + pad;
+            const float bx1 = o.x + w - pad;
+            if (bx1 <= bx0 + 2.0f)
+                return;
+            const float rr = barH * 0.5f;
+            glm::vec4 trackCol = Color::GetAccent(3, 0.22f, 0.55f);
+            dl->AddRectFilled(ImVec2(bx0, barY), ImVec2(bx1, barY + barH),
+                              ImGui::GetColorU32(ImVec4(trackCol.r, trackCol.g, trackCol.b, trackCol.a)), rr);
+            glm::vec4 fillCol = Color::GetAccent(2, 1.0f, 1.0f);
+            float t = statusStripImportProgress01;
+            if (t < 0.0f)
+                t = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.55f, 1.0f);
+            t = std::clamp(t, 0.0f, 1.0f);
+            const float fillX = bx0 + (bx1 - bx0) * t;
+            dl->AddRectFilled(ImVec2(bx0, barY), ImVec2(fillX, barY + barH),
+                              ImGui::GetColorU32(ImVec4(fillCol.r, fillCol.g, fillCol.b, fillCol.a)), rr);
+        };
+    }
+
+    // "+" import button — always at the end
+    Paragraph &importTab = uiFiles->AddParagraph("+");
+    importTab.values.reserve(1);
+    SectionLine &importLine = importTab.values.emplace_back();
+    importLine.iconDraw = Icons::ImportFile();
+    importLine.onClick = [this]()
+    { DoFileImport(); };
+
+    uiRenderer.MarkDirty();
 }
 
 void Display::InitUI()
 {
+    float toolbarWidth = 2.0f;
     float sidebarWidth = 10.0f;
 
-    // Header
-    Panel filesDef;
+    // ── Settings panel (left column: persistent app settings) ───────────────
+    // Sections (Appearance, Viewport, Navigation) are populated further below.
+    {
+        RootPanel settingsDef;
+        settingsDef.id = "Settings";
+        settingsDef.bgParentDepth = 0;
+        settingsDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+        settingsDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        settingsDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+        settingsDef.header = Header{"Settings", 1.0f, 2};
+        uiSettings = &uiRenderer.AddPanel(settingsDef);
+        uiSettings->children.reserve(3); // Appearance, Viewport, Navigation
+    }
+
+    // ── Toolbar (column 2: tool selector) ────────────────────────────────────
+    {
+        RootPanel toolbarDef;
+        toolbarDef.id = "Toolbar";
+        toolbarDef.bgParentDepth = 0;
+        toolbarDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Right};
+        toolbarDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        toolbarDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
+        toolbarDef.width = toolbarWidth;
+        uiToolbar = &uiRenderer.AddPanel(toolbarDef);
+        uiToolbar->children.reserve(2);
+
+        {
+            Paragraph &p = uiToolbar->AddParagraph("ToolAnalysis");
+            p.values.reserve(1);
+            SectionLine &line = p.values.emplace_back();
+            line.iconDraw = Icons::ToolAnalysis();
+            line.fontScale = 1.4f;
+            line.squareIconHit = true;
+            line.selected = true; // Analysis is the default active tool
+            line.onClick = [this]()
+            {
+                if (activeTool == ActiveTool::Analysis)
+                {
+                    uiAnalysis->visible = !uiAnalysis->visible;
+                    if (!uiAnalysis->visible)
+                    {
+                        ClearPickHover();
+                        ClearCalibrateFacePicks();
+                    }
+                    if (analysisEnabled != uiAnalysis->visible)
+                    {
+                        analysisEnabled = uiAnalysis->visible;
+                        UpdateScene();
+                    }
+                    SyncToolbarToolVisualState();
+                    renderDirty = true;
+                    return;
+                }
+                activeTool = ActiveTool::Analysis;
+                pendingToolSwitch = true;
+                renderDirty = true;
+            };
+            toolbarAnalysisLine = &line;
+        }
+        {
+            Paragraph &p = uiToolbar->AddParagraph("ToolCalibrate");
+            p.values.reserve(1);
+            SectionLine &line = p.values.emplace_back();
+            line.iconDraw = Icons::ToolCalibrate();
+            line.fontScale = 1.4f;
+            line.squareIconHit = true;
+            line.onClick = [this]()
+            {
+                if (activeTool == ActiveTool::Calibrate)
+                {
+                    uiCalibrate->visible = !uiCalibrate->visible;
+                    if (!uiCalibrate->visible)
+                    {
+                        ClearPickHover();
+                        ClearCalibrateFacePicks();
+                    }
+                    SyncToolbarToolVisualState();
+                    renderDirty = true;
+                    return;
+                }
+                activeTool = ActiveTool::Calibrate;
+                pendingToolSwitch = true;
+                renderDirty = true;
+            };
+            toolbarCalibrateLine = &line;
+        }
+    }
+
+    // Status strip — same root-panel stack as Settings/Toolbar (GL card + ImGui row). Layout pass in
+    // UIRenderer::ResolveAnchors shifts Settings/Toolbar down by this panel's row span.
+    {
+        RootPanel statusDef;
+        statusDef.id = "StatusStrip";
+        statusDef.bgParentDepth = 0;
+        statusDef.leftAnchor = PanelAnchor{uiSettings, PanelAnchor::Left};
+        statusDef.rightAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+        statusDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
+        // Match Files / other root panels: default RootPanel borderRadius + margin + padding;
+        // default Paragraph (layer 2) margin/padding — same box model as header/body rows elsewhere.
+        uiStatusStrip = &uiRenderer.AddPanel(statusDef);
+        uiStatusStrip->children.reserve(1); // RootPanel::AddParagraph requires capacity > size (see Panel.hpp)
+        Paragraph &stripPara = uiStatusStrip->AddParagraph("Line");
+        SectionLine &stripLine = stripPara.values.emplace_back();
+        stripLine.fontScale = 1.0f;
+        stripLine.textDepth = 2;
+        statusStripTextLine = &stripLine;
+    }
+
+    // Files tab bar — spans from toolbar right edge to screen right
+    RootPanel filesDef;
     filesDef.id = "Files";
-    filesDef.color = Color::GetUI(1);
-    filesDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
+    filesDef.bgParentDepth = 0;
+    filesDef.horizontal = true;
+    filesDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
     filesDef.minWidth = sidebarWidth;
-    Panel &files = uiRenderer.AddPanel(filesDef);
-    uiRenderer.AddButton(files, [this]()
-                         { FileImport::OpenFileDialog(window, [this](const std::string &path)
-                                                      {
-                                                         auto ext = path.substr(path.find_last_of('.') + 1);
-                                                         std::string lower;
-                                                         for (char c : ext) lower += std::tolower(c);
-
-                                                         if (lower == "stl")
-                                                             STLImport::Import(path, this->scene);
-                                                         else if (lower == "obj")
-                                                             OBJImport::Import(path, this->scene);
-                                                         else if (lower == "3mf")
-                                                             ThreeMFImport::Import(path, this->scene);
-
-                                                         FrameScene();
-                                                         UpdateScene(); }); });
+    filesDef.header = Header{"Files", 1.0f, 2};
+    uiFiles = &uiRenderer.AddPanel(filesDef);
+    RebuildFileTabs();
 
     // Analysis panel with sections
-    Panel analysisDef;
+    RootPanel analysisDef;
     analysisDef.id = "Analysis";
-    analysisDef.color = Color::GetUI(1);
-    analysisDef.leftAnchor = PanelAnchor{nullptr, PanelAnchor::Left};
-    analysisDef.topAnchor = PanelAnchor{&files, PanelAnchor::Bottom};
-    Panel &analysis = uiRenderer.AddPanel(analysisDef);
-    Panel &result = analysis.AddSection("Result");
-    result.showLabel = false;
-    result.visible = false;
-    Panel &import = analysis.AddSection("Import");
-    import.id = "Import file";
-    analysis.AddSection("Verdict").visible = false;
+    analysisDef.bgParentDepth = 0;
+    analysisDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+    analysisDef.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
+    uiAnalysis = &uiRenderer.AddPanel(analysisDef);
 
-    // Parameter sections (clickable to cycle through presets)
-    analysis.AddSection("Overhang angle").visible = false;
-    analysis.AddSection("Sharp corner").visible = false;
-    analysis.AddSection("Min feature").visible = false;
-    analysis.AddSection("Layer height").visible = false;
+#if 1 // DEBUG: panel-only mode — sections/content hidden for layout debugging
+    uiAnalysis->header = Header{"Analysis", 1.0f, 2};
+    {
+        Paragraph &sub = uiAnalysis->subtitle.emplace();
+        sub.values.reserve(1);
+        SectionLine &line = sub.values.emplace_back();
+        line.text = "Detect possible 3D printing issues by analyzing geometry";
+        line.textDepth = 1;
+    }
+    uiAnalysis->children.reserve(5); // stable pointers: Result + ImportAction + Verdict + Configs + Processing
+    uiResult = &uiAnalysis->AddParagraph("Result");
+    uiResult->visible = false;
+    {
+        PrerequisiteDef importDef;
+        importDef.id          = "ImportAction";
+        importDef.title       = "Import a file";
+        importDef.leadingDraw = Icons::CheckBox(&analysisStepImport);
+        importDef.active      = true;
+        importDef.onClick     = [this]() { DoFileImport(); };
+        uiAnalysis->AddParagraph(importDef.id) = BuildPrerequisiteParagraph(importDef);
+        uiImportPara = &std::get<Paragraph>(uiAnalysis->children.back());
+    }
+    uiVerdict = &uiAnalysis->AddParagraph("Verdict");
+    uiVerdict->visible = false;
 
-    uiRenderer.SetSectionClick("Analysis", "Overhang angle", [this]()
-                               {
-                                   overhangAngle = NextPreset(overhangAngle, kOverhangPresets);
-                                   RebuildAnalysis();
-                                   UpdateScene(); });
-    uiRenderer.SetSectionClick("Analysis", "Sharp corner", [this]()
-                               {
-                                   sharpCornerAngle = NextPreset(sharpCornerAngle, kSharpCornerPresets);
-                                   RebuildAnalysis();
-                                   UpdateScene(); });
-    uiRenderer.SetSectionClick("Analysis", "Min feature", [this]()
-                               {
-                                   minFeatureSize = NextPreset(minFeatureSize, kFeatureSizePresets);
-                                   RebuildAnalysis();
-                                   UpdateScene(); });
-    uiRenderer.SetSectionClick("Analysis", "Layer height", [this]()
-                               {
-                                   layerHeight = NextPreset(layerHeight, kLayerHeightPresets);
-                                   RebuildAnalysis();
-                                   UpdateScene(); });
+    // Merged result+config rows — always present once a model is loaded.
+    // Each row shows: [icon] [count label (flaw color)] · [param value (dim)] [unit]
+    // DragFloat spans the full row; a left-zone InvisibleButton handles click-to-navigate.
+    uiResult = &uiAnalysis->AddParagraph("Result");
+    uiResult->visible = false;
+    uiResult->values.reserve(4);
+
+    // Helper: builds an imguiContent lambda for a merged flaw+param row.
+    // flawResult    = member to read count/frameCallback from (captured by ref via this)
+    // flawColor     = bright flaw color for count+label text
+    // countLabel    = e.g. " overhang"  (leading space, singular; "s" appended when count>1)
+    // paramLabel    = short label shown dim to the right of the value, e.g. "°" or " mm"
+    // getValue      = getter lambda returning float
+    // setValue      = setter lambda (float)
+    // dragSpeed/min/max/fmt = DragFloat parameters
+
+    auto makeFlawRow = [this](
+                           SectionLine &line,
+                           glm::vec4 flawColor,
+                           Icons::DrawFn icon,
+                           const char *countLabel, // singular, e.g. " overhang"
+                           const char *plural,     // suffix when count>1, e.g. "s"
+                           FlawResult Display::*flawMember,
+                           float &param,
+                           float dragSpeed, float dragMin, float dragMax,
+                           const char *unit, // e.g. "°" or "mm"
+                           const char *dragId,
+                           const char *minWidthLabel, // e.g. "45°" for min width estimate
+                           bool isAngle               // true = format "%.0f", false = "%.2f"/"%.1f" based on dragSpeed
+                       )
+    {
+        line.iconDraw = [this, flawMember, icon](ImDrawList *dl, float x, float midY, float s)
+        {
+            FlawResult &fr = this->*flawMember;
+            if (fr.count == 0)
+                ImGui::PushStyleVar(ImGuiStyleVar_Alpha, ImGui::GetStyle().Alpha * 0.35f);
+            icon(dl, x, midY, s);
+            if (fr.count == 0)
+                ImGui::PopStyleVar();
+        };
+
+        // Minimum content width (excluding icon slot, which computeParagraphBox adds separately).
+        line.getMinContentWidthPx = [this, countLabel, plural, minWidthLabel, unit, isAngle]() -> float
+        {
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                return 0.0f;
+            float pad = ImGui::GetStyle().FramePadding.x;
+            std::string longestCount = std::string("No") + countLabel + plural;
+            float countW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestCount.c_str()).x;
+            std::string longestVal = isAngle ? std::string(minWidthLabel) + unit
+                                             : std::string(minWidthLabel) + " " + unit;
+            float valW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestVal.c_str()).x;
+            constexpr float gap = 24.0f;
+            return pad * 2.0f + countW + gap + valW;
+        };
+
+        line.imguiContent = [this, flawColor, countLabel, plural, flawMember,
+                             &param, dragSpeed, dragMin, dragMax,
+                             unit, dragId, isAngle](float w, float h, float iconOffset)
+        {
+            FlawResult &fr = this->*flawMember;
+            glm::vec4 dimColor = Color::GetUIText(1);
+            glm::vec4 dimLow = Color::GetUIText(0);
+
+            UIStyle::PushInputStyle(h, dimColor);
+            float normalPad = ImGui::GetStyle().FramePadding.x;
+            ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+            float originX = rowOrigin.x;
+
+            // ── Left nav zone: InvisibleButton placed BEFORE DragFloat ──────────
+            // Compute left zone width from count label (CalcTextSize valid here — inside a frame)
+            char countBuf[64];
+            snprintf(countBuf, sizeof(countBuf), "%zu%s%s", fr.count, countLabel,
+                     fr.count > 1 ? plural : "");
+            float leftW = iconOffset + ImGui::CalcTextSize(countBuf).x + normalPad * 2.5f;
+            leftW = std::min(leftW, w * 0.65f); // never crowd out the param zone
+
+            bool navFired = false;
+            bool showEdit = fr.editing || fr.focusPending;
+
+            if (!showEdit)
+            {
+                char navId[64];
+                snprintf(navId, sizeof(navId), "##nav%s", dragId);
+                ImGui::InvisibleButton(navId, ImVec2(leftW, h));
+
+                if (ImGui::IsItemActivated())
+                {
+                    fr.navTracking = true;
+                    fr.navStart = ImGui::GetIO().MousePos;
+                }
+                if (fr.navTracking && !ImGui::IsItemActive())
+                {
+                    ImVec2 ep = ImGui::GetIO().MousePos;
+                    float d = (ep.x - fr.navStart.x) * (ep.x - fr.navStart.x) +
+                              (ep.y - fr.navStart.y) * (ep.y - fr.navStart.y);
+                    if (d < 9.0f && fr.count > 0 && fr.frameCallback)
+                        navFired = true;
+                    fr.navTracking = false;
+                }
+                // Hover tint on left zone (only when there's something to navigate to)
+                if (fr.count > 0 && fr.frameCallback)
+                    UIStyle::DrawInputHoverTint(1);
+                else if (ImGui::IsItemHovered())
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow); // no pointer when non-navigable
+            }
+
+            // Always position DragFloat at the right zone — even in edit mode.
+            // Add a small gap in edit mode so the input field doesn't butt up against the label.
+            float editGap = showEdit ? normalPad * 3.0f : 0.0f;
+            ImGui::SetCursorScreenPos(ImVec2(originX + leftW + editGap, rowOrigin.y));
+
+            // ── Right param zone: DragFloat ──────────────────────────────────────
+            float rightW = w - leftW - editGap;
+
+            if (fr.requestEdit)
+            {
+                ImGui::SetKeyboardFocusHere();
+                fr.requestEdit = false;
+                fr.focusPending = true;
+                showEdit = true;
+            }
+
+            ImGui::SetNextItemWidth(rightW);
+            const char *fmt = showEdit ? (isAngle ? "%.0f" : (dragSpeed < 0.1f ? "%.2f" : "%.1f")) : "";
+            bool changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
+            const bool committedEdit = ImGui::IsItemDeactivatedAfterEdit();
+            UIStyle::DrawInputHoverTint(1);
+
+            fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+            if (fr.editing)
+                fr.focusPending = false;
+
+            if (ImGui::IsItemActivated())
+            {
+                fr.tracking = true;
+                fr.startPos = ImGui::GetIO().MousePos;
+            }
+            if (fr.tracking && !ImGui::IsItemActive())
+            {
+                ImVec2 ep = ImGui::GetIO().MousePos;
+                float d = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
+                          (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
+                if (d < 9.0f)
+                    fr.requestEdit = true;
+                fr.tracking = false;
+            }
+
+            // ── Text overlay ─────────────────────────────────────────────────────
+            float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
+            ImU32 flawCol = ImGui::GetColorU32(ImVec4(flawColor.r, flawColor.g, flawColor.b, flawColor.a));
+            ImU32 dimCol = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a));
+            ImU32 dimColZero = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a * 0.5f));
+
+            // Left label — always visible (even during text edit)
+            if (fr.count > 0)
+                ImGui::GetWindowDrawList()->AddText(
+                    ImVec2(originX + iconOffset + normalPad, ty), flawCol, countBuf);
+            else
+            {
+                std::string noFlawLabel = std::string("No") + countLabel + plural;
+                ImGui::GetWindowDrawList()->AddText(
+                    ImVec2(originX + iconOffset + normalPad, ty), dimColZero, noFlawLabel.c_str());
+            }
+
+            // Right side: param value in normal mode, unit hint in edit mode
+            if (!showEdit)
+            {
+                char valBuf[32];
+                if (isAngle)
+                    snprintf(valBuf, sizeof(valBuf), "%.0f%s", param, unit);
+                else if (dragSpeed < 0.1f)
+                    snprintf(valBuf, sizeof(valBuf), "%.2f %s", param, unit);
+                else
+                    snprintf(valBuf, sizeof(valBuf), "%.1f %s", param, unit);
+                ImVec2 vs = ImGui::CalcTextSize(valBuf);
+                ImU32 valCol = (fr.count > 0) ? dimCol : dimColZero;
+                ImGui::GetWindowDrawList()->AddText(
+                    ImVec2(originX + w - normalPad - vs.x, ty), valCol, valBuf);
+            }
+            else
+            {
+                ImVec2 us = ImGui::CalcTextSize(unit);
+                ImGui::GetWindowDrawList()->AddText(
+                    ImVec2(originX + w - normalPad - us.x, ty), dimCol, unit);
+            }
+
+            if (navFired)
+                fr.frameCallback();
+            if (changed || committedEdit)
+            {
+                auto &sl = SessionLogger::Instance();
+                sl.state.overhangAngle = this->overhangAngle;
+                sl.state.sharpCornerAngle = this->sharpCornerAngle;
+                sl.state.thinMinWidth = this->thinMinWidth;
+                sl.state.minFeatureSize = this->minFeatureSize;
+                sl.state.layerHeight = this->layerHeight;
+                sl.LogParamChange(std::string(dragId + 2), param);
+                RebuildAnalysis();
+                UpdateScene();
+            }
+            UIStyle::PopInputStyle();
+        };
+    };
+
+    glm::vec4 overhangColor = {Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
+                               Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
+                               Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f};
+    glm::vec4 thinColor = {Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
+                           Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
+                           Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f};
+    glm::vec4 smallColor = {Color::GetFace(FaceFlawKind::SMALL_FEATURE).r + 0.4f,
+                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).g + 0.4f,
+                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).b + 0.2f, 1.0f};
+    glm::vec4 edgeColor = {Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
+                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
+                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f};
+    makeFlawRow(uiResult->values.emplace_back(), overhangColor,
+                Icons::Overhang(overhangColor),
+                " overhang", "s", &Display::flawOverhang,
+                overhangAngle, 0.5f, 0.0f, 90.0f, "\u00b0", "##overhang", "90", true);
+
+    makeFlawRow(uiResult->values.emplace_back(), edgeColor,
+                Icons::SharpCorner(edgeColor),
+                " sharp edge", "s", &Display::flawSharp,
+                sharpCornerAngle, 0.5f, 0.0f, 180.0f, "\u00b0", "##sharp", "180", true);
+
+    makeFlawRow(uiResult->values.emplace_back(), thinColor,
+                Icons::ThinSection(thinColor),
+                " thin section", "s", &Display::flawThin,
+                thinMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##thinsection", "2.0", false);
+
+    makeFlawRow(uiResult->values.emplace_back(), smallColor,
+                Icons::SmallFeature(smallColor),
+                " small feature", "s", &Display::flawSmall,
+                minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", false);
+
+    uiAnalysisProcessing = &uiAnalysis->AddParagraph("Processing");
+    uiAnalysisProcessing->visible = false;
+    uiAnalysisProcessing->dimFill = true;
+    uiAnalysisProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+    uiAnalysisProcessing->values.reserve(1);
+    {
+        SectionLine &line = uiAnalysisProcessing->values.emplace_back();
+        line.text = "Analysing faces...";
+        line.textDepth = 2;
+    }
 
     RebuildAnalysis();
 
-    uiRenderer.SetSectionClick("Analysis", "Import file", [this]()
-                               { FileImport::OpenFileDialog(window, [this](const std::string &path)
-                                                            {
-                                                                auto ext = path.substr(path.find_last_of('.') + 1);
-                                                                std::string lower;
-                                                                for (char c : ext) lower += std::tolower(c);
+#endif // DEBUG: panel-only mode
 
-                                                                if (lower == "stl")
-                                                                    STLImport::Import(path, this->scene);
-                                                                else if (lower == "obj")
-                                                                    OBJImport::Import(path, this->scene);
-                                                                else if (lower == "3mf")
-                                                                    ThreeMFImport::Import(path, this->scene);
+    // Settings panel — left column; extends from bottom of Analysis to bottom of screen.
+    // Covers appearance, viewport, and navigation configuration.
+    settingsAccentHue = Color::GetAccentHue();
+    settingsAccentSat = Color::GetAccentSat();
+    ImFont *settingsBodyFont = uiRenderer.GetBodyImFont();
 
-                                                                FrameScene();
-                                                                UpdateScene(); }); });
+    // Helper: builds a DragFloat row with a left label and right value overlay.
+    auto makeSettingsDrag = [this, settingsBodyFont](
+                                SectionLine &line,
+                                const char *label,
+                                float &param,
+                                float speed, float minVal, float maxVal,
+                                const char *valueFmt, // complete snprintf format, e.g. "%.0f\u00b0"
+                                const char *dragId,
+                                std::function<void()> onChange)
+    {
+        line.getMinContentWidthPx = [settingsBodyFont, label]() -> float
+        {
+            if (!settingsBodyFont)
+                return 0.0f;
+            float pad = ImGui::GetStyle().FramePadding.x;
+            float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x;
+            constexpr float minValueAreaW = 40.0f; // room for value text + drag affordance
+            constexpr float gap = 24.0f;
+            return pad * 2.0f + labelW + gap + minValueAreaW;
+        };
+
+        struct DragEditState
+        {
+            bool tracking = false;
+            bool requestEdit = false;
+            bool editing = false;
+            bool focusPending = false;
+            ImVec2 startPos{};
+        };
+        auto dragState = std::make_shared<DragEditState>();
+
+        line.imguiContent = [this, label, &param, speed, minVal, maxVal,
+                             valueFmt, dragId, onChange = std::move(onChange),
+                             settingsBodyFont, dragState](float w, float h, float iconOffset)
+        {
+            glm::vec4 tcLabel = Color::GetUIText(2); // label: prominent
+            glm::vec4 tcValue = Color::GetUIText(0); // value: subdued
+            float pad = ImGui::GetStyle().FramePadding.x;
+
+            UIStyle::PushInputStyle(h, tcLabel);
+            ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+            float originX = rowOrigin.x;
+
+            float labelFontSz = settingsBodyFont ? settingsBodyFont->FontSize : ImGui::GetFont()->FontSize;
+
+            bool showEdit = dragState->editing || dragState->focusPending;
+
+            if (dragState->requestEdit)
+            {
+                ImGui::SetKeyboardFocusHere();
+                dragState->requestEdit = false;
+                dragState->focusPending = true;
+                showEdit = true;
+            }
+
+            float dragW, dragOffsetX;
+            if (showEdit)
+            {
+                // Edit mode: right zone only so ImGui cursor text doesn't overlap the label.
+                float labelTextW = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
+                                       : ImGui::CalcTextSize(label).x;
+                float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
+                dragOffsetX = leftW;
+                dragW = w - leftW;
+            }
+            else
+            {
+                // Normal mode: full row width — label and value are painted on top.
+                dragOffsetX = 0.0f;
+                dragW = w;
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(originX + dragOffsetX, rowOrigin.y));
+            ImGui::SetNextItemWidth(dragW);
+            bool changed = ImGui::DragFloat(dragId, &param, speed, minVal, maxVal,
+                                            showEdit ? valueFmt : "");
+            UIStyle::DrawInputHoverTint(1);
+
+            dragState->editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+            if (dragState->editing)
+                dragState->focusPending = false;
+
+            if (ImGui::IsItemActivated())
+            {
+                dragState->tracking = true;
+                dragState->startPos = ImGui::GetIO().MousePos;
+            }
+            if (dragState->tracking && !ImGui::IsItemActive())
+            {
+                ImVec2 ep = ImGui::GetIO().MousePos;
+                float dx = ep.x - dragState->startPos.x;
+                float dy = ep.y - dragState->startPos.y;
+                if (dx * dx + dy * dy < 9.0f)
+                    dragState->requestEdit = true;
+                dragState->tracking = false;
+            }
+
+            ImDrawList *dl = ImGui::GetWindowDrawList();
+            float bottom = ImGui::GetItemRectMax().y - ImGui::GetStyle().FramePadding.y;
+
+            // Label: always drawn over the drag widget.
+            ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+            {
+                float ty_label = bottom - labelFontSz;
+                if (settingsBodyFont)
+                {
+                    ImGui::PushFont(settingsBodyFont);
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+                    ImGui::PopFont();
+                }
+                else
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+            }
+
+            // Value overlay: right edge, hidden during text edit (DragFloat renders it).
+            if (!showEdit)
+            {
+                char valBuf[32];
+                snprintf(valBuf, sizeof(valBuf), valueFmt, param);
+                ImVec2 vs = ImGui::CalcTextSize(valBuf);
+                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+            }
+
+            if (changed)
+                onChange();
+            UIStyle::PopInputStyle();
+        };
+    };
+
+    // Settings panel was created early in InitUI (left edge; toolbar sits to its right).
+    // Add sections to the existing uiSettings panel here.
+
+    // ── Appearance ────────────────────────────────────────────────────────────
+    Section &appearanceSection = uiSettings->AddSection("Appearance");
+    appearanceSection.header = Header{"Appearance", 1.0f, 2};
+    appearanceSection.tightHeader = true;
+    appearanceSection.children.reserve(1);
+
+    // All appearance rows in one paragraph — no splitters between them.
+    Paragraph &appearancePara = appearanceSection.AddParagraph("AppearanceRows");
+    // Theme + Accent + Contrast are appended below; reserve all so stored select pointers remain valid.
+    appearancePara.values.reserve(3);
+
+    // Theme selector: System / Light / Dark pill
+    {
+        SectionLine &themeSelect = appearancePara.values.emplace_back();
+        themeSelect.text = "Theme";
+        Select sel;
+        sel.options = {
+            {"System", Icons::ThemeSystem()},
+            {"Light", Icons::ThemeLight()},
+            {"Dark", Icons::ThemeDark()},
+        };
+        sel.activeIndex = static_cast<int>(themeMode);
+        sel.onChange = [this](int i)
+        {
+            themeMode = static_cast<ThemeMode>(i);
+            ApplyTheme();
+            uiRenderer.MarkDirty();
+        };
+        themeSelect.select = std::move(sel);
+        uiAppearanceThemeSelect = &themeSelect.select.value();
+    }
+
+    // Accent selector: System / Color pill — native select, identical layout to Theme.
+    // onActiveClick on zone 1 (Color) opens the HSV picker popup; postDraw hosts it in the same window.
+    {
+        SectionLine &accentSel = appearancePara.values.emplace_back();
+        accentSel.text = "Accent";
+        Select sel;
+        sel.options = {
+            {"System", Icons::ThemeSystem()},
+            {"Custom", Icons::AccentCustom()},
+        };
+        sel.activeIndex = settingsAccentUseSystem ? 0 : 1;
+        sel.onChange = [this](int i)
+        {
+            settingsAccentUseSystem = (i == 0);
+            if (settingsAccentUseSystem)
+            {
+                float hue, sat;
+                if (SystemAccent::GetHueSat(hue, sat))
+                {
+                    // Keep saved custom hue/sat for when user switches back to Custom — only drive live color from OS.
+                    Color::SetAccent(hue, sat);
+                    uiRenderer.MarkDirty();
+                    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                        MarkStyleDirty();
+                    MarkPickDirty();
+                }
+            }
+            else
+            {
+                Color::SetAccent(settingsAccentHue, settingsAccentSat);
+                uiRenderer.MarkDirty();
+                if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                    MarkStyleDirty();
+                MarkPickDirty();
+            }
+        };
+        sel.onActiveClick = [this]()
+        {
+            if (!settingsAccentUseSystem) // only Custom zone can be active here
+                settingsOpenAccentPicker = true;
+        };
+        sel.postDraw = [this]()
+        {
+            if (settingsOpenAccentPicker)
+            {
+                ImGui::OpenPopup("##accentPicker");
+                settingsOpenAccentPicker = false;
+            }
+            if (ImGui::BeginPopup("##accentPicker"))
+            {
+                float hsv[3] = {settingsAccentHue / 360.0f, settingsAccentSat, 1.0f};
+                float col4[4] = {};
+                ImGui::ColorConvertHSVtoRGB(hsv[0], hsv[1], hsv[2], col4[0], col4[1], col4[2]);
+                col4[3] = 1.0f;
+                if (ImGui::ColorPicker4("##picker", col4,
+                                        ImGuiColorEditFlags_NoAlpha |
+                                            ImGuiColorEditFlags_DisplayHSV |
+                                            ImGuiColorEditFlags_InputRGB))
+                {
+                    float h2, s2, v2;
+                    ImGui::ColorConvertRGBtoHSV(col4[0], col4[1], col4[2], h2, s2, v2);
+                    settingsAccentHue = h2 * 360.0f;
+                    settingsAccentSat = s2;
+                    Color::SetAccent(settingsAccentHue, settingsAccentSat);
+                    uiRenderer.MarkDirty();
+                    if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                        MarkStyleDirty();
+                    MarkPickDirty();
+                }
+                ImGui::EndPopup();
+            }
+        };
+        accentSel.select = std::move(sel);
+        uiAppearanceAccentSelect = &accentSel.select.value();
+    }
+
+    makeSettingsDrag(appearancePara.values.emplace_back(), "Contrast", UserTuning::contrast,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##contrast",
+                     [this]()
+                     {
+                         UserTuning::DeriveFromContrast();
+                         Color::SetUiDepthStep(UserTuning::uiDepthStep);
+                         uiRenderer.MarkDirty();
+                         if (scene && (!scene->solids.empty() || !scene->faces.empty()))
+                            MarkStyleDirty();
+                        MarkPickDirty();
+                     });
+
+    // ── Viewport ──────────────────────────────────────────────────────────────
+    Section &viewportSection = uiSettings->AddSection("Viewport");
+    viewportSection.header = Header{"Viewport", 1.0f, 2};
+    viewportSection.tightHeader = true;
+    viewportSection.children.reserve(1);
+
+    Paragraph &gridPara = viewportSection.AddParagraph("GridSize");
+    gridPara.values.reserve(1);
+    makeSettingsDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
+                     4.0f, 16.0f, 2048.0f, "%.0f", "##gridExtent",
+                     [this]()
+                     {
+                         lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+                         (void)SyncViewportAxisForDepthClip();
+                         renderDirty = true;
+                     });
+
+    makeSettingsDrag(gridPara.values.emplace_back(), "LOD", UserTuning::lod,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##gridLodMaster",
+                     [this]()
+                     {
+                         UserTuning::DeriveFromLod();
+                         UpdateCamera();
+                     });
+
+    // ── Navigation ────────────────────────────────────────────────────────────
+    Section &navSection = uiSettings->AddSection("Navigation");
+    navSection.header = Header{"Navigation", 1.0f, 2};
+    navSection.tightHeader = true;
+    navSection.children.reserve(1);
+
+    Paragraph &sensPara = navSection.AddParagraph("MouseSens");
+    sensPara.values.reserve(1);
+    makeSettingsDrag(sensPara.values.emplace_back(), "Sensitivity", mouseSensitivity,
+                     1.0f, 1.0f, 500.0f, "%.0f", "##mouseSens",
+                     [this]()
+                     { renderDirty = true; });
+    makeSettingsDrag(sensPara.values.emplace_back(), "Snap", UserTuning::snap,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##snapMaster",
+                     [this]()
+                     {
+                         UserTuning::DeriveFromSnap();
+                         renderDirty = true;
+                     });
+
+    // ── Calibrate panel ───────────────────────────────────────────────────────
+    {
+        ToolPanelDef calibDef;
+        calibDef.id = "Calibrate";
+        calibDef.name = "Calibrate";
+        calibDef.description = "Calibrate your 3d printer through measurements";
+
+        // ── Prerequisites ──────────────────────────────────────────────────
+        calibDef.prerequisites.reserve(3);
+        calibDef.prerequisites.push_back({"CalibImport", "Import a file", "",
+                                          Icons::CheckBox(&calibStepImport), false, true,
+                                          [this]()
+                                          { DoFileImport(); }});
+        calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
+                                          "to calibrate against",
+                                          Icons::CheckBox(&calibStepPoint1), false, false});
+        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point", "",
+                                          Icons::CheckBox(&calibStepPoint2), false, false});
+
+        // ── Parameters — print measurement InputFloat ──────────────────────
+        // TODO(Calibrate): Inline CAD nominal span (and pick/span status when needed) on this row so
+        // CalibDerived can stay compensation-only; see CalibDerived for messages still on the row below.
+        {
+            ParameterDef pm;
+            pm.id = "CalibMeasure";
+            pm.line.iconDraw = Icons::StepDot(&calibStepMeasure);
+            pm.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            {
+                if (!settingsBodyFont)
+                    return 0.0f;
+                float pad = ImGui::GetStyle().FramePadding.x;
+                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x;
+                return pad * 2.0f + labelW + 24.0f + 48.0f;
+            };
+            auto pmEditing = std::make_shared<bool>(false);
+            pm.line.imguiContent = [this, settingsBodyFont, pmEditing](float w, float h, float iconOffset)
+            {
+                glm::vec4 tcLabel = Color::GetUIText(2);
+                glm::vec4 tcValue = Color::GetUIText(0);
+                float pad = ImGui::GetStyle().FramePadding.x;
+
+                UIStyle::PushInputStyle(h, tcLabel);
+                ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+
+                float labelTextW = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x
+                                       : ImGui::CalcTextSize("Print measurement").x;
+                // Keep the input visually closer to the label (was too far right).
+                float leftW = pad + labelTextW + pad * 1.25f;
+                float inputW = w - leftW;
+
+                ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
+                ImGui::SetNextItemWidth(inputW);
+                bool showEdit = *pmEditing;
+                if (!showEdit)
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 0));
+                bool changed = ImGui::InputFloat("##calibMeasured", &calibMeasured, 0.0f, 0.0f, "%.2f");
+                if (!showEdit)
+                    ImGui::PopStyleColor();
+                UIStyle::DrawInputHoverTint(1);
+                *pmEditing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+
+                ImDrawList *dl = ImGui::GetWindowDrawList();
+                float itemBottom = ImGui::GetItemRectMax().y;
+                float labelTextH = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").y
+                                       : ImGui::CalcTextSize("Print measurement").y;
+                ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+                if (settingsBodyFont)
+                    ImGui::PushFont(settingsBodyFont);
+                dl->AddText(ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
+                if (settingsBodyFont)
+                    ImGui::PopFont();
+
+                // Unit/value suffix — value is right-aligned and sits directly left of unit.
+                {
+                    const char *unit = "mm";
+                    ImVec2 us = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, unit);
+                    ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                    dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x, itemBottom - us.y), unitCol, unit);
+
+                    if (!*pmEditing)
+                    {
+                        char valueBuf[32];
+                        std::snprintf(valueBuf, sizeof(valueBuf), "%.2f", calibMeasured);
+                        ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
+                        constexpr float valueUnitGap = 10.0f;
+                        dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x - valueUnitGap - vs.x, itemBottom - vs.y), unitCol, valueBuf);
+                    }
+                }
+
+                if (changed)
+                {
+                    RefreshCalibCompensation();
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+                UIStyle::PopInputStyle();
+            };
+            calibDef.parameters.push_back(std::move(pm));
+        }
+
+        {
+            ParameterDef pmDer;
+            pmDer.id = "CalibDerived";
+            pmDer.line.iconDraw = Icons::StepDot(&calibStepMeasure);
+            pmDer.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            {
+                if (!settingsBodyFont)
+                    return 0.0f;
+                float pad = ImGui::GetStyle().FramePadding.x;
+                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f,
+                                                                "First-layer excess (printed − CAD)").x;
+                return pad * 2.0f + labelW + 72.0f;
+            };
+            pmDer.line.imguiContent = [this, settingsBodyFont](float w, float h, float iconOffset)
+            {
+                (void)h;
+                (void)iconOffset;
+                glm::vec4 tcLabel = Color::GetUIText(2);
+                glm::vec4 tcValue = Color::GetUIText(0);
+                float pad = ImGui::GetStyle().FramePadding.x;
+                ImVec2 row0 = ImGui::GetCursorScreenPos();
+                ImDrawList *dl = ImGui::GetWindowDrawList();
+
+                auto drawLine = [&](float y, const char *label, const char *valueStr)
+                {
+                    ImU32 lc = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+                    ImU32 vc = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                    if (settingsBodyFont)
+                        ImGui::PushFont(settingsBodyFont);
+                    ImVec2 ls = ImGui::CalcTextSize(label);
+                    dl->AddText(ImVec2(row0.x + pad, y), lc, label);
+                    ImVec2 vs = ImGui::CalcTextSize(valueStr);
+                    dl->AddText(ImVec2(row0.x + w - pad - vs.x, y), vc, valueStr);
+                    if (settingsBodyFont)
+                        ImGui::PopFont();
+                };
+
+                float lh = settingsBodyFont
+                               ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Mg").y
+                               : ImGui::GetTextLineHeight();
+                const float y0 = row0.y + pad * 0.25f;
+
+                const bool missingFaces =
+                    !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) ||
+                    !CalibSlotHasPick(calibFacePoint2, calibEdgePoint2);
+                const bool spanBad = !missingFaces && calibNominal <= 1e-5f;
+                const bool importDone = calibStepImport == Icons::StepState::Done;
+                const bool firstFaceDone = calibStepPoint1 == Icons::StepState::Done;
+
+                if (missingFaces)
+                {
+                    // No span text until import and first face pick are done — avoids "pick two faces" while
+                    // prerequisite rows still describe the first measurement point.
+                    if (!importDone || !firstFaceDone)
+                    {
+                        ImGui::Dummy(ImVec2(w, pad));
+                        return;
+                    }
+                    ImGui::Dummy(ImVec2(w, pad));
+                    return;
+                }
+                if (spanBad)
+                {
+                    drawLine(y0, "Could not estimate span (try parallel faces).", "");
+                    ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                    return;
+                }
+
+                float y = y0;
+                if (calibCompensationValid && calibWorkflow != CalibWorkflow::None)
+                {
+                    char valB[48] = {};
+                    const char *lab = "";
+                    switch (calibWorkflow)
+                    {
+                    case CalibWorkflow::Contour:
+                        lab = "shrinkage";
+                        std::snprintf(valB, sizeof(valB), "%.4f", calibContourScale);
+                        break;
+                    case CalibWorkflow::Hole:
+                        lab = "Hole radius offset";
+                        std::snprintf(valB, sizeof(valB), "%.3f mm", calibHoleOffsetMm);
+                        break;
+                    case CalibWorkflow::ElephantFoot:
+                        lab = "First-layer excess (printed − CAD)";
+                        std::snprintf(valB, sizeof(valB), "%.3f mm", calibElephantFootMm);
+                        break;
+                    default:
+                        break;
+                    }
+                    if (lab[0] != '\0')
+                        drawLine(y, lab, valB);
+                }
+                else
+                {
+                    drawLine(y, "Adjust print measurement to compute compensation.", "");
+                }
+
+                ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+            };
+            calibDef.parameters.push_back(std::move(pmDer));
+        }
+
+        RootPanel calibPanel = BuildToolPanel(calibDef);
+        calibPanel.visible = false;
+        calibPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+        calibPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
+        uiCalibrate = &uiRenderer.AddPanel(calibPanel);
+        // AddPanel copies `calibPanel`; vector capacity hint on the local copy is not preserved.
+        // Reserve on the live panel before storing child pointers.
+        uiCalibrate->children.reserve(uiCalibrate->children.size() + 1);
+
+        // ── Paragraph pointers for live state mutation ──────────────────────
+        Section *prereqs = FindSection(*uiCalibrate, "Prerequisites");
+        calibSec_Prerequisites = prereqs;
+        calibPara_Import = &prereqs->children[0];
+        calibPara_Point1 = &prereqs->children[1];
+        calibPara_Point2 = &prereqs->children[2];
+        calibLine_Point1Primary = &prereqs->children[1].values[0];
+        calibLine_Point2Primary = &prereqs->children[2].values[0];
+
+        calibSec_Parameters = FindSection(*uiCalibrate, "Parameters");
+        if (calibSec_Parameters && calibSec_Parameters->children.size() >= 2)
+            calibPara_Derived = &calibSec_Parameters->children[1];
+
+        // Click handlers — selecting a point prerequisite deselects the other.
+        auto selectPoint1 = [this]()
+        {
+            calibPara_Point1->selected = true;
+            calibPara_Point2->selected = false;
+            uiRenderer.MarkDirty();
+            MarkPickDirty();
+        };
+        auto selectPoint2 = [this]()
+        {
+            calibPara_Point2->selected = true;
+            calibPara_Point1->selected = false;
+            uiRenderer.MarkDirty();
+            MarkPickDirty();
+        };
+        calibPara_Point1->onClick        = selectPoint1;
+        calibLine_Point1Primary->onClick = selectPoint1;
+        if (calibPara_Point1->values.size() > 1)
+            calibPara_Point1->values[1].onClick = selectPoint1;
+        calibPara_Point2->onClick        = selectPoint2;
+        calibLine_Point2Primary->onClick = selectPoint2;
+        if (calibPara_Point2->values.size() > 1)
+            calibPara_Point2->values[1].onClick = selectPoint2;
+
+        // Point1 and Point2 are hidden until a file is imported
+        calibPara_Point1->visible = false;
+        calibPara_Point2->visible = false;
+        if (calibSec_Parameters)
+            calibSec_Parameters->visible = false;
+
+        uiCalibrateProcessing = &uiCalibrate->AddParagraph("Processing");
+        uiCalibrateProcessing->visible = false;
+        uiCalibrateProcessing->dimFill = true;
+        uiCalibrateProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        uiCalibrateProcessing->values.reserve(1);
+        {
+            SectionLine &line = uiCalibrateProcessing->values.emplace_back();
+            line.text = "Refreshing calibration...";
+            line.textDepth = 2;
+        }
+
+        RefreshCalibDerivedRowVisible();
+    }
 
     // Compute minimum grid extent and enforce as SDL minimum window size
     uiRenderer.ComputeMinGridSize();

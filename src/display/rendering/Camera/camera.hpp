@@ -24,7 +24,10 @@ public:
 
     void SetTarget(const glm::vec3 &target);
     void SetDistance(const float distance);
-    void SetAspectRatio(const float aspect);
+    void SetAspectRatio(float aspect, uint16_t width, uint16_t height);
+
+    /// Target at origin, identity orientation (view toward XY from +Z), default distance and ortho zoom.
+    void ResetHomeView();
 
     glm::vec3 *GetTarget() { return &target; }
     float GetDistance() const { return distance; }
@@ -33,14 +36,22 @@ public:
     float distance;
     glm::quat orientation;
 
+    /// Principal-axis snap hysteresis latch state (angles are tuned via `UserTuning`).
+    bool principalSnapLatched = false;
+    glm::quat latchedPrincipalOrientation{1.0f, 0.0f, 0.0f, 0.0f};
+
     float orthoSize;
     float aspectRatio;
     float fov;
     float nearPlane;
     float farPlane;
 
-    uint16_t widthWindow;
-    uint16_t heightWindow;
+    /// Logical window size for ortho scale / grid LOD (kept in sync with `SetAspectRatio`).
+    uint16_t widthWindow = 1280;
+    uint16_t heightWindow = 720;
 
     glm::vec3 GetPosition() const;
+
+    /// True when the view direction is within the same cone as principal-axis snap (canonical top/front/side).
+    bool IsPrincipalAxisView(float marginDegrees = 3.0f) const;
 };

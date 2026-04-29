@@ -181,6 +181,15 @@ Display::Frame()
 
 ## 8. Risks & Future-Proofing
 
+### Known open defect: viewport depth vs geometry / pick
+
+Some views show **internal or rear edges** and **mesh tessellation** faintly through solid
+front faces, or allow **hover pick** of geometry that should be occluded. The same depth
+class can affect **filled patches** (lighting, analysis-driven vertex colors, hover highlight
+fills), not only wireframe lines — see `documentation/TODO` → **\[2026-04-27\] Viewport depth
+& occluded edges**. Repro can be **intermittent**; faint ghost edges and small shifts under a
+depth prepass experiment have been reported.
+
 ### Risks
 
 | Risk | Impact | Likelihood | Mitigation |

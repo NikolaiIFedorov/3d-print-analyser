@@ -7,6 +7,7 @@
 #include <unordered_map>
 
 #include "rendering/OpenGL/shaders/OpenGLShader.hpp"
+#include "Panel.hpp"
 
 struct GlyphInfo
 {
@@ -39,6 +40,10 @@ public:
     float MeasureWidth(const std::string &text, float scale) const;
     float GetLineHeight(float scale) const;
     float GetMaxBearingY(float scale) const;
+
+    // Returns the pixel bounding box of the quads that RenderText would produce.
+    // Derives bounds from the same glyph bearing/size/advance as the actual render path.
+    PixelBounds MeasureBounds(const std::string &text, float x, float y, float scale) const;
 
 private:
     OpenGLShader shader;
