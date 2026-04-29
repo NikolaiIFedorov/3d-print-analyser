@@ -276,6 +276,9 @@ private:
     uint64_t analysisRequestId = 0;
     bool skipAnalysisForNextGeometryRebuild = false;
     bool pendingAnalysisAfterGeometryRebuild = false;
+    /// Monotonic 0–1 for analysis processing bar (avoids backward jumps between tint/render phases).
+    float analysisUiProgressCarry01 = 0.f;
+    int analysisProcessingIdleStreak = 0;
 
     /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
     std::string statusStripLine;

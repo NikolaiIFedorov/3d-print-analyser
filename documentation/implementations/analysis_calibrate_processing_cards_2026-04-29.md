@@ -83,3 +83,8 @@
 
 ### Validation
 - `cmake --build build -j4` succeeds.
+
+### Analysis bar “restarts” while flaws visible (same day)
+
+- Cause: phase ordering treated `pendingAnalysisTint` in the final `else` as “Applying” at a **higher** fill than “Rendering”, so the bar jumped **backward** when moving from apply → render; brief idle could also zero the carry.
+- Fix: explicit order queue → worker → **tint** → **render** with monotonically non-decreasing `analysisUiProgressCarry01`, slow creep near the end, and reset carry only after **3 consecutive idle frames** to absorb one-frame gaps.

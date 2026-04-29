@@ -1927,41 +1927,64 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
 
     const bool hasCommittedAnalysis = lastCommittedAnalysisForRecolor.has_value();
     const bool queueingFirstAnalysis = pendingAnalysisAfterGeometryRebuild && !hasCommittedAnalysis;
+    const bool pendingTintThisScene =
+        pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene;
     const bool analysisRenderingInScene =
         analysisEnabled && activeAnalysisTintForRebuild.has_value() && renderer.FullRebuildInProgress();
     // Do not gate on stale verdict text: old "No issues" must not suppress the card while a new analysis runs.
     const bool analysisBusy =
-        analysisEnabled && (pendingAnalysisTask.has_value() || queueingFirstAnalysis ||
-                            (pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene) ||
+        analysisEnabled && (pendingAnalysisTask.has_value() || queueingFirstAnalysis || pendingTintThisScene ||
                             analysisRenderingInScene);
+
+    if (!analysisBusy)
+    {
+        ++analysisProcessingIdleStreak;
+        if (analysisProcessingIdleStreak >= 3)
+            setFloat(analysisUiProgressCarry01, 0.f);
+    }
+    else
+    {
+        analysisProcessingIdleStreak = 0;
+        float phaseFloor = 0.f;
+        const char *phaseTitle = "Working on analysis...";
+        if (queueingFirstAnalysis)
+        {
+            phaseFloor = 0.22f;
+            phaseTitle = "Queueing analysis...";
+        }
+        else if (pendingAnalysisTask.has_value())
+        {
+            phaseFloor = 0.48f;
+            phaseTitle = "Analysing faces...";
+        }
+        else if (pendingTintThisScene)
+        {
+            // Results ready, GPU mesh not yet updated — must stay numerically below "rendering"
+            phaseFloor = 0.68f;
+            phaseTitle = "Applying analysis...";
+        }
+        else if (analysisRenderingInScene)
+        {
+            phaseFloor = 0.82f;
+            phaseTitle = "Rendering analysis...";
+        }
+        analysisUiProgressCarry01 = std::max(analysisUiProgressCarry01, phaseFloor);
+        // Slow top-up while finishing so the bar can approach full without snapping backward between phases.
+        if (analysisUiProgressCarry01 >= 0.75f)
+            analysisUiProgressCarry01 = std::min(0.995f, analysisUiProgressCarry01 + 0.0035f);
+        if (uiAnalysisProcessing)
+        {
+            setText(uiAnalysisProcessing, phaseTitle);
+            setFloat(uiAnalysisProcessing->accentProgress01, analysisUiProgressCarry01);
+        }
+    }
+
     if (uiAnalysisProcessing)
     {
         setVisible(uiAnalysisProcessing, analysisBusy && hasModel);
         setBool(uiAnalysisProcessing->accentProgressBar, uiAnalysisProcessing->visible);
-        setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
-        if (uiAnalysisProcessing->visible)
-        {
-            if (queueingFirstAnalysis)
-            {
-                setText(uiAnalysisProcessing, "Queueing analysis...");
-                setFloat(uiAnalysisProcessing->accentProgress01, 0.25f);
-            }
-            else if (pendingAnalysisTask.has_value())
-            {
-                setText(uiAnalysisProcessing, "Analysing faces...");
-                setFloat(uiAnalysisProcessing->accentProgress01, 0.60f);
-            }
-            else if (analysisRenderingInScene)
-            {
-                setText(uiAnalysisProcessing, "Rendering analysis...");
-                setFloat(uiAnalysisProcessing->accentProgress01, 0.90f);
-            }
-            else
-            {
-                setText(uiAnalysisProcessing, "Applying analysis...");
-                setFloat(uiAnalysisProcessing->accentProgress01, 0.95f);
-            }
-        }
+        if (!uiAnalysisProcessing->visible)
+            setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
     }
     if (uiResult)
         setVisible(uiResult, hasModel && !analysisBusy);
