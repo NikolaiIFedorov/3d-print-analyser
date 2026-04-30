@@ -121,3 +121,8 @@
 
 ### Outcome
 - Clean compile and link after refresh; main files: `display.cpp`, `Panel.hpp`, `UIRenderer.cpp`.
+
+## 2026-05-01 — Import prerequisite progress + strip alignment
+
+- **Import:** Drive `uiImportPara->accentProgressBar` / `accentProgress01` from the same `statusStripImportBusy` / `pendingImportTask` / `statusStripImportProgress01` state as the Files tab strip (`RefreshToolProcessingCards`).
+- **Layout:** Draw the bottom accent track in the padded content inset (`px0/px1` ± padding) and sit flush to the inner bottom (`py1 - pad`) so horizontal alignment matches body text and the extra gap under the bar is removed; tighten layout gap above strip (1px).

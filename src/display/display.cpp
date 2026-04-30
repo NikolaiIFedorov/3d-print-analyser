@@ -1989,6 +1989,19 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
         if (!uiAnalysisProcessing->visible)
             setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
     }
+
+    // Import prerequisite row: mirror Files-tab import progress on the Analysis "Import a file" step.
+    if (uiImportPara)
+    {
+        const bool importActive = statusStripImportBusy || pendingImportTask.has_value();
+        setBool(uiImportPara->accentProgressBar, importActive);
+        if (importActive)
+            setFloat(uiImportPara->accentProgress01,
+                     statusStripImportProgress01 >= 0.0f ? statusStripImportProgress01 : -1.0f);
+        else
+            setFloat(uiImportPara->accentProgress01, -1.0f);
+    }
+
     if (uiResult)
         setVisible(uiResult, hasModel && !analysisPipelineWaiting);
     if (uiVerdict)
