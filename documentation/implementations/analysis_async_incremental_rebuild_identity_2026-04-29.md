@@ -61,6 +61,12 @@ Pointer identity on stack-backed `AnalysisResults` was a subtle footgun; prefer 
 
 - `Analysis` is a singleton; async `AnalyzeScene` ran on the worker while the main thread could call `RebuildAnalysis()` → `Clear()` / `Add*()` on the same vectors/thresholds → **data race** / torn reads. Results could be wrong or “stuck” until reload rebuilt a consistent pipeline.
 - Added a `std::recursive_mutex` on `Analysis`, held for `AnalyzeScene`, `Clear`, `Add*`, and `Flaw*` reads; `Display::RebuildAnalysis` holds the mutex across the whole `Clear`+`Add*` sequence.
+
+## 2026-05-01 — Pipeline mutex: non-recursive + `RebuildDefaultAnalyzers`
+
+- **Issue:** Uncaught `std::system_error: recursive_mutex lock failed: Invalid argument` during interactive use.
+- **Change:** Replace `std::recursive_mutex` with `std::mutex`. Move the former `Display::RebuildAnalysis` “hold mutex across Clear+Add*” pattern into `Analysis::RebuildDefaultAnalyzers(...)`, which takes a single lock and repopulates the default analyzer stack. Remove `PipelineMutex()` from the public API.
+- **Rationale:** One lock for the full pipeline swap matches the original race-avoidance goal without nested `lock_guard`s on the same mutex; avoids any platform edge cases around recursive mutex state.
 - Flaw-row `DragFloat`: also treat `ImGui::IsItemDeactivatedAfterEdit()` as a commit so keyboard edits still run `RebuildAnalysis`+`UpdateScene` even when `DragFloat`’s `changed` flag is easy to miss.
 
 ## Follow-up fix 7 (large-file freeze when changing overhang)

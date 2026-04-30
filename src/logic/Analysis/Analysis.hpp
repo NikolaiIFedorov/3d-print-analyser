@@ -48,11 +48,12 @@ public:
 
     void Clear();
 
-    /// Serializes analyzer pipeline reads/writes.
-    std::recursive_mutex &PipelineMutex() { return pipelineMutex; }
+    /// Atomically replaces the built-in analyzer stack (single lock — used when UI thresholds change).
+    void RebuildDefaultAnalyzers(float overhangAngle, float layerHeight, float minFeatureSize, float thinMinWidth,
+                                 float sharpCornerAngle);
 
 private:
-    mutable std::recursive_mutex pipelineMutex;
+    mutable std::mutex pipelineMutex;
     std::vector<std::shared_ptr<IFaceAnalysis>> faceAnalyses;
     std::vector<std::shared_ptr<ISolidAnalysis>> solidAnalyses;
     std::vector<std::shared_ptr<IEdgeAnalysis>> edgeAnalyses;

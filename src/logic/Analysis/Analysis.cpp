@@ -1,4 +1,8 @@
 #include "Analysis.hpp"
+#include "Analysis/Overhang/Overhang.hpp"
+#include "Analysis/SharpCorner/SharpCorner.hpp"
+#include "Analysis/SmallFeature/SmallFeature.hpp"
+#include "Analysis/ThinSection/ThinSection.hpp"
 #include "utils/Slice.hpp"
 #include "utils/log.hpp"
 
@@ -19,25 +23,25 @@ Analysis &Analysis::Instance()
 
 void Analysis::AddFaceAnalysis(std::unique_ptr<IFaceAnalysis> analysis)
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     faceAnalyses.push_back(std::shared_ptr<IFaceAnalysis>(std::move(analysis)));
 }
 
 void Analysis::AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis)
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     solidAnalyses.push_back(std::shared_ptr<ISolidAnalysis>(std::move(analysis)));
 }
 
 void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     edgeAnalyses.push_back(std::shared_ptr<IEdgeAnalysis>(std::move(analysis)));
 }
 
 FaceFlawKind Analysis::FlawFace(const Face *face) const
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     for (const auto &analysis : faceAnalyses)
     {
         auto result = analysis->Analyze(face);
@@ -50,7 +54,7 @@ FaceFlawKind Analysis::FlawFace(const Face *face) const
 
 std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces) const
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     ZBounds bounds = Slice::GetZBounds(solid);
 
     std::vector<FaceFlaw> allFlaws;
@@ -64,7 +68,7 @@ std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<Bridge
 
 std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     std::vector<EdgeFlaw> allEdgeFlaws;
     for (const auto &analysis : edgeAnalyses)
     {
@@ -76,10 +80,23 @@ std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
 
 void Analysis::Clear()
 {
-    std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+    std::lock_guard<std::mutex> lock(pipelineMutex);
     faceAnalyses.clear();
     solidAnalyses.clear();
     edgeAnalyses.clear();
+}
+
+void Analysis::RebuildDefaultAnalyzers(float overhangAngle, float layerHeight, float minFeatureSize, float thinMinWidth,
+                                       float sharpCornerAngle)
+{
+    std::lock_guard<std::mutex> lock(pipelineMutex);
+    faceAnalyses.clear();
+    solidAnalyses.clear();
+    edgeAnalyses.clear();
+    faceAnalyses.push_back(std::make_shared<Overhang>(static_cast<double>(overhangAngle)));
+    solidAnalyses.push_back(std::make_shared<SmallFeature>(static_cast<double>(layerHeight), static_cast<double>(minFeatureSize)));
+    solidAnalyses.push_back(std::make_shared<ThinSection>(static_cast<double>(layerHeight), static_cast<double>(thinMinWidth)));
+    edgeAnalyses.push_back(std::make_shared<SharpCorner>(static_cast<double>(sharpCornerAngle)));
 }
 
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
@@ -88,7 +105,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
     std::vector<std::shared_ptr<ISolidAnalysis>> localSolidAnalyses;
     std::vector<std::shared_ptr<IEdgeAnalysis>> localEdgeAnalyses;
     {
-        std::lock_guard<std::recursive_mutex> lock(pipelineMutex);
+        std::lock_guard<std::mutex> lock(pipelineMutex);
         localFaceAnalyses = faceAnalyses;
         localSolidAnalyses = solidAnalyses;
         localEdgeAnalyses = edgeAnalyses;

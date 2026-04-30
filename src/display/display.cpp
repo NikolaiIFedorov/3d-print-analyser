@@ -442,14 +442,8 @@ void Display::SaveSettings()
 
 void Display::RebuildAnalysis()
 {
-    // Hold the pipeline mutex for the whole rebuild so `Clear` + `Add*` cannot interleave with an
-    // in-flight `AnalyzeScene` on the worker (would otherwise corrupt analyzer lists / thresholds).
-    std::lock_guard<std::recursive_mutex> pipelineLock(Analysis::Instance().PipelineMutex());
-    Analysis::Instance().Clear();
-    Analysis::Instance().AddFaceAnalysis(std::make_unique<Overhang>(overhangAngle));
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<SmallFeature>(layerHeight, minFeatureSize));
-    Analysis::Instance().AddSolidAnalysis(std::make_unique<ThinSection>(layerHeight, thinMinWidth));
-    Analysis::Instance().AddEdgeAnalysis(std::make_unique<SharpCorner>(sharpCornerAngle));
+    // One critical section inside Analysis (clear + default analyzers) — avoids nested locks on the pipeline mutex.
+    Analysis::Instance().RebuildDefaultAnalyzers(overhangAngle, layerHeight, minFeatureSize, thinMinWidth, sharpCornerAngle);
 }
 
 void Display::UpdateCamera()
