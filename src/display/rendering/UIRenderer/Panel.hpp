@@ -171,6 +171,10 @@ struct Paragraph : UIElement
     std::vector<SectionLine> values;
     int bgParentDepth = -1; // >= 0 draws a rounded-rect background; pass the parent element's depth (renderer adds +1)
     bool accentBar = false; // draws a left-edge accent bar spanning the full paragraph height
+    /// Bottom accent progress track (processing cards). Use with `accentProgress01`.
+    bool accentProgressBar = false;
+    /// Progress fill: \([0,1]\) determinate; `< 0` indeterminate animation (when `accentProgressBar`).
+    float accentProgress01 = -1.0f;
     bool dimFill = false;   // draws a subtle neutral fill over the full paragraph background
     bool selected = false;  // draws a persistent accent tint over the full paragraph background
     std::function<void(ImDrawList *, float, float, float, float)> leadingDraw; // optional full-height leading slot (x0,y0,x1,y1)

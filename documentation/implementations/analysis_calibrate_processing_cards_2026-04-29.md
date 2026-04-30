@@ -109,3 +109,15 @@
 
 - Cause: `shouldLaunchAsyncAnalysis` did not check `activeAnalysisTintForRebuild`. The frame after consuming `pendingAnalysisTint`, the worker path was eligible again while the prior run’s tint was still being applied incrementally; a second `AnalyzeScene` was submitted, `pendingAnalysisTask` became true, and panel visibility hid again.
 - Fix: require `!activeAnalysisTintForRebuild.has_value()` for `shouldLaunchAsyncAnalysis` and for the top-of-frame deferred launch at `pendingAnalysisAfterGeometryRebuild`.
+
+## 2026-05-01 — Build repair (`PickRef`, progress strip)
+
+### Problem
+- `display.cpp` referenced `CalibrateDistance::PickRef` and `Paragraph::{accentProgressBar,accentProgress01}` while headers/renderer had drifted: `CalibDistanceType` only exposes `Face *` helpers, and `Paragraph` in `Panel.hpp` no longer declared the progress fields.
+
+### Approach
+- **Calibration:** resolve picks with existing `ResolveCalibFaceForWorkflow` and call `CombinePickedFaces` / `ClassifyFace` with `const Face *` (remove `PickRef` helper).
+- **UI:** restore `accentProgressBar` / `accentProgress01` on `Paragraph` and implement bottom track + determinate/indeterminate fill in `UIRenderer::renderParagraph` / `computeParagraphBox` (per original processing-card design).
+
+### Outcome
+- Clean compile and link after refresh; main files: `display.cpp`, `Panel.hpp`, `UIRenderer.cpp`.

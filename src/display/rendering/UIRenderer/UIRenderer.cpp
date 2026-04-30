@@ -414,6 +414,13 @@ void UIRenderer::ResolveAnchors()
             contentH += maxBottom / grid.cellSizeY;
         }
 
+        if (item.accentProgressBar)
+        {
+            constexpr float kProgressStripGapPx = 2.0f;
+            constexpr float kProgressStripHPx = 3.0f;
+            contentH += (kProgressStripGapPx + kProgressStripHPx) / grid.cellSizeY;
+        }
+
         item.box.contentWidth = contentW;
         item.box.contentHeight = contentH;
         item.box.outerWidth = 2.0f * mar + 2.0f * pad + contentW;
@@ -1621,6 +1628,44 @@ void UIRenderer::Render()
             ImGui::End();
             ImGui::PopStyleVar(2);
             ++visibleI;
+        }
+
+        if (item.accentProgressBar)
+        {
+            constexpr float gapPx = 2.0f;
+            constexpr float stripHPx = 3.0f;
+            const float trackX0 = px0 + std::min(pr, 3.0f);
+            const float trackX1 = px1 - std::min(pr, 3.0f);
+            const float stripY1 = py1 - gapPx;
+            const float stripY0 = stripY1 - stripHPx;
+            if (stripY0 >= py0 && trackX1 > trackX0)
+            {
+                ImDrawList *pdl = ImGui::GetForegroundDrawList();
+                glm::vec4 trackCol = Color::GetUIText(1);
+                trackCol.a *= 0.12f;
+                pdl->AddRectFilled(ImVec2(trackX0, stripY0), ImVec2(trackX1, stripY1),
+                                   ImGui::GetColorU32(ImVec4(trackCol.r, trackCol.g, trackCol.b, trackCol.a)),
+                                   stripHPx * 0.5f);
+
+                const float span = trackX1 - trackX0;
+                glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
+                if (item.accentProgress01 >= 0.0f && item.accentProgress01 <= 1.0f)
+                {
+                    const float w = span * std::clamp(item.accentProgress01, 0.0f, 1.0f);
+                    if (w > 0.5f)
+                        pdl->AddRectFilled(ImVec2(trackX0, stripY0), ImVec2(trackX0 + w, stripY1),
+                                           ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
+                                           stripHPx * 0.5f, ImDrawFlags_RoundCornersLeft);
+                }
+                else
+                {
+                    const float seg = std::max(12.0f, span * 0.28f);
+                    const float phase = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.55f, 1.0f);
+                    const float x0 = trackX0 + phase * std::max(0.0f, span - seg);
+                    pdl->AddRectFilled(ImVec2(x0, stripY0), ImVec2(std::min(x0 + seg, trackX1), stripY1),
+                                       ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)), stripHPx * 0.5f);
+                }
+            }
         }
 
         // Paragraph-level hit area — submitted last so it sits on top of all per-line windows.

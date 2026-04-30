@@ -55,14 +55,6 @@ const Face *ResolveCalibFaceForWorkflow(const Face *pickedFace, const Edge *pick
     return best;
 }
 
-CalibrateDistance::PickRef ResolveCalibPickRefForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
-{
-    CalibrateDistance::PickRef out;
-    out.face = ResolveCalibFaceForWorkflow(pickedFace, pickedEdge);
-    out.edge = pickedEdge;
-    return out;
-}
-
 bool CalibSlotHasPick(const Face *f, const Edge *e)
 {
     return f != nullptr || e != nullptr;
@@ -1686,14 +1678,14 @@ void Display::RefreshCalibWorkflow()
     std::unordered_set<const Edge *> holeEdges;
     CalibrateDistance::RebuildHoleEdgeSet(*scene, holeEdges);
     const double layerMm = static_cast<double>(layerHeight);
-    const CalibrateDistance::PickRef r1 = ResolveCalibPickRefForWorkflow(calibFacePoint1, calibEdgePoint1);
-    const CalibrateDistance::PickRef r2 = ResolveCalibPickRefForWorkflow(calibFacePoint2, calibEdgePoint2);
-    if (r1.face != nullptr && r2.face != nullptr)
-        calibWorkflow = CalibrateDistance::CombinePickedFaces(r1, r2, scene, layerMm, holeEdges);
-    else if (r1.face != nullptr)
-        calibWorkflow = CalibrateDistance::ClassifyFace(r1, scene, layerMm, holeEdges);
-    else if (r2.face != nullptr)
-        calibWorkflow = CalibrateDistance::ClassifyFace(r2, scene, layerMm, holeEdges);
+    const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const Face *f2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+    if (f1 != nullptr && f2 != nullptr)
+        calibWorkflow = CalibrateDistance::CombinePickedFaces(f1, f2, scene, layerMm, holeEdges);
+    else if (f1 != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(f1, scene, layerMm, holeEdges);
+    else if (f2 != nullptr)
+        calibWorkflow = CalibrateDistance::ClassifyFace(f2, scene, layerMm, holeEdges);
     else
         calibWorkflow = CalibWorkflow::None;
 
