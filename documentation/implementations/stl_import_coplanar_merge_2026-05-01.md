@@ -27,6 +27,11 @@ STL import creates one face per triangle, then `Scene::MergeCoplanarFaces` merge
 - Pairing **vertex welding** with a **geometry-based plane test** addresses the two dominant failure modes (no shared edge vs. per-triangle plane constant drift) without a full mesh topology repair pass.
 - Follow-up if needed: optional user tolerance, or ASCII bbox pre-scan for adaptive weld like binary.
 
+## 2026-05 — normal slack for merge (sliver walls)
+
+- `MergeCoplanarFaces` gated coplanarity on `dot(ni,nj) > 1 - normalTolerance` with hardcoded **1e-3** (~2.6°); skinny wall triangles yield unstable normals and stayed split.
+- **Change:** `GeometryExperiments::kMergeCoplanarNormalDotSlack` **5e-3** (~5.7°), single place to tweak (`include/GeometryExperiments.hpp`).
+
 ## 2026-05 follow-up — merge diagnostics → `session_log.json`
 
 - **`MergeCoplanarDiagnostics`** collected in `Scene::MergeCoplanarFaces` (and `CollectCoplanarMergeTopology` when merge experiment skips merge).

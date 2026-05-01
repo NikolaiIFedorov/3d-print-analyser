@@ -6,4 +6,9 @@ namespace GeometryExperiments
 // --- Theory: coplanar merge creates large single faces that z-fight internally or with neighbors.
 // Set `true`, rebuild, re-import STL — if the artifact changes, merge is implicated.
 inline constexpr bool kSkipStlMergeCoplanarFaces = false;
+
+// Coplanar merge accepts a pair when dot(ni, nj) > 1 - kMergeCoplanarNormalDotSlack.
+// Tighter (e.g. 1e-3) rejects more sliver-triangle normal noise; looser (e.g. 1e-2) risks
+// merging facets on gently curved regions. Tune per model / unit scale.
+inline constexpr double kMergeCoplanarNormalDotSlack = 5e-3;
 } // namespace GeometryExperiments

@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "GeometryExperiments.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -274,7 +275,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
     if (!solid)
         return;
 
-    const double normalTolerance = 1e-3;
+    const double normalTolerance = GeometryExperiments::kMergeCoplanarNormalDotSlack;
 
     auto maxSignedPlaneDistance = [](Face *f, const glm::dvec3 &unitN, double d) -> double
     {
