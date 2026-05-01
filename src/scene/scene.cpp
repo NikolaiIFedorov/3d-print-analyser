@@ -8,6 +8,7 @@
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 static double MergePlaneTolFromDiagonal(double diagonal)
 {
@@ -342,13 +343,15 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
             LOG_DEBU("Edges: " + std::to_string(totalEdges) + ", shared: " + std::to_string(multiDepEdges));
     }
 
-    // Find an adjacent coplanar face to merge with
-    auto findMergePair = [&](Face *fi) -> Face *
+    // All coplanar solid neighbors across shared edges (order not guaranteed).
+    auto collectCoplanarNeighbors = [&](Face *fi) -> std::vector<Face *>
     {
+        std::vector<Face *> out;
+        std::unordered_set<Face *> seen;
         if (!fi->GetSurface().IsPlanar())
-            return nullptr;
+            return out;
         const PlanarData &di = static_cast<const PlanarSurface *>(&fi->GetSurface())->data;
-        glm::dvec3 ni = glm::normalize(di.normal);
+        const glm::dvec3 ni = glm::normalize(di.normal);
 
         for (const auto &loop : fi->loops)
             for (const auto &oe : loop)
@@ -359,18 +362,17 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
                     if (!candidate->GetSurface().IsPlanar())
                         continue;
                     const PlanarData &dj = static_cast<const PlanarSurface *>(&candidate->GetSurface())->data;
-                    glm::dvec3 nj = glm::normalize(dj.normal);
-                    // Same orientation or opposite (winding): STLs often flip between adjacent tris on a flat.
+                    const glm::dvec3 nj = glm::normalize(dj.normal);
                     if (std::abs(glm::dot(ni, nj)) < 1.0 - normalTolerance)
                         continue;
-                    // One reference plane from fi so opposite normals still measure coplanarity correctly.
                     if (maxSignedPlaneDistance(candidate, ni, di.d) > planeTol)
                         continue;
                     if (maxSignedPlaneDistance(fi, ni, di.d) > planeTol)
                         continue;
-                    return candidate;
+                    if (seen.insert(candidate).second)
+                        out.push_back(candidate);
                 }
-        return nullptr;
+        return out;
     };
 
     bool didMerge = true;
@@ -384,9 +386,13 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
         for (size_t i = 0; i < solid->faces.size(); i++)
         {
             Face *fi = solid->faces[i];
-            Face *fj = findMergePair(fi);
-            if (!fj)
-                continue;
+            const std::vector<Face *> neighbors = collectCoplanarNeighbors(fi);
+            bool mergedThisFi = false;
+
+            for (Face *fj : neighbors)
+            {
+                if (fj == nullptr)
+                    continue;
 
             // Collect edges from both faces and find shared ones
             std::unordered_set<Edge *> edgesI, edgesJ, shared;
@@ -463,7 +469,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
             {
                 if (diag)
                     diag->boundaryLoopFailures++;
-                continue;
+                continue; // try another coplanar neighbor of fi
             }
 
             // Ensure consistent winding: outer loop CCW, inner loops CW
@@ -559,9 +565,14 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
                 solid->faces.erase(it);
 
             didMerge = true;
+            mergedThisFi = true;
             if (diag)
                 diag->mergeOperations++;
-            break; // Restart from the beginning
+            break; // done with neighbors of fi; outer `while` will rescan
+            }
+
+            if (mergedThisFi)
+                break; // restart for-loop over faces from index 0
         }
     }
 

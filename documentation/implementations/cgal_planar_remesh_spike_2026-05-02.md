@@ -37,6 +37,10 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 
 - Leave **`false`** for normal STL work (merge-only after import); validated on large tessellated models. Set **`true`** only when comparing CGAL remesh behaviour.
 
+### 2026-05-02 — Try all coplanar neighbors per face
+
+- `findMergePair` returned the **first** geometric match; if that pair failed the boundary-chain merge, the loop advanced to the next face and never retried **other** coplanar neighbors of the same triangle. `collectCoplanarNeighbors` + inner loop tries each candidate until one succeeds or the list is exhausted.
+
 ### 2026-05-02 — Opposite-winding coplanar neighbors
 
 - `MergeCoplanarFaces` required `dot(ni,nj) > 1 - slack` (normals same hemisphere). Adjacent STL triangles on one flat often have **opposite** winding → dot ≈ −1 → no merge no matter how large slack is (until slack ≥ 2). Fix: require `|dot(ni,nj)| > 1 - slack` and compare both faces’ vertices only against **fi’s** plane `(ni, di.d)`.
