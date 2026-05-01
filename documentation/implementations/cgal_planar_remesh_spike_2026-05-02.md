@@ -30,3 +30,8 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 
 - Default build path unchanged (CGAL off).
 - Tune parameters (named CGAL vs homegrown knobs), compare `session_log.json` `stl_merge_diagnostics` and timings.
+
+### 2026-05-01 — Configure / CGAL 6.1
+
+- **CMake:** `target_link_libraries(CAD_OpenGL …)` must use one style for the target. Main + Apple blocks now use `PRIVATE` (same as CGAL and WIN32) so `cmake .. -DCAD_EXPERIMENTAL_CGAL_PLANAR_REMESH=ON` configures cleanly.
+- **Includes:** Homebrew CGAL 6.1 no longer ships `CGAL/boost/graph/functions.h`; `STLCgalPlanarExperiment.cpp` relies on `CGAL/Surface_mesh.h` (which pulls `graph_traits_Surface_mesh.h`) for BGL-style `vertices` / `faces` / `halfedge` / `next` / `target`.

@@ -131,7 +131,7 @@ target_include_directories(CAD_OpenGL PRIVATE
 )
 
 
-target_link_libraries(CAD_OpenGL
+target_link_libraries(CAD_OpenGL PRIVATE
     glad
     SDL3::SDL3
     Freetype::Freetype
@@ -156,7 +156,7 @@ endif()
 
 # Mac-specific
 if(APPLE)
-    target_link_libraries(CAD_OpenGL
+    target_link_libraries(CAD_OpenGL PRIVATE
         "-framework OpenGL"
         "-framework AppKit"
     )
