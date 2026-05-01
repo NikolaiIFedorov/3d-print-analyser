@@ -1653,9 +1653,16 @@ void UIRenderer::Render()
 
                 const float span = innerX1 - innerX0;
                 glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
-                if (item.accentProgress01 >= 0.0f && item.accentProgress01 <= 1.0f)
+                float fill01 = -1.0f;
+                if (item.accentProgressDenominator > 0 && item.accentProgressNumerator >= 0)
+                    fill01 =
+                        static_cast<float>(item.accentProgressNumerator) / static_cast<float>(item.accentProgressDenominator);
+                else if (item.accentProgress01 >= 0.0f && item.accentProgress01 <= 1.0f)
+                    fill01 = item.accentProgress01;
+
+                if (fill01 >= 0.0f && fill01 <= 1.0f)
                 {
-                    const float w = span * std::clamp(item.accentProgress01, 0.0f, 1.0f);
+                    const float w = span * std::clamp(fill01, 0.0f, 1.0f);
                     if (w > 0.5f)
                         pdl->AddRectFilled(ImVec2(innerX0, stripY0), ImVec2(innerX0 + w, stripY1),
                                            ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),

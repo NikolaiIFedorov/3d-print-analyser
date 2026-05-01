@@ -29,6 +29,8 @@ void SceneRenderer::AbortIncrementalFullRebuild()
     fullRebuildScene = nullptr;
     fullRebuildAnalysisIdentity = 0;
     fullRebuildResults = nullptr;
+    incrementalRebuildStepsDone = 0;
+    incrementalRebuildStepsTotal = 0;
 }
 
 void SceneRenderer::UpdateScene(Scene *scene, const AnalysisResults *results)
@@ -104,6 +106,8 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
         fullRebuildSolidIndex = 0;
         fullRebuildPhase = FullRebuildPhase::BuildingSolids;
         fullRebuildInProgress = true;
+        incrementalRebuildStepsDone = 0;
+        incrementalRebuildStepsTotal = solidOrder.size() + 4u;
     }
     else if (fullRebuildScene != scene || fullRebuildAnalysisIdentity != analysisIdentity)
     {
@@ -135,6 +139,7 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
                 BuildSolidChunk(key, fullRebuildResults, chunk);
                 solidChunks.emplace(key, std::move(chunk));
                 ++fullRebuildSolidIndex;
+                ++incrementalRebuildStepsDone;
             }
             LogSlowStage("build_chunks", MsSince(tBuild));
             fullRebuildPhase = FullRebuildPhase::RebuildingLoose;
@@ -145,6 +150,7 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
             const Clock::time_point tLoose = Clock::now();
             RebuildLoose(fullRebuildScene, fullRebuildResults);
             LogSlowStage("rebuild_loose", MsSince(tLoose));
+            ++incrementalRebuildStepsDone;
             fullRebuildPhase = FullRebuildPhase::Repacking;
             break;
         }
@@ -153,6 +159,7 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
             const Clock::time_point tRepack = Clock::now();
             RepackOffsets();
             LogSlowStage("repack_offsets", MsSince(tRepack));
+            ++incrementalRebuildStepsDone;
             fullRebuildPhase = FullRebuildPhase::Uploading;
             break;
         }
@@ -161,6 +168,7 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
             const Clock::time_point tUpload = Clock::now();
             UploadAllPacked();
             LogSlowStage("upload_all_packed", MsSince(tUpload));
+            ++incrementalRebuildStepsDone;
             fullRebuildPhase = FullRebuildPhase::PickRebuild;
             break;
         }
@@ -172,6 +180,7 @@ bool SceneRenderer::RebuildAllIncremental(Scene *scene, const AnalysisResults *r
             const Clock::time_point tPickSegs = Clock::now();
             RebuildPickSegments(fullRebuildScene);
             LogSlowStage("rebuild_pick_segs", MsSince(tPickSegs));
+            ++incrementalRebuildStepsDone;
             fullRebuildPhase = FullRebuildPhase::Done;
             break;
         }

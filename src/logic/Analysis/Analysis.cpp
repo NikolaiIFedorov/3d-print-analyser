@@ -99,7 +99,31 @@ void Analysis::RebuildDefaultAnalyzers(float overhangAngle, float layerHeight, f
     edgeAnalyses.push_back(std::make_shared<SharpCorner>(static_cast<double>(sharpCornerAngle)));
 }
 
-AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
+uint64_t Analysis::CountAnalyzeSteps(const Scene *scene) const
+{
+    if (scene == nullptr)
+        return 0;
+
+    size_t nSolidAnalyses = 0;
+    size_t nEdgeAnalyses = 0;
+    {
+        std::lock_guard<std::mutex> lock(pipelineMutex);
+        nSolidAnalyses = solidAnalyses.size();
+        nEdgeAnalyses = edgeAnalyses.size();
+    }
+
+    uint64_t faceUnits = 0;
+    for (const Solid &solid : scene->solids)
+        faceUnits += solid.faces.size();
+    faceUnits += scene->faces.size();
+
+    const uint64_t solidUnits = scene->solids.size() * static_cast<uint64_t>(nSolidAnalyses);
+    const uint64_t edgeUnits = scene->solids.size() * static_cast<uint64_t>(nEdgeAnalyses);
+
+    return faceUnits + solidUnits + edgeUnits;
+}
+
+AnalysisResults Analysis::AnalyzeScene(const Scene *scene, const AnalyzeSceneReporter *reporter) const
 {
     std::vector<std::shared_ptr<IFaceAnalysis>> localFaceAnalyses;
     std::vector<std::shared_ptr<ISolidAnalysis>> localSolidAnalyses;
@@ -127,6 +151,16 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
     double totalSolidPassMs = 0.0;
     double totalEdgePassMs = 0.0;
 
+    uint64_t progressStepInScene = 0;
+    auto bump = [&](uint32_t phaseId)
+    {
+        if (reporter)
+        {
+            ++progressStepInScene;
+            (*reporter)(phaseId, progressStepInScene);
+        }
+    };
+
     for (size_t solidIndex = 0; solidIndex < scene->solids.size(); ++solidIndex)
     {
         const Solid &solid = scene->solids[solidIndex];
@@ -149,6 +183,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
                 }
             }
             results.faceFlaws[face] = faceFlaw;
+            bump(AnalysisUiPhase::FacePassesSolidFaces);
         }
         totalFacePassMs += elapsedMs(tFacePassStart, Clock::now());
 
@@ -162,6 +197,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
             const Clock::time_point tEnd = Clock::now();
             solidAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             allSolidFlaws.insert(allSolidFlaws.end(), flaws.begin(), flaws.end());
+            bump(AnalysisUiPhase::SolidAnalyzers);
         }
         results.faceFlawRanges[&solid] = std::move(allSolidFlaws);
         totalSolidPassMs += elapsedMs(tSolidPassStart, Clock::now());
@@ -175,6 +211,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
             const Clock::time_point tEnd = Clock::now();
             edgeAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
+            bump(AnalysisUiPhase::EdgeAnalyzers);
         }
         results.edgeFlaws[&solid] = std::move(allEdgeFlaws);
         totalEdgePassMs += elapsedMs(tEdgePassStart, Clock::now());
@@ -203,6 +240,7 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene) const
             }
         }
         results.faceFlaws[&face] = faceFlaw;
+        bump(AnalysisUiPhase::FacePassesLooseFaces);
     }
     totalFacePassMs += elapsedMs(tLooseFaceStart, Clock::now());
 

@@ -70,6 +70,10 @@ public:
     uint64_t PartialRebuildCount() const { return partialRebuildCount; }
     uint64_t RecolorOnlyCount() const { return recolorOnlyCount; }
 
+    /// Monotonic step counter for incremental full rebuild (solids mesh + trailing stages). Idle → zeros.
+    uint64_t IncrementalRebuildStepsDone() const { return incrementalRebuildStepsDone; }
+    uint64_t IncrementalRebuildStepsTotal() const { return incrementalRebuildStepsTotal; }
+
     void Shutdown();
 
 private:
@@ -127,4 +131,7 @@ private:
     /// Which analysis snapshot this rebuild incorporates (opaque id from `Display`; 0 = none).
     uint64_t fullRebuildAnalysisIdentity = 0;
     const AnalysisResults *fullRebuildResults = nullptr;
+
+    uint64_t incrementalRebuildStepsTotal = 0;
+    uint64_t incrementalRebuildStepsDone = 0;
 }; 

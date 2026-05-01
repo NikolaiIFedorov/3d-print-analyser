@@ -7,6 +7,7 @@
 #include <optional>
 #include <string>
 #include <cstdint>
+#include <atomic>
 #include <unordered_set>
 #include "utils/utils.hpp"
 #include "utils/TaskRunner.hpp"
@@ -276,9 +277,20 @@ private:
     uint64_t analysisRequestId = 0;
     bool skipAnalysisForNextGeometryRebuild = false;
     bool pendingAnalysisAfterGeometryRebuild = false;
-    /// Monotonic 0–1 for analysis processing bar (avoids backward jumps between tint/render phases).
-    float analysisUiProgressCarry01 = 0.f;
     int analysisProcessingIdleStreak = 0;
+
+    uint64_t analysisPipelineDenomTotal = 0;
+    std::atomic<uint64_t> analysisWorkerStepsDone{0};
+    std::atomic<uint64_t> analysisTintStepsDone{0};
+    std::atomic<uint32_t> analysisWorkerPhaseIdAtomic{0};
+    uint64_t analysisTintStepMarkedForRequestId = 0;
+    uint64_t analysisGpuRebuildStepsCache = 0;
+
+    void RefreshAnalysisPipelineDenominatorFromScene();
+    void ResetAnalysisPipelineTotals();
+    void PrimeAnalysisWorkerQueueStepDone();
+    void OnAnalysisWorkerSceneStep(uint32_t phaseId, uint64_t intraSceneStepIndex);
+    void TryMarkAnalysisTintStepOnce(uint64_t requestId);
 
     /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
     std::string statusStripLine;

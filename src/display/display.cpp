@@ -39,6 +39,23 @@
 namespace
 {
 
+const char *AnalysisWorkerPhaseTitle(uint32_t phaseId)
+{
+    switch (phaseId)
+    {
+    case AnalysisUiPhase::FacePassesSolidFaces:
+        return "Analysing solid faces...";
+    case AnalysisUiPhase::FacePassesLooseFaces:
+        return "Analysing loose faces...";
+    case AnalysisUiPhase::SolidAnalyzers:
+        return "Analysing solid mesh...";
+    case AnalysisUiPhase::EdgeAnalyzers:
+        return "Analysing edges...";
+    default:
+        return "Analysing model...";
+    }
+}
+
 const Face *ResolveCalibFaceForWorkflow(const Face *pickedFace, const Edge *pickedEdge)
 {
     if (pickedFace != nullptr)
@@ -228,6 +245,53 @@ void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldH
     camera.farPlane = maxZ + pad;
 }
 } // namespace
+
+void Display::ResetAnalysisPipelineTotals()
+{
+    analysisPipelineDenomTotal = 0;
+    analysisWorkerStepsDone.store(0, std::memory_order_relaxed);
+    analysisTintStepsDone.store(0, std::memory_order_relaxed);
+    analysisWorkerPhaseIdAtomic.store(0, std::memory_order_relaxed);
+    analysisTintStepMarkedForRequestId = 0;
+    analysisGpuRebuildStepsCache = 0;
+}
+
+void Display::RefreshAnalysisPipelineDenominatorFromScene()
+{
+    if (scene == nullptr)
+    {
+        analysisPipelineDenomTotal = 0;
+        return;
+    }
+
+    const uint64_t analyzeSteps = Analysis::Instance().CountAnalyzeSteps(scene);
+    const uint64_t gpuTail = 4u;
+    const uint64_t gpuSteps = static_cast<uint64_t>(scene->solids.size()) + gpuTail;
+
+    // 1 = queue/hand-off consumed when the worker starts, `analyzeSteps`, 1 = delivering results to renderer,
+    // `gpuSteps` = incremental rebuild (solids + loose/repack/upload/pick).
+    analysisPipelineDenomTotal = 1 + analyzeSteps + 1 + gpuSteps;
+}
+
+void Display::PrimeAnalysisWorkerQueueStepDone()
+{
+    analysisWorkerStepsDone.store(1, std::memory_order_relaxed);
+}
+
+void Display::OnAnalysisWorkerSceneStep(uint32_t phaseId, uint64_t intraSceneStepIndex)
+{
+    analysisWorkerPhaseIdAtomic.store(phaseId, std::memory_order_relaxed);
+    // Queue consumed + in-scene counter: global step = 1 + intraSceneStepIndex (starts at 1 after first bump).
+    analysisWorkerStepsDone.store(1u + intraSceneStepIndex, std::memory_order_relaxed);
+}
+
+void Display::TryMarkAnalysisTintStepOnce(uint64_t requestId)
+{
+    if (analysisTintStepMarkedForRequestId == requestId)
+        return;
+    analysisTintStepMarkedForRequestId = requestId;
+    analysisTintStepsDone.fetch_add(1, std::memory_order_relaxed);
+}
 
 float Display::SyncViewportAxisForDepthClip()
 {
@@ -739,12 +803,14 @@ void Display::Frame()
         std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
         if (analysisReady.has_value())
         {
+            const uint64_t readyRequestId = analysisReady->requestId;
             pendingAnalysisTask.reset();
             pendingAnalysisScene = nullptr;
             if (analysisReady->ok && !analysisReady->cancelled &&
                 analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
             {
                 pendingAnalysisTint = std::move(*analysisReady);
+                TryMarkAnalysisTintStepOnce(readyRequestId);
                 styleDirty = true;
                 ScheduleNode(InvalidationNode::Style);
                 ScheduleNode(InvalidationNode::Analysis);
@@ -761,7 +827,7 @@ void Display::Frame()
         pendingAnalysisAfterGeometryRebuild = false;
         const uint64_t requestId = ++analysisRequestId;
         const Scene *sceneForAnalysis = scene;
-        pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+        pendingAnalysisTask = taskRunner.Submit([this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
                                                 {
                                                     AsyncAnalysisResult out;
                                                     out.scene = sceneForAnalysis;
@@ -771,7 +837,11 @@ void Display::Frame()
                                                         out.cancelled = true;
                                                         return out;
                                                     }
-                                                    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                    PrimeAnalysisWorkerQueueStepDone();
+                                                    Analysis::AnalyzeSceneReporter reporter =
+                                                        [this](uint32_t phaseId, uint64_t stepIndex)
+                                                    { OnAnalysisWorkerSceneStep(phaseId, stepIndex); };
+                                                    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis, &reporter);
                                                     if (token.IsCancellationRequested())
                                                     {
                                                         out.cancelled = true;
@@ -839,7 +909,7 @@ void Display::Frame()
                 pendingAnalysisAfterGeometryRebuild = false;
                 const uint64_t requestId = analysisRequestId;
                 const Scene *sceneForAnalysis = scene;
-                pendingAnalysisTask = taskRunner.Submit([sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                pendingAnalysisTask = taskRunner.Submit([this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
                                                         {
                                                             AsyncAnalysisResult out;
                                                             out.scene = sceneForAnalysis;
@@ -849,7 +919,12 @@ void Display::Frame()
                                                                 out.cancelled = true;
                                                                 return out;
                                                             }
-                                                            out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis);
+                                                            PrimeAnalysisWorkerQueueStepDone();
+                                                            Analysis::AnalyzeSceneReporter reporter =
+                                                                [this](uint32_t phaseId, uint64_t stepIndex)
+                                                            { OnAnalysisWorkerSceneStep(phaseId, stepIndex); };
+                                                            out.results =
+                                                                Analysis::Instance().AnalyzeScene(sceneForAnalysis, &reporter);
                                                             if (token.IsCancellationRequested())
                                                             {
                                                                 out.cancelled = true;
@@ -1946,6 +2021,29 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
             changed = true;
         }
     };
+    auto setAccentCounts = [&](Paragraph *p, int64_t num, int64_t den)
+    {
+        if (!p)
+            return;
+        if (p->accentProgressNumerator != num || p->accentProgressDenominator != den || p->accentProgress01 >= 0.0f)
+        {
+            p->accentProgressNumerator = num;
+            p->accentProgressDenominator = den;
+            p->accentProgress01 = -1.0f;
+            changed = true;
+        }
+    };
+    auto clearAccentCounts = [&](Paragraph *p)
+    {
+        if (!p)
+            return;
+        if (p->accentProgressNumerator != -1 || p->accentProgressDenominator != -1)
+        {
+            p->accentProgressNumerator = -1;
+            p->accentProgressDenominator = -1;
+            changed = true;
+        }
+    };
 
     const bool hasCommittedAnalysis = lastCommittedAnalysisForRecolor.has_value();
     const bool queueingFirstAnalysis = pendingAnalysisAfterGeometryRebuild && !hasCommittedAnalysis;
@@ -1967,48 +2065,47 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
     {
         ++analysisProcessingIdleStreak;
         if (analysisProcessingIdleStreak >= 3)
-            setFloat(analysisUiProgressCarry01, 0.f);
+            ResetAnalysisPipelineTotals();
     }
     else
     {
         analysisProcessingIdleStreak = 0;
-        float phaseFloor = 0.f;
-        float phaseCap = 1.0f;
+
+        if (hasModel && scene != nullptr)
+            RefreshAnalysisPipelineDenominatorFromScene();
+
+        if (analysisRenderingInScene && renderer.FullRebuildInProgress())
+            analysisGpuRebuildStepsCache = renderer.IncrementalRebuildStepsDone();
+
         const char *phaseTitle = "Working on analysis...";
         if (queueingFirstAnalysis)
-        {
-            phaseFloor = 0.22f;
-            phaseCap = 0.30f;
             phaseTitle = "Queueing analysis...";
-        }
         else if (pendingAnalysisTask.has_value())
-        {
-            phaseFloor = 0.48f;
-            // Never drive the bar to “complete” while the worker is still running — results stay hidden until busy clears.
-            phaseCap = 0.62f;
-            phaseTitle = "Analysing faces...";
-        }
+            phaseTitle = AnalysisWorkerPhaseTitle(analysisWorkerPhaseIdAtomic.load(std::memory_order_relaxed));
         else if (pendingTintThisScene)
-        {
-            phaseFloor = 0.68f;
-            phaseCap = 0.80f;
             phaseTitle = "Applying analysis...";
-        }
         else if (analysisRenderingInScene)
-        {
-            phaseFloor = 0.82f;
-            phaseCap = 0.995f;
             phaseTitle = "Rendering analysis...";
-        }
-        analysisUiProgressCarry01 = std::max(analysisUiProgressCarry01, phaseFloor);
-        analysisUiProgressCarry01 = std::min(analysisUiProgressCarry01, phaseCap);
-        // Creep only while GPU incremental rebuild is applying tints (bar may approach full before panel unlocks).
+
+        uint64_t numerator = analysisWorkerStepsDone.load(std::memory_order_relaxed);
+        numerator += analysisTintStepsDone.load(std::memory_order_relaxed);
         if (analysisRenderingInScene)
-            analysisUiProgressCarry01 = std::min(phaseCap, analysisUiProgressCarry01 + 0.0035f);
+            numerator += analysisGpuRebuildStepsCache;
+
+        uint64_t denominator = analysisPipelineDenomTotal;
+        if (denominator > 0)
+            numerator = std::min(numerator, denominator);
+
         if (uiAnalysisProcessing)
         {
             setText(uiAnalysisProcessing, phaseTitle);
-            setFloat(uiAnalysisProcessing->accentProgress01, analysisUiProgressCarry01);
+            if (denominator > 0)
+                setAccentCounts(uiAnalysisProcessing, static_cast<int64_t>(numerator), static_cast<int64_t>(denominator));
+            else
+            {
+                clearAccentCounts(uiAnalysisProcessing);
+                setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
+            }
         }
     }
 
@@ -2017,7 +2114,10 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
         setVisible(uiAnalysisProcessing, analysisBusy && hasModel);
         setBool(uiAnalysisProcessing->accentProgressBar, uiAnalysisProcessing->visible);
         if (!uiAnalysisProcessing->visible)
+        {
+            clearAccentCounts(uiAnalysisProcessing);
             setFloat(uiAnalysisProcessing->accentProgress01, -1.0f);
+        }
     }
 
     // Import prerequisite row: mirror Files-tab import progress on the Analysis "Import a file" step.

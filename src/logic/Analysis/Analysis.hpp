@@ -3,11 +3,22 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <functional>
+#include <cstdint>
 
 #include <glm/glm.hpp>
 
 #include "scene/scene.hpp"
 #include "AnalysisTypes.hpp"
+
+/// IDs for coarse UI progress labels during `AnalyzeScene` (worker thread reports these).
+namespace AnalysisUiPhase
+{
+inline constexpr uint32_t FacePassesSolidFaces = 1;
+inline constexpr uint32_t FacePassesLooseFaces = 2;
+inline constexpr uint32_t SolidAnalyzers = 3;
+inline constexpr uint32_t EdgeAnalyzers = 4;
+}
 
 class IFaceAnalysis
 {
@@ -44,7 +55,11 @@ public:
     std::vector<FaceFlaw> FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces = nullptr) const;
     std::vector<EdgeFlaw> FlawEdges(const Solid *solid) const;
 
-    AnalysisResults AnalyzeScene(const Scene *scene) const;
+    /// Progress `reporter(phaseId, stepIndex)` emits monotonic `stepIndex` starting at 1 per worker session
+    /// (caller adds queue offset externally). Omit or pass `nullptr` to skip.
+    using AnalyzeSceneReporter = std::function<void(uint32_t phaseId, uint64_t stepIndex)>;
+    AnalysisResults AnalyzeScene(const Scene *scene, const AnalyzeSceneReporter *reporter = nullptr) const;
+    [[nodiscard]] uint64_t CountAnalyzeSteps(const Scene *scene) const;
 
     void Clear();
 
