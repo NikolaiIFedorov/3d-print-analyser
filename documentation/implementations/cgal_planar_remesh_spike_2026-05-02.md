@@ -33,6 +33,10 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 - Default build path unchanged (CGAL off).
 - Tune parameters (named CGAL vs homegrown knobs), compare `session_log.json` `stl_merge_diagnostics` and timings.
 
+### 2026-05-02 — `kUseCgalRemeshPlanarPatchesForStl` default
+
+- Leave **`false`** for normal STL work (merge-only after import); validated on large tessellated models. Set **`true`** only when comparing CGAL remesh behaviour.
+
 ### 2026-05-02 — Coplanar merge on sliver tessellation
 
 - **Face plane:** `CalculatePlanarData` used only the first two edges of the outer loop. On sliver triangles that cross is unstable, so adjacent coplanar tris could disagree on `normal`/`d` and never pass `findMergePair`. Triangles now use the **largest-area** edge cross; larger loops use **Newell** normal.
