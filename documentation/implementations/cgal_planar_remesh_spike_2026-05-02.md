@@ -37,6 +37,10 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 
 - Leave **`false`** for normal STL work (merge-only after import); validated on large tessellated models. Set **`true`** only when comparing CGAL remesh behaviour.
 
+### 2026-05-02 — Opposite-winding coplanar neighbors
+
+- `MergeCoplanarFaces` required `dot(ni,nj) > 1 - slack` (normals same hemisphere). Adjacent STL triangles on one flat often have **opposite** winding → dot ≈ −1 → no merge no matter how large slack is (until slack ≥ 2). Fix: require `|dot(ni,nj)| > 1 - slack` and compare both faces’ vertices only against **fi’s** plane `(ni, di.d)`.
+
 ### 2026-05-02 — Coplanar merge on sliver tessellation
 
 - **Face plane:** `CalculatePlanarData` used only the first two edges of the outer loop. On sliver triangles that cross is unstable, so adjacent coplanar tris could disagree on `normal`/`d` and never pass `findMergePair`. Triangles now use the **largest-area** edge cross; larger loops use **Newell** normal.

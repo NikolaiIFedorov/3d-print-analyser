@@ -7,9 +7,9 @@ namespace GeometryExperiments
 // Set `true`, rebuild, re-import STL — if the artifact changes, merge is implicated.
 inline constexpr bool kSkipStlMergeCoplanarFaces = false;
 
-// Coplanar merge accepts a pair when dot(ni, nj) > 1 - kMergeCoplanarNormalDotSlack.
-// Tighter (e.g. 1e-3) rejects more sliver-triangle normal noise; looser (e.g. 1e-2) risks
-// merging facets on gently curved regions. Tune per model / unit scale.
+// Coplanar merge accepts a pair when |dot(ni, nj)| > 1 - kMergeCoplanarNormalDotSlack (opposite
+// winding on the same flat counts). Tighter rejects more sliver noise; looser risks curved merges.
+// Default 5e-3; raise only if flats still tessellate after rebuild + re-import.
 inline constexpr double kMergeCoplanarNormalDotSlack = 5e-3;
 
 #ifdef CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED

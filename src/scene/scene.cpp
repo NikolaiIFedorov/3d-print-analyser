@@ -360,12 +360,13 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
                         continue;
                     const PlanarData &dj = static_cast<const PlanarSurface *>(&candidate->GetSurface())->data;
                     glm::dvec3 nj = glm::normalize(dj.normal);
-                    if (glm::dot(ni, nj) <= 1.0 - normalTolerance)
+                    // Same orientation or opposite (winding): STLs often flip between adjacent tris on a flat.
+                    if (std::abs(glm::dot(ni, nj)) < 1.0 - normalTolerance)
                         continue;
-                    // Same plane: allow per-triangle d drift; use vertex distances to the other plane.
+                    // One reference plane from fi so opposite normals still measure coplanarity correctly.
                     if (maxSignedPlaneDistance(candidate, ni, di.d) > planeTol)
                         continue;
-                    if (maxSignedPlaneDistance(fi, nj, dj.d) > planeTol)
+                    if (maxSignedPlaneDistance(fi, ni, di.d) > planeTol)
                         continue;
                     return candidate;
                 }
