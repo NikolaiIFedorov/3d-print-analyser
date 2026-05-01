@@ -167,6 +167,36 @@ void ApplyOrthoClipFromViewBounds(Camera &camera, Scene *scene, float axisWorldH
     {
         for (const auto &pt : scene->points)
             addWorld(glm::vec3(pt.position));
+
+        // Patches tessellate curved edges to vertices that lie outside the segment between endpoints.
+        // Include those envelopes in view-space Z so tightened near/far does not clip when zoomed in.
+        constexpr int kCurveClipSamplesPerEdge = 24;
+        const double denom =
+            std::max(1.0, static_cast<double>(std::max(1, kCurveClipSamplesPerEdge)));
+        for (const Edge &edge : scene->edges)
+        {
+            if (edge.startPoint == nullptr || edge.endPoint == nullptr)
+                continue;
+
+            for (Point *bp : edge.bridgePoints)
+            {
+                if (bp != nullptr)
+                    addWorld(glm::vec3(bp->position));
+            }
+
+            if (edge.curve == nullptr)
+                continue;
+
+            const glm::dvec3 edgeStart(edge.startPoint->position);
+            const glm::dvec3 edgeEnd(edge.endPoint->position);
+
+            for (int i = 0; i <= kCurveClipSamplesPerEdge; ++i)
+            {
+                const double t = static_cast<double>(i) / denom;
+                const glm::dvec3 p(edge.curve->Evaluate(t, edgeStart, edgeEnd));
+                addWorld(glm::vec3(p));
+            }
+        }
     }
 
     const float ext = Color::GRID_EXTENT;

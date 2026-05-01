@@ -136,7 +136,9 @@ void Input::twoFingerOrMouseBridgePanOrbit(const SDL_Event &event)
 
 void Input::syncWindowRelativeMouseMode()
 {
-    const bool want = rightMouseDown || middleMouseDown;
+    // Relative mode hides/warps the cursor (good for uninterrupted MMB orbit at screen edges).
+    // RMB pan does not need it; retaining it delayed the first pans while the WM adjusted grab.
+    const bool want = middleMouseDown;
     SDL_SetWindowRelativeMouseMode(display->GetWindow(), want);
 }
 
