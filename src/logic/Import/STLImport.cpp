@@ -8,6 +8,9 @@
 #include <map>
 #include <cstring>
 #include <chrono>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 struct Vec3Compare
 {
@@ -20,6 +23,24 @@ struct Vec3Compare
         return a.z < b.z;
     }
 };
+
+static glm::dvec3 QuantizePosition(const glm::dvec3 &p, double weldEps)
+{
+    if (!(weldEps > 0.0) || !std::isfinite(weldEps))
+        return p;
+    return glm::dvec3(
+        std::round(p.x / weldEps) * weldEps,
+        std::round(p.y / weldEps) * weldEps,
+        std::round(p.z / weldEps) * weldEps);
+}
+
+/// Weld vertices that differ only by floating-point noise so triangles share edges for coplanar merge.
+static double StlWeldEpsilonFromDiagonal(double diagonal)
+{
+    if (!std::isfinite(diagonal) || diagonal <= 0.0)
+        return 1e-6;
+    return std::clamp(1e-7 * diagonal, 1e-10, 1e-3);
+}
 
 static bool IsBinarySTL(std::ifstream &file, uint32_t &triangleCount)
 {
@@ -38,14 +59,19 @@ static bool IsBinarySTL(std::ifstream &file, uint32_t &triangleCount)
     return fileSize == expectedSize;
 }
 
-static Point *GetOrCreatePoint(Scene *scene, std::map<glm::dvec3, Point *, Vec3Compare> &pointMap, const glm::dvec3 &pos)
+static Point *GetOrCreatePoint(
+    Scene *scene,
+    std::map<glm::dvec3, Point *, Vec3Compare> &pointMap,
+    const glm::dvec3 &pos,
+    double weldEps)
 {
-    auto it = pointMap.find(pos);
+    const glm::dvec3 key = QuantizePosition(pos, weldEps);
+    auto it = pointMap.find(key);
     if (it != pointMap.end())
         return it->second;
 
-    Point *p = scene->CreatePoint(pos);
-    pointMap[pos] = p;
+    Point *p = scene->CreatePoint(key);
+    pointMap[key] = p;
     return p;
 }
 
@@ -56,6 +82,29 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
     std::map<glm::dvec3, Point *, Vec3Compare> pointMap;
     std::vector<Face *> faces;
     faces.reserve(triangleCount);
+
+    const std::streampos triBlockStart = file.tellg();
+    glm::dvec3 boundMin(std::numeric_limits<double>::max());
+    glm::dvec3 boundMax(std::numeric_limits<double>::lowest());
+    for (uint32_t i = 0; i < triangleCount; ++i)
+    {
+        float data[12];
+        file.read(reinterpret_cast<char *>(data), 48);
+        uint16_t attr;
+        file.read(reinterpret_cast<char *>(&attr), 2);
+        if (!file)
+            return LOG_FALSE("Failed reading triangle " + std::to_string(i) + " (bounds pass)");
+
+        for (int v = 0; v < 3; ++v)
+        {
+            glm::dvec3 pos(data[3 + v * 3], data[4 + v * 3], data[5 + v * 3]);
+            boundMin = glm::min(boundMin, pos);
+            boundMax = glm::max(boundMax, pos);
+        }
+    }
+    const double weldEps = StlWeldEpsilonFromDiagonal(glm::length(boundMax - boundMin));
+    file.clear();
+    file.seekg(triBlockStart);
 
     for (uint32_t i = 0; i < triangleCount; ++i)
     {
@@ -72,7 +121,7 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
         for (int v = 0; v < 3; ++v)
         {
             glm::dvec3 pos(data[3 + v * 3], data[4 + v * 3], data[5 + v * 3]);
-            pts[v] = GetOrCreatePoint(scene, pointMap, pos);
+            pts[v] = GetOrCreatePoint(scene, pointMap, pos, weldEps);
         }
 
         if (pts[0] == pts[1] || pts[1] == pts[2] || pts[0] == pts[2])
@@ -126,6 +175,7 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
     const Clock::time_point tStart = Clock::now();
     std::map<glm::dvec3, Point *, Vec3Compare> pointMap;
     std::vector<Face *> faces;
+    const double weldEps = 1e-6; // ASCII path: no bbox pre-scan; conservative absolute snap
 
     std::string line;
     while (std::getline(file, line))
@@ -143,7 +193,7 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
             if (std::sscanf(line.c_str(), " vertex %f %f %f", &x, &y, &z) != 3)
                 return LOG_FALSE("Failed parsing vertex in ASCII STL");
 
-            pts[v] = GetOrCreatePoint(scene, pointMap, glm::dvec3(x, y, z));
+            pts[v] = GetOrCreatePoint(scene, pointMap, glm::dvec3(x, y, z), weldEps);
         }
 
         if (pts[0] == pts[1] || pts[1] == pts[2] || pts[0] == pts[2])

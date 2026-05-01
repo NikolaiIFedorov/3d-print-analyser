@@ -1,6 +1,11 @@
 #include "scene.hpp"
 #include "utils/log.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <unordered_set>
+
 namespace
 {
 // Import and rebuild can create many entities; keep scene-construction logs off by default.
@@ -165,6 +170,52 @@ void Scene::MergeCoplanarFaces(Solid *solid)
 {
     const double normalTolerance = 1e-3;
 
+    auto collectFacePoints = [](Face *f) -> std::unordered_set<Point *>
+    {
+        std::unordered_set<Point *> pts;
+        for (const auto &loop : f->loops)
+            for (const auto &oe : loop)
+            {
+                if (oe.edge == nullptr)
+                    continue;
+                if (Point *a = oe.GetStart())
+                    pts.insert(a);
+                if (Point *b = oe.GetEnd())
+                    pts.insert(b);
+            }
+        return pts;
+    };
+
+    auto maxSignedPlaneDistance = [&collectFacePoints](Face *f, const glm::dvec3 &unitN, double d) -> double
+    {
+        double m = 0.0;
+        for (Point *p : collectFacePoints(f))
+        {
+            if (p == nullptr)
+                continue;
+            m = std::max(m, std::abs(glm::dot(unitN, p->position) - d));
+        }
+        return m;
+    };
+
+    glm::dvec3 boundMin(std::numeric_limits<double>::max());
+    glm::dvec3 boundMax(std::numeric_limits<double>::lowest());
+    bool anyBounds = false;
+    for (Face *f : solid->faces)
+    {
+        for (Point *p : collectFacePoints(f))
+        {
+            if (p == nullptr)
+                continue;
+            anyBounds = true;
+            boundMin = glm::min(boundMin, p->position);
+            boundMax = glm::max(boundMax, p->position);
+        }
+    }
+    const double diagonal = anyBounds ? glm::length(boundMax - boundMin) : 0.0;
+    const double planeTol =
+        std::clamp(1e-7 * diagonal, 1e-10, 1.0); // lenient for float STL noise; capped for huge coords
+
     // Debug: check edge dependency counts
     {
         int totalEdges = 0, multiDepEdges = 0;
@@ -200,8 +251,10 @@ void Scene::MergeCoplanarFaces(Solid *solid)
                     glm::dvec3 nj = glm::normalize(dj.normal);
                     if (glm::dot(ni, nj) <= 1.0 - normalTolerance)
                         continue;
-                    // Must also lie on the same plane (same d value)
-                    if (std::abs(di.d - dj.d) > 1e-4)
+                    // Same plane: allow per-triangle d drift; use vertex distances to the other plane.
+                    if (maxSignedPlaneDistance(candidate, ni, di.d) > planeTol)
+                        continue;
+                    if (maxSignedPlaneDistance(fi, nj, dj.d) > planeTol)
                         continue;
                     return candidate;
                 }
