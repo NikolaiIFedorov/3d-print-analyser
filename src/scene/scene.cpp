@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace
@@ -11,7 +12,97 @@ namespace
 // Import and rebuild can create many entities; keep scene-construction logs off by default.
 inline constexpr bool kLogSceneConstruction = false;
 inline constexpr bool kLogMergeDebug = false;
+
+static std::unordered_set<Point *> CollectFaceBoundaryPoints(Face *f)
+{
+    std::unordered_set<Point *> pts;
+    if (!f)
+        return pts;
+    for (const auto &loop : f->loops)
+        for (const auto &oe : loop)
+        {
+            if (oe.edge == nullptr)
+                continue;
+            if (Point *a = oe.GetStart())
+                pts.insert(a);
+            if (Point *b = oe.GetEnd())
+                pts.insert(b);
+        }
+    return pts;
 }
+
+/// Corner-to-corner diagonal of vertices used by faces in `solid`; used by coplanar merge tolerances.
+static double SolidDiagonalFromFacePoints(const Solid *solid)
+{
+    glm::dvec3 boundMin(std::numeric_limits<double>::max());
+    glm::dvec3 boundMax(std::numeric_limits<double>::lowest());
+    bool anyBounds = false;
+    if (!solid)
+        return 0.0;
+
+    for (Face *f : solid->faces)
+    {
+        for (Point *p : CollectFaceBoundaryPoints(f))
+        {
+            if (p == nullptr)
+                continue;
+            anyBounds = true;
+            boundMin = glm::min(boundMin, p->position);
+            boundMax = glm::max(boundMax, p->position);
+        }
+    }
+
+    return anyBounds ? glm::length(boundMax - boundMin) : 0.0;
+}
+
+static void EdgeSharingHistogramSolid(const Solid *solid,
+                                      std::size_t &edgesOneFace,
+                                      std::size_t &edgesTwoFaces,
+                                      std::size_t &edgesThreePlus)
+{
+    edgesOneFace = edgesTwoFaces = edgesThreePlus = 0;
+    if (!solid)
+        return;
+
+    std::unordered_set<Edge *> seen;
+    for (Face *f : solid->faces)
+    {
+        if (!f)
+            continue;
+        for (const auto &loop : f->loops)
+            for (const auto &oe : loop)
+            {
+                Edge *e = oe.edge;
+                if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+                    continue;
+                seen.insert(e);
+            }
+    }
+
+    for (Edge *e : seen)
+    {
+        const std::size_t nf = e->dependencies.size();
+        if (nf <= 1)
+            edgesOneFace++;
+        else if (nf == 2)
+            edgesTwoFaces++;
+        else
+            edgesThreePlus++;
+    }
+}
+
+static void PopulateMergeDiagnosticSnapshot(Solid *solid, MergeCoplanarDiagnostics &d,
+                                            bool setFaceCountsMatchingBefore)
+{
+    d.facesBefore = solid->faces.size();
+    if (setFaceCountsMatchingBefore)
+        d.facesAfter = d.facesBefore;
+    d.bboxDiagonal = SolidDiagonalFromFacePoints(solid);
+    d.planeTolUsed = std::clamp(1e-7 * d.bboxDiagonal, 1e-10, 1.0);
+    EdgeSharingHistogramSolid(solid, d.edgesOneFaceBefore, d.edgesTwoFacesBefore, d.edgesThreePlusBefore);
+}
+
+} // namespace
 
 Point *Scene::CreatePoint(const glm::dvec3 &position)
 {
@@ -166,30 +257,29 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     return &solid;
 }
 
-void Scene::MergeCoplanarFaces(Solid *solid)
+void Scene::CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics *out)
 {
+    if (!solid || !out)
+        return;
+
+    out->mergeRan = false;
+    PopulateMergeDiagnosticSnapshot(solid, *out, true);
+    out->edgesOneFaceAfter = out->edgesOneFaceBefore;
+    out->edgesTwoFacesAfter = out->edgesTwoFacesBefore;
+    out->edgesThreePlusAfter = out->edgesThreePlusBefore;
+}
+
+void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut)
+{
+    if (!solid)
+        return;
+
     const double normalTolerance = 1e-3;
 
-    auto collectFacePoints = [](Face *f) -> std::unordered_set<Point *>
-    {
-        std::unordered_set<Point *> pts;
-        for (const auto &loop : f->loops)
-            for (const auto &oe : loop)
-            {
-                if (oe.edge == nullptr)
-                    continue;
-                if (Point *a = oe.GetStart())
-                    pts.insert(a);
-                if (Point *b = oe.GetEnd())
-                    pts.insert(b);
-            }
-        return pts;
-    };
-
-    auto maxSignedPlaneDistance = [&collectFacePoints](Face *f, const glm::dvec3 &unitN, double d) -> double
+    auto maxSignedPlaneDistance = [](Face *f, const glm::dvec3 &unitN, double d) -> double
     {
         double m = 0.0;
-        for (Point *p : collectFacePoints(f))
+        for (Point *p : CollectFaceBoundaryPoints(f))
         {
             if (p == nullptr)
                 continue;
@@ -198,21 +288,17 @@ void Scene::MergeCoplanarFaces(Solid *solid)
         return m;
     };
 
-    glm::dvec3 boundMin(std::numeric_limits<double>::max());
-    glm::dvec3 boundMax(std::numeric_limits<double>::lowest());
-    bool anyBounds = false;
-    for (Face *f : solid->faces)
+    MergeCoplanarDiagnostics *diag = diagnosticsOut;
+    if (diag)
     {
-        for (Point *p : collectFacePoints(f))
-        {
-            if (p == nullptr)
-                continue;
-            anyBounds = true;
-            boundMin = glm::min(boundMin, p->position);
-            boundMax = glm::max(boundMax, p->position);
-        }
+        diag->mergeRan = true;
+        diag->mergeWhileIterations = 0;
+        diag->mergeOperations = 0;
+        diag->boundaryLoopFailures = 0;
+        PopulateMergeDiagnosticSnapshot(solid, *diag, false);
     }
-    const double diagonal = anyBounds ? glm::length(boundMax - boundMin) : 0.0;
+
+    const double diagonal = diag ? diag->bboxDiagonal : SolidDiagonalFromFacePoints(solid);
     const double planeTol =
         std::clamp(1e-7 * diagonal, 1e-10, 1.0); // lenient for float STL noise; capped for huge coords
 
@@ -265,6 +351,9 @@ void Scene::MergeCoplanarFaces(Solid *solid)
     while (didMerge)
     {
         didMerge = false;
+
+        if (diag)
+            diag->mergeWhileIterations++;
 
         for (size_t i = 0; i < solid->faces.size(); i++)
         {
@@ -345,7 +434,11 @@ void Scene::MergeCoplanarFaces(Solid *solid)
             }
 
             if (used.size() != boundary.size())
+            {
+                if (diag)
+                    diag->boundaryLoopFailures++;
                 continue;
+            }
 
             // Ensure consistent winding: outer loop CCW, inner loops CW
             // by checking signed area in the face's 2D projection
@@ -440,8 +533,19 @@ void Scene::MergeCoplanarFaces(Solid *solid)
                 solid->faces.erase(it);
 
             didMerge = true;
+            if (diag)
+                diag->mergeOperations++;
             break; // Restart from the beginning
         }
+    }
+
+    if (diag)
+    {
+        diag->facesAfter = solid->faces.size();
+        EdgeSharingHistogramSolid(solid,
+                                  diag->edgesOneFaceAfter,
+                                  diag->edgesTwoFacesAfter,
+                                  diag->edgesThreePlusAfter);
     }
 
     if constexpr (kLogMergeDebug)

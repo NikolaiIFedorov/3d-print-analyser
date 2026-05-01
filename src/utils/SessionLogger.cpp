@@ -1,5 +1,6 @@
 #include "SessionLogger.hpp"
 #include "log.hpp"
+#include "scene/scene.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -73,6 +74,47 @@ void SessionLogger::LogSessionEndSnapshot()
 {
     PushEvent("session_end", BuildFullSessionSnapshotFields(state));
     Log::Session("Session end snapshot recorded");
+}
+
+void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)
+{
+    if (!stl.hasMergeDiagnostics)
+        return;
+
+    auto fmtD = [](double v)
+    {
+        std::ostringstream ss;
+        ss << std::fixed << std::setprecision(8) << v;
+        return ss.str();
+    };
+
+    const MergeCoplanarDiagnostics &d = stl.mergeDiagnostics;
+
+    PushEvent("stl_merge_diagnostics", {
+                                            {"filename", "\"" + EscapeStr(filename) + "\""},
+                                            {"stl_binary", stl.isBinary ? "true" : "false"},
+                                            {"triangle_count_header", std::to_string(stl.triangleCount)},
+                                            {"tri_faces_emitted", std::to_string(stl.faces)},
+                                            {"unique_points", std::to_string(stl.uniquePoints)},
+                                            {"parse_ms", fmtD(stl.parseMs)},
+                                            {"merge_ms", fmtD(stl.mergeMs)},
+                                            {"stl_importer_total_ms", fmtD(stl.totalMs)},
+                                            {"merge_ran", d.mergeRan ? "true" : "false"},
+                                            {"faces_before_merge", std::to_string(d.facesBefore)},
+                                            {"faces_after_merge", std::to_string(d.facesAfter)},
+                                            {"merge_while_iterations", std::to_string(d.mergeWhileIterations)},
+                                            {"merge_operations", std::to_string(d.mergeOperations)},
+                                            {"boundary_loop_failures", std::to_string(d.boundaryLoopFailures)},
+                                            {"edges_1_face_before", std::to_string(d.edgesOneFaceBefore)},
+                                            {"edges_2_faces_before", std::to_string(d.edgesTwoFacesBefore)},
+                                            {"edges_3plus_faces_before", std::to_string(d.edgesThreePlusBefore)},
+                                            {"edges_1_face_after", std::to_string(d.edgesOneFaceAfter)},
+                                            {"edges_2_faces_after", std::to_string(d.edgesTwoFacesAfter)},
+                                            {"edges_3plus_faces_after", std::to_string(d.edgesThreePlusAfter)},
+                                            {"bbox_diagonal", fmtD(d.bboxDiagonal)},
+                                            {"plane_tol_used", fmtD(d.planeTolUsed)},
+                                        });
+    Log::Session("STL merge diagnostics recorded for " + filename);
 }
 
 void SessionLogger::Flush(const std::string &path)

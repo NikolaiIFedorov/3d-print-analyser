@@ -1,6 +1,5 @@
 #include "STLImport.hpp"
 #include "GeometryExperiments.hpp"
-#include "scene/scene.hpp"
 #include "utils/log.hpp"
 
 #include <fstream>
@@ -40,6 +39,19 @@ static double StlWeldEpsilonFromDiagonal(double diagonal)
     if (!std::isfinite(diagonal) || diagonal <= 0.0)
         return 1e-6;
     return std::clamp(1e-7 * diagonal, 1e-10, 1e-3);
+}
+
+/// Runs coplanar face merge after STL triangle soup, or only captures topology when merge is disabled.
+static void MergeStlCoplanarMaybe(Scene *scene, Solid *solid, STLImportStats *stats)
+{
+    MergeCoplanarDiagnostics *diagOut = stats ? &stats->mergeDiagnostics : nullptr;
+    if (stats)
+        stats->hasMergeDiagnostics = true;
+
+    if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
+        scene->MergeCoplanarFaces(solid, diagOut);
+    else if (diagOut != nullptr)
+        scene->CollectCoplanarMergeTopology(solid, diagOut);
 }
 
 static bool IsBinarySTL(std::ifstream &file, uint32_t &triangleCount)
@@ -151,8 +163,7 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
     {
         const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
-            scene->MergeCoplanarFaces(solid);
+        MergeStlCoplanarMaybe(scene, solid, stats);
         mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 
@@ -224,8 +235,7 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
     {
         const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
-            scene->MergeCoplanarFaces(solid);
+        MergeStlCoplanarMaybe(scene, solid, stats);
         mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 

@@ -6,6 +6,8 @@
 #include <chrono>
 #include <glm/glm.hpp>
 
+#include "logic/Import/STLImport.hpp"
+
 // Snapshot of meaningful application state, updated at key events.
 // Read by LogBugMarker to produce a full-state dump.
 struct SessionState
@@ -82,6 +84,9 @@ public:
 
     /// Last-frame viewport + camera repro (call after `Display::FillSessionReproState`).
     void LogSessionEndSnapshot();
+
+    /// STL importer + coplanar merge diagnostics (written to session_log.json for offline analysis).
+    void LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl);
 
 private:
     SessionLogger() = default;

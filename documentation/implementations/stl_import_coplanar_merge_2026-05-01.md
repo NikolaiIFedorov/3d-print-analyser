@@ -26,3 +26,9 @@ STL import creates one face per triangle, then `Scene::MergeCoplanarFaces` merge
 
 - Pairing **vertex welding** with a **geometry-based plane test** addresses the two dominant failure modes (no shared edge vs. per-triangle plane constant drift) without a full mesh topology repair pass.
 - Follow-up if needed: optional user tolerance, or ASCII bbox pre-scan for adaptive weld like binary.
+
+## 2026-05 follow-up — merge diagnostics → `session_log.json`
+
+- **`MergeCoplanarDiagnostics`** collected in `Scene::MergeCoplanarFaces` (and `CollectCoplanarMergeTopology` when merge experiment skips merge).
+- STL import stores them in **`STLImportStats`**; after import, **`SessionLogger::LogStlMergeDiagnostics`** emits event type **`stl_merge_diagnostics`** (face/edge histograms before & after, merge sweep counts, boundary-loop failures, bbox diagonal, plane tolerance).
+- Written on the main thread after async import finalizes (same point as `file_import`), and on the legacy synchronous import path.

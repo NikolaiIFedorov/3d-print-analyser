@@ -2255,8 +2255,9 @@ void Display::CompleteFileImport(const std::string &path)
         lower += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
     auto importedScene = std::make_unique<Scene>();
+    STLImportStats stlSyncStats;
     if (lower == "stl")
-        STLImport::Import(path, importedScene.get());
+        STLImport::Import(path, importedScene.get(), &stlSyncStats);
     else if (lower == "obj")
         OBJImport::Import(path, importedScene.get());
     else if (lower == "3mf")
@@ -2279,6 +2280,8 @@ void Display::CompleteFileImport(const std::string &path)
         sl.state.faces = scene->faces.size();
         sl.state.solids = scene->solids.size();
         sl.LogFileImport(filename, lower);
+        if (lower == "stl" && stlSyncStats.hasMergeDiagnostics)
+            sl.LogStlMergeDiagnostics(filename, stlSyncStats);
     }
 
     openFiles.push_back(filename);
@@ -2402,6 +2405,21 @@ void Display::ProcessDeferredImportIfAny()
                                        sl.state.solids = scene->solids.size();
                                        sl.LogFileImport(state->filename, state->result.lower);
 
+                                       if (state->result.lower == "stl" && state->result.hasStlMergeDiagnostics)
+                                       {
+                                           STLImportStats stlReplay;
+                                           stlReplay.isBinary = state->result.stlIsBinary;
+                                           stlReplay.triangleCount = state->result.stlTriangles;
+                                           stlReplay.uniquePoints = state->result.stlUniquePoints;
+                                           stlReplay.faces = state->result.stlFaces;
+                                           stlReplay.parseMs = state->result.stlParseMs;
+                                           stlReplay.mergeMs = state->result.stlMergeMs;
+                                           stlReplay.totalMs = state->result.stlTotalMs;
+                                           stlReplay.hasMergeDiagnostics = true;
+                                           stlReplay.mergeDiagnostics = state->result.stlMergeDiagnostics;
+                                           sl.LogStlMergeDiagnostics(state->filename, stlReplay);
+                                       }
+
                                        pendingImportTabStem.clear();
                                        openFiles.push_back(state->filename);
                                        RebuildFileTabs();
@@ -2494,6 +2512,9 @@ void Display::ProcessDeferredImportIfAny()
                                                       result.stlTriangles = stlStats.triangleCount;
                                                       result.stlUniquePoints = stlStats.uniquePoints;
                                                       result.stlFaces = stlStats.faces;
+                                                      result.stlIsBinary = stlStats.isBinary;
+                                                      result.hasStlMergeDiagnostics = stlStats.hasMergeDiagnostics;
+                                                      result.stlMergeDiagnostics = stlStats.mergeDiagnostics;
                                                   }
                                               }
                                               else if (result.lower == "obj")

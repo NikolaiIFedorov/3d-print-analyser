@@ -252,6 +252,9 @@ private:
         uint32_t stlTriangles = 0;
         std::size_t stlUniquePoints = 0;
         std::size_t stlFaces = 0;
+        bool stlIsBinary = false;
+        bool hasStlMergeDiagnostics = false;
+        MergeCoplanarDiagnostics stlMergeDiagnostics;
         double importerMs = 0.0;
     };
     struct AsyncAnalysisResult
