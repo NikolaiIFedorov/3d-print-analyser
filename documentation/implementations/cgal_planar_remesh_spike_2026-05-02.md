@@ -33,6 +33,11 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 - Default build path unchanged (CGAL off).
 - Tune parameters (named CGAL vs homegrown knobs), compare `session_log.json` `stl_merge_diagnostics` and timings.
 
+### 2026-05-02 — Coplanar merge on sliver tessellation
+
+- **Face plane:** `CalculatePlanarData` used only the first two edges of the outer loop. On sliver triangles that cross is unstable, so adjacent coplanar tris could disagree on `normal`/`d` and never pass `findMergePair`. Triangles now use the **largest-area** edge cross; larger loops use **Newell** normal.
+- **Plane distance:** `planeTol` was `~1e-7 * diagonal`, often below float-STL quantization. Merge now floors tolerance with `FLT_EPSILON * diagonal` and a small `2e-6 * diagonal` import term (diagnostics use the same helper).
+
 ### 2026-05-01 — Configure / CGAL 6.1
 
 - **CMake:** `target_link_libraries(CAD_OpenGL …)` must use one style for the target. Main + Apple blocks now use `PRIVATE` (same as CGAL and WIN32) so `cmake .. -DCAD_EXPERIMENTAL_CGAL_PLANAR_REMESH=ON` configures cleanly.

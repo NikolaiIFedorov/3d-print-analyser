@@ -1,6 +1,54 @@
 #include "Face.hpp"
 #include "utils/log.hpp"
 
+#include <vector>
+
+namespace
+{
+static glm::dvec3 RobustUnitNormalTriangle(const glm::dvec3 &a, const glm::dvec3 &b, const glm::dvec3 &c)
+{
+    const glm::dvec3 n0 = glm::cross(b - a, c - a);
+    const glm::dvec3 n1 = glm::cross(c - b, a - b);
+    const glm::dvec3 n2 = glm::cross(a - c, b - c);
+    double l0 = glm::dot(n0, n0);
+    double l1 = glm::dot(n1, n1);
+    double l2 = glm::dot(n2, n2);
+    glm::dvec3 best = n0;
+    if (l1 > l0)
+    {
+        best = n1;
+        l0 = l1;
+    }
+    if (l2 > l0)
+        best = n2;
+    const double len = glm::length(best);
+    if (!(len > 1e-30))
+        return glm::dvec3(0.0, 0.0, 1.0);
+    return best / len;
+}
+
+/// Newell normal for a closed 3D polygon (outer loop vertex ring); stable on nearly planar n-gons.
+static glm::dvec3 NewellUnitNormal(const std::vector<glm::dvec3> &v)
+{
+    if (v.size() < 3)
+        return glm::dvec3(0.0, 0.0, 1.0);
+    glm::dvec3 n(0.0);
+    const std::size_t nV = v.size();
+    for (std::size_t i = 0; i < nV; ++i)
+    {
+        const glm::dvec3 &vi = v[i];
+        const glm::dvec3 &vj = v[(i + 1) % nV];
+        n.x += (vi.y - vj.y) * (vi.z + vj.z);
+        n.y += (vi.z - vj.z) * (vi.x + vj.x);
+        n.z += (vi.x - vj.x) * (vi.y + vj.y);
+    }
+    const double len = glm::length(n);
+    if (!(len > 1e-30))
+        return glm::dvec3(0.0, 0.0, 1.0);
+    return n / len;
+}
+} // namespace
+
 void Face::OrientEdgeLoops(const std::vector<std::vector<Edge *>> &edgePtrs)
 {
     for (const auto &edgeLoop : edgePtrs)
@@ -72,28 +120,25 @@ Face::Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<NurbsSurfa
 PlanarData Face::CalculatePlanarData()
 {
     PlanarData data;
-    if (!loops.empty() && loops[0].size() >= 3)
+    if (loops.empty() || loops[0].size() < 3)
+        return data;
+
+    const auto &outerLoop = loops[0];
+    std::vector<glm::dvec3> ring;
+    ring.reserve(outerLoop.size());
+    for (const OrientedEdge &oe : outerLoop)
     {
-        const auto &outerLoop = loops[0];
-        const OrientedEdge &oe0 = outerLoop[0];
-        const OrientedEdge &oe1 = outerLoop[1];
-        const OrientedEdge &oe2 = outerLoop[2];
-
-        const Point *p0 = oe0.GetStart();
-        const Point *p1 = oe1.GetStart();
-        const Point *p2 = oe2.GetStart();
-
-        if (p0 && p1 && p2)
-        {
-            glm::dvec3 v1 = p1->position - p0->position;
-            glm::dvec3 v2 = p2->position - p0->position;
-            glm::dvec3 normal = glm::normalize(glm::cross(v1, v2));
-
-            double d = glm::dot(normal, p0->position);
-
-            data.normal = normal;
-            data.d = d;
-        }
+        if (oe.edge == nullptr || oe.GetStart() == nullptr)
+            return data;
+        ring.push_back(oe.GetStartPosition());
     }
+    if (ring.size() < 3)
+        return data;
+
+    const glm::dvec3 normal =
+        ring.size() == 3 ? RobustUnitNormalTriangle(ring[0], ring[1], ring[2]) : NewellUnitNormal(ring);
+
+    data.normal = normal;
+    data.d = glm::dot(normal, ring[0]);
     return data;
 }

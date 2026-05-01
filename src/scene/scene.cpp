@@ -4,9 +4,18 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cfloat>
 #include <limits>
 #include <unordered_map>
 #include <unordered_set>
+
+static double MergePlaneTolFromDiagonal(double diagonal)
+{
+    const double planeTolGeometric = std::clamp(1e-7 * diagonal, 1e-10, 1.0);
+    const double planeTolFloat = 4.0 * static_cast<double>(FLT_EPSILON) * std::max(diagonal, 1e-300);
+    const double planeTolImport = 2e-6 * std::max(diagonal, 1e-300);
+    return std::max({planeTolGeometric, planeTolFloat, planeTolImport});
+}
 
 namespace
 {
@@ -99,7 +108,7 @@ static void PopulateMergeDiagnosticSnapshot(Solid *solid, MergeCoplanarDiagnosti
     if (setFaceCountsMatchingBefore)
         d.facesAfter = d.facesBefore;
     d.bboxDiagonal = SolidDiagonalFromFacePoints(solid);
-    d.planeTolUsed = std::clamp(1e-7 * d.bboxDiagonal, 1e-10, 1.0);
+    d.planeTolUsed = MergePlaneTolFromDiagonal(d.bboxDiagonal);
     EdgeSharingHistogramSolid(solid, d.edgesOneFaceBefore, d.edgesTwoFacesBefore, d.edgesThreePlusBefore);
 }
 
@@ -316,8 +325,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
         RecordCoplanarDiagnosticsBaselineForMerge(solid, diag);
 
     const double diagonal = diag ? diag->bboxDiagonal : SolidDiagonalFromFacePoints(solid);
-    const double planeTol =
-        std::clamp(1e-7 * diagonal, 1e-10, 1.0); // lenient for float STL noise; capped for huge coords
+    const double planeTol = MergePlaneTolFromDiagonal(diagonal);
 
     // Debug: check edge dependency counts
     {
