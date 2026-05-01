@@ -20,7 +20,9 @@ After STL triangle soup builds a solid, `MergeStlCoplanarMaybe` may call:
 - `remesh_planar_patches` using `cosine_of_maximum_angle` tied to `kMergeCoplanarNormalDotSlack`
 - Rebuild Scene faces/edges from the CGAL mesh (new Scene points added for CGAL-internal vertices).
 
-On any failure (`LOG_WARN`), import falls back to `Scene::MergeCoplanarFaces`.
+CGAL’s planar remesh uses a per-patch **triangulation**; it does not replace the need for `Scene::MergeCoplanarFaces` if you want fewer faces / cleaner wireframe on flat regions. When the CGAL experiment succeeds, import **chains** `MergeCoplanarFaces` afterward.
+
+On any failure (`LOG_WARN`), import falls back to `Scene::MergeCoplanarFaces` on the original solid.
 
 ## Licensing
 

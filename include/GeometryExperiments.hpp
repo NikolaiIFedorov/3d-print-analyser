@@ -14,8 +14,9 @@ inline constexpr double kMergeCoplanarNormalDotSlack = 5e-3;
 
 #ifdef CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED
 // Requires CMake `-DCAD_EXPERIMENTAL_CGAL_PLANAR_REMESH=ON` and CGAL on the toolchain.
-// Set true to run `CGAL::Polygon_mesh_processing::remesh_planar_patches` instead of
-// homegrown MergeCoplanarFaces (falls back automatically on failure).
-inline constexpr bool kUseCgalRemeshPlanarPatchesForStl = false;
+// When true: run `remesh_planar_patches` on the soup, rebuild the solid, then still run
+// `Scene::MergeCoplanarFaces` (CGAL output stays triangulated per patch; merge clears
+// internal coplanar edges for display). On CGAL failure, import uses merge-only path.
+inline constexpr bool kUseCgalRemeshPlanarPatchesForStl = true;
 #endif
 } // namespace GeometryExperiments

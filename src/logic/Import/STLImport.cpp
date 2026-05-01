@@ -62,7 +62,12 @@ static void MergeStlCoplanarMaybe(Scene *scene, Solid *solid, STLImportStats *st
 #if defined(CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED)
     if (GeometryExperiments::kUseCgalRemeshPlanarPatchesForStl &&
         STLCgalPlanarExperiment::TryRemeshPlanarPatchesReplacingSolidFaces(scene, solid, diagOut))
+    {
+        // CGAL still emits a triangle mesh per planar patch (CDT); scene merge removes internal
+        // coplanar edges so wireframe / patches match large facets.
+        scene->MergeCoplanarFaces(solid, diagOut);
         return;
+    }
 #endif
 
     scene->MergeCoplanarFaces(solid, diagOut);

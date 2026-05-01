@@ -161,6 +161,7 @@ static bool RebuildSolidFromCgalMesh(Scene *scene, Solid &solid, const CgalMesh 
 
 bool TryRemeshPlanarPatchesReplacingSolidFaces(Scene *scene, Solid *solid, MergeCoplanarDiagnostics *diagOut)
 {
+    (void)diagOut; // merge diagnostics are recorded by `Scene::MergeCoplanarFaces` after rebuild
     if (scene == nullptr || solid == nullptr)
         return false;
 
@@ -168,9 +169,6 @@ bool TryRemeshPlanarPatchesReplacingSolidFaces(Scene *scene, Solid *solid, Merge
     std::vector<std::vector<std::size_t>> tris;
 
     const std::size_t facesBefore = solid->faces.size();
-
-    if (diagOut != nullptr)
-        scene->RecordCoplanarDiagnosticsBaselineForMerge(solid, diagOut);
 
     if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
     {
@@ -211,14 +209,6 @@ bool TryRemeshPlanarPatchesReplacingSolidFaces(Scene *scene, Solid *solid, Merge
     }
 
     const std::size_t facesAfter = solid->faces.size();
-
-    if (diagOut != nullptr)
-    {
-        diagOut->mergeWhileIterations = 1;
-        diagOut->boundaryLoopFailures = 0;
-        diagOut->mergeOperations = facesBefore > facesAfter ? facesBefore - facesAfter : 0;
-        scene->CompleteCoplanarMergeDiagnostics(solid, diagOut);
-    }
 
     LOG_DESC("CGAL remesh_planar_patches STL experiment: faces",
              std::to_string(facesBefore), "->", std::to_string(facesAfter));
