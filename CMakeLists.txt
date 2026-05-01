@@ -41,8 +41,6 @@ add_executable(CAD_OpenGL
     src/utils/log.cpp
     src/utils/SessionLogger.cpp
     src/utils/Settings.cpp
-    src/utils/SystemAccent.mm
-    src/utils/SystemAppearance.mm  
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
@@ -89,6 +87,18 @@ add_executable(CAD_OpenGL
 
 )
 
+if(APPLE)
+    target_sources(CAD_OpenGL PRIVATE
+        src/utils/SystemAccent.mm
+        src/utils/SystemAppearance.mm
+    )
+else()
+    target_sources(CAD_OpenGL PRIVATE
+        src/utils/SystemAccent_stub.cpp
+        src/utils/SystemAppearance_stub.cpp
+    )
+endif()
+
 add_custom_command(TARGET CAD_OpenGL POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/display/rendering/OpenGL/shaders
@@ -126,6 +136,23 @@ target_link_libraries(CAD_OpenGL
     SDL3::SDL3
     Freetype::Freetype
 )
+
+if(WIN32)
+    target_link_libraries(CAD_OpenGL PRIVATE opengl32)
+endif()
+
+option(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH
+    "Build optional CGAL planar remesh for STL imports (LGPL/GPL CGAL; see docs)"
+    OFF)
+if(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH)
+    find_package(CGAL REQUIRED COMPONENTS Core CONFIG)
+    target_compile_definitions(CAD_OpenGL PRIVATE CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1)
+    target_sources(CAD_OpenGL PRIVATE src/logic/Import/STLCgalPlanarExperiment.cpp)
+    target_link_libraries(CAD_OpenGL PRIVATE CGAL::CGAL)
+    message(STATUS "CGAL planar remesh experiment: ENABLED")
+else()
+    message(STATUS "CGAL planar remesh experiment: disabled (default)")
+endif()
 
 # Mac-specific
 if(APPLE)
