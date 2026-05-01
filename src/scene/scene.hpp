@@ -52,6 +52,12 @@ public:
     /// Topology snapshot without merging — used when STL merge experiment skips `MergeCoplanarFaces`.
     void CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
 
+    /// After topology change: refresh `facesAfter` + post-merge edge histogram in `diag` (baseline fields untouched).
+    void CompleteCoplanarMergeDiagnostics(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
+
+    /// Initialize diagnostics before a merge step (baseline face/edge histogram, tolerances).
+    void RecordCoplanarDiagnosticsBaselineForMerge(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
+
     void MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut = nullptr);
 
     std::unordered_set<uint32_t> renderBuffer;

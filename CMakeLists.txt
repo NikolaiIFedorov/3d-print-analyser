@@ -145,7 +145,7 @@ option(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH
     "Build optional CGAL planar remesh for STL imports (LGPL/GPL CGAL; see docs)"
     OFF)
 if(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH)
-    find_package(CGAL REQUIRED COMPONENTS Core CONFIG)
+    find_package(CGAL REQUIRED CONFIG)
     target_compile_definitions(CAD_OpenGL PRIVATE CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1)
     target_sources(CAD_OpenGL PRIVATE src/logic/Import/STLCgalPlanarExperiment.cpp)
     target_link_libraries(CAD_OpenGL PRIVATE CGAL::CGAL)

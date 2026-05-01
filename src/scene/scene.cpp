@@ -258,6 +258,28 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     return &solid;
 }
 
+void Scene::CompleteCoplanarMergeDiagnostics(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut)
+{
+    if (!solid || !diagnosticsOut)
+        return;
+    diagnosticsOut->facesAfter = solid->faces.size();
+    EdgeSharingHistogramSolid(solid,
+                                  diagnosticsOut->edgesOneFaceAfter,
+                                  diagnosticsOut->edgesTwoFacesAfter,
+                                  diagnosticsOut->edgesThreePlusAfter);
+}
+
+void Scene::RecordCoplanarDiagnosticsBaselineForMerge(Solid *solid, MergeCoplanarDiagnostics *diag)
+{
+    if (!solid || !diag)
+        return;
+    diag->mergeRan = true;
+    diag->mergeWhileIterations = 0;
+    diag->mergeOperations = 0;
+    diag->boundaryLoopFailures = 0;
+    PopulateMergeDiagnosticSnapshot(solid, *diag, false);
+}
+
 void Scene::CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics *out)
 {
     if (!solid || !out)
@@ -291,13 +313,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
 
     MergeCoplanarDiagnostics *diag = diagnosticsOut;
     if (diag)
-    {
-        diag->mergeRan = true;
-        diag->mergeWhileIterations = 0;
-        diag->mergeOperations = 0;
-        diag->boundaryLoopFailures = 0;
-        PopulateMergeDiagnosticSnapshot(solid, *diag, false);
-    }
+        RecordCoplanarDiagnosticsBaselineForMerge(solid, diag);
 
     const double diagonal = diag ? diag->bboxDiagonal : SolidDiagonalFromFacePoints(solid);
     const double planeTol =
@@ -541,13 +557,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
     }
 
     if (diag)
-    {
-        diag->facesAfter = solid->faces.size();
-        EdgeSharingHistogramSolid(solid,
-                                  diag->edgesOneFaceAfter,
-                                  diag->edgesTwoFacesAfter,
-                                  diag->edgesThreePlusAfter);
-    }
+        CompleteCoplanarMergeDiagnostics(solid, diag);
 
     if constexpr (kLogMergeDebug)
         LOG_DEBU("Merged to " + std::to_string(solid->faces.size()) + " faces");

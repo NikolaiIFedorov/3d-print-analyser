@@ -2,6 +2,10 @@
 #include "GeometryExperiments.hpp"
 #include "utils/log.hpp"
 
+#if defined(CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED)
+#include "STLCgalPlanarExperiment.hpp"
+#endif
+
 #include <fstream>
 #include <array>
 #include <map>
@@ -48,10 +52,20 @@ static void MergeStlCoplanarMaybe(Scene *scene, Solid *solid, STLImportStats *st
     if (stats)
         stats->hasMergeDiagnostics = true;
 
-    if (!GeometryExperiments::kSkipStlMergeCoplanarFaces)
-        scene->MergeCoplanarFaces(solid, diagOut);
-    else if (diagOut != nullptr)
-        scene->CollectCoplanarMergeTopology(solid, diagOut);
+    if (GeometryExperiments::kSkipStlMergeCoplanarFaces)
+    {
+        if (diagOut != nullptr)
+            scene->CollectCoplanarMergeTopology(solid, diagOut);
+        return;
+    }
+
+#if defined(CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED)
+    if (GeometryExperiments::kUseCgalRemeshPlanarPatchesForStl &&
+        STLCgalPlanarExperiment::TryRemeshPlanarPatchesReplacingSolidFaces(scene, solid, diagOut))
+        return;
+#endif
+
+    scene->MergeCoplanarFaces(solid, diagOut);
 }
 
 static bool IsBinarySTL(std::ifstream &file, uint32_t &triangleCount)
