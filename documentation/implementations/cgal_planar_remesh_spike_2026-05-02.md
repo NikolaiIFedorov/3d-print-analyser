@@ -35,3 +35,4 @@ CGAL is LGPL/GPL depending on linking mode — legal review required before dist
 
 - **CMake:** `target_link_libraries(CAD_OpenGL …)` must use one style for the target. Main + Apple blocks now use `PRIVATE` (same as CGAL and WIN32) so `cmake .. -DCAD_EXPERIMENTAL_CGAL_PLANAR_REMESH=ON` configures cleanly.
 - **Includes:** Homebrew CGAL 6.1 no longer ships `CGAL/boost/graph/functions.h`; `STLCgalPlanarExperiment.cpp` relies on `CGAL/Surface_mesh.h` (which pulls `graph_traits_Surface_mesh.h`) for BGL-style `vertices` / `faces` / `halfedge` / `next` / `target`.
+- **CGAL “Debug” notice:** CGAL warns when `CMAKE_BUILD_TYPE` is not `Release`. With the experiment enabled we default `CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE` to ON (cache) so routine Debug configures stay quiet; use `-DCMAKE_BUILD_TYPE=Release` for benchmarking, or `cmake -UCGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE ..` then `-DCGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE=OFF` to see CGAL’s reminder again.

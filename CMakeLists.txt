@@ -145,6 +145,11 @@ option(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH
     "Build optional CGAL planar remesh for STL imports (LGPL/GPL CGAL; see docs)"
     OFF)
 if(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH)
+    # CGAL prints a deferred notice when CMAKE_BUILD_TYPE is not Release; Debug is normal here.
+    if(NOT DEFINED CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE)
+        set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE CACHE BOOL
+            "Suppress CGAL non-Release build reminder (unset with cmake -U... to see it again)")
+    endif()
     find_package(CGAL REQUIRED CONFIG)
     target_compile_definitions(CAD_OpenGL PRIVATE CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1)
     target_sources(CAD_OpenGL PRIVATE src/logic/Import/STLCgalPlanarExperiment.cpp)
