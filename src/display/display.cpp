@@ -30,11 +30,15 @@
 #include <cmath>
 #include <limits>
 #include <chrono>
+#include <string_view>
 
 #include "ViewportDepthExperiments.hpp"
 #include "RenderingExperiments.hpp"
 #include "UserTuning.hpp"
 #include "scene/scene.hpp"
+#include "LengthUnit.hpp"
+
+#include <array>
 
 namespace
 {
@@ -544,6 +548,8 @@ void Display::LoadSettings()
     UserTuning::snap = std::clamp(loaded.snap, 0.0f, 1.0f);
     UserTuning::DeriveFromSnap();
 
+    settings.defaultLengthUnit = std::clamp(loaded.defaultLengthUnit, 0, 3);
+
     // Re-run analysis with restored parameters.
     RebuildAnalysis();
     MarkGeometryDirtyAll();
@@ -553,6 +559,8 @@ void Display::LoadSettings()
         uiAppearanceThemeSelect->activeIndex = static_cast<int>(themeMode);
     if (uiAppearanceAccentSelect)
         uiAppearanceAccentSelect->activeIndex = settingsAccentUseSystem ? 0 : 1;
+    if (uiDefaultLengthUnitSelect)
+        uiDefaultLengthUnitSelect->activeIndex = settings.defaultLengthUnit;
     uiRenderer.MarkDirty();
 }
 
@@ -572,6 +580,7 @@ void Display::SaveSettings()
     settings.lod = UserTuning::lod;
     settings.mouseSensitivity = mouseSensitivity;
     settings.snap = UserTuning::snap;
+    // defaultLengthUnit is owned by Settings directly when the user changes the Viewport pill.
     settings.Save(Settings::DefaultPath());
 }
 
@@ -2997,9 +3006,14 @@ void Display::InitUI()
                            const char *unit, // e.g. "°" or "mm"
                            const char *dragId,
                            const char *minWidthLabel, // e.g. "45°" for min width estimate
-                           bool isAngle               // true = format "%.0f", false = "%.2f"/"%.1f" based on dragSpeed
+                           bool storageIsLengthMm, // true: param stored in mm; UI uses default unit + suffix parse
+                           bool isAngle             // true = format "%.0f", false = "%.2f"/"%.1f" based on dragSpeed
                        )
     {
+        auto lengthDisplay = storageIsLengthMm ? std::make_shared<float>(0.f) : nullptr;
+        auto lengthText = storageIsLengthMm ? std::make_shared<std::array<char, 128>>() : nullptr;
+        auto lenTextModeFlag = storageIsLengthMm ? std::make_shared<bool>(false) : nullptr;
+
         line.iconDraw = [this, flawMember, icon](ImDrawList *dl, float x, float midY, float s)
         {
             FlawResult &fr = this->*flawMember;
@@ -3011,7 +3025,7 @@ void Display::InitUI()
         };
 
         // Minimum content width (excluding icon slot, which computeParagraphBox adds separately).
-        line.getMinContentWidthPx = [this, countLabel, plural, minWidthLabel, unit, isAngle]() -> float
+        line.getMinContentWidthPx = [this, countLabel, plural, minWidthLabel, unit, isAngle, storageIsLengthMm]() -> float
         {
             ImFont *f = uiRenderer.GetPixelImFont();
             if (!f)
@@ -3020,7 +3034,8 @@ void Display::InitUI()
             std::string longestCount = std::string("No") + countLabel + plural;
             float countW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestCount.c_str()).x;
             std::string longestVal = isAngle ? std::string(minWidthLabel) + unit
-                                             : std::string(minWidthLabel) + " " + unit;
+                                             : (storageIsLengthMm ? std::string("0000.0000 in")
+                                                                  : std::string(minWidthLabel) + " " + unit);
             float valW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, longestVal.c_str()).x;
             constexpr float gap = 24.0f;
             return pad * 2.0f + countW + gap + valW;
@@ -3028,9 +3043,11 @@ void Display::InitUI()
 
         line.imguiContent = [this, flawColor, countLabel, plural, flawMember,
                              &param, dragSpeed, dragMin, dragMax,
-                             unit, dragId, isAngle](float w, float h, float iconOffset)
+                             unit, dragId, isAngle, storageIsLengthMm, lengthDisplay, lengthText,
+                             lenTextModeFlag](float w, float h, float iconOffset)
         {
             FlawResult &fr = this->*flawMember;
+            const LengthUnit defaultLen = LengthUnitFromIndex(settings.defaultLengthUnit);
             glm::vec4 dimColor = Color::GetUIText(1);
             glm::vec4 dimLow = Color::GetUIText(0);
 
@@ -3087,6 +3104,12 @@ void Display::InitUI()
 
             if (fr.requestEdit)
             {
+                if (storageIsLengthMm && lenTextModeFlag && lengthText)
+                {
+                    *lenTextModeFlag = true;
+                    std::snprintf(lengthText->data(), lengthText->size(), "%.6g",
+                                  static_cast<double>(FromMillimeters(param, defaultLen)));
+                }
                 ImGui::SetKeyboardFocusHere();
                 fr.requestEdit = false;
                 fr.focusPending = true;
@@ -3095,28 +3118,108 @@ void Display::InitUI()
 
             ImGui::SetNextItemWidth(rightW);
             const char *fmt = showEdit ? (isAngle ? "%.0f" : (dragSpeed < 0.1f ? "%.2f" : "%.1f")) : "";
-            bool changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
-            const bool committedEdit = ImGui::IsItemDeactivatedAfterEdit();
-            UIStyle::DrawInputHoverTint(1);
+            if (storageIsLengthMm && !isAngle)
+                fmt = showEdit ? "%.6g" : "";
 
-            fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
-            if (fr.editing)
-                fr.focusPending = false;
+            bool changed = false;
+            bool committedEdit = false;
 
-            if (ImGui::IsItemActivated())
+            if (storageIsLengthMm && lengthDisplay && lengthText && lenTextModeFlag &&
+                *lenTextModeFlag)
             {
-                fr.tracking = true;
-                fr.startPos = ImGui::GetIO().MousePos;
+                char inputId[72];
+                std::snprintf(inputId, sizeof(inputId), "##ltxt%s", dragId);
+                bool textChanged = ImGui::InputText(inputId, lengthText->data(), lengthText->size(),
+                                                    ImGuiInputTextFlags_EnterReturnsTrue);
+                (void)textChanged;
+                UIStyle::DrawInputHoverTint(1);
+                fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (fr.editing)
+                    fr.focusPending = false;
+                committedEdit = ImGui::IsItemDeactivatedAfterEdit();
+                if (committedEdit)
+                {
+                    float mm = param;
+                    if (TryParseLengthToMm(std::string_view(lengthText->data()), defaultLen, mm))
+                    {
+                        param = mm;
+                        *lengthDisplay = FromMillimeters(param, defaultLen);
+                        changed = true;
+                    }
+                    else
+                    {
+                        std::snprintf(lengthText->data(), lengthText->size(), "%.6g",
+                                      static_cast<double>(FromMillimeters(param, defaultLen)));
+                    }
+                    *lenTextModeFlag = false;
+                    fr.focusPending = false;
+                }
             }
-            if (fr.tracking && !ImGui::IsItemActive())
+            else if (storageIsLengthMm && lengthDisplay)
             {
-                ImVec2 ep = ImGui::GetIO().MousePos;
-                float d = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
-                          (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
-                if (d < 9.0f)
-                    fr.requestEdit = true;
-                fr.tracking = false;
+                if (!ImGui::IsItemActive())
+                    *lengthDisplay = FromMillimeters(param, defaultLen);
+                const float mmPer = MillimetersPerUnit(defaultLen);
+                const float duSpeed = (mmPer > 0.0f) ? dragSpeed / mmPer : dragSpeed;
+                const float dmin = FromMillimeters(dragMin, defaultLen);
+                const float dmax = FromMillimeters(dragMax, defaultLen);
+                changed = ImGui::DragFloat(dragId, lengthDisplay.get(), duSpeed, dmin, dmax, fmt);
+                committedEdit = ImGui::IsItemDeactivatedAfterEdit();
+                UIStyle::DrawInputHoverTint(1);
+                if (changed)
+                    param = ToMillimeters(*lengthDisplay, defaultLen);
+                if (committedEdit)
+                    param = ToMillimeters(*lengthDisplay, defaultLen);
+                if (ImGui::IsItemActivated())
+                    *lenTextModeFlag = false;
+                fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (fr.editing)
+                    fr.focusPending = false;
+                if (ImGui::IsItemActivated())
+                {
+                    fr.tracking = true;
+                    fr.startPos = ImGui::GetIO().MousePos;
+                }
+                if (fr.tracking && !ImGui::IsItemActive())
+                {
+                    ImVec2 ep = ImGui::GetIO().MousePos;
+                    float d = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
+                              (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
+                    if (d < 9.0f)
+                        fr.requestEdit = true;
+                    fr.tracking = false;
+                }
             }
+            else
+            {
+                changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
+                committedEdit = ImGui::IsItemDeactivatedAfterEdit();
+                UIStyle::DrawInputHoverTint(1);
+
+                fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (fr.editing)
+                    fr.focusPending = false;
+
+                if (ImGui::IsItemActivated())
+                {
+                    fr.tracking = true;
+                    fr.startPos = ImGui::GetIO().MousePos;
+                }
+                if (fr.tracking && !ImGui::IsItemActive())
+                {
+                    ImVec2 ep = ImGui::GetIO().MousePos;
+                    float d = (ep.x - fr.startPos.x) * (ep.x - fr.startPos.x) +
+                              (ep.y - fr.startPos.y) * (ep.y - fr.startPos.y);
+                    if (d < 9.0f)
+                        fr.requestEdit = true;
+                    fr.tracking = false;
+                }
+            }
+
+            // showEdit may change after InputText / DragFloat this frame
+            showEdit = fr.editing || fr.focusPending;
+            if (storageIsLengthMm && lenTextModeFlag && *lenTextModeFlag)
+                showEdit = true;
 
             // ── Text overlay ─────────────────────────────────────────────────────
             float ty = ImGui::GetItemRectMin().y + ImGui::GetStyle().FramePadding.y;
@@ -3136,11 +3239,15 @@ void Display::InitUI()
             }
 
             // Right side: param value in normal mode, unit hint in edit mode
+            const char *editUnitHint =
+                (storageIsLengthMm && !isAngle) ? LengthUnitAbbreviation(defaultLen) : unit;
             if (!showEdit)
             {
-                char valBuf[32];
+                char valBuf[48];
                 if (isAngle)
                     snprintf(valBuf, sizeof(valBuf), "%.0f%s", param, unit);
+                else if (storageIsLengthMm)
+                    FormatLengthMmForDisplay(valBuf, sizeof(valBuf), param, defaultLen);
                 else if (dragSpeed < 0.1f)
                     snprintf(valBuf, sizeof(valBuf), "%.2f %s", param, unit);
                 else
@@ -3152,9 +3259,9 @@ void Display::InitUI()
             }
             else
             {
-                ImVec2 us = ImGui::CalcTextSize(unit);
+                ImVec2 us = ImGui::CalcTextSize(editUnitHint);
                 ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + w - normalPad - us.x, ty), dimCol, unit);
+                    ImVec2(originX + w - normalPad - us.x, ty), dimCol, editUnitHint);
             }
 
             if (navFired)
@@ -3190,22 +3297,22 @@ void Display::InitUI()
     makeFlawRow(uiResult->values.emplace_back(), overhangColor,
                 Icons::Overhang(overhangColor),
                 " overhang", "s", &Display::flawOverhang,
-                overhangAngle, 0.5f, 0.0f, 90.0f, "\u00b0", "##overhang", "90", true);
+                overhangAngle, 0.5f, 0.0f, 90.0f, "\u00b0", "##overhang", "90", false, true);
 
     makeFlawRow(uiResult->values.emplace_back(), edgeColor,
                 Icons::SharpCorner(edgeColor),
                 " sharp edge", "s", &Display::flawSharp,
-                sharpCornerAngle, 0.5f, 0.0f, 180.0f, "\u00b0", "##sharp", "180", true);
+                sharpCornerAngle, 0.5f, 0.0f, 180.0f, "\u00b0", "##sharp", "180", false, true);
 
     makeFlawRow(uiResult->values.emplace_back(), thinColor,
                 Icons::ThinSection(thinColor),
                 " thin section", "s", &Display::flawThin,
-                thinMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##thinsection", "2.0", false);
+                thinMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##thinsection", "2.0", true, false);
 
     makeFlawRow(uiResult->values.emplace_back(), smallColor,
                 Icons::SmallFeature(smallColor),
                 " small feature", "s", &Display::flawSmall,
-                minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", false);
+                minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", true, false);
 
     uiAnalysisProcessing = &uiAnalysis->AddParagraph("Processing");
     uiAnalysisProcessing->visible = false;
@@ -3360,6 +3467,190 @@ void Display::InitUI()
         };
     };
 
+    // Same row layout as makeSettingsDrag, but `paramMm` is stored in millimeters; drag/parse uses
+    // settings.defaultLengthUnit, with optional mm/cm/in/ft suffix when editing as text.
+    auto makeSettingsLengthDrag = [this, settingsBodyFont](
+                                      SectionLine &line,
+                                      const char *label,
+                                      float &paramMm,
+                                      float speedMm, float minMm, float maxMm,
+                                      const char *dragId,
+                                      std::function<void()> onChange)
+    {
+        line.getMinContentWidthPx = [settingsBodyFont, label]() -> float
+        {
+            if (!settingsBodyFont)
+                return 0.0f;
+            float pad = ImGui::GetStyle().FramePadding.x;
+            float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x;
+            constexpr float minValueAreaW = 56.0f;
+            constexpr float gap = 24.0f;
+            return pad * 2.0f + labelW + gap + minValueAreaW;
+        };
+
+        struct DragEditState
+        {
+            bool tracking = false;
+            bool requestEdit = false;
+            bool editing = false;
+            bool focusPending = false;
+            ImVec2 startPos{};
+        };
+        auto dragState = std::make_shared<DragEditState>();
+        auto display = std::make_shared<float>(0.f);
+        auto textBuf = std::make_shared<std::array<char, 128>>();
+        auto lenText = std::make_shared<bool>(false);
+
+        line.imguiContent = [this, label, &paramMm, speedMm, minMm, maxMm, dragId,
+                             onChange = std::move(onChange), settingsBodyFont, dragState, display, textBuf,
+                             lenText](float w, float h, float iconOffset)
+        {
+            const LengthUnit du = LengthUnitFromIndex(settings.defaultLengthUnit);
+            glm::vec4 tcLabel = Color::GetUIText(2);
+            glm::vec4 tcValue = Color::GetUIText(0);
+            float pad = ImGui::GetStyle().FramePadding.x;
+
+            UIStyle::PushInputStyle(h, tcLabel);
+            ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
+            float originX = rowOrigin.x;
+
+            float labelFontSz = settingsBodyFont ? settingsBodyFont->FontSize : ImGui::GetFont()->FontSize;
+
+            bool showEdit = dragState->editing || dragState->focusPending;
+
+            if (dragState->requestEdit)
+            {
+                *lenText = true;
+                std::snprintf(textBuf->data(), textBuf->size(), "%.6g",
+                              static_cast<double>(FromMillimeters(paramMm, du)));
+                ImGui::SetKeyboardFocusHere();
+                dragState->requestEdit = false;
+                dragState->focusPending = true;
+                showEdit = true;
+            }
+
+            float dragW, dragOffsetX;
+            if (showEdit)
+            {
+                float labelTextW = settingsBodyFont
+                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
+                                       : ImGui::CalcTextSize(label).x;
+                float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
+                dragOffsetX = leftW;
+                dragW = w - leftW;
+            }
+            else
+            {
+                dragOffsetX = 0.0f;
+                dragW = w;
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(originX + dragOffsetX, rowOrigin.y));
+            ImGui::SetNextItemWidth(dragW);
+
+            bool changed = false;
+            if (*lenText)
+            {
+                char textId[80];
+                std::snprintf(textId, sizeof(textId), "##slen%s", dragId);
+                (void)ImGui::InputText(textId, textBuf->data(), textBuf->size(),
+                                       ImGuiInputTextFlags_EnterReturnsTrue);
+                UIStyle::DrawInputHoverTint(1);
+                dragState->editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (dragState->editing)
+                    dragState->focusPending = false;
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    float mm = paramMm;
+                    if (TryParseLengthToMm(std::string_view(textBuf->data()), du, mm))
+                    {
+                        paramMm = mm;
+                        *display = FromMillimeters(paramMm, du);
+                        changed = true;
+                    }
+                    else
+                    {
+                        std::snprintf(textBuf->data(), textBuf->size(), "%.6g",
+                                      static_cast<double>(FromMillimeters(paramMm, du)));
+                    }
+                    *lenText = false;
+                    dragState->focusPending = false;
+                }
+            }
+            else
+            {
+                if (!ImGui::IsItemActive())
+                    *display = FromMillimeters(paramMm, du);
+                const float mmPer = MillimetersPerUnit(du);
+                const float duSpeed = (mmPer > 0.0f) ? speedMm / mmPer : speedMm;
+                const float dmin = FromMillimeters(minMm, du);
+                const float dmax = FromMillimeters(maxMm, du);
+                changed = ImGui::DragFloat(dragId, display.get(), duSpeed, dmin, dmax,
+                                           showEdit ? "%.6g" : "");
+                if (changed)
+                    paramMm = ToMillimeters(*display, du);
+                if (ImGui::IsItemDeactivatedAfterEdit())
+                    paramMm = ToMillimeters(*display, du);
+                UIStyle::DrawInputHoverTint(1);
+                if (ImGui::IsItemActivated())
+                    *lenText = false;
+
+                dragState->editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (dragState->editing)
+                    dragState->focusPending = false;
+
+                if (ImGui::IsItemActivated())
+                {
+                    dragState->tracking = true;
+                    dragState->startPos = ImGui::GetIO().MousePos;
+                }
+                if (dragState->tracking && !ImGui::IsItemActive())
+                {
+                    ImVec2 ep = ImGui::GetIO().MousePos;
+                    float dx = ep.x - dragState->startPos.x;
+                    float dy = ep.y - dragState->startPos.y;
+                    if (dx * dx + dy * dy < 9.0f)
+                        dragState->requestEdit = true;
+                    dragState->tracking = false;
+                }
+            }
+
+            showEdit = dragState->editing || dragState->focusPending;
+            if (*lenText)
+                showEdit = true;
+
+            ImDrawList *dl = ImGui::GetWindowDrawList();
+            float bottom = ImGui::GetItemRectMax().y - ImGui::GetStyle().FramePadding.y;
+
+            ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+            {
+                float ty_label = bottom - labelFontSz;
+                if (settingsBodyFont)
+                {
+                    ImGui::PushFont(settingsBodyFont);
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+                    ImGui::PopFont();
+                }
+                else
+                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
+            }
+
+            if (!showEdit)
+            {
+                char valBuf[48];
+                FormatLengthMmForDisplay(valBuf, sizeof(valBuf), paramMm, du);
+                ImVec2 vs = ImGui::CalcTextSize(valBuf);
+                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+            }
+
+            if (changed)
+                onChange();
+            UIStyle::PopInputStyle();
+        };
+    };
+
     // Settings panel was created early in InitUI (left edge; toolbar sits to its right).
     // Add sections to the existing uiSettings panel here.
 
@@ -3490,15 +3781,38 @@ void Display::InitUI()
     viewportSection.children.reserve(1);
 
     Paragraph &gridPara = viewportSection.AddParagraph("GridSize");
-    gridPara.values.reserve(1);
-    makeSettingsDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
-                     4.0f, 16.0f, 2048.0f, "%.0f", "##gridExtent",
-                     [this]()
-                     {
-                         lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
-                         (void)SyncViewportAxisForDepthClip();
-                         renderDirty = true;
-                     });
+    gridPara.values.reserve(3);
+
+    {
+        SectionLine &unitSel = gridPara.values.emplace_back();
+        unitSel.text = "Length unit";
+        Select sel;
+        sel.options = {
+            {"mm", Icons::Placeholder(1)},
+            {"cm", Icons::Placeholder(1)},
+            {"in", Icons::Placeholder(1)},
+            {"ft", Icons::Placeholder(1)},
+        };
+        sel.activeIndex = std::clamp(settings.defaultLengthUnit, 0, 3);
+        sel.onChange = [this](int i)
+        {
+            settings.defaultLengthUnit = std::clamp(i, 0, 3);
+            SaveSettings();
+            uiRenderer.MarkDirty();
+            renderDirty = true;
+        };
+        unitSel.select = std::move(sel);
+        uiDefaultLengthUnitSelect = &unitSel.select.value();
+    }
+
+    makeSettingsLengthDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
+                           4.0f, 16.0f, 2048.0f, "##gridExtent",
+                           [this]()
+                           {
+                               lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+                               (void)SyncViewportAxisForDepthClip();
+                               renderDirty = true;
+                           });
 
     makeSettingsDrag(gridPara.values.emplace_back(), "LOD", UserTuning::lod,
                      0.01f, 0.0f, 1.0f, "%.2f", "##gridLodMaster",
@@ -3564,8 +3878,12 @@ void Display::InitUI()
                 return pad * 2.0f + labelW + 24.0f + 48.0f;
             };
             auto pmEditing = std::make_shared<bool>(false);
-            pm.line.imguiContent = [this, settingsBodyFont, pmEditing](float w, float h, float iconOffset)
+            auto calibFocusRequest = std::make_shared<bool>(false);
+            auto calibText = std::make_shared<std::array<char, 128>>();
+            calibText->data()[0] = '\0';
+            pm.line.imguiContent = [this, settingsBodyFont, pmEditing, calibText, calibFocusRequest](float w, float h, float iconOffset)
             {
+                const LengthUnit du = LengthUnitFromIndex(settings.defaultLengthUnit);
                 glm::vec4 tcLabel = Color::GetUIText(2);
                 glm::vec4 tcValue = Color::GetUIText(0);
                 float pad = ImGui::GetStyle().FramePadding.x;
@@ -3582,14 +3900,51 @@ void Display::InitUI()
 
                 ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
                 ImGui::SetNextItemWidth(inputW);
-                bool showEdit = *pmEditing;
-                if (!showEdit)
+
+                if (*calibFocusRequest)
+                {
+                    ImGui::SetKeyboardFocusHere();
+                    *calibFocusRequest = false;
+                }
+
+                if (!*pmEditing && !ImGui::IsItemActive())
+                    std::snprintf(calibText->data(), calibText->size(), "%.6g",
+                                  static_cast<double>(FromMillimeters(calibMeasured, du)));
+
+                const bool readOnly = !*pmEditing;
+                if (readOnly)
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 0));
-                bool changed = ImGui::InputFloat("##calibMeasured", &calibMeasured, 0.0f, 0.0f, "%.2f");
-                if (!showEdit)
+                ImGuiInputTextFlags tflags = ImGuiInputTextFlags_EnterReturnsTrue;
+                if (readOnly)
+                    tflags |= ImGuiInputTextFlags_ReadOnly;
+                (void)ImGui::InputText("##calibMeasured", calibText->data(), calibText->size(), tflags);
+                if (readOnly)
                     ImGui::PopStyleColor();
                 UIStyle::DrawInputHoverTint(1);
-                *pmEditing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                if (ImGui::IsItemClicked() && readOnly)
+                {
+                    *pmEditing = true;
+                    *calibFocusRequest = true;
+                }
+
+                bool changed = false;
+                if (*pmEditing && ImGui::IsItemDeactivatedAfterEdit())
+                {
+                    float mm = calibMeasured;
+                    if (TryParseLengthToMm(std::string_view(calibText->data()), du, mm))
+                    {
+                        calibMeasured = mm;
+                        changed = true;
+                    }
+                    else
+                    {
+                        std::snprintf(calibText->data(), calibText->size(), "%.6g",
+                                      static_cast<double>(FromMillimeters(calibMeasured, du)));
+                    }
+                    *pmEditing = false;
+                }
+                else
+                    *pmEditing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
 
                 ImDrawList *dl = ImGui::GetWindowDrawList();
                 float itemBottom = ImGui::GetItemRectMax().y;
@@ -3605,15 +3960,15 @@ void Display::InitUI()
 
                 // Unit/value suffix — value is right-aligned and sits directly left of unit.
                 {
-                    const char *unit = "mm";
+                    const char *unit = LengthUnitAbbreviation(du);
                     ImVec2 us = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, unit);
                     ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
                     dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x, itemBottom - us.y), unitCol, unit);
 
                     if (!*pmEditing)
                     {
-                        char valueBuf[32];
-                        std::snprintf(valueBuf, sizeof(valueBuf), "%.2f", calibMeasured);
+                        char valueBuf[48];
+                        FormatLengthMmForDisplay(valueBuf, sizeof(valueBuf), calibMeasured, du);
                         ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
                         constexpr float valueUnitGap = 10.0f;
                         dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x - valueUnitGap - vs.x, itemBottom - vs.y), unitCol, valueBuf);

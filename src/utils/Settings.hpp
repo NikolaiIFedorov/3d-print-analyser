@@ -29,6 +29,9 @@ struct Settings
     float mouseSensitivity = 30.0f;
     float snap = 0.3f;
 
+    // Units: default length unit for numeric entry without a suffix (mm/cm/in/ft).
+    int defaultLengthUnit = 0; // LengthUnit::Millimeter
+
     // Returns the platform-appropriate path to settings.xml.
     // Uses SDL_GetPrefPath so the directory is created if it doesn't exist.
     static std::filesystem::path DefaultPath();
@@ -74,6 +77,7 @@ struct Settings
         writeFloat("lod", lod);
         writeFloat("mouseSensitivity", mouseSensitivity);
         writeFloat("snap", snap);
+        writeInt("defaultLengthUnit", defaultLengthUnit);
 
         return doc.SaveFile(path.c_str()) == tinyxml2::XML_SUCCESS;
     }
@@ -122,6 +126,7 @@ struct Settings
         readFloat("lod", lod);
         readFloat("mouseSensitivity", mouseSensitivity);
         readFloat("snap", snap);
+        readInt("defaultLengthUnit", defaultLengthUnit);
 
         return true;
     }

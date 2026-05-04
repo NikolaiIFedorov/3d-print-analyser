@@ -4,6 +4,7 @@
 #include <SDL3/SDL.h>
 #include <limits>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <cstdint>
@@ -27,6 +28,7 @@
 
 struct Edge;
 struct Solid;
+struct ImportProgress;
 
 class Display
 {
@@ -57,7 +59,9 @@ public:
     static bool ResizeEventWatcher(void *userdata, SDL_Event *event);
     Camera GetCamera() { return camera; }
     void Zoom(const float offsetY, const glm::vec3 &posCursotr);
+    void BeginOrbitSnapGesture();
     void Orbit(float offsetX, float offsetY);
+    void FinishOrbitSnap();
     void Roll(float delta);
     void Pan(float offsetX, float offsetY, bool scroll = true);
     void FrameScene();
@@ -140,6 +144,8 @@ private:
     Scene *scene = nullptr;                          // pointer to active scene
 
     Camera camera;
+    bool orbitSnapGestureActive = false;
+    Camera::OrbitSnapAxis orbitSnapSuppressedAxis = Camera::OrbitSnapAxis::None;
 
     bool analysisEnabled = true;
     bool cameraDirty = true;
@@ -164,7 +170,7 @@ private:
     // Calibration tool — unified face-pick flow; `calibWorkflow` from CalibrateDistance rules (see CalibDistanceType.hpp).
     CalibWorkflow calibWorkflow = CalibWorkflow::None;
     float calibNominal = 0.0f;    // auto-detected from geometry (mm)
-    float calibMeasured = 100.0f; // user-entered printed measurement (mm)
+    float calibMeasured = 100.0f; // user-entered printed measurement (always stored in mm)
     /// Derived from workflow + nominal + measured (see RefreshCalibCompensation).
     float calibContourScale = 1.0f;
     float calibHoleOffsetMm = 0.0f;
@@ -181,14 +187,13 @@ private:
     bool settingsOpenAccentPicker = false;
     Select *uiAppearanceThemeSelect = nullptr;
     Select *uiAppearanceAccentSelect = nullptr;
+    Select *uiDefaultLengthUnitSelect = nullptr;
 
     RootPanel *uiFiles = nullptr;
     RootPanel *uiAnalysis = nullptr;
     RootPanel *uiCalibrate = nullptr;
     RootPanel *uiSettings = nullptr;
     RootPanel *uiToolbar = nullptr;
-    RootPanel *uiStatusStrip = nullptr;
-    SectionLine *statusStripTextLine = nullptr;
     SectionLine *toolbarAnalysisLine = nullptr;
     SectionLine *toolbarCalibrateLine = nullptr;
     Paragraph *uiResult = nullptr;
@@ -200,9 +205,10 @@ private:
     Paragraph *calibPara_Import = nullptr;          // hidden after file import
     Paragraph *calibPara_Point1 = nullptr;          // shown/activated after import
     Paragraph *calibPara_Point2 = nullptr;          // shown after point1 is plotted
-    Section *calibSec_Parameters = nullptr;       // hidden until import (contains Print measurement)
+    Paragraph *calibPara_Measure = nullptr;         // direct Calibrate row; hidden until import
+    Section *calibSec_Parameters = nullptr;         // legacy sectioned parameter layout, if used by a tool variant
     Section *calibSec_Prerequisites = nullptr;
-    Paragraph *calibPara_Derived = nullptr;       // second Parameters row (span / compensation); hidden when unused
+    Paragraph *calibPara_Derived = nullptr;         // result row (span / compensation); hidden when unused
     SectionLine *calibLine_Point1Primary = nullptr; // for per-line state (textDepth etc.)
     SectionLine *calibLine_Point2Primary = nullptr;
 
@@ -223,6 +229,7 @@ private:
         ImVec2 navStart = {};
     };
     FlawResult flawOverhang, flawSharp, flawThin, flawSmall;
+    const Scene *analysisUiScene = nullptr;
 
     bool lastVerdictWasPass = false;
     std::string cachedTip;
@@ -295,18 +302,25 @@ private:
     void OnAnalysisWorkerSceneStep(uint32_t phaseId, uint64_t intraSceneStepIndex);
     void TryMarkAnalysisTintStepOnce(uint64_t requestId);
 
-    /// Single line over the Settings+Tools column (StatusStrip root panel). Idle = scene stats; import = message + indeterminate hint.
-    std::string statusStripLine;
-    bool statusStripImportBusy = false;
-    float statusStripImportProgress01 = -1.0f; // reserved: in [0,1] for real %; -1 = indeterminate
+    bool importBusy = false;
+    float importProgress01 = -1.0f; // in [0,1] for real percent; -1 = indeterminate
+    std::string importProgressPhase;
+    std::mutex importProgressMutex;
+    std::string latestImportProgressPhase;
+    float latestImportProgress01 = -1.0f;
+    bool latestImportProgressDirty = false;
+    std::atomic<uint64_t> importProgressGeneration{0};
     /// File-bar tab stem while async import is active (empty when idle).
     std::string pendingImportTabStem;
+    bool pendingImportTabActive = false;
 
     void ProcessDeferredImportIfAny();
     void CompleteFileImport(const std::string &path);
+    void PublishImportProgress(uint64_t generation, const ImportProgress &progress);
+    void ApplyImportProgressSnapshot();
+    void ClearPendingImportProgressSnapshot();
+    void SetImportProgress(std::string phase, float progress01);
     void SyncToolbarToolVisualState();
-    void RefreshStatusStripIdleText();
-    void SyncStatusStripTextLine();
     void RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask);
 
     const Face *hoverPickFace = nullptr;
