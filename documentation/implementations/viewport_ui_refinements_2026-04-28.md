@@ -152,6 +152,26 @@ Front to back: **axes** over **grid** over **scene** triangles/edges (reduce z-f
 
 ---
 
+## Follow-up (2026-05-05): axes vs grid clip-Z epsilon)
+
+### Problem
+
+Perpendicular grid lines still meet the X/Y axes in the reference plane; identical `uClipZBiasW` for grid and axes left residual z-fighting at those crossings.
+
+### Approach
+
+- `RenderingExperiments`: `kClipZBiasAxesW = kClipZBiasGridW - kClipZBiasGridAxesDeltaW` (`4e-5` in \(w\) units). Grid stays on the scene mesh bias; axes draw slightly nearer so they win `GL_LEQUAL` after the grid depth write. `ClipZBias*W()` sign flip for reverse-Z is unchanged.
+
+### Files
+
+- `include/RenderingExperiments.hpp`, this log
+
+### Outcome
+
+Clean build. Tune `kClipZBiasGridAxesDeltaW` if shimmer remains or if `basic.vert` clip clamps bite at extreme zoom.
+
+---
+
 ## Follow-up (grid bleed on solids + LOD readability)
 
 ### Problem

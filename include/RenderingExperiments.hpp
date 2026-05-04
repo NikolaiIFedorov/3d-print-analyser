@@ -38,11 +38,14 @@ inline constexpr bool kLineDrawsOmitDepthWrite = false;
 inline constexpr float kWireframeClipZNudgeScale = 48.0f;
 
 // --- Ortho reference depth: `basic.vert` / `line.vert` use `gl_Position.z += uClipZBiasW * w`.
-//     Keep grid/axes on the same layer as scene mesh so reference lines do not pull through faces in
-//     snapped principal views. Magnitudes are ortho-scale heuristics; tune if shimmer remains.
+//     Keep grid on the scene mesh layer so the floor grid does not pull through faces in snapped
+//     principal views. Nudge axes slightly nearer than the grid (smaller bias here) so perpendicular
+//     grid lines and axes do not z-fight after the grid depth write; `ClipZBias*W()` flips sign for
+//     reverse-Z to preserve the same ordering.
 inline constexpr float kClipZBiasSceneMeshW = 0.0022f;
 inline constexpr float kClipZBiasGridW = kClipZBiasSceneMeshW;
-inline constexpr float kClipZBiasAxesW = kClipZBiasSceneMeshW;
+inline constexpr float kClipZBiasGridAxesDeltaW = 4.0e-5f;
+inline constexpr float kClipZBiasAxesW = kClipZBiasGridW - kClipZBiasGridAxesDeltaW;
 
 inline float ClipZBiasSceneMeshW()
 {
