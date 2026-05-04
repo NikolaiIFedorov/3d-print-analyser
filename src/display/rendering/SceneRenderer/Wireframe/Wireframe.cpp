@@ -1,6 +1,42 @@
 #include "Wireframe.hpp"
+#include "rendering/SceneLighting.hpp"
 #include "utils/utils.hpp"
 #include <unordered_map>
+
+namespace
+{
+glm::vec3 BrighterAdjacentFaceNormal(const Edge *edge, const glm::vec3 &lightDirUnit)
+{
+    if (edge == nullptr || edge->dependencies.empty())
+        return glm::vec3(0.0f);
+
+    const Face *bestFace = nullptr;
+    float bestScore = -1.0f;
+    for (Face *f : edge->dependencies)
+    {
+        if (f == nullptr)
+            continue;
+        glm::vec3 n = glm::vec3(f->GetSurface().GetNormal());
+        const float len = glm::length(n);
+        if (!(len > 1e-10f))
+            continue;
+        n /= len;
+        const float score = glm::max(0.0f, glm::dot(n, lightDirUnit));
+        if (score > bestScore)
+        {
+            bestScore = score;
+            bestFace = f;
+        }
+    }
+    if (bestFace == nullptr)
+        return glm::vec3(0.0f);
+    glm::vec3 n = glm::vec3(bestFace->GetSurface().GetNormal());
+    const float len = glm::length(n);
+    if (!(len > 1e-10f))
+        return glm::vec3(0.0f);
+    return n / len;
+}
+} // namespace
 
 void Wireframe::Generate(Scene *scene, std::vector<Vertex> &vertices, std::vector<uint32_t> &indices, const AnalysisResults *results) const
 {
@@ -48,16 +84,19 @@ void Wireframe::AddEdge(const Edge *edge,
         return;
 
     const glm::vec3 color = colorOverride ? *colorOverride : Color::GetEdge();
+    const glm::vec3 litNormal =
+        isFace ? BrighterAdjacentFaceNormal(edge, SceneLighting::DirectionalLightDirWorld()) : glm::vec3(0.0f);
     if (edge->curve == nullptr)
-        AddLineEdge(edge, vertices, indices, color);
+        AddLineEdge(edge, vertices, indices, color, litNormal);
     else
-        AddCurvedEdge(edge, vertices, indices, color);
+        AddCurvedEdge(edge, vertices, indices, color, litNormal);
 }
 
 void Wireframe::AddLineEdge(const Edge *edge,
                             std::vector<Vertex> &vertices,
                             std::vector<uint32_t> &indices,
-                            const glm::vec3 &color) const
+                            const glm::vec3 &color,
+                            const glm::vec3 &litNormal) const
 {
     const Point *p0 = edge->startPoint;
     const Point *p1 = edge->endPoint;
@@ -67,9 +106,11 @@ void Wireframe::AddLineEdge(const Edge *edge,
     Vertex v0, v1;
     v0.position = glm::vec3(p0->position);
     v0.color = color;
+    v0.normal = litNormal;
 
     v1.position = glm::vec3(p1->position);
     v1.color = color;
+    v1.normal = litNormal;
 
     vertices.push_back(v0);
     vertices.push_back(v1);
@@ -81,7 +122,8 @@ void Wireframe::AddLineEdge(const Edge *edge,
 void Wireframe::AddCurvedEdge(const Edge *edge,
                               std::vector<Vertex> &vertices,
                               std::vector<uint32_t> &indices,
-                              const glm::vec3 &color) const
+                              const glm::vec3 &color,
+                              const glm::vec3 &litNormal) const
 {
     const Point *p0 = edge->startPoint;
     if (p0 == nullptr)
@@ -91,7 +133,7 @@ void Wireframe::AddCurvedEdge(const Edge *edge,
     if (p1 == nullptr)
         return;
 
-    TessellateCurve(edge->curve, p0->position, p1->position, vertices, indices, color);
+    TessellateCurve(edge->curve, p0->position, p1->position, vertices, indices, color, litNormal);
 }
 
 void Wireframe::AddFace(const Face *face,
@@ -148,7 +190,8 @@ void Wireframe::TessellateCurve(const Curve *curve,
                                 const glm::dvec3 &end,
                                 std::vector<Vertex> &vertices,
                                 std::vector<uint32_t> &indices,
-                                const glm::vec3 &color) const
+                                const glm::vec3 &color,
+                                const glm::vec3 &litNormal) const
 {
     int segments = 16; // TODO: Make adaptive segments
 
@@ -162,8 +205,8 @@ void Wireframe::TessellateCurve(const Curve *curve,
 
         uint32_t baseIndex = vertices.size();
 
-        vertices.push_back({glm::vec3(p0), color});
-        vertices.push_back({glm::vec3(p1), color});
+        vertices.push_back({glm::vec3(p0), color, litNormal});
+        vertices.push_back({glm::vec3(p1), color, litNormal});
         indices.push_back(baseIndex);
 
         indices.push_back(baseIndex + 1);

@@ -1,4 +1,5 @@
 #include "OpenGLRenderer.hpp"
+#include "rendering/SceneLighting.hpp"
 #include "utils/log.hpp"
 #include "rendering/color.hpp"
 #include "ViewportDepthExperiments.hpp"
@@ -519,10 +520,10 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetMat4("uModel", modelMatrix);
 
     // Light from positive XYZ corner, matching the axis indicator colors
-    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f)));
+    shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
     // Keep directional lighting readable without washing bright faces enough to hide wire edges.
-    shader.SetFloat("uBrightenAmount", 0.75f);
+    shader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);
@@ -602,7 +603,7 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     glm::mat4 viewProj = projectionMatrix * viewMatrix;
     shader.SetMat4("uViewProjection", viewProj);
     shader.SetMat4("uModel", modelMatrix);
-    shader.SetVec3("uLightDir", glm::normalize(glm::vec3(1.0f, 1.0f, 1.0f)));
+    shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
     shader.SetFloat("uBrightenAmount", 0.85f);
     shader.SetFloat("uBlueMin", 0.0f);
@@ -682,6 +683,7 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth, bool xrayOverlay)
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
     lineShader.SetFloat("uClipZBiasW", 0.0f);
     lineShader.SetFloat("uAlpha", xrayOverlay ? 0.45f : 1.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;
@@ -754,6 +756,9 @@ void OpenGLRenderer::DrawLines()
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc() * wireframeDepthNudgeScale);
     lineShader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     lineShader.SetFloat("uAlpha", 1.0f);
+    lineShader.SetFloat("uLightingEnabled", 1.0f);
+    lineShader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
+    lineShader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(DepthComparePass());

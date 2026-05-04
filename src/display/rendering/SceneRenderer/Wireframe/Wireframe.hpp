@@ -26,12 +26,14 @@ private:
     void AddLineEdge(const Edge *edge,
                      std::vector<Vertex> &vertices,
                      std::vector<uint32_t> &indices,
-                     const glm::vec3 &color) const;
+                     const glm::vec3 &color,
+                     const glm::vec3 &litNormal) const;
 
     void AddCurvedEdge(const Edge *edge,
                        std::vector<Vertex> &vertices,
                        std::vector<uint32_t> &indices,
-                       const glm::vec3 &color) const;
+                       const glm::vec3 &color,
+                       const glm::vec3 &litNormal) const;
 
     void AddFace(const Face *face,
                  std::vector<Vertex> &vertices,
@@ -45,5 +47,6 @@ private:
                          const glm::dvec3 &end,
                          std::vector<Vertex> &vertices,
                          std::vector<uint32_t> &indices,
-                         const glm::vec3 &color) const;
+                         const glm::vec3 &color,
+                         const glm::vec3 &litNormal) const;
 };
