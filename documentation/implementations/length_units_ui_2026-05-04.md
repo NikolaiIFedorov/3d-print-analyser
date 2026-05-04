@@ -23,3 +23,10 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 
 - **Worked:** Centralizing parse/conversion in one header keeps `display.cpp` lambdas readable enough; reusing the same drag+text pattern as settings for flaw rows avoids a separate widget module for now.
 - **Watch:** ImGui id discipline for `InputText` vs `DragFloat` must stay unique per row (`##ltxt` / `##slen` prefixes). Future length fields should reuse `makeSettingsLengthDrag` or a small shared helper to avoid drift.
+
+## Update 2026-05-04 — unit inside the control
+
+- Readouts and unit hints use **`paramZoneRight`** (right edge of the actual `SetNextItemWidth` zone) instead of the full row width so text sits inside the same rounded frame as the widget.
+- **Click-to-edit** (`InputText`): buffer is **`"<num> <abbr>"`** so the suffix is literally in the field; overlay suffix skipped in that mode.
+- **Keyboard edit on DragFloat** (length): item width is reduced slightly and the abbreviation is drawn at **`paramZoneRight`** inside the reserved strip (same frame).
+- **Calibrate** idle readout: single formatted string right-aligned to **`GetItemRectMax().x`** (no duplicate trailing abbr).

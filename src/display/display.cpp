@@ -3101,14 +3101,17 @@ void Display::InitUI()
 
             // ── Right param zone: DragFloat ──────────────────────────────────────
             float rightW = w - leftW - editGap;
+            // Right edge of the value control (inside the same rounded frame as ImGui item).
+            const float paramZoneRight = originX + leftW + editGap + rightW;
 
             if (fr.requestEdit)
             {
                 if (storageIsLengthMm && lenTextModeFlag && lengthText)
                 {
                     *lenTextModeFlag = true;
-                    std::snprintf(lengthText->data(), lengthText->size(), "%.6g",
-                                  static_cast<double>(FromMillimeters(param, defaultLen)));
+                    std::snprintf(lengthText->data(), lengthText->size(), "%.6g %s",
+                                  static_cast<double>(FromMillimeters(param, defaultLen)),
+                                  LengthUnitAbbreviation(defaultLen));
                 }
                 ImGui::SetKeyboardFocusHere();
                 fr.requestEdit = false;
@@ -3116,7 +3119,6 @@ void Display::InitUI()
                 showEdit = true;
             }
 
-            ImGui::SetNextItemWidth(rightW);
             const char *fmt = showEdit ? (isAngle ? "%.0f" : (dragSpeed < 0.1f ? "%.2f" : "%.1f")) : "";
             if (storageIsLengthMm && !isAngle)
                 fmt = showEdit ? "%.6g" : "";
@@ -3127,6 +3129,7 @@ void Display::InitUI()
             if (storageIsLengthMm && lengthDisplay && lengthText && lenTextModeFlag &&
                 *lenTextModeFlag)
             {
+                ImGui::SetNextItemWidth(rightW);
                 char inputId[72];
                 std::snprintf(inputId, sizeof(inputId), "##ltxt%s", dragId);
                 bool textChanged = ImGui::InputText(inputId, lengthText->data(), lengthText->size(),
@@ -3148,8 +3151,9 @@ void Display::InitUI()
                     }
                     else
                     {
-                        std::snprintf(lengthText->data(), lengthText->size(), "%.6g",
-                                      static_cast<double>(FromMillimeters(param, defaultLen)));
+                        std::snprintf(lengthText->data(), lengthText->size(), "%.6g %s",
+                                      static_cast<double>(FromMillimeters(param, defaultLen)),
+                                      LengthUnitAbbreviation(defaultLen));
                     }
                     *lenTextModeFlag = false;
                     fr.focusPending = false;
@@ -3157,6 +3161,16 @@ void Display::InitUI()
             }
             else if (storageIsLengthMm && lengthDisplay)
             {
+                float itemW = rightW;
+                if (showEdit && !(lenTextModeFlag && *lenTextModeFlag))
+                {
+                    const float sw =
+                        ImGui::CalcTextSize(LengthUnitAbbreviation(defaultLen)).x +
+                        ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+                    itemW = std::max(rightW - sw, ImGui::GetFontSize() * 2.5f);
+                }
+                ImGui::SetNextItemWidth(itemW);
+
                 if (!ImGui::IsItemActive())
                     *lengthDisplay = FromMillimeters(param, defaultLen);
                 const float mmPer = MillimetersPerUnit(defaultLen);
@@ -3192,6 +3206,7 @@ void Display::InitUI()
             }
             else
             {
+                ImGui::SetNextItemWidth(rightW);
                 changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
                 committedEdit = ImGui::IsItemDeactivatedAfterEdit();
                 UIStyle::DrawInputHoverTint(1);
@@ -3238,9 +3253,11 @@ void Display::InitUI()
                     ImVec2(originX + iconOffset + normalPad, ty), dimColZero, noFlawLabel.c_str());
             }
 
-            // Right side: param value in normal mode, unit hint in edit mode
+            // Right side: readout and edit hints — align to param zone right edge (inside ImGui frame)
             const char *editUnitHint =
                 (storageIsLengthMm && !isAngle) ? LengthUnitAbbreviation(defaultLen) : unit;
+            const bool skipEditUnitOverlay =
+                (storageIsLengthMm && !isAngle && lenTextModeFlag && *lenTextModeFlag);
             if (!showEdit)
             {
                 char valBuf[48];
@@ -3255,13 +3272,13 @@ void Display::InitUI()
                 ImVec2 vs = ImGui::CalcTextSize(valBuf);
                 ImU32 valCol = (fr.count > 0) ? dimCol : dimColZero;
                 ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + w - normalPad - vs.x, ty), valCol, valBuf);
+                    ImVec2(paramZoneRight - normalPad - vs.x, ty), valCol, valBuf);
             }
-            else
+            else if (!skipEditUnitOverlay)
             {
                 ImVec2 us = ImGui::CalcTextSize(editUnitHint);
                 ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + w - normalPad - us.x, ty), dimCol, editUnitHint);
+                    ImVec2(paramZoneRight - normalPad - us.x, ty), dimCol, editUnitHint);
             }
 
             if (navFired)
@@ -3521,8 +3538,9 @@ void Display::InitUI()
             if (dragState->requestEdit)
             {
                 *lenText = true;
-                std::snprintf(textBuf->data(), textBuf->size(), "%.6g",
-                              static_cast<double>(FromMillimeters(paramMm, du)));
+                std::snprintf(textBuf->data(), textBuf->size(), "%.6g %s",
+                              static_cast<double>(FromMillimeters(paramMm, du)),
+                              LengthUnitAbbreviation(du));
                 ImGui::SetKeyboardFocusHere();
                 dragState->requestEdit = false;
                 dragState->focusPending = true;
@@ -3545,12 +3563,14 @@ void Display::InitUI()
                 dragW = w;
             }
 
+            const float paramZoneRight = originX + dragOffsetX + dragW;
+
             ImGui::SetCursorScreenPos(ImVec2(originX + dragOffsetX, rowOrigin.y));
-            ImGui::SetNextItemWidth(dragW);
 
             bool changed = false;
             if (*lenText)
             {
+                ImGui::SetNextItemWidth(dragW);
                 char textId[80];
                 std::snprintf(textId, sizeof(textId), "##slen%s", dragId);
                 (void)ImGui::InputText(textId, textBuf->data(), textBuf->size(),
@@ -3570,8 +3590,9 @@ void Display::InitUI()
                     }
                     else
                     {
-                        std::snprintf(textBuf->data(), textBuf->size(), "%.6g",
-                                      static_cast<double>(FromMillimeters(paramMm, du)));
+                        std::snprintf(textBuf->data(), textBuf->size(), "%.6g %s",
+                                      static_cast<double>(FromMillimeters(paramMm, du)),
+                                      LengthUnitAbbreviation(du));
                     }
                     *lenText = false;
                     dragState->focusPending = false;
@@ -3579,6 +3600,16 @@ void Display::InitUI()
             }
             else
             {
+                float itemW = dragW;
+                if (showEdit && !*lenText)
+                {
+                    const float sw =
+                        ImGui::CalcTextSize(LengthUnitAbbreviation(du)).x +
+                        ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
+                    itemW = std::max(dragW - sw, ImGui::GetFontSize() * 2.5f);
+                }
+                ImGui::SetNextItemWidth(itemW);
+
                 if (!ImGui::IsItemActive())
                     *display = FromMillimeters(paramMm, du);
                 const float mmPer = MillimetersPerUnit(du);
@@ -3642,7 +3673,15 @@ void Display::InitUI()
                 ImVec2 vs = ImGui::CalcTextSize(valBuf);
                 float ty_value = bottom - ImGui::GetFont()->FontSize;
                 ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+                dl->AddText(ImVec2(paramZoneRight - pad - vs.x, ty_value), valCol, valBuf);
+            }
+            else if (!*lenText)
+            {
+                const char *abbr = LengthUnitAbbreviation(du);
+                ImVec2 us = ImGui::CalcTextSize(abbr);
+                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImU32 dimU = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                dl->AddText(ImVec2(paramZoneRight - pad - us.x, ty_value), dimU, abbr);
             }
 
             if (changed)
@@ -3908,8 +3947,9 @@ void Display::InitUI()
                 }
 
                 if (!*pmEditing && !ImGui::IsItemActive())
-                    std::snprintf(calibText->data(), calibText->size(), "%.6g",
-                                  static_cast<double>(FromMillimeters(calibMeasured, du)));
+                    std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
+                                  static_cast<double>(FromMillimeters(calibMeasured, du)),
+                                  LengthUnitAbbreviation(du));
 
                 const bool readOnly = !*pmEditing;
                 if (readOnly)
@@ -3938,8 +3978,9 @@ void Display::InitUI()
                     }
                     else
                     {
-                        std::snprintf(calibText->data(), calibText->size(), "%.6g",
-                                      static_cast<double>(FromMillimeters(calibMeasured, du)));
+                        std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
+                                      static_cast<double>(FromMillimeters(calibMeasured, du)),
+                                      LengthUnitAbbreviation(du));
                     }
                     *pmEditing = false;
                 }
@@ -3948,6 +3989,7 @@ void Display::InitUI()
 
                 ImDrawList *dl = ImGui::GetWindowDrawList();
                 float itemBottom = ImGui::GetItemRectMax().y;
+                const float cellRight = ImGui::GetItemRectMax().x;
                 float labelTextH = settingsBodyFont
                                        ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").y
                                        : ImGui::CalcTextSize("Print measurement").y;
@@ -3958,21 +4000,14 @@ void Display::InitUI()
                 if (settingsBodyFont)
                     ImGui::PopFont();
 
-                // Unit/value suffix — value is right-aligned and sits directly left of unit.
+                // Readout / edit: keep inside the input frame; full string includes unit when idle.
+                if (!*pmEditing)
                 {
-                    const char *unit = LengthUnitAbbreviation(du);
-                    ImVec2 us = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, unit);
+                    char valueBuf[48];
+                    FormatLengthMmForDisplay(valueBuf, sizeof(valueBuf), calibMeasured, du);
+                    ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
                     ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                    dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x, itemBottom - us.y), unitCol, unit);
-
-                    if (!*pmEditing)
-                    {
-                        char valueBuf[48];
-                        FormatLengthMmForDisplay(valueBuf, sizeof(valueBuf), calibMeasured, du);
-                        ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
-                        constexpr float valueUnitGap = 10.0f;
-                        dl->AddText(ImVec2(rowOrigin.x + w - pad - us.x - valueUnitGap - vs.x, itemBottom - vs.y), unitCol, valueBuf);
-                    }
+                    dl->AddText(ImVec2(cellRight - pad - vs.x, itemBottom - vs.y), unitCol, valueBuf);
                 }
 
                 if (changed)
