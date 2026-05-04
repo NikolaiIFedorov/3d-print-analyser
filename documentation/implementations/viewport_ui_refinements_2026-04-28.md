@@ -390,3 +390,29 @@ Build clean. Settings **LOD** slider still drives `UserTuning` grid limits and p
 ### Mini retro
 
 Centralizing spacing in one struct clarified wpp reuse for alpha; hysteresis on float spacing still useful for jitter.
+
+---
+
+## Follow-up (2026-05-05, b): fixed grid spacing — opacity-only view dependence
+
+### Problem
+
+World spacing still followed zoom/orbit via pixel gap and line budget; user wanted **constant** cell size and only **alpha** reacting to camera.
+
+### Approach
+
+- **Spacing**: `gridWorldSpacing = gridLodMinWorldStep` always; mesh regenerates when that tuning value changes (`SetCamera` compares each frame). Constructor bootstraps the same.
+- **Camera**: `ComputeForeshortenedWpp` only (removed density/pixel `minWorldSpacing` path and grid hysteresis helper).
+- **Opacity**: unchanged `GridOpacityFromPixelGap(spacing, wpp)` → [0.5, 1.0].
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, this log
+
+### Outcome
+
+Build clean. **LOD** slider still sets `gridLodMinWorldStep` (and other derivatives used for opacity’s `gridLodMinPixelGap` / foreshortening). `gridLodHysteresisBand` is unused by the viewport until reintroduced.
+
+### Note
+
+Line count is fixed for a given grid extent + min world step; very fine steps over a large **Grid size** can be heavy on the GPU.

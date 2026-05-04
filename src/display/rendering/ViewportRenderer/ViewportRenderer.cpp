@@ -18,37 +18,16 @@ inline float Smoothstep01(float t)
     return t * t * (3.0f - 2.0f * t);
 }
 
-/// Foreshortened wpp and minimum line spacing from ortho, pixel gap, and line budget; `absViewDirDotZ` is |v·ẑ|.
-struct GridSpacingCamera
+/// World-units per pixel with orbit foreshortening (`absViewDirDotZ` is |v·ẑ|); used only for grid alpha.
+float ComputeForeshortenedWpp(float orthoSize, float aspect, int widthPx, int heightPx,
+                              float absViewDirDotZ)
 {
-    float minWorldSpacing = 1.0f;
-    float wpp = 1.0f;
-};
-
-GridSpacingCamera ComputeGridSpacingCamera(float orthoSize, float aspect, int widthPx, int heightPx,
-                                           float absViewDirDotZ)
-{
-    GridSpacingCamera out{};
     const float halfW = orthoSize * std::fabs(aspect);
     const float halfH = orthoSize;
     const float wppLinear = (2.0f * std::max(halfW, halfH)) /
                             static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
     const float foreshort = std::max(UserTuning::gridForeshortenFloor, std::abs(absViewDirDotZ));
-    out.wpp = wppLinear / std::pow(foreshort, UserTuning::gridForeshortenExponent);
-
-    const float minByPixels = UserTuning::gridLodMinPixelGap * out.wpp;
-
-    const float extent = Color::GRID_EXTENT;
-    const float spanWorld = 2.0f * extent;
-    const float budget = 4.0f * static_cast<float>(std::max(1, std::max(widthPx, heightPx)));
-    const float densityFloor = spanWorld / budget;
-
-    out.minWorldSpacing = std::max(minByPixels, densityFloor);
-
-    const float minWorldStep = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
-    const float maxWorldStep = std::max(minWorldStep, UserTuning::gridLodMaxWorldStep);
-    out.minWorldSpacing = std::clamp(out.minWorldSpacing, minWorldStep, maxWorldStep);
-    return out;
+    return wppLinear / std::pow(foreshort, UserTuning::gridForeshortenExponent);
 }
 
 float GridOpacityFromPixelGap(float lineSpacingWorld, float wpp)
@@ -62,22 +41,6 @@ float GridOpacityFromPixelGap(float lineSpacingWorld, float wpp)
     return kGridOpacityMin + (kGridOpacityMax - kGridOpacityMin) * t;
 }
 
-/// Small relative deadband so ortho jitter does not rebuild the grid mesh every frame.
-void ApplyGridLodHysteresis(float desired, float &current)
-{
-    if (!std::isfinite(desired) || desired <= 0.0f)
-        return;
-    if (!std::isfinite(current) || current <= 0.0f)
-    {
-        current = desired;
-        return;
-    }
-    const float kBand = std::max(1.001f, UserTuning::gridLodHysteresisBand);
-    if (desired > current * kBand)
-        current = desired;
-    else if (desired * kBand < current)
-        current = desired;
-}
 } // namespace
 
 ViewportRenderer::ViewportRenderer(SDL_Window *window)
@@ -90,6 +53,7 @@ ViewportRenderer::ViewportRenderer(SDL_Window *window)
 
     glGenVertexArrays(1, &lineVAO);
 
+    gridWorldSpacing = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
     Generate();
 
     LOG_VOID("Initialized ViewportRenderer");
@@ -153,16 +117,18 @@ void ViewportRenderer::SetCamera(Camera &camera)
     if (fLen > 1e-8f)
         viewDirWorld = glm::normalize(-forwardWorld);
 
-    const GridSpacingCamera g = ComputeGridSpacingCamera(
+    gridWppForOpacity = ComputeForeshortenedWpp(
         camera.orthoSize, camera.aspectRatio, static_cast<int>(camera.widthWindow),
         static_cast<int>(camera.heightWindow), viewDirWorld.z);
-    gridWppForOpacity = g.wpp;
-    const float want = g.minWorldSpacing;
+
+    const float fromTuning = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
     const float before = gridWorldSpacing;
-    ApplyGridLodHysteresis(want, gridWorldSpacing);
-    const float mag = std::max({1e-6f, before, gridWorldSpacing});
-    if (std::abs(gridWorldSpacing - before) > std::max(1e-7f, mag * 1e-5f))
+    const float mag = std::max({1e-6f, before, fromTuning});
+    if (!std::isfinite(before) || std::abs(fromTuning - before) > std::max(1e-7f, mag * 1e-5f))
+    {
+        gridWorldSpacing = fromTuning;
         RegenerateGrid();
+    }
 }
 
 void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
