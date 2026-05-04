@@ -73,13 +73,15 @@ struct PanelAnchor
 // Rendered by UIRenderer as variable-width zones with an accent pill behind the active option.
 struct SelectOption
 {
-    std::string label;      // short text shown on the active zone; inactive zones show icon only
-    Icons::DrawFn iconDraw; // icon drawn in every zone
+    std::string label;      // short text; with icons: active = icon+label, inactive = icon only; textOnly: all labels
+    Icons::DrawFn iconDraw; // icon drawn in every zone when Select::textOnly is false
 };
 
 struct Select
 {
     std::vector<SelectOption> options;   // ordered list of options
+    /// When true, each segment is label-only (no icon slot); inactive segments still show dimmed text.
+    bool textOnly = false;
     int activeIndex = 0;                 // which option is currently selected
     std::function<void(int)> onChange;   // called with the new index when the user clicks a different zone
     std::function<void()> onActiveClick; // called when the already-active zone is clicked again
@@ -172,7 +174,7 @@ struct Paragraph : UIElement
     std::vector<SectionLine> values;
     int bgParentDepth = -1; // >= 0 draws a rounded-rect background; pass the parent element's depth (renderer adds +1)
     bool accentBar = false; // draws a left-edge accent bar spanning the full paragraph height
-    /// Bottom accent progress track (processing cards). Prefer `accentProgressNumerator/Denominator` when known; otherwise `accentProgress01`.
+    /// Text-column progress underline (processing cards). Prefer `accentProgressNumerator/Denominator` when known; otherwise `accentProgress01`.
     bool accentProgressBar = false;
     /// Progress fill: \([0,1]\) determinate; `< 0` indeterminate animation (when `accentProgressBar`).
     float accentProgress01 = -1.0f;

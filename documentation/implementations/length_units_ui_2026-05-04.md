@@ -52,3 +52,11 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 ## Update — ignore spurious deactivate when opening Calibrate field
 
 Switching idle `InvisibleButton` → edit `InputText` could trigger **`IsItemDeactivated()`** on the transition frame before the text field was ever active, so the handler closed edit mode immediately (“can’t change it in time”). **Fix:** track `calibEditHadFocus` (set when `IsItemActivated` or `IsItemActive`); only treat **`IsItemDeactivated()`** as leave-edit after that. **Enter** still commits immediately. Reset the flag on open (click) and after closing.
+
+## Update — Settings length unit: text-only pill (2026-05-05)
+
+**Problem:** The **Length unit** segmented control used placeholder icons in each segment; labels were short (`mm` / `cm` / `in` / `ft`) and icons added no information.
+
+**Change:** Added `Select::textOnly` in `Panel.hpp` and rendering in `UIRenderer.cpp` so every segment shows **dimmed text when inactive** and **brighter text on the accent pill when active**, with no icon slot. Settings wires `sel.textOnly = true` and empty `iconDraw` for the unit row. Theme / Accent selects unchanged (icon + label on active only).
+
+**Outcome:** `cmake --build build` OK (AppleClang).

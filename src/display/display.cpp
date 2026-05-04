@@ -3829,11 +3829,12 @@ void Display::InitUI()
         SectionLine &unitSel = gridPara.values.emplace_back();
         unitSel.text = "Length unit";
         Select sel;
+        sel.textOnly = true;
         sel.options = {
-            {"mm", Icons::Placeholder(1)},
-            {"cm", Icons::Placeholder(1)},
-            {"in", Icons::Placeholder(1)},
-            {"ft", Icons::Placeholder(1)},
+            {"mm", {}},
+            {"cm", {}},
+            {"in", {}},
+            {"ft", {}},
         };
         sel.activeIndex = std::clamp(settings.defaultLengthUnit, 0, 3);
         sel.onChange = [this](int i)

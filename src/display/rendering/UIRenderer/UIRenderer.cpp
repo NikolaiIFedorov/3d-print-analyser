@@ -416,7 +416,7 @@ void UIRenderer::ResolveAnchors()
 
         if (item.accentProgressBar)
         {
-            // Breathing room between last text line and strip (layout); strip draws in bottom padding band.
+            // Breathing room between last text line and underline (layout); underline draws in bottom padding band.
             constexpr float kProgressStripGapPx = 1.0f;
             constexpr float kProgressStripHPx = 3.0f;
             contentH += (kProgressStripGapPx + kProgressStripHPx) / grid.cellSizeY;
@@ -816,30 +816,6 @@ void UIRenderer::ResolveAnchors()
         }
     }
 
-    // StatusStrip spans Settings→Toolbar horizontally; it shares the top row with those panels until
-    // here, so we shift Settings + Toolbar down to free the strip band (avoids forward-anchor cycles).
-    {
-        RootPanel *strip = GetPanel("StatusStrip");
-        RootPanel *st = GetPanel("Settings");
-        RootPanel *tb = GetPanel("Toolbar");
-        if (strip && strip->visible && st && tb && st->visible && tb->visible)
-        {
-            // Touch outer row boxes: same rule as e.g. Files→Analysis (top = other.bottom). No extra
-            // cell gap — adjacent margins already give the only separation between GL backgrounds.
-            const float dy = strip->rowSpan;
-            st->row += dy;
-            tb->row += dy;
-            // Keep the bottom edge on the anchored screen bottom (incl. SCREEN_BOTTOM_INSET):
-            // without shrinking rowSpan, the panel would extend dy cells past the layout bottom and
-            // cover the intended gap (and/or overlap the strip band incorrectly).
-            st->rowSpan = std::max(1.0f, st->rowSpan - dy);
-            tb->rowSpan = std::max(1.0f, tb->rowSpan - dy);
-            updateLocalGrid(*st, st->padding);
-            placeChildrenVertical(*st);
-            updateLocalGrid(*tb, tb->padding);
-            placeChildrenVertical(*tb);
-        }
-    }
 }
 
 void UIRenderer::ComputeMinGridSize()
@@ -1354,6 +1330,7 @@ void UIRenderer::Render()
             contentPx += usedLeadingPx;
         }
 
+        float progressUnderlineX1 = contentPx;
         size_t visibleI = 0;
         for (size_t i = 0; i < item.values.size(); i++)
         {
@@ -1449,24 +1426,34 @@ void UIRenderer::Render()
                         constexpr float zoneInset = 2.0f; // per side (2×2 = 4px total, matching layout)
                         float lblSize = lblFont->FontSize;
 
-                        // Variable-width zones: active = icon + label, inactive = icon only.
-                        // Any surplus width from the available pill area goes to the active zone.
+                        // Variable-width zones:
+                        // - Default: active = icon + label, inactive = icon only.
+                        // - textOnly: every zone is label-only (no icon slot).
+                        // Any surplus width from the available pill area goes to inactive zones.
                         std::vector<float> zoneWidths(n);
                         float totalNatural = 0.0f;
                         for (int zi = 0; zi < n; ++zi)
                         {
                             bool isActive = (zi == sel.activeIndex);
                             float lw = 0.0f;
-                            if (isActive && !sel.options[zi].label.empty())
-                                lw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
-                            zoneWidths[zi] = 2.0f * s + (lw > 0.0f ? iconGap + lw : 0.0f) + 2.0f * zoneInset;
+                            if (sel.textOnly)
+                            {
+                                if (!sel.options[zi].label.empty())
+                                    lw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+                                zoneWidths[zi] = lw + 2.0f * pad + 2.0f * zoneInset;
+                            }
+                            else
+                            {
+                                if (isActive && !sel.options[zi].label.empty())
+                                    lw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+                                zoneWidths[zi] = 2.0f * s + (lw > 0.0f ? iconGap + lw : 0.0f) + 2.0f * zoneInset;
+                            }
                             totalNatural += zoneWidths[zi];
                         }
                         float surplus = pillAreaW - totalNatural;
                         if (surplus > 0.0f)
                         {
-                            // Distribute surplus only to inactive (icon-only) zones so the
-                            // active zone width is purely content-driven and stays the same
+                            // Distribute surplus to inactive zones so the active zone width stays content-driven
                             // across rows that share the same column (e.g. Theme vs Accent).
                             int nInactive = n - 1; // exactly one active zone
                             if (nInactive > 0)
@@ -1511,28 +1498,44 @@ void UIRenderer::Render()
 
                             float midZone = (zx0 + zx1) * 0.5f;
                             float midRow = btnY + baseH * 0.5f;
-                            int depth = isActive ? 2 : 0;
-
-                            float labelW = 0.0f;
-                            if (isActive && !sel.options[zi].label.empty())
-                                labelW = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
-
-                            // Centre icon + label together within the zone
-                            float contentW = 2.0f * s + (labelW > 0.0f ? iconGap + labelW : 0.0f);
-                            float contentStartX = midZone - contentW * 0.5f;
 
                             // Clip to zone interior so nothing overflows
                             dl->PushClipRect(ImVec2(zx0 + 2.f, btnY), ImVec2(zx1 - 2.f, btnY + baseH), true);
 
-                            if (sel.options[zi].iconDraw)
-                                sel.options[zi].iconDraw(dl, contentStartX, midRow, s);
-
-                            if (isActive && labelW > 0.0f)
+                            if (sel.textOnly)
                             {
+                                float labelW = 0.0f;
+                                if (!sel.options[zi].label.empty())
+                                    labelW = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
                                 float ty = btnY + (baseH - lblSize) * 0.5f;
+                                int depth = isActive ? 2 : 0;
                                 glm::vec4 tc = Color::GetUIText(depth);
                                 ImU32 lblCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                                dl->AddText(lblFont, lblSize, ImVec2(contentStartX + 2.0f * s + iconGap, ty), lblCol, sel.options[zi].label.c_str());
+                                dl->AddText(lblFont, lblSize, ImVec2(midZone - labelW * 0.5f, ty), lblCol,
+                                            sel.options[zi].label.c_str());
+                            }
+                            else
+                            {
+                                int depth = isActive ? 2 : 0;
+                                float labelW = 0.0f;
+                                if (isActive && !sel.options[zi].label.empty())
+                                    labelW = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, sel.options[zi].label.c_str()).x;
+
+                                // Centre icon + label together within the zone
+                                float contentW = 2.0f * s + (labelW > 0.0f ? iconGap + labelW : 0.0f);
+                                float contentStartX = midZone - contentW * 0.5f;
+
+                                if (sel.options[zi].iconDraw)
+                                    sel.options[zi].iconDraw(dl, contentStartX, midRow, s);
+
+                                if (isActive && labelW > 0.0f)
+                                {
+                                    float ty = btnY + (baseH - lblSize) * 0.5f;
+                                    glm::vec4 tc = Color::GetUIText(depth);
+                                    ImU32 lblCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                                    dl->AddText(lblFont, lblSize, ImVec2(contentStartX + 2.0f * s + iconGap, ty), lblCol,
+                                                sel.options[zi].label.c_str());
+                                }
                             }
 
                             dl->PopClipRect();
@@ -1612,6 +1615,7 @@ void UIRenderer::Render()
                                           barW * 0.5f);
                     }
                     float tx = winX + iconOffset; // skip icon slot before drawing text
+                    const float textStartX = tx;
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
@@ -1623,7 +1627,10 @@ void UIRenderer::Render()
                         glm::vec4 tc = Color::GetUIText(line.textDepth);
                         ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
                         dl->AddText(font, renderSize, ImVec2(tx, ty), textCol, line.text.c_str());
+                        tx += font->CalcTextSizeA(renderSize, FLT_MAX, 0.0f, line.text.c_str()).x;
                     }
+                    if (item.accentProgressBar && tx > textStartX)
+                        progressUnderlineX1 = std::max(progressUnderlineX1, tx);
                 }
             }
             ImGui::End();
@@ -1633,25 +1640,24 @@ void UIRenderer::Render()
 
         if (item.accentProgressBar)
         {
-            // Align track with padded content inset (same horizontal band as body text), flush to inner bottom.
             const float padXPx = item.padding * grid.cellSizeX;
             const float padYPx = item.padding * grid.cellSizeY;
-            const float innerX0 = px0 + padXPx;
-            const float innerX1 = px1 - padXPx;
+            const float underlineX0 = contentPx;
+            const float underlineX1 = std::min(progressUnderlineX1, px1 - padXPx);
             constexpr float stripHPx = 3.0f;
             const float stripY1 = py1 - padYPx;
             const float stripY0 = stripY1 - stripHPx;
-            if (stripY0 >= py0 && innerX1 > innerX0)
+            if (stripY0 >= py0 && underlineX1 > underlineX0)
             {
                 ImDrawList *pdl = ImGui::GetForegroundDrawList();
                 glm::vec4 trackCol = Color::GetUIText(1);
                 trackCol.a *= 0.12f;
                 constexpr float trackR = 1.5f;
-                pdl->AddRectFilled(ImVec2(innerX0, stripY0), ImVec2(innerX1, stripY1),
+                pdl->AddRectFilled(ImVec2(underlineX0, stripY0), ImVec2(underlineX1, stripY1),
                                    ImGui::GetColorU32(ImVec4(trackCol.r, trackCol.g, trackCol.b, trackCol.a)),
                                    trackR);
 
-                const float span = innerX1 - innerX0;
+                const float span = underlineX1 - underlineX0;
                 glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
                 float fill01 = -1.0f;
                 if (item.accentProgressDenominator > 0 && item.accentProgressNumerator >= 0)
@@ -1664,16 +1670,16 @@ void UIRenderer::Render()
                 {
                     const float w = span * std::clamp(fill01, 0.0f, 1.0f);
                     if (w > 0.5f)
-                        pdl->AddRectFilled(ImVec2(innerX0, stripY0), ImVec2(innerX0 + w, stripY1),
+                        pdl->AddRectFilled(ImVec2(underlineX0, stripY0), ImVec2(underlineX0 + w, stripY1),
                                            ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
                                            trackR, ImDrawFlags_RoundCornersLeft);
                 }
                 else
                 {
-                    const float seg = std::max(12.0f, span * 0.28f);
+                    const float seg = std::min(span, std::max(12.0f, span * 0.28f));
                     const float phase = std::fmod(static_cast<float>(ImGui::GetTime()) * 0.55f, 1.0f);
-                    const float x0 = innerX0 + phase * std::max(0.0f, span - seg);
-                    pdl->AddRectFilled(ImVec2(x0, stripY0), ImVec2(std::min(x0 + seg, innerX1), stripY1),
+                    const float x0 = underlineX0 + phase * std::max(0.0f, span - seg);
+                    pdl->AddRectFilled(ImVec2(x0, stripY0), ImVec2(std::min(x0 + seg, underlineX1), stripY1),
                                        ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)), trackR);
                 }
             }
