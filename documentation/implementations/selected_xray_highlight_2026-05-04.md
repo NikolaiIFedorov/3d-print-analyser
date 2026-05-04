@@ -64,3 +64,5 @@ remain the strongest cue.
 Outcome: `DrawPickHighlight(true)` draws `pickHighlightXrayIndexCount` indices; `Display::Render` calls
 `RenderPickHighlightXray()` then `RenderPickHighlightLinesXray()`.
 
+Tuning (2026-05-04): Occluded-face alpha raised from implicit `0.08` → `RenderingExperiments::kPickHighlightFaceXrayAlpha` (`0.14`) after feedback that the fill read too faint; single knob for rebuild-less tweaks.
+

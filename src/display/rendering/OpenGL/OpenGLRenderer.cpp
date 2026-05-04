@@ -613,7 +613,7 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
-    shader.SetFloat("uAlpha", xrayOverlay ? 0.08f : 1.0f);
+    shader.SetFloat("uAlpha", xrayOverlay ? RenderingExperiments::kPickHighlightFaceXrayAlpha : 1.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;

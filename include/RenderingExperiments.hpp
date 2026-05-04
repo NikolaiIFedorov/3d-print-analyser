@@ -37,12 +37,12 @@ inline constexpr bool kLineDrawsOmitDepthWrite = false;
 //     Bumped from 1 → 48 after reports of edge/face z-fighting in ortho (still subtle; tune if lines pop).
 inline constexpr float kWireframeClipZNudgeScale = 48.0f;
 
-// --- Ortho layer stack (axes > grid > scene): `basic.vert` / `line.vert` use `gl_Position.z += uClipZBiasW * w`.
-//     Scene mesh + wire use positive bias (standard depth: slightly farther); grid/axes use more negative
-//     values so they win coplanar depth tests. Magnitudes are ortho-scale heuristics; tune if shimmer remains.
+// --- Ortho reference depth: `basic.vert` / `line.vert` use `gl_Position.z += uClipZBiasW * w`.
+//     Keep grid/axes on the same layer as scene mesh so reference lines do not pull through faces in
+//     snapped principal views. Magnitudes are ortho-scale heuristics; tune if shimmer remains.
 inline constexpr float kClipZBiasSceneMeshW = 0.0022f;
-inline constexpr float kClipZBiasGridW = -0.00115f;
-inline constexpr float kClipZBiasAxesW = -0.0045f;
+inline constexpr float kClipZBiasGridW = kClipZBiasSceneMeshW;
+inline constexpr float kClipZBiasAxesW = kClipZBiasSceneMeshW;
 
 inline float ClipZBiasSceneMeshW()
 {
@@ -61,9 +61,12 @@ inline float ClipZBiasAxesW()
 //     filled tris). Default off — trial did not materially change ghosting; set true to re-test.
 inline constexpr bool kWireframeLinePolygonOffsetDeeper = false;
 
-// --- Theory #2c: pick highlight fill draws without glPolygonOffset (no pull toward camera).
-// Independent of `ViewportDepthExperiments`; either this or `NoPickPolygonOffset` skips offset.
-inline constexpr bool kPickHighlightNoPolygonOffset = false;
+// Pick highlight fill stays honestly depth-tested; occluded selected/hovered portions are handled by
+// the translucent x-ray pass instead of pulling the opaque pass toward the camera.
+inline constexpr bool kPickHighlightNoPolygonOffset = true;
+
+/// Alpha for occluded-face x-ray pass (`DepthCompareBehind` + blend); keep modest — dense tessellation can read noisy.
+inline constexpr float kPickHighlightFaceXrayAlpha = 0.14f;
 
 // --- Theory #3: back-face cull only for filled patches + pick highlight (not grid/lines/axes).
 // `ViewportDepthExperiments::BackFaceCull` uses the same window.
