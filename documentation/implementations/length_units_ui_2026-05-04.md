@@ -30,3 +30,9 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 - **Click-to-edit** (`InputText`): buffer is **`"<num> <abbr>"`** so the suffix is literally in the field; overlay suffix skipped in that mode.
 - **Keyboard edit on DragFloat** (length): item width is reduced slightly and the abbreviation is drawn at **`paramZoneRight`** inside the reserved strip (same frame).
 - **Calibrate** idle readout: single formatted string right-aligned to **`GetItemRectMax().x`** (no duplicate trailing abbr).
+
+## Update — calibrate crash + right-anchored length fields
+
+- **Calibrate:** Removed `*pmEditing = IsItemActive() && WantTextInput` after `InputText`, which could fight click-to-focus and led to bad state / crashes on deactivate. Edit mode is now: open on `IsItemClicked()` while idle, close only on `IsItemDeactivatedAfterEdit()` after parsing.
+- **Analysis / settings length:** DragFloat / InputText cursor is **`paramZoneRight - itemW`** so the control stays **right-aligned** in the param band when width toggles between full and suffix-reserved (no leftward jump when leaving keyboard edit).
+- **Calibrate** overlay: guard **null `ImFont`** before `CalcTextSizeA`.

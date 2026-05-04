@@ -3097,12 +3097,12 @@ void Display::InitUI()
             // Always position DragFloat at the right zone — even in edit mode.
             // Add a small gap in edit mode so the input field doesn't butt up against the label.
             float editGap = showEdit ? normalPad * 3.0f : 0.0f;
-            ImGui::SetCursorScreenPos(ImVec2(originX + leftW + editGap, rowOrigin.y));
 
             // ── Right param zone: DragFloat ──────────────────────────────────────
             float rightW = w - leftW - editGap;
+            const float paramLeft = originX + leftW + editGap;
             // Right edge of the value control (inside the same rounded frame as ImGui item).
-            const float paramZoneRight = originX + leftW + editGap + rightW;
+            const float paramZoneRight = paramLeft + rightW;
 
             if (fr.requestEdit)
             {
@@ -3129,6 +3129,7 @@ void Display::InitUI()
             if (storageIsLengthMm && lengthDisplay && lengthText && lenTextModeFlag &&
                 *lenTextModeFlag)
             {
+                ImGui::SetCursorScreenPos(ImVec2(paramZoneRight - rightW, rowOrigin.y));
                 ImGui::SetNextItemWidth(rightW);
                 char inputId[72];
                 std::snprintf(inputId, sizeof(inputId), "##ltxt%s", dragId);
@@ -3169,6 +3170,7 @@ void Display::InitUI()
                         ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
                     itemW = std::max(rightW - sw, ImGui::GetFontSize() * 2.5f);
                 }
+                ImGui::SetCursorScreenPos(ImVec2(paramZoneRight - itemW, rowOrigin.y));
                 ImGui::SetNextItemWidth(itemW);
 
                 if (!ImGui::IsItemActive())
@@ -3206,6 +3208,7 @@ void Display::InitUI()
             }
             else
             {
+                ImGui::SetCursorScreenPos(ImVec2(paramLeft, rowOrigin.y));
                 ImGui::SetNextItemWidth(rightW);
                 changed = ImGui::DragFloat(dragId, &param, dragSpeed, dragMin, dragMax, fmt);
                 committedEdit = ImGui::IsItemDeactivatedAfterEdit();
@@ -3565,11 +3568,10 @@ void Display::InitUI()
 
             const float paramZoneRight = originX + dragOffsetX + dragW;
 
-            ImGui::SetCursorScreenPos(ImVec2(originX + dragOffsetX, rowOrigin.y));
-
             bool changed = false;
             if (*lenText)
             {
+                ImGui::SetCursorScreenPos(ImVec2(paramZoneRight - dragW, rowOrigin.y));
                 ImGui::SetNextItemWidth(dragW);
                 char textId[80];
                 std::snprintf(textId, sizeof(textId), "##slen%s", dragId);
@@ -3608,6 +3610,7 @@ void Display::InitUI()
                         ImGui::GetStyle().ItemInnerSpacing.x * 2.0f;
                     itemW = std::max(dragW - sw, ImGui::GetFontSize() * 2.5f);
                 }
+                ImGui::SetCursorScreenPos(ImVec2(paramZoneRight - itemW, rowOrigin.y));
                 ImGui::SetNextItemWidth(itemW);
 
                 if (!ImGui::IsItemActive())
@@ -3961,11 +3964,6 @@ void Display::InitUI()
                 if (readOnly)
                     ImGui::PopStyleColor();
                 UIStyle::DrawInputHoverTint(1);
-                if (ImGui::IsItemClicked() && readOnly)
-                {
-                    *pmEditing = true;
-                    *calibFocusRequest = true;
-                }
 
                 bool changed = false;
                 if (*pmEditing && ImGui::IsItemDeactivatedAfterEdit())
@@ -3984,8 +3982,11 @@ void Display::InitUI()
                     }
                     *pmEditing = false;
                 }
-                else
-                    *pmEditing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
+                else if (!*pmEditing && ImGui::IsItemClicked())
+                {
+                    *pmEditing = true;
+                    *calibFocusRequest = true;
+                }
 
                 ImDrawList *dl = ImGui::GetWindowDrawList();
                 float itemBottom = ImGui::GetItemRectMax().y;
@@ -4005,9 +4006,15 @@ void Display::InitUI()
                 {
                     char valueBuf[48];
                     FormatLengthMmForDisplay(valueBuf, sizeof(valueBuf), calibMeasured, du);
-                    ImVec2 vs = ImGui::GetFont()->CalcTextSizeA(ImGui::GetFont()->FontSize, FLT_MAX, 0.0f, valueBuf);
-                    ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                    dl->AddText(ImVec2(cellRight - pad - vs.x, itemBottom - vs.y), unitCol, valueBuf);
+                    ImFont *valFont = ImGui::GetFont();
+                    if (!valFont && ImGui::GetIO().Fonts && ImGui::GetIO().Fonts->Fonts.Size > 0)
+                        valFont = ImGui::GetIO().Fonts->Fonts[0];
+                    if (valFont)
+                    {
+                        ImVec2 vs = valFont->CalcTextSizeA(valFont->FontSize, FLT_MAX, 0.0f, valueBuf);
+                        ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+                        dl->AddText(ImVec2(cellRight - pad - vs.x, itemBottom - vs.y), unitCol, valueBuf);
+                    }
                 }
 
                 if (changed)
