@@ -8,7 +8,10 @@
 
 struct Color
 {
-    inline static float GRID_EXTENT = 256.0f; // world-space grid half-extent in scene units
+    /// Scene length unit: 1 world unit = 1 mm (canonical storage; see `LengthUnit.hpp`).
+    inline static float GRID_CELL_SIZE = 1.0f; // one grid cell edge in world units (mm)
+    /// Half-extent of the XY reference grid in world units (derived: ½ × cells × cell size).
+    inline static float GRID_EXTENT = 256.0f;
 
     // Convert HSL (h in degrees 0–360, s and l in 0–1) to linear RGB.
     // Only L is intended to vary across UI depth levels; H and S stay constant.

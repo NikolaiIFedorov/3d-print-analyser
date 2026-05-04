@@ -1,6 +1,10 @@
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <filesystem>
+
+#include "LengthUnit.hpp"
 #include "tinyxml2.h"
 
 // All user-configurable settings that persist between sessions.
@@ -21,9 +25,8 @@ struct Settings
     int themeMode = 0; // 0=System, 1=Light, 2=Dark
     float contrast = 0.5f;
 
-    // Viewport
-    float gridExtent = 256.0f;
-    float lod = 0.5f;
+    // Viewport: cell count along the full edge of the square XY grid (cell edge length = default length unit → mm in world).
+    float gridCellsAlongAxis = 512.0f;
 
     // Navigation
     float mouseSensitivity = 30.0f;
@@ -73,8 +76,7 @@ struct Settings
         writeBool("accentUseSystem", accentUseSystem);
         writeInt("themeMode", themeMode);
         writeFloat("contrast", contrast);
-        writeFloat("gridExtent", gridExtent);
-        writeFloat("lod", lod);
+        writeFloat("gridCellsAlongAxis", gridCellsAlongAxis);
         writeFloat("mouseSensitivity", mouseSensitivity);
         writeFloat("snap", snap);
         writeInt("defaultLengthUnit", defaultLengthUnit);
@@ -122,11 +124,28 @@ struct Settings
         readBool("accentUseSystem", accentUseSystem);
         readInt("themeMode", themeMode);
         readFloat("contrast", contrast);
-        readFloat("gridExtent", gridExtent);
-        readFloat("lod", lod);
+        readInt("defaultLengthUnit", defaultLengthUnit);
+        defaultLengthUnit = std::clamp(defaultLengthUnit, 0, 3);
+
+        bool haveGridCells = false;
+        if (tinyxml2::XMLElement *el = root->FirstChildElement("gridCellsAlongAxis"))
+        {
+            if (el->QueryFloatAttribute("value", &gridCellsAlongAxis) == tinyxml2::XML_SUCCESS)
+                haveGridCells = true;
+        }
+        float legacyGridHalf = 256.0f;
+        if (tinyxml2::XMLElement *el = root->FirstChildElement("gridExtent"))
+            el->QueryFloatAttribute("value", &legacyGridHalf);
+        if (!haveGridCells)
+        {
+            const LengthUnit du = LengthUnitFromIndex(defaultLengthUnit);
+            const float cell = MillimetersPerUnit(du);
+            gridCellsAlongAxis =
+                std::max(2.0f, std::round((2.0f * legacyGridHalf) / std::max(1.0e-6f, cell)));
+        }
+
         readFloat("mouseSensitivity", mouseSensitivity);
         readFloat("snap", snap);
-        readInt("defaultLengthUnit", defaultLengthUnit);
 
         return true;
     }

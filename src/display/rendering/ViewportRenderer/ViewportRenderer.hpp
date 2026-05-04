@@ -43,7 +43,7 @@ private:
     /// Normalized world direction the camera looks (ortho: parallel view rays).
     glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
-    /// World-space grid step; fixed from `UserTuning::gridLodMinWorldStep` (not camera-driven).
+    /// World-space grid step; matches `Color::GRID_CELL_SIZE` (one default length unit in mm).
     float gridWorldSpacing = 1.0f;
     /// Foreshortened world-units-per-pixel (same basis as spacing); drives grid opacity fade.
     float gridWppForOpacity = 1.0f;

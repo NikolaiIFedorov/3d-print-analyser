@@ -416,3 +416,28 @@ Build clean. **LOD** slider still sets `gridLodMinWorldStep` (and other derivati
 ### Note
 
 Line count is fixed for a given grid extent + min world step; very fine steps over a large **Grid size** can be heavy on the GPU.
+
+---
+
+## Follow-up (2026-05-06): grid from default unit + cells across (1 scene unit = 1 mm)
+
+### Problem
+
+Grid spacing and extent were abstract floats + a bundled **LOD** slider; user wanted physical cell size from **Length unit** and extent from **cell count**.
+
+### Approach
+
+- **Canonical scene length**: document as 1 world unit = 1 mm (`LengthUnit.hpp` already states mm storage).
+- **`Color::GRID_CELL_SIZE`**: set from `MillimetersPerUnit(default length unit)` in `Display::SyncGridLayoutFromSettings`.
+- **`Color::GRID_EXTENT`**: `0.5 × settings.gridCellsAlongAxis × GRID_CELL_SIZE` (half-extent; cells = full width in cells).
+- **Settings**: `gridCellsAlongAxis` replaces `gridExtent` / `lod` in XML; load migrates legacy `gridExtent` using stored `defaultLengthUnit`.
+- **Viewport**: line spacing = `GRID_CELL_SIZE`; opacity-only wpp unchanged (constants in `ViewportRenderer`).
+- **UI**: **Cells across** drag; remove **LOD**; **Length unit** triggers grid sync.
+
+### Files
+
+- `Settings.hpp`, `color.hpp`, `UserTuning.hpp`, `ViewportRenderer.{hpp,cpp}`, `display.{hpp,cpp}`, this log
+
+### Outcome
+
+Build clean; defaults preserve old look (~512 mm span, 1 mm cells at mm unit).

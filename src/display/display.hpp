@@ -361,4 +361,6 @@ private:
     float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
     /// Rebuilds axis line length when zoom/aspect/grid change; returns extent for ortho near/far.
     float SyncViewportAxisForDepthClip();
+    /// Grid cell size (`Color::GRID_CELL_SIZE`) from default length unit; half-extent from `settings.gridCellsAlongAxis`.
+    void SyncGridLayoutFromSettings();
 };

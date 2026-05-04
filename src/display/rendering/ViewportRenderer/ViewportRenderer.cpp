@@ -1,7 +1,7 @@
 #include "ViewportRenderer.hpp"
 #include "ProjectionDepthMode.hpp"
 #include "RenderingExperiments.hpp"
-#include "UserTuning.hpp"
+#include "rendering/color.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -11,6 +11,9 @@ namespace
 {
 constexpr float kGridOpacityMin = 0.5f;
 constexpr float kGridOpacityMax = 1.0f;
+constexpr float kGridOpacityMinPixelGap = 1.25f;
+constexpr float kGridForeshortenFloor = 0.06f;
+constexpr float kGridForeshortenExponent = 1.325f;
 
 inline float Smoothstep01(float t)
 {
@@ -26,15 +29,15 @@ float ComputeForeshortenedWpp(float orthoSize, float aspect, int widthPx, int he
     const float halfH = orthoSize;
     const float wppLinear = (2.0f * std::max(halfW, halfH)) /
                             static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
-    const float foreshort = std::max(UserTuning::gridForeshortenFloor, std::abs(absViewDirDotZ));
-    return wppLinear / std::pow(foreshort, UserTuning::gridForeshortenExponent);
+    const float foreshort = std::max(kGridForeshortenFloor, std::abs(absViewDirDotZ));
+    return wppLinear / std::pow(foreshort, kGridForeshortenExponent);
 }
 
 float GridOpacityFromPixelGap(float lineSpacingWorld, float wpp)
 {
     const float w = std::max(1.0e-20f, wpp);
     const float pxGap = lineSpacingWorld / w;
-    const float kMin = UserTuning::gridLodMinPixelGap;
+    const float kMin = kGridOpacityMinPixelGap;
     const float pxSpan = std::max(1.0e-6f, kMin * 3.0f);
     float t = (pxGap - kMin) / pxSpan;
     t = Smoothstep01(t);
@@ -53,7 +56,7 @@ ViewportRenderer::ViewportRenderer(SDL_Window *window)
 
     glGenVertexArrays(1, &lineVAO);
 
-    gridWorldSpacing = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
+    gridWorldSpacing = std::max(1.0e-5f, Color::GRID_CELL_SIZE);
     Generate();
 
     LOG_VOID("Initialized ViewportRenderer");
@@ -121,12 +124,12 @@ void ViewportRenderer::SetCamera(Camera &camera)
         camera.orthoSize, camera.aspectRatio, static_cast<int>(camera.widthWindow),
         static_cast<int>(camera.heightWindow), viewDirWorld.z);
 
-    const float fromTuning = std::max(1.0e-5f, UserTuning::gridLodMinWorldStep);
+    const float fromColor = std::max(1.0e-5f, Color::GRID_CELL_SIZE);
     const float before = gridWorldSpacing;
-    const float mag = std::max({1e-6f, before, fromTuning});
-    if (!std::isfinite(before) || std::abs(fromTuning - before) > std::max(1e-7f, mag * 1e-5f))
+    const float mag = std::max({1e-6f, before, fromColor});
+    if (!std::isfinite(before) || std::abs(fromColor - before) > std::max(1e-7f, mag * 1e-5f))
     {
-        gridWorldSpacing = fromTuning;
+        gridWorldSpacing = fromColor;
         RegenerateGrid();
     }
 }

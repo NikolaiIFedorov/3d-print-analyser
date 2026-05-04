@@ -353,6 +353,18 @@ float Display::SyncViewportAxisForDepthClip()
     return h;
 }
 
+void Display::SyncGridLayoutFromSettings()
+{
+    settings.gridCellsAlongAxis = std::clamp(settings.gridCellsAlongAxis, 4.0f, 8192.0f);
+    const LengthUnit du = LengthUnitFromIndex(settings.defaultLengthUnit);
+    Color::GRID_CELL_SIZE = MillimetersPerUnit(du);
+    Color::GRID_EXTENT = 0.5f * settings.gridCellsAlongAxis * Color::GRID_CELL_SIZE;
+    lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
+    viewportRenderer.RegenerateGrid();
+    (void)SyncViewportAxisForDepthClip();
+    renderDirty = true;
+}
+
 void Display::ApplyTheme()
 {
     bool dark;
@@ -537,18 +549,15 @@ void Display::LoadSettings()
     MarkPickDirty();
 
     // Viewport
-    Color::GRID_EXTENT = loaded.gridExtent;
-    UserTuning::lod = std::clamp(loaded.lod, 0.0f, 1.0f);
-    UserTuning::DeriveFromLod();
+    settings.gridCellsAlongAxis = loaded.gridCellsAlongAxis;
+    settings.defaultLengthUnit = std::clamp(loaded.defaultLengthUnit, 0, 3);
     lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
-    (void)SyncViewportAxisForDepthClip();
+    SyncGridLayoutFromSettings();
 
     // Navigation
     mouseSensitivity = loaded.mouseSensitivity;
     UserTuning::snap = std::clamp(loaded.snap, 0.0f, 1.0f);
     UserTuning::DeriveFromSnap();
-
-    settings.defaultLengthUnit = std::clamp(loaded.defaultLengthUnit, 0, 3);
 
     // Re-run analysis with restored parameters.
     RebuildAnalysis();
@@ -576,8 +585,6 @@ void Display::SaveSettings()
     settings.accentUseSystem = settingsAccentUseSystem;
     settings.themeMode = static_cast<int>(themeMode);
     settings.contrast = UserTuning::contrast;
-    settings.gridExtent = Color::GRID_EXTENT;
-    settings.lod = UserTuning::lod;
     settings.mouseSensitivity = mouseSensitivity;
     settings.snap = UserTuning::snap;
     // defaultLengthUnit is owned by Settings directly when the user changes the Viewport pill.
@@ -3823,7 +3830,7 @@ void Display::InitUI()
     viewportSection.children.reserve(1);
 
     Paragraph &gridPara = viewportSection.AddParagraph("GridSize");
-    gridPara.values.reserve(3);
+    gridPara.values.reserve(2);
 
     {
         SectionLine &unitSel = gridPara.values.emplace_back();
@@ -3840,6 +3847,7 @@ void Display::InitUI()
         sel.onChange = [this](int i)
         {
             settings.defaultLengthUnit = std::clamp(i, 0, 3);
+            SyncGridLayoutFromSettings();
             SaveSettings();
             uiRenderer.MarkDirty();
             renderDirty = true;
@@ -3848,24 +3856,15 @@ void Display::InitUI()
         uiDefaultLengthUnitSelect = &unitSel.select.value();
     }
 
-    makeSettingsLengthDrag(gridPara.values.emplace_back(), "Grid size", Color::GRID_EXTENT,
-                           4.0f, 16.0f, 2048.0f, "##gridExtent",
-                           [this]()
-                           {
-                               lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
-                               (void)SyncViewportAxisForDepthClip();
-                               renderDirty = true;
-                           });
-
-    makeSettingsDrag(gridPara.values.emplace_back(), "LOD", UserTuning::lod,
-                     0.01f, 0.0f, 1.0f, "%.2f", "##gridLodMaster",
+    makeSettingsDrag(gridPara.values.emplace_back(), "Cells across", settings.gridCellsAlongAxis,
+                     1.0f, 4.0f, 8192.0f, "%.0f", "##gridCellsAlong",
                      [this]()
                      {
-                         UserTuning::DeriveFromLod();
-                         UpdateCamera();
+                         SyncGridLayoutFromSettings();
+                         SaveSettings();
                      });
 
-    // ── Navigation ────────────────────────────────────────────────────────────
+    // ── Navigation ───────────────────────────────────────────────────────────────────────────
     Section &navSection = uiSettings->AddSection("Navigation");
     navSection.header = Header{"Navigation", 1.0f, 2};
     navSection.tightHeader = true;
