@@ -3867,7 +3867,7 @@ void Display::InitUI()
                          SaveSettings();
                      });
 
-    makeSettingsDrag(gridPara.values.emplace_back(), "Opacity culling",
+    makeSettingsDrag(gridPara.values.emplace_back(), "Low angle fade",
                      settings.gridPlaneTiltMinOpacity,
                      0.01f, 0.0f, 1.0f, "%.2f", "##gridPlaneTiltMin",
                      [this]()
