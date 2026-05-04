@@ -172,6 +172,27 @@ Clean build. Tune `kClipZBiasGridAxesDeltaW` if shimmer remains or if `basic.ver
 
 ---
 
+## Follow-up (2026-05-05): scale axes–grid epsilon with clip span and ortho zoom)
+
+### Problem
+
+Fixed `kClipZBiasGridAxesDeltaW` was enough at close zoom but z-fighting returned when zoomed out.
+
+### Approach
+
+- `ViewportRenderer::SetCamera` stores `abs(farPlane - nearPlane)` and `orthoSize` (half-height).
+- `AxesClipZBiasW()`: multiply base delta by `max(span/200k, orthoSize/2.5)` (each ratio clamped `[1, 48]`, outer clamp `[1, 48]`). `RenderAxes` uses this instead of `ClipZBiasAxesW()`. Reverse-Z: `ClipZBiasGridW() ± sep` as before.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, this log
+
+### Outcome
+
+Clean build; widens separation when the ortho depth slab is large and when default-frustum zoom pulls back.
+
+---
+
 ## Follow-up (grid bleed on solids + LOD readability)
 
 ### Problem

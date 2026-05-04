@@ -50,8 +50,14 @@ private:
     float gridWorldSpacing = 1.0f;
 
     float gridPlaneTiltMinOpacity = 0.5f;
+    /// Last `abs(farPlane - nearPlane)` from `SetCamera` (ortho depth slab span).
+    float orthoClipDepthSpan = 200000.0f;
+    /// Last `Camera::orthoSize` (ortho half-height in world units) for zoom-out bias scaling.
+    float orthoHalfHeight = 2.5f;
 
     bool InitializeShaders();
     void Generate();
     void Upload(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    /// Clip-space Z bias for axes: nearer than grid, scaled when ortho `(far−near)` is wide.
+    [[nodiscard]] float AxesClipZBiasW() const;
 };

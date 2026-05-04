@@ -64,7 +64,9 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
       gridWorldSpacing(other.gridWorldSpacing),
-      gridPlaneTiltMinOpacity(other.gridPlaneTiltMinOpacity)
+      gridPlaneTiltMinOpacity(other.gridPlaneTiltMinOpacity),
+      orthoClipDepthSpan(other.orthoClipDepthSpan),
+      orthoHalfHeight(other.orthoHalfHeight)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -87,6 +89,8 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
         gridPlaneTiltMinOpacity = other.gridPlaneTiltMinOpacity;
+        orthoClipDepthSpan = other.orthoClipDepthSpan;
+        orthoHalfHeight = other.orthoHalfHeight;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -101,6 +105,9 @@ bool ViewportRenderer::InitializeShaders()
 
 void ViewportRenderer::SetCamera(Camera &camera)
 {
+    orthoHalfHeight = std::max(1.0e-6f, camera.orthoSize);
+    orthoClipDepthSpan =
+        std::max(1.0e-6f, std::abs(camera.farPlane - camera.nearPlane));
     viewProjection = ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) *
                      camera.GetViewMatrix();
     const glm::vec3 forwardWorld = camera.orientation * glm::vec3(0.0f, 0.0f, 1.0f);
@@ -132,6 +139,22 @@ void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
 void ViewportRenderer::SetGridPlaneTiltMinOpacity(float minOpacity01)
 {
     gridPlaneTiltMinOpacity = std::clamp(minOpacity01, 0.0f, 1.0f);
+}
+
+float ViewportRenderer::AxesClipZBiasW() const
+{
+    // Depth buffer ULP scales ~linearly with ortho `(far−near)`; zooming out also increases
+    // `orthoSize` while the reference plane maps through the same clip mapping — take the larger
+    // of span-based and ortho-zoom scale so separation survives wide slabs and zoomed-out views.
+    constexpr float kRefSpan = 200000.0f; // ±100k default slab — matches typical loose `Camera`.
+    constexpr float kRefOrthoHalfHeight = 2.5f; // `Camera` default half-height.
+    const float spanScale = std::clamp(orthoClipDepthSpan / kRefSpan, 1.0f, 48.0f);
+    const float zoomScale =
+        std::clamp(orthoHalfHeight / kRefOrthoHalfHeight, 1.0f, 48.0f);
+    const float scale = std::clamp(std::max(spanScale, zoomScale), 1.0f, 48.0f);
+    const float gridBias = RenderingExperiments::ClipZBiasGridW();
+    const float sep = RenderingExperiments::kClipZBiasGridAxesDeltaW * scale;
+    return RenderingExperiments::kReverseZDepth ? (gridBias + sep) : (gridBias - sep);
 }
 
 void ViewportRenderer::RegenerateGrid()
@@ -314,7 +337,7 @@ void ViewportRenderer::RenderAxes()
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
-    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasAxesW());
+    shader.SetFloat("uClipZBiasW", AxesClipZBiasW());
     shader.SetFloat("uAlpha", 1.0f);
 
     // Depth already handles occlusion against scene geometry. Avoid stencil gating here:
