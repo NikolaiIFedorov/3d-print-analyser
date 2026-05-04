@@ -3940,54 +3940,54 @@ void Display::InitUI()
                 float leftW = pad + labelTextW + pad * 1.25f;
                 float inputW = w - leftW;
 
-                ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
-                ImGui::SetNextItemWidth(inputW);
+                bool changed = false;
 
-                if (*calibFocusRequest)
+                // Idle = hit target + drawn readout; edit = real InputText only. A ReadOnly InputText
+                // with hidden text was crashing on focus loss in this nested ToolPanel window.
+                if (*pmEditing)
                 {
-                    ImGui::SetKeyboardFocusHere();
-                    *calibFocusRequest = false;
-                }
+                    if (*calibFocusRequest)
+                    {
+                        ImGui::SetKeyboardFocusHere();
+                        *calibFocusRequest = false;
+                    }
+                    ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
+                    ImGui::SetNextItemWidth(inputW);
+                    const bool enterCommit = ImGui::InputText("##calibMeasured", calibText->data(), calibText->size(),
+                                                              ImGuiInputTextFlags_EnterReturnsTrue);
+                    UIStyle::DrawInputHoverTint(1);
 
-                if (!*pmEditing && !ImGui::IsItemActive())
+                    if (*pmEditing && (ImGui::IsItemDeactivated() || enterCommit))
+                    {
+                        float mm = calibMeasured;
+                        if (TryParseLengthToMm(std::string_view(calibText->data()), du, mm))
+                        {
+                            calibMeasured = mm;
+                            changed = true;
+                        }
+                        else
+                        {
+                            std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
+                                          static_cast<double>(FromMillimeters(calibMeasured, du)),
+                                          LengthUnitAbbreviation(du));
+                        }
+                        *pmEditing = false;
+                    }
+                }
+                else
+                {
                     std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
                                   static_cast<double>(FromMillimeters(calibMeasured, du)),
                                   LengthUnitAbbreviation(du));
-
-                const bool readOnly = !*pmEditing;
-                if (readOnly)
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 0, 0, 0));
-                ImGuiInputTextFlags tflags = ImGuiInputTextFlags_EnterReturnsTrue;
-                if (readOnly)
-                    tflags |= ImGuiInputTextFlags_ReadOnly;
-                (void)ImGui::InputText("##calibMeasured", calibText->data(), calibText->size(), tflags);
-                if (readOnly)
-                    ImGui::PopStyleColor();
-                UIStyle::DrawInputHoverTint(1);
-
-                bool changed = false;
-                // Use IsItemDeactivated (not IsItemDeactivatedAfterEdit): the latter is false when
-                // focus leaves without an edit, which left pmEditing stuck and broke ReadOnly/Focus.
-                if (*pmEditing && ImGui::IsItemDeactivated())
-                {
-                    float mm = calibMeasured;
-                    if (TryParseLengthToMm(std::string_view(calibText->data()), du, mm))
+                    ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
+                    const float hitH = std::max(h, ImGui::GetFrameHeight());
+                    ImGui::InvisibleButton("##calibMeasured", ImVec2(inputW, hitH));
+                    UIStyle::DrawInputHoverTint(1);
+                    if (ImGui::IsItemClicked())
                     {
-                        calibMeasured = mm;
-                        changed = true;
+                        *pmEditing = true;
+                        *calibFocusRequest = true;
                     }
-                    else
-                    {
-                        std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
-                                      static_cast<double>(FromMillimeters(calibMeasured, du)),
-                                      LengthUnitAbbreviation(du));
-                    }
-                    *pmEditing = false;
-                }
-                else if (!*pmEditing && ImGui::IsItemClicked())
-                {
-                    *pmEditing = true;
-                    *calibFocusRequest = true;
                 }
 
                 ImDrawList *dl = ImGui::GetWindowDrawList();

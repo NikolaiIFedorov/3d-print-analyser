@@ -40,3 +40,11 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 ## Update — InputText use IsItemDeactivated for commit
 
 `ImGui::IsItemDeactivatedAfterEdit()` is **false** when focus leaves without changing the buffer, so Calibrate / settings length text entry could stay “stuck” in edit mode or confuse ReadOnly + focus transitions (reported as no visible fix or crashes). Text fields now use **`IsItemDeactivated()`** to always parse or restore and exit.
+
+## Update — Calibrate: split idle hit vs edit `InputText`
+
+**Problem:** Defocusing Calibrate **Print measurement** still crashed after switching to `IsItemDeactivated()`; likely ImGui **ReadOnly** `InputText` + forced transparent text in a small nested `Begin()` tool row.
+
+**Change:** When idle, use **`InvisibleButton("##calibMeasured")`** + the existing drawn readout (`FormatLengthMmForDisplay`). When editing, submit only a normal **`InputText`** (no ReadOnly, no hidden text). Commit on **`IsItemDeactivated()`** or **Enter** (`EnterReturnsTrue`). Matches the spirit of `makeSettingsLengthDrag` (real `InputText` only in text-edit mode).
+
+**Outcome:** `cmake --build build` OK (AppleClang). Manual verify: open field, click away / Tab / Enter — no crash expected.
