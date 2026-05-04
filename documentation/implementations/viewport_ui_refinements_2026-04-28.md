@@ -363,3 +363,30 @@ UI contrast (`Color::kStep`) and other tuning as settings candidates.
   - `LOD` (derives min px gap, foreshorten floor/exponent, hysteresis, min/max world step)
   - `Snap` (keeps enter fixed at 3°, derives exit offset)
 - Persisted grouped values (`contrast`, `lod`, `snap`) instead of exposing all low-level fields.
+
+---
+
+## Follow-up (2026-05-05): grid — continuous spacing + opacity floor 50%
+
+### Problem
+
+Dyadic world spacing (LOD) stepped line count in powers of two; coarse steps looked abrupt.
+
+### Approach
+
+- **Spacing**: `ComputeGridSpacingCamera` keeps the same pixel-gap + line-budget `minWorldSpacing`, clamps to `[gridLodMinWorldStep, gridLodMaxWorldStep]`, and uses it **directly** (no `×2` ladder).
+- **Opacity**: `uGridOpacity` from screen-space line gap `spacing/wpp`, smoothstep remap; **minimum 0.5**, maximum 1.0 (`ViewportRenderer`).
+- **Shader**: `basic.frag` grid pass uses `uGridOpacity`; removed `uGridLodStep`. Lit mesh passes set `uGridOpacity` to 1.0.
+- **Mesh gen**: integer index loops from `floor(extent/spacing)` for stable float spacing.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, `basic.frag`, `OpenGLRenderer.cpp`, this log
+
+### Outcome
+
+Build clean. Settings **LOD** slider still drives `UserTuning` grid limits and pixel gap (density), while fade is view-dependent.
+
+### Mini retro
+
+Centralizing spacing in one struct clarified wpp reuse for alpha; hysteresis on float spacing still useful for jitter.

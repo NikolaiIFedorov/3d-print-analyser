@@ -9,7 +9,8 @@ uniform vec3 uLightDir;
 uniform float uBrightenAmount;
 uniform float uLightingEnabled;
 uniform float uGridPlaneFade;
-uniform float uGridLodStep;
+uniform float uGridOpacity;
+uniform float uAlpha;
 
 void main()
 {
@@ -18,14 +19,11 @@ void main()
         vec3 c = fragColor;
         if (uGridPlaneFade > 0.5)
         {
-            // Opacity fixed; density is handled only by grid LOD (world spacing + foreshortening).
-            float a = 0.46;
-            if (uGridLodStep > 1.01)
-                a = min(0.93, a + 0.12 * clamp(log2(uGridLodStep) / 4.0, 0.0, 1.0));
-            outColor = vec4(c, a);
+            // RGB from vertex; alpha from view-dependent density (see ViewportRenderer).
+            outColor = vec4(c, uGridOpacity);
             return;
         }
-        outColor = vec4(c, 1.0);
+        outColor = vec4(c, uAlpha);
         return;
     }
 
@@ -37,5 +35,5 @@ void main()
     float diff = max(0.0, dot(N, L));
     float lighting = 1.0 + uBrightenAmount * diff;
 
-    outColor = vec4(min(fragColor * lighting, vec3(1.0)), 1.0);
+    outColor = vec4(min(fragColor * lighting, vec3(1.0)), uAlpha);
 }

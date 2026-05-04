@@ -25,8 +25,8 @@ public:
     void SetCamera(Camera &camera);
     /// World-space half-length of each axis ray from origin (must match ortho clip in Display).
     void SetAxisWorldHalfExtent(float halfLength);
-    void Render();         // draws grid (with depth test)
-    void RenderAxes();     // axes after scene — depth-tested, stencil masks solid pixels
+    void Render();         // draws grid where the scene stencil is empty
+    void RenderAxes();     // axes after scene — depth-tested, no stencil gate
     void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
     void Shutdown();
 
@@ -43,11 +43,10 @@ private:
     /// Normalized world direction the camera looks (ortho: parallel view rays).
     glm::vec3 viewDirWorld{0.0f, 0.0f, -1.0f};
     float axisWorldHalfExtent = 10000.0f;
-    /// World-space grid step (dyadic: …, 1/8, 1/4, 1/2, 1, 2, …); from ortho scale + 1 px line gap.
+    /// World-space grid step (continuous); from ortho scale, pixel gap, and density budget.
     float gridWorldSpacing = 1.0f;
-    /// Second grid pass (stencil==1): only when |view·Z| is high so coplanar floors recover the grid
-    /// without reintroducing bleed through vertical faces at grazing angles.
-    bool drawGridOnCoplanarStencil = false;
+    /// Foreshortened world-units-per-pixel (same basis as spacing); drives grid opacity fade.
+    float gridWppForOpacity = 1.0f;
 
     bool InitializeShaders();
     void Generate();

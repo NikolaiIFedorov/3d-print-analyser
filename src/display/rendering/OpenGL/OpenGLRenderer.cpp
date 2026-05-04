@@ -529,7 +529,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uBlueNear", 0.0f);
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uGridPlaneFade", 0.0f);
-    shader.SetFloat("uGridLodStep", 1.0f);
+    shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", 1.0f);
@@ -611,7 +611,7 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     shader.SetFloat("uBlueNear", 0.0f);
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uGridPlaneFade", 0.0f);
-    shader.SetFloat("uGridLodStep", 1.0f);
+    shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", xrayOverlay ? RenderingExperiments::kPickHighlightFaceXrayAlpha : 1.0f);
