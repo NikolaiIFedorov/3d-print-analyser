@@ -3921,9 +3921,10 @@ void Display::InitUI()
             };
             auto pmEditing = std::make_shared<bool>(false);
             auto calibFocusRequest = std::make_shared<bool>(false);
+            auto calibEditHadFocus = std::make_shared<bool>(false);
             auto calibText = std::make_shared<std::array<char, 128>>();
             calibText->data()[0] = '\0';
-            pm.line.imguiContent = [this, settingsBodyFont, pmEditing, calibText, calibFocusRequest](float w, float h, float iconOffset)
+            pm.line.imguiContent = [this, settingsBodyFont, pmEditing, calibText, calibFocusRequest, calibEditHadFocus](float w, float h, float iconOffset)
             {
                 const LengthUnit du = LengthUnitFromIndex(settings.defaultLengthUnit);
                 glm::vec4 tcLabel = Color::GetUIText(2);
@@ -3957,7 +3958,12 @@ void Display::InitUI()
                                                               ImGuiInputTextFlags_EnterReturnsTrue);
                     UIStyle::DrawInputHoverTint(1);
 
-                    if (*pmEditing && (ImGui::IsItemDeactivated() || enterCommit))
+                    if (ImGui::IsItemActivated() || ImGui::IsItemActive())
+                        *calibEditHadFocus = true;
+                    // Replacing InvisibleButton with InputText can yield IsItemDeactivated on the same
+                    // transition before the field ever becomes active — that was closing edit immediately.
+                    const bool leaveEdit = enterCommit || (*calibEditHadFocus && ImGui::IsItemDeactivated());
+                    if (*pmEditing && leaveEdit)
                     {
                         float mm = calibMeasured;
                         if (TryParseLengthToMm(std::string_view(calibText->data()), du, mm))
@@ -3972,6 +3978,7 @@ void Display::InitUI()
                                           LengthUnitAbbreviation(du));
                         }
                         *pmEditing = false;
+                        *calibEditHadFocus = false;
                     }
                 }
                 else
@@ -3987,6 +3994,7 @@ void Display::InitUI()
                     {
                         *pmEditing = true;
                         *calibFocusRequest = true;
+                        *calibEditHadFocus = false;
                     }
                 }
 

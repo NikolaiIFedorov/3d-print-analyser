@@ -48,3 +48,7 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 **Change:** When idle, use **`InvisibleButton("##calibMeasured")`** + the existing drawn readout (`FormatLengthMmForDisplay`). When editing, submit only a normal **`InputText`** (no ReadOnly, no hidden text). Commit on **`IsItemDeactivated()`** or **Enter** (`EnterReturnsTrue`). Matches the spirit of `makeSettingsLengthDrag` (real `InputText` only in text-edit mode).
 
 **Outcome:** `cmake --build build` OK (AppleClang). Manual verify: open field, click away / Tab / Enter — no crash expected.
+
+## Update — ignore spurious deactivate when opening Calibrate field
+
+Switching idle `InvisibleButton` → edit `InputText` could trigger **`IsItemDeactivated()`** on the transition frame before the text field was ever active, so the handler closed edit mode immediately (“can’t change it in time”). **Fix:** track `calibEditHadFocus` (set when `IsItemActivated` or `IsItemActive`); only treat **`IsItemDeactivated()`** as leave-edit after that. **Enter** still commits immediately. Reset the flag on open (click) and after closing.
