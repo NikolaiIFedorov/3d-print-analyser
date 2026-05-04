@@ -3859,7 +3859,7 @@ void Display::InitUI()
         uiDefaultLengthUnitSelect = &unitSel.select.value();
     }
 
-    makeSettingsDrag(gridPara.values.emplace_back(), "Cells across", settings.gridCellsAlongAxis,
+    makeSettingsDrag(gridPara.values.emplace_back(), "Grid size", settings.gridCellsAlongAxis,
                      1.0f, 4.0f, 8192.0f, "%.0f", "##gridCellsAlong",
                      [this]()
                      {
@@ -3867,7 +3867,7 @@ void Display::InitUI()
                          SaveSettings();
                      });
 
-    makeSettingsDrag(gridPara.values.emplace_back(), "Low-angle grid opacity",
+    makeSettingsDrag(gridPara.values.emplace_back(), "Opacity culling",
                      settings.gridPlaneTiltMinOpacity,
                      0.01f, 0.0f, 1.0f, "%.2f", "##gridPlaneTiltMin",
                      [this]()
