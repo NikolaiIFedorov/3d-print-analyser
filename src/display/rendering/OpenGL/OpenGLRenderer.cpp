@@ -3,6 +3,7 @@
 #include "rendering/color.hpp"
 #include "ViewportDepthExperiments.hpp"
 #include "RenderingExperiments.hpp"
+#include <algorithm>
 #include <chrono>
 
 namespace
@@ -10,6 +11,11 @@ namespace
 [[nodiscard]] GLenum DepthComparePass()
 {
     return RenderingExperiments::kReverseZDepth ? GL_GEQUAL : GL_LEQUAL;
+}
+
+[[nodiscard]] GLenum DepthCompareBehind()
+{
+    return RenderingExperiments::kReverseZDepth ? GL_LESS : GL_GREATER;
 }
 
 [[nodiscard]] float LineShaderWireZNudgeNdc()
@@ -48,8 +54,10 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
       lineVertexCount(other.lineVertexCount),
       pickHighlightVAO(other.pickHighlightVAO), pickHighlightVBO(other.pickHighlightVBO),
       pickHighlightIBO(other.pickHighlightIBO), pickHighlightIndexCount(other.pickHighlightIndexCount),
+      pickHighlightXrayIndexCount(other.pickHighlightXrayIndexCount),
       pickHighlightLineVAO(other.pickHighlightLineVAO), pickHighlightLineVBO(other.pickHighlightLineVBO),
       pickHighlightLineIBO(other.pickHighlightLineIBO), pickHighlightLineIndexCount(other.pickHighlightLineIndexCount),
+      pickHighlightLineXrayIndexCount(other.pickHighlightLineXrayIndexCount),
       viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
       shader(std::move(other.shader)),
       lineShader(std::move(other.lineShader))
@@ -62,6 +70,7 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
     other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
         other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = 0;
+    other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
     other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
     other.lineVertexCapacity = other.lineIndexCapacity = 0;
 }
@@ -87,10 +96,12 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         pickHighlightVBO = other.pickHighlightVBO;
         pickHighlightIBO = other.pickHighlightIBO;
         pickHighlightIndexCount = other.pickHighlightIndexCount;
+        pickHighlightXrayIndexCount = other.pickHighlightXrayIndexCount;
         pickHighlightLineVAO = other.pickHighlightLineVAO;
         pickHighlightLineVBO = other.pickHighlightLineVBO;
         pickHighlightLineIBO = other.pickHighlightLineIBO;
         pickHighlightLineIndexCount = other.pickHighlightLineIndexCount;
+        pickHighlightLineXrayIndexCount = other.pickHighlightLineXrayIndexCount;
         viewMatrix = other.viewMatrix;
         projectionMatrix = other.projectionMatrix;
         modelMatrix = other.modelMatrix;
@@ -104,6 +115,7 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
         other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
             other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = 0;
+        other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
         other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
         other.lineVertexCapacity = other.lineIndexCapacity = 0;
     }
@@ -220,6 +232,7 @@ void OpenGLRenderer::Shutdown()
         glDeleteBuffers(1, &pickHighlightIBO);
     pickHighlightVAO = pickHighlightVBO = pickHighlightIBO = 0;
     pickHighlightIndexCount = 0;
+    pickHighlightXrayIndexCount = 0;
 
     if (pickHighlightLineVBO)
         glDeleteBuffers(1, &pickHighlightLineVBO);
@@ -229,6 +242,7 @@ void OpenGLRenderer::Shutdown()
         glDeleteBuffers(1, &pickHighlightLineIBO);
     pickHighlightLineVAO = pickHighlightLineVBO = pickHighlightLineIBO = 0;
     pickHighlightLineIndexCount = 0;
+    pickHighlightLineXrayIndexCount = 0;
 
     if (lineVBO)
         glDeleteBuffers(1, &lineVBO);
@@ -441,9 +455,11 @@ bool OpenGLRenderer::UpdateLineMeshSubData(const std::vector<Vertex> &vertices, 
 }
 
 void OpenGLRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices,
-                                                 const std::vector<uint32_t> &indices)
+                                                 const std::vector<uint32_t> &indices,
+                                                 uint32_t xrayIndexCount)
 {
     pickHighlightLineIndexCount = static_cast<uint32_t>(indices.size());
+    pickHighlightLineXrayIndexCount = std::min(xrayIndexCount, pickHighlightLineIndexCount);
 
     if (pickHighlightLineVAO == 0)
         glGenVertexArrays(1, &pickHighlightLineVAO);
@@ -515,6 +531,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uGridLodStep", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
+    shader.SetFloat("uAlpha", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(DepthComparePass());
@@ -534,9 +551,11 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     GetGLError();
 }
 
-void OpenGLRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+void OpenGLRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                             uint32_t xrayIndexCount)
 {
     pickHighlightIndexCount = static_cast<uint32_t>(indices.size());
+    pickHighlightXrayIndexCount = std::min(xrayIndexCount, pickHighlightIndexCount);
 
     if (pickHighlightVAO == 0)
         glGenVertexArrays(1, &pickHighlightVAO);
@@ -572,9 +591,10 @@ void OpenGLRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices
     GetGLError();
 }
 
-void OpenGLRenderer::DrawPickHighlight()
+void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
 {
-    if (pickHighlightIndexCount == 0)
+    const uint32_t drawIndexCount = xrayOverlay ? pickHighlightXrayIndexCount : pickHighlightIndexCount;
+    if (drawIndexCount == 0)
         return;
 
     shader.Use();
@@ -591,17 +611,36 @@ void OpenGLRenderer::DrawPickHighlight()
     shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridLodStep", 1.0f);
-    shader.SetFloat("uClipZBiasW", 0.0f);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
+    shader.SetFloat("uAlpha", xrayOverlay ? 0.08f : 1.0f);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(DepthComparePass());
-    // Highlight fill should not overwrite scene depth; otherwise subsequent wireframe edges can
-    // fail depth and disappear on selected faces.
-    glDepthMask(GL_FALSE);
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (xrayOverlay)
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        // Highlight fill should not overwrite scene depth; otherwise subsequent wireframe edges can
+        // fail depth and disappear on selected faces.
+        glDepthMask(GL_FALSE);
+    }
 
     const bool skipPickPolygonOffset = ViewportDepthExperiments::IsNoPickPolygonOffset() ||
-                                       RenderingExperiments::kPickHighlightNoPolygonOffset;
+                                       RenderingExperiments::kPickHighlightNoPolygonOffset ||
+                                       xrayOverlay;
     if (!skipPickPolygonOffset)
     {
         glEnable(GL_POLYGON_OFFSET_FILL);
@@ -609,20 +648,27 @@ void OpenGLRenderer::DrawPickHighlight()
     }
 
     glBindVertexArray(pickHighlightVAO);
-    glDrawElements(GL_TRIANGLES, pickHighlightIndexCount, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, drawIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     if (!skipPickPolygonOffset)
         glDisable(GL_POLYGON_OFFSET_FILL);
 
-    glDepthMask(GL_TRUE);
+    glDepthMask(depthMaskWas);
+    if (depthTestWas)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (!blendWas)
+        glDisable(GL_BLEND);
 
     GetGLError();
 }
 
-void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
+void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth, bool xrayOverlay)
 {
-    if (pickHighlightLineIndexCount == 0)
+    const uint32_t drawIndexCount = xrayOverlay ? pickHighlightLineXrayIndexCount : pickHighlightLineIndexCount;
+    if (drawIndexCount == 0)
         return;
 
     GLint viewport[4];
@@ -635,25 +681,56 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth)
     lineShader.SetFloat("uLineWidth", pixelWidth);
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
     lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uAlpha", xrayOverlay ? 0.45f : 1.0f);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(DepthComparePass());
-    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    if (xrayOverlay)
+    {
+        glGetBooleanv(GL_BLEND, &blendWas);
+        glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    }
 
-    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
     {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 1.5f);
     }
 
     glBindVertexArray(pickHighlightLineVAO);
-    glDrawElements(GL_LINES, pickHighlightLineIndexCount, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_LINES, drawIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
         glDisable(GL_POLYGON_OFFSET_FILL);
 
-    glDepthMask(GL_TRUE);
+    if (xrayOverlay)
+    {
+        glDepthMask(depthMaskWas);
+        if (depthTestWas)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        if (!blendWas)
+            glDisable(GL_BLEND);
+    }
+    else
+    {
+        glDepthMask(GL_TRUE);
+    }
 
     GetGLError();
 }
@@ -676,6 +753,7 @@ void OpenGLRenderer::DrawLines()
     lineShader.SetFloat("uLineWidth", lineWidth);
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc() * wireframeDepthNudgeScale);
     lineShader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    lineShader.SetFloat("uAlpha", 1.0f);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(DepthComparePass());
