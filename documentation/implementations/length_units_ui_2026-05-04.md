@@ -36,3 +36,7 @@ Implemented as planned. Build: `cmake --build build` OK (AppleClang).
 - **Calibrate:** Removed `*pmEditing = IsItemActive() && WantTextInput` after `InputText`, which could fight click-to-focus and led to bad state / crashes on deactivate. Edit mode is now: open on `IsItemClicked()` while idle, close only on `IsItemDeactivatedAfterEdit()` after parsing.
 - **Analysis / settings length:** DragFloat / InputText cursor is **`paramZoneRight - itemW`** so the control stays **right-aligned** in the param band when width toggles between full and suffix-reserved (no leftward jump when leaving keyboard edit).
 - **Calibrate** overlay: guard **null `ImFont`** before `CalcTextSizeA`.
+
+## Update — InputText use IsItemDeactivated for commit
+
+`ImGui::IsItemDeactivatedAfterEdit()` is **false** when focus leaves without changing the buffer, so Calibrate / settings length text entry could stay “stuck” in edit mode or confuse ReadOnly + focus transitions (reported as no visible fix or crashes). Text fields now use **`IsItemDeactivated()`** to always parse or restore and exit.

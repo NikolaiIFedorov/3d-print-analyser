@@ -3140,7 +3140,7 @@ void Display::InitUI()
                 fr.editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
                 if (fr.editing)
                     fr.focusPending = false;
-                committedEdit = ImGui::IsItemDeactivatedAfterEdit();
+                committedEdit = *lenTextModeFlag && ImGui::IsItemDeactivated();
                 if (committedEdit)
                 {
                     float mm = param;
@@ -3581,7 +3581,7 @@ void Display::InitUI()
                 dragState->editing = ImGui::IsItemActive() && ImGui::GetIO().WantTextInput;
                 if (dragState->editing)
                     dragState->focusPending = false;
-                if (ImGui::IsItemDeactivatedAfterEdit())
+                if (*lenText && ImGui::IsItemDeactivated())
                 {
                     float mm = paramMm;
                     if (TryParseLengthToMm(std::string_view(textBuf->data()), du, mm))
@@ -3966,7 +3966,9 @@ void Display::InitUI()
                 UIStyle::DrawInputHoverTint(1);
 
                 bool changed = false;
-                if (*pmEditing && ImGui::IsItemDeactivatedAfterEdit())
+                // Use IsItemDeactivated (not IsItemDeactivatedAfterEdit): the latter is false when
+                // focus leaves without an edit, which left pmEditing stuck and broke ReadOnly/Focus.
+                if (*pmEditing && ImGui::IsItemDeactivated())
                 {
                     float mm = calibMeasured;
                     if (TryParseLengthToMm(std::string_view(calibText->data()), du, mm))
