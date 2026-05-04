@@ -441,3 +441,20 @@ Grid spacing and extent were abstract floats + a bundled **LOD** slider; user wa
 ### Outcome
 
 Build clean; defaults preserve old look (~512 mm span, 1 mm cells at mm unit).
+
+---
+
+## Follow-up (2026-05-06, b): grid opacity from plane tilt only
+
+### Problem
+
+Opacity used foreshortened wpp + pixel gap between grid lines; user wanted a simpler rule from **orientation vs the XY reference plane**.
+
+### Approach
+
+- **`GridOpacityFromPlaneTilt(|view·ẑ|)`**: edge-on (small \|z\|) → alpha **0.5**; more looking along ±ẑ → **1.0**, with smoothstep between `kGridPlaneTiltOpaqueStart` (0.08) and `End` (0.55).
+- Removed `ComputeForeshortenedWpp`, pixel-gap opacity, and `gridWppForOpacity`.
+
+### Files
+
+- `ViewportRenderer.{hpp,cpp}`, `basic.frag` comment, this log

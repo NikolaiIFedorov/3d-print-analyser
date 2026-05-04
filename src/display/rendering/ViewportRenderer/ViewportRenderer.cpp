@@ -11,9 +11,10 @@ namespace
 {
 constexpr float kGridOpacityMin = 0.5f;
 constexpr float kGridOpacityMax = 1.0f;
-constexpr float kGridOpacityMinPixelGap = 1.25f;
-constexpr float kGridForeshortenFloor = 0.06f;
-constexpr float kGridForeshortenExponent = 1.325f;
+/// Below this |view·ẑ|, grid stays at min opacity (nearly parallel to XY plane).
+constexpr float kGridPlaneTiltOpaqueStart = 0.08f;
+/// From here to 1, ramp to full opacity (view more perpendicular to the reference plane).
+constexpr float kGridPlaneTiltOpaqueEnd = 0.55f;
 
 inline float Smoothstep01(float t)
 {
@@ -21,25 +22,12 @@ inline float Smoothstep01(float t)
     return t * t * (3.0f - 2.0f * t);
 }
 
-/// World-units per pixel with orbit foreshortening (`absViewDirDotZ` is |v·ẑ|); used only for grid alpha.
-float ComputeForeshortenedWpp(float orthoSize, float aspect, int widthPx, int heightPx,
-                              float absViewDirDotZ)
+/// Reference grid lies in XY; plane normal +ẑ. `absDotZ` = |viewDir·ẑ| in [0,1].
+float GridOpacityFromPlaneTilt(float absDotZ)
 {
-    const float halfW = orthoSize * std::fabs(aspect);
-    const float halfH = orthoSize;
-    const float wppLinear = (2.0f * std::max(halfW, halfH)) /
-                            static_cast<float>(std::max(1, std::min(widthPx, heightPx)));
-    const float foreshort = std::max(kGridForeshortenFloor, std::abs(absViewDirDotZ));
-    return wppLinear / std::pow(foreshort, kGridForeshortenExponent);
-}
-
-float GridOpacityFromPixelGap(float lineSpacingWorld, float wpp)
-{
-    const float w = std::max(1.0e-20f, wpp);
-    const float pxGap = lineSpacingWorld / w;
-    const float kMin = kGridOpacityMinPixelGap;
-    const float pxSpan = std::max(1.0e-6f, kMin * 3.0f);
-    float t = (pxGap - kMin) / pxSpan;
+    const float a = std::clamp(std::abs(absDotZ), 0.0f, 1.0f);
+    float t = (a - kGridPlaneTiltOpaqueStart) /
+              std::max(1.0e-6f, kGridPlaneTiltOpaqueEnd - kGridPlaneTiltOpaqueStart);
     t = Smoothstep01(t);
     return kGridOpacityMin + (kGridOpacityMax - kGridOpacityMin) * t;
 }
@@ -75,8 +63,7 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
-      gridWorldSpacing(other.gridWorldSpacing),
-      gridWppForOpacity(other.gridWppForOpacity)
+      gridWorldSpacing(other.gridWorldSpacing)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -98,7 +85,6 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
-        gridWppForOpacity = other.gridWppForOpacity;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -119,10 +105,6 @@ void ViewportRenderer::SetCamera(Camera &camera)
     const float fLen = glm::length(forwardWorld);
     if (fLen > 1e-8f)
         viewDirWorld = glm::normalize(-forwardWorld);
-
-    gridWppForOpacity = ComputeForeshortenedWpp(
-        camera.orthoSize, camera.aspectRatio, static_cast<int>(camera.widthWindow),
-        static_cast<int>(camera.heightWindow), viewDirWorld.z);
 
     const float fromColor = std::max(1.0e-5f, Color::GRID_CELL_SIZE);
     const float before = gridWorldSpacing;
@@ -277,8 +259,7 @@ void ViewportRenderer::Render()
     shader.SetMat4("uModel", glm::mat4(1.0f));
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 1.0f);
-    shader.SetFloat("uGridOpacity",
-                     GridOpacityFromPixelGap(gridWorldSpacing, gridWppForOpacity));
+    shader.SetFloat("uGridOpacity", GridOpacityFromPlaneTilt(viewDirWorld.z));
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
     shader.SetFloat("uAlpha", 1.0f);
 

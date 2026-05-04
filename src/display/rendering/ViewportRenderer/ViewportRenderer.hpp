@@ -45,8 +45,6 @@ private:
     float axisWorldHalfExtent = 10000.0f;
     /// World-space grid step; matches `Color::GRID_CELL_SIZE` (one default length unit in mm).
     float gridWorldSpacing = 1.0f;
-    /// Foreshortened world-units-per-pixel (same basis as spacing); drives grid opacity fade.
-    float gridWppForOpacity = 1.0f;
 
     bool InitializeShaders();
     void Generate();

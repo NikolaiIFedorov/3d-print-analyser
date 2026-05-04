@@ -19,7 +19,7 @@ void main()
         vec3 c = fragColor;
         if (uGridPlaneFade > 0.5)
         {
-            // RGB from vertex; alpha from view-dependent density (see ViewportRenderer).
+            // RGB from vertex; alpha from tilt vs XY plane (see ViewportRenderer).
             outColor = vec4(c, uGridOpacity);
             return;
         }
