@@ -115,7 +115,19 @@ struct Color
 
     static glm::vec3 GetGrid()
     {
-        float v = s_darkMode ? 0.22f : 0.84f;
+        // Follow the same luminance ladder as faces/edges (Contrast → `Step()`).
+        // Mid-contrast (step≈0.1) stays near legacy 0.22 dark / 0.84 light vs `GetBase()`.
+        const float step = Step();
+        if (s_darkMode)
+        {
+            constexpr float bg = 0.03f;
+            const float sep = 0.13f + step * 0.60f;
+            const float v = std::clamp(bg + sep, 0.01f, 0.92f);
+            return glm::vec3(v, v, v);
+        }
+        constexpr float bg = 0.97f;
+        const float sep = 0.07f + step * 0.60f;
+        const float v = std::clamp(bg - sep, 0.08f, 0.99f);
         return glm::vec3(v, v, v);
     }
     static glm::vec3 GetAxisX(bool positive = true)

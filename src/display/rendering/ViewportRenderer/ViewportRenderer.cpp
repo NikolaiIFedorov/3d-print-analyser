@@ -63,7 +63,8 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewProjection(other.viewProjection),
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
-      gridWorldSpacing(other.gridWorldSpacing)
+      gridWorldSpacing(other.gridWorldSpacing),
+      gridOpacityUserScale(other.gridOpacityUserScale)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -85,6 +86,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
+        gridOpacityUserScale = other.gridOpacityUserScale;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -125,6 +127,11 @@ void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
 
     axisWorldHalfExtent = next;
     RegenerateGrid();
+}
+
+void ViewportRenderer::SetGridOpacityUserScale(float scale)
+{
+    gridOpacityUserScale = std::clamp(scale, 0.0f, 1.0f);
 }
 
 void ViewportRenderer::RegenerateGrid()
@@ -259,7 +266,9 @@ void ViewportRenderer::Render()
     shader.SetMat4("uModel", glm::mat4(1.0f));
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 1.0f);
-    shader.SetFloat("uGridOpacity", GridOpacityFromPlaneTilt(viewDirWorld.z));
+    shader.SetFloat("uGridOpacity",
+                     std::clamp(GridOpacityFromPlaneTilt(viewDirWorld.z) * gridOpacityUserScale,
+                                0.0f, 1.0f));
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
     shader.SetFloat("uAlpha", 1.0f);
 

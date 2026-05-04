@@ -550,9 +550,11 @@ void Display::LoadSettings()
 
     // Viewport
     settings.gridCellsAlongAxis = loaded.gridCellsAlongAxis;
+    settings.gridOpacity = std::clamp(loaded.gridOpacity, 0.0f, 1.0f);
     settings.defaultLengthUnit = std::clamp(loaded.defaultLengthUnit, 0, 3);
     lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
     SyncGridLayoutFromSettings();
+    viewportRenderer.SetGridOpacityUserScale(settings.gridOpacity);
 
     // Navigation
     mouseSensitivity = loaded.mouseSensitivity;
@@ -3817,6 +3819,7 @@ void Display::InitUI()
                      {
                          UserTuning::DeriveFromContrast();
                          Color::SetUiDepthStep(UserTuning::uiDepthStep);
+                         viewportRenderer.RegenerateGrid();
                          uiRenderer.MarkDirty();
                          if (scene && (!scene->solids.empty() || !scene->faces.empty()))
                             MarkStyleDirty();
@@ -3830,7 +3833,7 @@ void Display::InitUI()
     viewportSection.children.reserve(1);
 
     Paragraph &gridPara = viewportSection.AddParagraph("GridSize");
-    gridPara.values.reserve(2);
+    gridPara.values.reserve(3);
 
     {
         SectionLine &unitSel = gridPara.values.emplace_back();
@@ -3862,6 +3865,16 @@ void Display::InitUI()
                      {
                          SyncGridLayoutFromSettings();
                          SaveSettings();
+                     });
+
+    makeSettingsDrag(gridPara.values.emplace_back(), "Grid opacity", settings.gridOpacity,
+                     0.01f, 0.0f, 1.0f, "%.2f", "##gridOpacity",
+                     [this]()
+                     {
+                         settings.gridOpacity = std::clamp(settings.gridOpacity, 0.0f, 1.0f);
+                         viewportRenderer.SetGridOpacityUserScale(settings.gridOpacity);
+                         SaveSettings();
+                         renderDirty = true;
                      });
 
     // ── Navigation ───────────────────────────────────────────────────────────────────────────
