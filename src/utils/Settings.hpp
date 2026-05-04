@@ -27,8 +27,8 @@ struct Settings
 
     // Viewport: cell count along the full edge of the square XY grid (cell edge length = default length unit → mm in world).
     float gridCellsAlongAxis = 512.0f;
-    /// Scales combined grid alpha ([0–1]); tilt-based ramp in the renderer still applies.
-    float gridOpacity = 1.0f;
+    /// Min grid alpha when orbit is shallow (see ViewportRenderer plane-tilt ramp). Default matched legacy baked-in 0.5.
+    float gridPlaneTiltMinOpacity = 0.5f;
 
     // Navigation
     float mouseSensitivity = 30.0f;
@@ -79,7 +79,7 @@ struct Settings
         writeInt("themeMode", themeMode);
         writeFloat("contrast", contrast);
         writeFloat("gridCellsAlongAxis", gridCellsAlongAxis);
-        writeFloat("gridOpacity", gridOpacity);
+        writeFloat("gridPlaneTiltMinOpacity", gridPlaneTiltMinOpacity);
         writeFloat("mouseSensitivity", mouseSensitivity);
         writeFloat("snap", snap);
         writeInt("defaultLengthUnit", defaultLengthUnit);
@@ -149,8 +149,26 @@ struct Settings
 
         readFloat("mouseSensitivity", mouseSensitivity);
         readFloat("snap", snap);
-        readFloat("gridOpacity", gridOpacity);
-        gridOpacity = std::clamp(gridOpacity, 0.0f, 1.0f);
+
+        bool havePlaneTiltMin = false;
+        if (tinyxml2::XMLElement *el = root->FirstChildElement("gridPlaneTiltMinOpacity"))
+        {
+            float v = gridPlaneTiltMinOpacity;
+            if (el->QueryFloatAttribute("value", &v) == tinyxml2::XML_SUCCESS)
+            {
+                gridPlaneTiltMinOpacity = std::clamp(v, 0.0f, 1.0f);
+                havePlaneTiltMin = true;
+            }
+        }
+        if (!havePlaneTiltMin)
+        {
+            if (tinyxml2::XMLElement *el = root->FirstChildElement("gridOpacity"))
+            {
+                float legacy = 1.0f;
+                if (el->QueryFloatAttribute("value", &legacy) == tinyxml2::XML_SUCCESS)
+                    gridPlaneTiltMinOpacity = std::clamp(legacy * 0.5f, 0.0f, 1.0f);
+            }
+        }
 
         return true;
     }

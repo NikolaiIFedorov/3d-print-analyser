@@ -25,8 +25,9 @@ public:
     void SetCamera(Camera &camera);
     /// World-space half-length of each axis ray from origin (must match ortho clip in Display).
     void SetAxisWorldHalfExtent(float halfLength);
-    /// Multiplier for fragment alpha ([0–1]); combines with tilt-based fade in `Render()`.
-    void SetGridOpacityUserScale(float scale);
+    /// Minimum grid alpha when orbit is shallow (near-parallel to the XY plane).
+    /// Ramps smoothly to fully opaque toward top-down-ish views (`Render()` tilt curve).
+    void SetGridPlaneTiltMinOpacity(float minOpacity01);
     void Render();         // draws grid where the scene stencil is empty
     void RenderAxes();     // axes after scene — depth-tested, no stencil gate
     void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
@@ -48,7 +49,7 @@ private:
     /// World-space grid step; matches `Color::GRID_CELL_SIZE` (one default length unit in mm).
     float gridWorldSpacing = 1.0f;
 
-    float gridOpacityUserScale = 1.0f;
+    float gridPlaneTiltMinOpacity = 0.5f;
 
     bool InitializeShaders();
     void Generate();

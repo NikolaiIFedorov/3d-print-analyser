@@ -9,7 +9,6 @@
 
 namespace
 {
-constexpr float kGridOpacityMin = 0.5f;
 constexpr float kGridOpacityMax = 1.0f;
 /// Below this |view·ẑ|, grid stays at min opacity (nearly parallel to XY plane).
 constexpr float kGridPlaneTiltOpaqueStart = 0.08f;
@@ -23,13 +22,14 @@ inline float Smoothstep01(float t)
 }
 
 /// Reference grid lies in XY; plane normal +ẑ. `absDotZ` = |viewDir·ẑ| in [0,1].
-float GridOpacityFromPlaneTilt(float absDotZ)
+float GridOpacityFromPlaneTilt(float absDotZ, float minOpacity)
 {
+    const float minOp = std::clamp(minOpacity, 0.0f, 1.0f);
     const float a = std::clamp(std::abs(absDotZ), 0.0f, 1.0f);
     float t = (a - kGridPlaneTiltOpaqueStart) /
               std::max(1.0e-6f, kGridPlaneTiltOpaqueEnd - kGridPlaneTiltOpaqueStart);
     t = Smoothstep01(t);
-    return kGridOpacityMin + (kGridOpacityMax - kGridOpacityMin) * t;
+    return minOp + (kGridOpacityMax - minOp) * t;
 }
 
 } // namespace
@@ -64,7 +64,7 @@ ViewportRenderer::ViewportRenderer(ViewportRenderer &&other) noexcept
       viewDirWorld(other.viewDirWorld),
       axisWorldHalfExtent(other.axisWorldHalfExtent),
       gridWorldSpacing(other.gridWorldSpacing),
-      gridOpacityUserScale(other.gridOpacityUserScale)
+      gridPlaneTiltMinOpacity(other.gridPlaneTiltMinOpacity)
 {
     other.lineVAO = other.lineVBO = other.lineIBO = 0;
     other.lineIndexCount = 0;
@@ -86,7 +86,7 @@ ViewportRenderer &ViewportRenderer::operator=(ViewportRenderer &&other) noexcept
         viewDirWorld = other.viewDirWorld;
         axisWorldHalfExtent = other.axisWorldHalfExtent;
         gridWorldSpacing = other.gridWorldSpacing;
-        gridOpacityUserScale = other.gridOpacityUserScale;
+        gridPlaneTiltMinOpacity = other.gridPlaneTiltMinOpacity;
         other.lineVAO = other.lineVBO = other.lineIBO = 0;
         other.lineIndexCount = 0;
         other.gridIndexCount = 0;
@@ -129,9 +129,9 @@ void ViewportRenderer::SetAxisWorldHalfExtent(float halfLength)
     RegenerateGrid();
 }
 
-void ViewportRenderer::SetGridOpacityUserScale(float scale)
+void ViewportRenderer::SetGridPlaneTiltMinOpacity(float minOpacity01)
 {
-    gridOpacityUserScale = std::clamp(scale, 0.0f, 1.0f);
+    gridPlaneTiltMinOpacity = std::clamp(minOpacity01, 0.0f, 1.0f);
 }
 
 void ViewportRenderer::RegenerateGrid()
@@ -267,7 +267,7 @@ void ViewportRenderer::Render()
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uGridPlaneFade", 1.0f);
     shader.SetFloat("uGridOpacity",
-                     std::clamp(GridOpacityFromPlaneTilt(viewDirWorld.z) * gridOpacityUserScale,
+                     std::clamp(GridOpacityFromPlaneTilt(viewDirWorld.z, gridPlaneTiltMinOpacity),
                                 0.0f, 1.0f));
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
     shader.SetFloat("uAlpha", 1.0f);
