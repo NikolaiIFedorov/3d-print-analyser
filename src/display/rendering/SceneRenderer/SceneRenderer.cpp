@@ -573,9 +573,9 @@ void SceneRenderer::RenderPickHighlightLinesXray(float lineWidthPx)
     renderer.DrawPickHighlightLines(lineWidthPx, true);
 }
 
-void SceneRenderer::RenderCalibHoverSpanLine(float lineWidthPx)
+void SceneRenderer::RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay)
 {
-    renderer.DrawCalibHoverSpanLine(lineWidthPx);
+    renderer.DrawCalibHoverSpanLine(lineWidthPx, xrayOverlay);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)

@@ -1032,7 +1032,7 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth, bool xrayOverlay)
     GetGLError();
 }
 
-void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth)
+void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth, bool xrayOverlay)
 {
     if (calibHoverSpanLineIndexCount == 0)
         return;
@@ -1047,14 +1047,31 @@ void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth)
     lineShader.SetFloat("uLineWidth", pixelWidth);
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
     lineShader.SetFloat("uClipZBiasW", 0.0f);
-    lineShader.SetFloat("uAlpha", 1.0f);
+    lineShader.SetFloat("uAlpha", xrayOverlay ? 0.45f : 1.0f);
     lineShader.SetFloat("uLightingEnabled", 0.0f);
 
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(DepthComparePass());
-    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    if (xrayOverlay)
+    {
+        glGetBooleanv(GL_BLEND, &blendWas);
+        glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    }
 
-    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
     {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(0.0f, 1.5f);
@@ -1064,10 +1081,23 @@ void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth)
     glDrawElements(GL_LINES, calibHoverSpanLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
-    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
         glDisable(GL_POLYGON_OFFSET_FILL);
 
-    glDepthMask(GL_TRUE);
+    if (xrayOverlay)
+    {
+        glDepthMask(depthMaskWas);
+        if (depthTestWas)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        if (!blendWas)
+            glDisable(GL_BLEND);
+    }
+    else
+    {
+        glDepthMask(GL_TRUE);
+    }
 
     GetGLError();
 }

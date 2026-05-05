@@ -122,7 +122,7 @@ public:
     void DrawPickHighlightCalibInvalid();
     /// Screen-space thick lines (same pipeline as wireframe); `pixelWidth` is in framebuffer pixels.
     void DrawPickHighlightLines(float pixelWidth, bool xrayOverlay = false);
-    void DrawCalibHoverSpanLine(float pixelWidth);
+    void DrawCalibHoverSpanLine(float pixelWidth, bool xrayOverlay = false);
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);

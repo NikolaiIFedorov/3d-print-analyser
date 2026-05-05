@@ -2,7 +2,7 @@
 
 ## Idea
 
-While waiting for the **second** Calibrate face pick (first face already committed), show a world-space segment between the nominal span endpoints used by `SpanBetweenFaces`, plus a short `mm` label at the midpoint. Only when hovering a **valid** face (same rules as commit — not rejected parallel/workflow). Avoids ambiguous “cursor depth” by tying the preview to the hover hit’s face.
+While waiting for the **second** Calibrate face pick (first face already committed), show a world-space segment between the nominal span endpoints used by `SpanBetweenFaces`, plus a short `mm` label. The hover hit defines the candidate face (including rejected second picks where span geometry still exists). Avoids ambiguous “cursor depth” by tying the preview to face hover.
 
 ## Plan
 
@@ -14,10 +14,13 @@ While waiting for the **second** Calibrate face pick (first face already committ
 ## Outcome
 
 - Implemented `CalibrateNominal::SpanPreviewBetweenFaces` (endpoints + mm) and routed `SpanBetweenFaces` through it so preview matches nominal slab / centroid fallback.
-- Second Calibrate prerequisite: valid hover (non-rejected) draws accent segment (`RenderCalibHoverSpanLine`, 5px) and ImGui foreground label `"%.3f mm"` at midpoint (shadow for contrast).
+- Second Calibrate prerequisite: hover with valid span draws accent segment — **opaque depth pass (5px) + x-ray pass (4px, α 0.45)** like pick-highlight lines so occluded portions still read.
+- Preview shows even when the second pick would be **rejected** (still requires a hover face and valid span).
+- Label placed at the midpoint of the **longest viewport-visible subsegment** (sampled in NDC vs \([-1,1]^3\)), not raw world midpoint.
 - Clean Debug build of `CAD_OpenGL`.
 
 ## Mini retro
 
 - Centralizing segment geometry in CalibrateNominal avoided drifting from compensation math.
 - Consider later: reuse length-unit formatting from settings if UI moves away from mm-only display.
+- Label placement uses viewport clipping only; depth-occluded segments are covered visually by the x-ray line pass so the numeric midpoint aligns with what you see.

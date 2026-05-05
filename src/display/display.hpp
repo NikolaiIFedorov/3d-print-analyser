@@ -338,7 +338,8 @@ private:
 
     bool calibHoverSpanPreviewActive = false;
     std::string calibHoverSpanLabel;
-    glm::dvec3 calibHoverSpanMidWorld{0.0};
+    glm::dvec3 calibHoverSpanP0{};
+    glm::dvec3 calibHoverSpanP1{};
 
     void ClearPickHover();
     void ClearCalibrateFacePicks();

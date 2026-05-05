@@ -47,6 +47,75 @@
 namespace
 {
 
+constexpr float kCalibSpanLabelNdcEps = 0.004f;
+
+[[nodiscard]] bool CalibSpanNdcInsideVisibleViewport(glm::vec3 ndc)
+{
+    return ndc.x >= -1.0f - kCalibSpanLabelNdcEps && ndc.x <= 1.0f + kCalibSpanLabelNdcEps &&
+           ndc.y >= -1.0f - kCalibSpanLabelNdcEps && ndc.y <= 1.0f + kCalibSpanLabelNdcEps &&
+           ndc.z >= -1.0f - kCalibSpanLabelNdcEps && ndc.z <= 1.0f + kCalibSpanLabelNdcEps;
+}
+
+/// Midpoint along `p0`–`p1` centered on the longest contiguous fragment visible inside the NDC cube,
+/// so labels stay on-screen when the segment crosses clip planes (orthogonal approximation along arc-length).
+[[nodiscard]] std::optional<glm::dvec3> CalibHoverSpanLabelWorldAlongViewportVisible(const glm::mat4 &vp,
+                                                                                     glm::dvec3 p0,
+                                                                                     glm::dvec3 p1)
+{
+    constexpr int kSegments = 64;
+    std::array<bool, static_cast<size_t>(kSegments) + 1> inside{};
+    for (int i = 0; i <= kSegments; ++i)
+    {
+        const double t = static_cast<double>(i) / static_cast<double>(kSegments);
+        const glm::dvec3 pw = p0 + (p1 - p0) * t;
+        const glm::vec4 clip = vp * glm::vec4(glm::vec3(pw), 1.0f);
+        if (std::abs(clip.w) < 1e-8f)
+        {
+            inside[static_cast<size_t>(i)] = false;
+            continue;
+        }
+        const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+        inside[static_cast<size_t>(i)] = CalibSpanNdcInsideVisibleViewport(ndc);
+    }
+
+    int bestLen = 0;
+    int bestStart = 0;
+    int runStart = -1;
+    auto flushRun = [&](int runEndExclusive)
+    {
+        if (runStart < 0)
+            return;
+        const int len = runEndExclusive - runStart;
+        if (len > bestLen)
+        {
+            bestLen = len;
+            bestStart = runStart;
+        }
+        runStart = -1;
+    };
+
+    for (int i = 0; i <= kSegments; ++i)
+    {
+        if (inside[static_cast<size_t>(i)])
+        {
+            if (runStart < 0)
+                runStart = i;
+        }
+        else
+            flushRun(i);
+    }
+    flushRun(kSegments + 1);
+
+    if (bestLen <= 0)
+        return std::nullopt;
+
+    const double midSample =
+        static_cast<double>(bestStart) + 0.5 * static_cast<double>(bestLen - 1);
+    const double tMid =
+        glm::clamp(midSample / static_cast<double>(kSegments), 0.0, 1.0);
+    return p0 + (p1 - p0) * tMid;
+}
+
 const char *AnalysisWorkerPhaseTitle(uint32_t phaseId)
 {
     switch (phaseId)
@@ -699,7 +768,8 @@ void Display::Render()
     // Occluded selection: translucent face tint behind nearer geometry, then line overlay (stronger).
     renderer.RenderPickHighlightXray();
     renderer.RenderPickHighlightLinesXray(4.0f);
-    renderer.RenderCalibHoverSpanLine(5.0f);
+    renderer.RenderCalibHoverSpanLine(5.0f, false);
+    renderer.RenderCalibHoverSpanLine(4.0f, true);
 
     // Start ImGui frame
     if (pendingFileTabsRebuild)
@@ -736,24 +806,29 @@ void Display::Render()
         glGetIntegerv(GL_VIEWPORT, vp);
         const glm::mat4 vpMat =
             ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) * camera.GetViewMatrix();
-        const glm::vec4 clip = vpMat * glm::vec4(glm::vec3(calibHoverSpanMidWorld), 1.0f);
-        if (std::abs(clip.w) > 1e-8f)
+        const std::optional<glm::dvec3> labelWorld =
+            CalibHoverSpanLabelWorldAlongViewportVisible(vpMat, calibHoverSpanP0, calibHoverSpanP1);
+        if (labelWorld.has_value())
         {
-            const glm::vec3 ndc = glm::vec3(clip) / clip.w;
-            if (ndc.z >= -1.05f && ndc.z <= 1.05f)
+            const glm::vec4 clip = vpMat * glm::vec4(glm::vec3(*labelWorld), 1.0f);
+            if (std::abs(clip.w) > 1e-8f)
             {
-                const float sx =
-                    (ndc.x * 0.5f + 0.5f) * static_cast<float>(vp[2]) + static_cast<float>(vp[0]);
-                const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vp[3]) +
-                                 static_cast<float>(vp[1]);
-                ImDrawList *dl = ImGui::GetForegroundDrawList();
-                const glm::vec4 tc = Color::GetUIText(0);
-                const ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                const ImVec2 ts = ImGui::CalcTextSize(calibHoverSpanLabel.c_str());
-                const ImVec2 pos(sx - ts.x * 0.5f, sy - ts.y * 0.5f);
-                constexpr ImU32 shadow = IM_COL32(0, 0, 0, 160);
-                dl->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow, calibHoverSpanLabel.c_str());
-                dl->AddText(pos, col, calibHoverSpanLabel.c_str());
+                const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                if (ndc.z >= -1.05f && ndc.z <= 1.05f)
+                {
+                    const float sx =
+                        (ndc.x * 0.5f + 0.5f) * static_cast<float>(vp[2]) + static_cast<float>(vp[0]);
+                    const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vp[3]) +
+                                     static_cast<float>(vp[1]);
+                    ImDrawList *dl = ImGui::GetForegroundDrawList();
+                    const glm::vec4 tc = Color::GetUIText(0);
+                    const ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                    const ImVec2 ts = ImGui::CalcTextSize(calibHoverSpanLabel.c_str());
+                    const ImVec2 pos(sx - ts.x * 0.5f, sy - ts.y * 0.5f);
+                    constexpr ImU32 shadow = IM_COL32(0, 0, 0, 160);
+                    dl->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow, calibHoverSpanLabel.c_str());
+                    dl->AddText(pos, col, calibHoverSpanLabel.c_str());
+                }
             }
         }
     }
@@ -1928,12 +2003,14 @@ void Display::RebuildPickHighlightMesh()
 
     calibHoverSpanPreviewActive = false;
     calibHoverSpanLabel.clear();
+    calibHoverSpanP0 = glm::dvec3(0.0);
+    calibHoverSpanP1 = glm::dvec3(0.0);
     std::vector<Vertex> calibHoverSpanVerts;
     std::vector<uint32_t> calibHoverSpanIdx;
     const bool calibAwaitingSecond =
         activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
         CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
-    if (calibAwaitingSecond && hoverPickFace != nullptr && !hoverCalibPickRejected)
+    if (calibAwaitingSecond && hoverPickFace != nullptr)
     {
         const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
         const Face *hov = hoverPickFace;
@@ -1946,7 +2023,8 @@ void Display::RebuildPickHighlightMesh()
                 char buf[48];
                 std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
                 calibHoverSpanLabel = buf;
-                calibHoverSpanMidWorld = (sp.p0 + sp.p1) * 0.5;
+                calibHoverSpanP0 = sp.p0;
+                calibHoverSpanP1 = sp.p1;
                 const glm::vec3 rgb = glm::vec3(Color::GetAccentSteps(0.75f, 1.0f, 0.55f));
                 const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
                 calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});

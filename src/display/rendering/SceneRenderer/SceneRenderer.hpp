@@ -57,7 +57,7 @@ public:
     void RenderPickHighlightXray();
     void RenderPickHighlightLines(float lineWidthPx);
     void RenderPickHighlightLinesXray(float lineWidthPx);
-    void RenderCalibHoverSpanLine(float lineWidthPx);
+    void RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay = false);
     void RenderWireframe();
 
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
