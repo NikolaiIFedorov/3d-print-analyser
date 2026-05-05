@@ -36,3 +36,11 @@ Product language “same normal” often means **coplanar parallel faces** (incl
 
 **Retro:** Split VAO for reject avoids per-vertex alpha in shader; tune alpha and muted mix in one place.
 
+---
+
+## Update — translucent veil on all non-selectable faces (second pick)
+
+While waiting for the second Calibrate point, every pick-triangle face that fails `NormalsAlignedForCalibPick` relative to the first resolved face (excluding already committed calib faces) is collected and drawn in a single mesh with `kPickHighlightCalibInvalidPoolAlpha` (0.13) and a light neutral tint. Draw order: main pick highlight → invalid pool → reject-hover (darker) so the cursor target still reads strongest.
+
+Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL path `UploadPickHighlightCalibInvalidMesh` / `DrawPickHighlightCalibInvalid`.
+

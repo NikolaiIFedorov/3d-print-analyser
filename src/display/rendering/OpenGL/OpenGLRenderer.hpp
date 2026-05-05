@@ -55,6 +55,11 @@ private:
     GLuint pickHighlightRejectIBO = 0;
     uint32_t pickHighlightRejectIndexCount = 0;
 
+    GLuint pickHighlightCalibInvalidVAO = 0;
+    GLuint pickHighlightCalibInvalidVBO = 0;
+    GLuint pickHighlightCalibInvalidIBO = 0;
+    uint32_t pickHighlightCalibInvalidIndexCount = 0;
+
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     glm::mat4 modelMatrix = glm::mat4(1.0f);
@@ -98,6 +103,7 @@ public:
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                  uint32_t xrayIndexCount = 0);
     void UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightCalibInvalidMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                      uint32_t xrayIndexCount = 0);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
@@ -107,6 +113,7 @@ public:
     void DrawTriangles();
     void DrawPickHighlight(bool xrayOverlay = false);
     void DrawPickHighlightReject();
+    void DrawPickHighlightCalibInvalid();
     /// Screen-space thick lines (same pipeline as wireframe); `pixelWidth` is in framebuffer pixels.
     void DrawPickHighlightLines(float pixelWidth, bool xrayOverlay = false);
     void DrawLines();

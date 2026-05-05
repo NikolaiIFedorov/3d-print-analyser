@@ -333,6 +333,8 @@ private:
     std::vector<uint32_t> pickHighlightLineIndices;
     std::vector<Vertex> pickHighlightRejectVertices;
     std::vector<uint32_t> pickHighlightRejectIndices;
+    std::vector<Vertex> pickHighlightCalibInvalidVertices;
+    std::vector<uint32_t> pickHighlightCalibInvalidIndices;
 
     void ClearPickHover();
     void ClearCalibrateFacePicks();

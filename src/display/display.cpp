@@ -651,6 +651,7 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
+    renderer.RenderPickHighlightCalibInvalid();
     renderer.RenderPickHighlightReject();
     if (cullOpaqueTriangles)
         glDisable(GL_CULL_FACE);
@@ -1668,7 +1669,8 @@ void Display::SetHoverCalibPick(const Face *face, const Edge *edge, bool rejecte
         if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
             calibEdgePoint2 != nullptr)
             return;
-        if (pickHighlightIndices.empty() && pickHighlightRejectIndices.empty())
+        if (pickHighlightIndices.empty() && pickHighlightRejectIndices.empty() &&
+            pickHighlightCalibInvalidIndices.empty())
             return;
     }
     hoverPickFace = face;
@@ -1685,6 +1687,8 @@ void Display::RebuildPickHighlightMesh()
     pickHighlightLineIndices.clear();
     pickHighlightRejectVertices.clear();
     pickHighlightRejectIndices.clear();
+    pickHighlightCalibInvalidVertices.clear();
+    pickHighlightCalibInvalidIndices.clear();
 
     const std::vector<PickTriangle> &tris = renderer.GetPickTriangles();
     uint32_t nextVert = 0;
@@ -1739,6 +1743,51 @@ void Display::RebuildPickHighlightMesh()
     appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
     appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
 
+    const bool calibSecondPickConstrained =
+        activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
+        CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
+    const Face *firstForInvalidPool =
+        calibSecondPickConstrained ? ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1) : nullptr;
+    if (firstForInvalidPool != nullptr)
+    {
+        std::unordered_set<const Face *> invalidFaces;
+        invalidFaces.reserve(std::min(static_cast<size_t>(256), tris.size() / 2 + 1));
+        for (const PickTriangle &tri : tris)
+        {
+            const Face *f = tri.face;
+            if (f == nullptr)
+                continue;
+            if (f == calibFacePoint1 || f == calibFacePoint2)
+                continue;
+            if (!CalibrateNominal::NormalsAlignedForCalibPick(firstForInvalidPool, f))
+                invalidFaces.insert(f);
+        }
+        if (!invalidFaces.empty())
+        {
+            const glm::vec3 base = Color::GetBase();
+            const glm::vec3 poolTint = glm::mix(glm::vec3(base), glm::vec3(0.45f, 0.45f, 0.48f), 0.4f);
+            uint32_t iv = 0;
+            for (const PickTriangle &tri : tris)
+            {
+                if (invalidFaces.find(tri.face) == invalidFaces.end())
+                    continue;
+                const glm::dvec3 e1 = tri.v1 - tri.v0;
+                const glm::dvec3 e2 = tri.v2 - tri.v0;
+                glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+                if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                    n = glm::vec3(0.0f, 0.0f, 1.0f);
+
+                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v0), poolTint, n});
+                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v1), poolTint, n});
+                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v2), poolTint, n});
+                pickHighlightCalibInvalidIndices.push_back(iv);
+                pickHighlightCalibInvalidIndices.push_back(iv + 1);
+                pickHighlightCalibInvalidIndices.push_back(iv + 2);
+                iv += 3;
+            }
+        }
+    }
+
     if (hoverCalibPickRejected && hoverPickFace != nullptr)
     {
         const glm::vec3 base = Color::GetBase();
@@ -1782,6 +1831,7 @@ void Display::RebuildPickHighlightMesh()
     renderer.UploadPickHighlightLineMesh(pickHighlightLineVertices, pickHighlightLineIndices,
                                          xrayEdgeHighlightIndexCount);
     renderer.UploadPickHighlightRejectMesh(pickHighlightRejectVertices, pickHighlightRejectIndices);
+    renderer.UploadPickHighlightCalibInvalidMesh(pickHighlightCalibInvalidVertices, pickHighlightCalibInvalidIndices);
 }
 
 Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const

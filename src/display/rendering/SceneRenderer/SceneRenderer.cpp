@@ -531,9 +531,20 @@ void SceneRenderer::UploadPickHighlightRejectMesh(const std::vector<Vertex> &ver
     renderer.UploadPickHighlightRejectMesh(vertices, indices);
 }
 
+void SceneRenderer::UploadPickHighlightCalibInvalidMesh(const std::vector<Vertex> &vertices,
+                                                        const std::vector<uint32_t> &indices)
+{
+    renderer.UploadPickHighlightCalibInvalidMesh(vertices, indices);
+}
+
 void SceneRenderer::RenderPickHighlight()
 {
     renderer.DrawPickHighlight();
+}
+
+void SceneRenderer::RenderPickHighlightCalibInvalid()
+{
+    renderer.DrawPickHighlightCalibInvalid();
 }
 
 void SceneRenderer::RenderPickHighlightReject()
