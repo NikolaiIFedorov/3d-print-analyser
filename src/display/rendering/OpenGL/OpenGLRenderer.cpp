@@ -855,7 +855,7 @@ void OpenGLRenderer::DrawPickHighlightCalibInvalid()
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
-    shader.SetFloat("uBrightenAmount", 0.4f);
+    shader.SetFloat("uBrightenAmount", 0.22f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
     shader.SetFloat("uBlueNear", 0.0f);

@@ -1765,7 +1765,9 @@ void Display::RebuildPickHighlightMesh()
         if (!invalidFaces.empty())
         {
             const glm::vec3 base = Color::GetBase();
-            const glm::vec3 poolTint = glm::mix(glm::vec3(base), glm::vec3(0.45f, 0.45f, 0.48f), 0.4f);
+            // Light haze (toward neutral highlight), not dark gray — dark RGB + blend reads as "muddy dim";
+            // lighter src * modest alpha reads as frosted / see-through over the patch.
+            const glm::vec3 poolTint = glm::mix(glm::vec3(base), glm::vec3(0.91f, 0.91f, 0.94f), 0.52f);
             uint32_t iv = 0;
             for (const PickTriangle &tri : tris)
             {
