@@ -71,11 +71,14 @@ inline constexpr bool kPickHighlightNoPolygonOffset = true;
 /// Alpha for occluded-face x-ray pass (`DepthCompareBehind` + blend); keep modest — dense tessellation can read noisy.
 inline constexpr float kPickHighlightFaceXrayAlpha = 0.14f;
 
-/// Calibrate reject-hover: dim translucent fill on faces that fail the second-pick constraint.
-inline constexpr float kPickHighlightRejectHoverAlpha = 0.32f;
+/// Calibrate reject-hover: warning fill on the hovered face when it fails the second-pick constraint.
+inline constexpr float kPickHighlightRejectHoverAlpha = 0.42f;
 
-/// Calibrate: non-selectable faces (second pick). Blend is `α·tint + (1-α)·patch`; with tint matched to
-/// lit face albedo in `RebuildPickHighlightMesh`, α acts as **veil strength** (subtle hue shift), not brightness.
+/// When true, dim every non-parallel face while waiting for Calibrate point 2. Default off — use hover-only
+/// warning (reject mesh + outline) so the model stays un-tinted until the cursor is over a blocked face.
+inline constexpr bool kCalibrateSecondPickDrawInvalidFacePool = false;
+
+/// Used only when `kCalibrateSecondPickDrawInvalidFacePool` is true (full-model invalid veil).
 inline constexpr float kPickHighlightCalibInvalidPoolAlpha = 0.28f;
 
 // --- Theory #3: back-face cull only for filled patches + pick highlight (not grid/lines/axes).

@@ -68,3 +68,15 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Change:** Build `poolTint` from `Color::GetFace()` times approximate lit response (`SceneMeshBrightenAmount`, typical diffuse), then a modest cool shift. Defaults: `kPickHighlightCalibInvalidPoolAlpha = 0.28f` (user’s experimental `0.9f` reset). Document in `RenderingExperiments.hpp` that α is veil strength once tint matches dst.
 
+---
+
+## Update — hover-only blocked styling (2026-05-05)
+
+**Idea:** Full-model invalid-face veil was subtle/noisy; product-wise, a **distinct hover** on blocked faces may suffice.
+
+**Implementation:** `kCalibrateSecondPickDrawInvalidFacePool` default **false** — skip `RenderPickHighlightCalibInvalid` and the invalid-pool mesh build unless toggled. Reject hover uses **warning amber** fill + **face boundary** pick-segment outline (same line pass as other pick lines). Slightly higher reject alpha (`kPickHighlightRejectHoverAlpha` 0.42).
+
+**Files:** `RenderingExperiments.hpp`, `display.cpp` / `display.hpp`, (log).
+
+**Outcome:** Build clean.
+

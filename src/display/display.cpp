@@ -652,7 +652,8 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
-    renderer.RenderPickHighlightCalibInvalid();
+    if (RenderingExperiments::kCalibrateSecondPickDrawInvalidFacePool)
+        renderer.RenderPickHighlightCalibInvalid();
     renderer.RenderPickHighlightReject();
     if (cullOpaqueTriangles)
         glDisable(GL_CULL_FACE);
@@ -1749,7 +1750,7 @@ void Display::RebuildPickHighlightMesh()
         CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
     const Face *firstForInvalidPool =
         calibSecondPickConstrained ? ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1) : nullptr;
-    if (firstForInvalidPool != nullptr)
+    if (firstForInvalidPool != nullptr && RenderingExperiments::kCalibrateSecondPickDrawInvalidFacePool)
     {
         std::unordered_set<const Face *> invalidFaces;
         invalidFaces.reserve(std::min(static_cast<size_t>(256), tris.size() / 2 + 1));
@@ -1800,8 +1801,10 @@ void Display::RebuildPickHighlightMesh()
 
     if (hoverCalibPickRejected && hoverPickFace != nullptr)
     {
-        const glm::vec3 base = Color::GetBase();
-        const glm::vec3 muted = glm::mix(glm::vec3(base), glm::vec3(0.11f, 0.11f, 0.13f), 0.72f);
+        const glm::vec3 warnFill =
+            Color::IsDark() ? glm::vec3(0.88f, 0.38f, 0.1f) : glm::vec3(0.72f, 0.22f, 0.06f);
+        const glm::vec3 warnOutline =
+            Color::IsDark() ? glm::vec3(1.0f, 0.58f, 0.12f) : glm::vec3(0.58f, 0.2f, 0.04f);
         uint32_t rVert = 0;
         for (const PickTriangle &tri : tris)
         {
@@ -1813,13 +1816,37 @@ void Display::RebuildPickHighlightMesh()
             if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
                 n = glm::vec3(0.0f, 0.0f, 1.0f);
 
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v0), muted, n});
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v1), muted, n});
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v2), muted, n});
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v0), warnFill, n});
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v1), warnFill, n});
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v2), warnFill, n});
             pickHighlightRejectIndices.push_back(rVert);
             pickHighlightRejectIndices.push_back(rVert + 1);
             pickHighlightRejectIndices.push_back(rVert + 2);
             rVert += 3;
+        }
+
+        std::unordered_set<const Edge *> rejectOutlineEdges;
+        rejectOutlineEdges.reserve(48);
+        for (const auto &loop : hoverPickFace->loops)
+        {
+            for (const auto &oe : loop)
+            {
+                if (oe.edge != nullptr)
+                    rejectOutlineEdges.insert(oe.edge);
+            }
+        }
+        for (const Edge *edge : rejectOutlineEdges)
+        {
+            for (const PickSegment &ps : segPick)
+            {
+                if (ps.edge != edge)
+                    continue;
+                const uint32_t base = static_cast<uint32_t>(pickHighlightLineVertices.size());
+                pickHighlightLineVertices.push_back({glm::vec3(ps.v0), warnOutline, lineNormal});
+                pickHighlightLineVertices.push_back({glm::vec3(ps.v1), warnOutline, lineNormal});
+                pickHighlightLineIndices.push_back(base);
+                pickHighlightLineIndices.push_back(base + 1);
+            }
         }
     }
     else
