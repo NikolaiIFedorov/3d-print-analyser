@@ -61,22 +61,20 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
     return tMin;
 }
 
-[[nodiscard]] bool FaceUsesAnyEdge(const Face *face, const std::unordered_set<const Edge *> &edges)
-{
-    if (face == nullptr || edges.empty())
-        return false;
-    for (const auto &loop : face->loops)
-    {
-        for (const auto &oe : loop)
-        {
-            if (oe.edge != nullptr && edges.count(oe.edge) != 0)
-                return true;
-        }
-    }
-    return false;
-}
-
 } // namespace
+
+bool FaceNormalPerpendicularToBuild(const Face *face, const glm::dvec3 &buildDirWorld)
+{
+    if (face == nullptr || !face->GetSurface().IsPlanar())
+        return false;
+
+    glm::dvec3 n = glm::normalize(face->GetSurface().GetNormal());
+    if (!std::isfinite(n.x) || !std::isfinite(n.y) || !std::isfinite(n.z) || glm::length(n) < 1e-12)
+        return false;
+
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+    return std::abs(glm::dot(n, d)) <= kWallNormalMaxAbsDotBuild;
+}
 
 void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
                               std::unordered_set<const Edge *> &holeInnerEdgesOut)
@@ -156,21 +154,28 @@ bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
 
     const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
 
+    // Layer-hole annulus on a stack-parallel cap (inner contour in the slice plane).
     if (face->loops.size() >= 2)
         return FaceCapParallelBuildDir(face, d);
 
+    // Sidewall of such an opening: ⊥ build and borders ≥2 inner-loop edges from those caps.
+    if (!FaceNormalPerpendicularToBuild(face, buildDirWorld))
+        return false;
     if (layerHoleInnerEdges.empty())
         return false;
-
     if (face->loops.size() != 1)
         return false;
 
-    if (!FaceUsesAnyEdge(face, layerHoleInnerEdges))
-        return false;
-
-    // Sidewall: incident to inner-loop geometry but not a build-parallel cap (avoids mis-labeling caps
-    // that only share vertices).
-    return !FaceCapParallelBuildDir(face, d);
+    size_t holeEdgeCount = 0;
+    for (const auto &loop : face->loops)
+    {
+        for (const auto &oe : loop)
+        {
+            if (oe.edge != nullptr && layerHoleInnerEdges.count(oe.edge) != 0)
+                ++holeEdgeCount;
+        }
+    }
+    return holeEdgeCount >= 2;
 }
 
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,

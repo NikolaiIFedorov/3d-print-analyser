@@ -1,5 +1,6 @@
 #include "CalibNominal.hpp"
 
+#include "CalibDistanceType.hpp"
 #include "Geometry/Edge.hpp"
 #include "Geometry/Face.hpp"
 #include "Geometry/OrientedEdge.hpp"
@@ -169,6 +170,25 @@ SpanResult SpanBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, cons
 {
     const SpanPreview p = SpanPreviewBetweenParallelEdgesOnFace(face, eA, eB);
     return {p.nominalMm, p.valid};
+}
+
+bool NominalSpanPerpendicularToBuild(const Face *a, const Face *b, const glm::dvec3 &buildDirWorld)
+{
+    const SpanPreview sp = SpanPreviewBetweenFaces(a, b);
+    if (!sp.valid)
+        return false;
+
+    const glm::dvec3 seg = sp.p1 - sp.p0;
+    const double len = glm::length(seg);
+    if (len < 1e-6)
+        return false;
+
+    const glm::dvec3 dir = seg / len;
+    glm::dvec3 bd = glm::normalize(buildDirWorld);
+    if (!std::isfinite(bd.x) || glm::length(bd) < 1e-12)
+        bd = glm::dvec3(0.0, 0.0, 1.0);
+
+    return std::abs(glm::dot(dir, bd)) <= CalibrateDistance::kCalibSpanMaxAbsDotBuildAxis;
 }
 
 } // namespace CalibrateNominal

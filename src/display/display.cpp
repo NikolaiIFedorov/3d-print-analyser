@@ -195,6 +195,18 @@ void GatherCalibLayerHoleInnerEdges(const Scene *scene, const glm::dvec3 &buildD
         CalibrateDistance::RebuildHoleCalibTopology(*scene, buildDir, layerHoleInnerEdgesOut);
 }
 
+[[nodiscard]] bool CalibFacePickPassesWallGate(const Face *face, const Edge *edge, const Scene *scene,
+                                               double layerHeightMm, const glm::dvec3 &buildDirWorld)
+{
+    if (face == nullptr)
+        return false;
+    if (edge != nullptr && scene != nullptr && layerHeightMm > 0.0 &&
+        CalibrateDistance::FaceInFirstLayerSlab(face, scene, layerHeightMm, buildDirWorld) &&
+        CalibrateDistance::FaceIsLayerCapParallelBuild(face, buildDirWorld))
+        return true;
+    return CalibrateDistance::FaceNormalPerpendicularToBuild(face, buildDirWorld);
+}
+
 /// Squared ray→segment distance threshold (mm²) for snapping Calibrate picks to boundary edges on the
 /// first-layer cap only (`PickCalibrateAtPixel`).
 constexpr double kCalibEdgePickMaxDistSqMm = 36.0; // 6 mm
@@ -225,6 +237,10 @@ bool CalibSecondPickAcceptsHit(const Face *slot1Face, const Edge *slot1Edge,
             return false;
         return CalibrateNominal::EdgesAreParallelForCalib(slot1Edge, hitEdge);
     }
+
+    if (!CalibrateDistance::FaceNormalPerpendicularToBuild(firstResolved, buildDirWorld) ||
+        !CalibrateDistance::FaceNormalPerpendicularToBuild(cand, buildDirWorld))
+        return false;
 
     if (!CalibrateNominal::NormalsAlignedForCalibPick(firstResolved, cand))
         return false;
@@ -1975,6 +1991,11 @@ void Display::RebuildPickHighlightMesh()
                     continue;
                 if (f == calibFacePoint1 || f == calibFacePoint2)
                     continue;
+                if (!CalibrateDistance::FaceNormalPerpendicularToBuild(f, calibBuildDir))
+                {
+                    invalidFaces.insert(f);
+                    continue;
+                }
                 if (!CalibrateNominal::NormalsAlignedForCalibPick(firstForInvalidPool, f))
                 {
                     invalidFaces.insert(f);
@@ -2259,13 +2280,25 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     }
 
     const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+    const double layerMm = static_cast<double>(layerHeight);
+
+    if (calibPara_Point1 && calibPara_Point1->selected &&
+        !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1))
+    {
+        if (hit.face != nullptr &&
+            !CalibFacePickPassesWallGate(hit.face, hit.edge, scene, layerMm, calibBuildDir))
+        {
+            SetHoverCalibPick(hit.face, hit.edge, true);
+            return;
+        }
+    }
+
     if (calibPara_Point2 && calibPara_Point2->selected && CalibSlotHasPick(calibFacePoint1, calibEdgePoint1))
     {
         const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
-        const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
         std::unordered_set<const Edge *> layerHoleInnerEdges;
         GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
-        const double layerMm = static_cast<double>(layerHeight);
         if (hit.face != nullptr &&
             !CalibSecondPickAcceptsHit(calibFacePoint1, calibEdgePoint1, firstResolved, hit.face, hit.edge,
                                        scene, layerMm, calibBuildDir, layerHoleInnerEdges))
@@ -2289,6 +2322,11 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
 
     const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
     if (hit.face == nullptr)
+        return;
+
+    const glm::dvec3 calibBuildDirCommit = CalibrateDistance::DefaultCalibrateBuildDirection();
+    const double layerMmCommit = static_cast<double>(layerHeight);
+    if (!CalibFacePickPassesWallGate(hit.face, hit.edge, scene, layerMmCommit, calibBuildDirCommit))
         return;
 
     if (calibPara_Point1->selected)
@@ -2352,8 +2390,15 @@ void Display::RefreshCalibWorkflow()
     if (elephantFootEdges)
         calibWorkflow = CalibWorkflow::ElephantFoot;
     else if (f1 != nullptr && f2 != nullptr)
+    {
         calibWorkflow =
             CalibrateDistance::CombinePickedFaces(f1, f2, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
+        if (calibWorkflow == CalibWorkflow::Contour || calibWorkflow == CalibWorkflow::Hole)
+        {
+            if (!CalibrateNominal::NominalSpanPerpendicularToBuild(f1, f2, calibBuildDir))
+                calibWorkflow = CalibWorkflow::None;
+        }
+    }
     else if (f1 != nullptr)
         calibWorkflow =
             CalibrateDistance::ClassifyFace(f1, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
@@ -2410,6 +2455,10 @@ void Display::RefreshCalibCompensation()
     else
         span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
     if (!span.valid)
+        return;
+
+    if (calibWorkflow != CalibWorkflow::ElephantFoot &&
+        !CalibrateNominal::NominalSpanPerpendicularToBuild(spanA, spanB, CalibrateDistance::DefaultCalibrateBuildDirection()))
         return;
 
     calibNominal = span.nominalMm;
@@ -4395,7 +4444,9 @@ void Display::InitUI()
         ToolPanelDef calibDef;
         calibDef.id = "Calibrate";
         calibDef.name = "Calibrate";
-        calibDef.description = "Calibrate your 3d printer through measurements";
+        calibDef.description =
+            "Printer calibration: pick planar faces whose normals are orthogonal to the layer stack (+Z), "
+            "or parallel edges on the first-layer cap for elephant's foot.";
         calibDef.flattenParameters = true;
 
         // ── Prerequisites ──────────────────────────────────────────────────
@@ -4405,10 +4456,10 @@ void Display::InitUI()
                                           [this]()
                                           { DoFileImport(); }});
         calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
-                                          "faces (edges on first-layer cap for elephant's foot)",
+                                          "vertical faces (⊥ +Z); edges on first-layer cap for elephant's foot",
                                           Icons::CheckBox(&calibStepPoint1), false, false});
         calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point",
-                                          "parallel to first (edges parallel on first-layer cap)",
+                                          "parallel to first (parallel edges on same cap for elephant's foot)",
                                           Icons::CheckBox(&calibStepPoint2), false, false});
 
         // ── Parameters — print measurement InputFloat ──────────────────────

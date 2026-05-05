@@ -48,4 +48,7 @@ SpanPreview SpanPreviewBetweenParallelEdgesOnFace(const Face *face, const Edge *
 
 SpanResult SpanBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, const Edge *eB);
 
+/// True when `SpanPreviewBetweenFaces` segment direction is ≈ orthogonal to build (layer-plane span).
+bool NominalSpanPerpendicularToBuild(const Face *a, const Face *b, const glm::dvec3 &buildDirWorld);
+
 } // namespace CalibrateNominal

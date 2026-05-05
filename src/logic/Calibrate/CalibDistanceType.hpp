@@ -8,8 +8,8 @@ class Face;
 class Scene;
 
 /// Shown in the Calibrate tool.
-/// `Hole` = **layer hole** in the slicer sense: opening from a cap ∥ build (annulus or sidewall tied to such
-/// inner loops only). Oblique pockets on tilted faces follow `Contour`.
+/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build) **or** ⊥ sidewall with ≥2 edges from those
+/// caps’ inner loops. Contour/Hole face picks are gated to ⊥ build in Display (elephant’s foot excepted).
 /// `ElephantFoot` = two parallel **edges** on the same first-layer build-parallel cap (see Display picks).
 enum class CalibWorkflow
 {
@@ -39,6 +39,16 @@ bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeig
 
 /// Planar face whose normal aligns with `buildDirWorld` (horizontal slice cap for default +Z build).
 bool FaceIsLayerCapParallelBuild(const Face *face, const glm::dvec3 &buildDirWorld);
+
+/// Planar face whose normal is approximately orthogonal to `buildDirWorld` (vertical wall for +Z build).
+/// Uses `|dot(n̂, buildDir̂)| <= kWallNormalMaxAbsDotBuild`.
+bool FaceNormalPerpendicularToBuild(const Face *face, const glm::dvec3 &buildDirWorld);
+
+/// Wall gate: `|dot(faceNormal, buildDir̂)| <= kWallNormalMaxAbsDotBuild` (≈ layer-plane span intent).
+inline constexpr double kWallNormalMaxAbsDotBuild = 0.15;
+
+/// Nominal CAD span direction vs build axis for contour/hole must satisfy the same bound.
+inline constexpr double kCalibSpanMaxAbsDotBuildAxis = 0.15;
 
 bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
                          const std::unordered_set<const Edge *> &layerHoleInnerEdges);
