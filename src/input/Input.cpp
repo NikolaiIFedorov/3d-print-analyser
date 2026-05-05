@@ -72,21 +72,65 @@ void Input::clearTouchState()
 {
     activeTouches.clear();
     fingerArrivalOrder.clear();
-    touchPanAccDx = 0.0f;
-    touchPanAccDy = 0.0f;
-    touchPanEventCount = 0;
+    touchPanHaveCentroidAnchor = false;
+    touchPanBlockedByWheelModsThisPass = false;
 }
 
 void Input::beginTouchPanAccumForFrame()
 {
-    touchPanAccDx = 0.0f;
-    touchPanAccDy = 0.0f;
-    touchPanEventCount = 0;
+    touchPanBlockedByWheelModsThisPass = false;
+    touchPanHaveCentroidAnchor = false;
+    if (activeTouches.size() >= 2U)
+    {
+        float sx = 0.0f, sy = 0.0f;
+        for (const auto &kv : activeTouches)
+        {
+            sx += kv.second.x;
+            sy += kv.second.y;
+        }
+        const float inv = 1.0f / static_cast<float>(activeTouches.size());
+        touchPanCentroidStartX = sx * inv;
+        touchPanCentroidStartY = sy * inv;
+        touchPanHaveCentroidAnchor = true;
+    }
+}
+
+void Input::ensureTouchPanCentroidAnchor()
+{
+    if (touchPanHaveCentroidAnchor || activeTouches.size() < 2U)
+    {
+        return;
+    }
+    float sx = 0.0f, sy = 0.0f;
+    for (const auto &kv : activeTouches)
+    {
+        sx += kv.second.x;
+        sy += kv.second.y;
+    }
+    const float inv = 1.0f / static_cast<float>(activeTouches.size());
+    touchPanCentroidStartX = sx * inv;
+    touchPanCentroidStartY = sy * inv;
+    touchPanHaveCentroidAnchor = true;
 }
 
 void Input::applyBatchedTwoFingerPan()
 {
-    if (touchPanEventCount <= 0)
+    if (touchPanBlockedByWheelModsThisPass || !touchPanHaveCentroidAnchor || activeTouches.size() < 2U)
+    {
+        return;
+    }
+    float sx = 0.0f, sy = 0.0f;
+    for (const auto &kv : activeTouches)
+    {
+        sx += kv.second.x;
+        sy += kv.second.y;
+    }
+    const float inv = 1.0f / static_cast<float>(activeTouches.size());
+    const float endX = sx * inv;
+    const float endY = sy * inv;
+    const float dnx = endX - touchPanCentroidStartX;
+    const float dny = endY - touchPanCentroidStartY;
+    if (std::hypot(dnx, dny) < kTouchDeadzone)
     {
         return;
     }
@@ -95,29 +139,13 @@ void Input::applyBatchedTwoFingerPan()
     if (w > 0 && h > 0)
     {
         ImGuiIO &imguiIo = ImGui::GetIO();
-        // Two fingers span a wide region; any-finger hit-test falsely drops pans when one contact
-        // sits over panels while the gesture centroid remains on the viewport.
-        float sx = 0.0f, sy = 0.0f;
-        for (const auto &kv : activeTouches)
-        {
-            sx += kv.second.x;
-            sy += kv.second.y;
-        }
-        const float inv = 1.0f / static_cast<float>(activeTouches.size());
-        const float px = sx * inv * static_cast<float>(w);
-        const float py = sy * inv * static_cast<float>(h);
+        const float px = endX * static_cast<float>(w);
+        const float py = endY * static_cast<float>(h);
         if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
             return;
     }
-    const float n = static_cast<float>(touchPanEventCount);
-    const float cdx = touchPanAccDx / n;
-    const float cdy = touchPanAccDy / n;
-    if (std::abs(cdx) < kTouchDeadzone && std::abs(cdy) < kTouchDeadzone)
-    {
-        return;
-    }
     const float s = display->mouseSensitivity / 30.0f;
-    display->Pan(cdx * s, cdy * s, true);
+    display->Pan(dnx * s, dny * s, true);
     suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
 }
 
@@ -154,15 +182,12 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
     {
         return false;
     }
-    if (event.wheel.which == SDL_TOUCH_MOUSEID)
+    // Real mouse wheels must keep working: SDL can still report ≥2 trackpad contacts while scrolling.
+    if (event.wheel.which != SDL_TOUCH_MOUSEID)
     {
-        return true;
+        return false;
     }
-    if (activeTouches.size() >= 2U)
-    {
-        return true;
-    }
-    return sdlHasMultiTouchContact();
+    return activeTouches.size() >= 2U || sdlHasMultiTouchContact();
 }
 
 void Input::mouseGestures(const SDL_Event &event)
@@ -190,7 +215,10 @@ void Input::mouseGestures(const SDL_Event &event)
         {
             if (mod & SDL_KMOD_ALT)
             {
+                if (!pendingWheelOrbitSnap)
+                    display->BeginOrbitSnapGesture();
                 display->Orbit(x * 0.05f, y * 0.05f);
+                pendingWheelOrbitSnap = true;
             }
             else if (mod & SDL_KMOD_CTRL)
             {
@@ -243,6 +271,7 @@ void Input::mouseGestures(const SDL_Event &event)
             if (!io.WantCaptureMouse && !display->HitTestUI(bx, by) && !display->HitTestImGui(bx, by))
             {
                 middleMouseDown = true;
+                display->BeginOrbitSnapGesture();
                 syncWindowRelativeMouseMode();
             }
         }
@@ -261,9 +290,12 @@ void Input::mouseGestures(const SDL_Event &event)
         }
         else if (event.button.button == SDL_BUTTON_MIDDLE)
         {
+            const bool wasOrbiting = middleMouseDown;
             middleMouseDown = false;
             suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
             syncWindowRelativeMouseMode();
+            if (wasOrbiting)
+                display->FinishOrbitSnap();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
         break;
@@ -302,6 +334,8 @@ bool Input::processEvent(const SDL_Event &event)
     case SDL_EVENT_QUIT:
         return false;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
+        if (middleMouseDown)
+            display->FinishOrbitSnap();
         clearTouchState();
         if (rightMouseDown || middleMouseDown)
         {
@@ -312,6 +346,8 @@ bool Input::processEvent(const SDL_Event &event)
         break;
     case SDL_EVENT_FINGER_CANCELED:
         // Always sync hardware touch model; skipping here desyncs nContacts vs real fingers.
+        if (middleMouseDown)
+            display->FinishOrbitSnap();
         clearTouchState();
         break;
     case SDL_EVENT_FINGER_DOWN:
@@ -322,6 +358,7 @@ bool Input::processEvent(const SDL_Event &event)
             fingerArrivalOrder.push_back(tf.fingerID);
         }
         activeTouches[tf.fingerID] = Touch{0.0f, 0.0f, tf.x, tf.y};
+        ensureTouchPanCentroidAnchor();
         break;
     }
     case SDL_EVENT_FINGER_UP:
@@ -348,6 +385,7 @@ bool Input::processEvent(const SDL_Event &event)
             }
         }
         activeTouches[tf.fingerID] = Touch{tf.dx, tf.dy, tf.x, tf.y};
+        ensureTouchPanCentroidAnchor();
 
         const size_t nContacts = activeTouches.size();
         if (nContacts == 1U && (rightMouseDown || middleMouseDown))
@@ -361,19 +399,12 @@ bool Input::processEvent(const SDL_Event &event)
         }
         else if (nContacts >= 2U)
         {
-            // Two-finger scroll + Shift/Alt is handled via MOUSE_WHEEL (orbit/zoom); do not also pan from FINGER_MOTION.
+            // Two-finger scroll + Shift/Alt is handled via MOUSE_WHEEL (orbit/zoom); do not also pan from batch centroid.
             const SDL_Keymod mod = SDL_GetModState();
             const bool wheelOverridesTwoFingerPan =
                 (mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0;
-            // Use hypot so brief reversals (both |dx| and |dy| tiny for a frame) still contribute when
-            // the vector magnitude is meaningful; skip (0,0) so a stationary second finger does not dilute the mean.
-            if (!wheelOverridesTwoFingerPan &&
-                std::hypot(tf.dx, tf.dy) >= kTouchDeadzone)
-            {
-                touchPanAccDx += tf.dx;
-                touchPanAccDy += tf.dy;
-                ++touchPanEventCount;
-            }
+            if (wheelOverridesTwoFingerPan)
+                touchPanBlockedByWheelModsThisPass = true;
         }
         break;
     }
@@ -469,6 +500,11 @@ bool Input::handleEvents()
         }
     }
     pendingMouseWheel.clear();
+    if (pendingWheelOrbitSnap)
+    {
+        pendingWheelOrbitSnap = false;
+        display->FinishOrbitSnap();
+    }
 
     applyBatchedTwoFingerPan();
 

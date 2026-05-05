@@ -29,20 +29,24 @@ private:
     std::vector<SDL_FingerID> fingerArrivalOrder;
     std::unordered_map<SDL_FingerID, Touch> activeTouches;
 
-    /// Sums 2-finger FINGER_MOTION in one `handleEvents` pass; applied after draining the queue.
-    float touchPanAccDx = 0.0f;
-    float touchPanAccDy = 0.0f;
-    int touchPanEventCount = 0;
+    /// Two-finger pan uses centroid displacement across one `handleEvents` pass (stable vs per-finger dx averaging).
+    float touchPanCentroidStartX = 0.0f;
+    float touchPanCentroidStartY = 0.0f;
+    bool touchPanHaveCentroidAnchor = false;
+    bool touchPanBlockedByWheelModsThisPass = false;
     /// Processed after draining the event queue so FINGER* updates `activeTouches` before suppress checks.
     std::vector<SDL_Event> pendingMouseWheel;
+    /// Alt-wheel orbit has no button-up event; snap once after the wheel batch has been applied.
+    bool pendingWheelOrbitSnap = false;
     /// After RMB/MMB release or touch pan, ignore unmodified wheel zoom/roll briefly (trackpad inertia).
     Uint64 suppressCameraWheelUntilMs = 0;
 
-    /// Normalized finger deltas: per-event gate uses hypot(dx,dy); batch apply also rejects tiny means.
+    /// Normalized centroid / finger delta magnitude gate (bridge pan + batch pan).
     static constexpr float kTouchDeadzone = 0.00006f;
 
     void clearTouchState();
     void beginTouchPanAccumForFrame();
+    void ensureTouchPanCentroidAnchor();
     void applyBatchedTwoFingerPan();
     void twoFingerOrMouseBridgePanOrbit(const SDL_Event &event);
     void syncWindowRelativeMouseMode();

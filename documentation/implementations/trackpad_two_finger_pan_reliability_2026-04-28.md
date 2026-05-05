@@ -26,3 +26,25 @@ Intermittent pan **cutoffs** (long drags, direction changes) and a **delay** bef
 ## Mini retro
 
 Hit-test-any-finger was the main surprise for multi-touch; centroid is a cheap fix. Touch state must stay aligned with SDL even when ImGui captures mouse.
+
+---
+
+## 2026-05-06 — Jitter + mouse wheel blocked while trackpad contacts linger
+
+### Problem
+
+- Two-finger pan could feel **jittery** (per-finger `tf.dx`/`tf.dy` averaged over events; asymmetric finger updates/noise).
+- **Physical mouse wheel** zoom sometimes did nothing until a click/other gesture; **trackpad** zoom still worked. `shouldSuppressRedundantTrackpadScroll` treated `activeTouches >= 2` / `sdlHasMultiTouchContact()` as reason to drop **all** wheel events, including real mouse wheels, while SDL still reported multi-contact.
+
+### Approach
+
+- Drive batched two-finger pan from **centroid displacement** between start-of-pass and end-of-pass normalized positions; `ensureTouchPanCentroidAnchor()` when the second finger arrives mid-queue.
+- Suppress redundant scroll only for **`SDL_TOUCH_MOUSEID`** when multi-contact pan is active; never suppress non-touch mouse wheel `which`.
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+
+### Outcome
+
+Clean `cmake --build build --target CAD_OpenGL`. Note: unmodified touch-derived wheel is no longer globally suppressed—only when multi-contact pan would duplicate; single-finger trackpad scroll may now reach zoom/roll unless blocked by inertia / UI gates.
