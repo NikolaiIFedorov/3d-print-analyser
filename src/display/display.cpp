@@ -116,6 +116,18 @@ constexpr float kCalibSpanLabelNdcEps = 0.004f;
     return p0 + (p1 - p0) * tMid;
 }
 
+[[nodiscard]] std::string FormatCalibSpanMmLabel(float nominalMm)
+{
+    const double mm = static_cast<double>(nominalMm);
+    const double nearestWhole = std::round(mm);
+    char buf[64];
+    if (std::abs(mm - nearestWhole) < 5e-4)
+        std::snprintf(buf, sizeof(buf), "%.0f mm", nearestWhole);
+    else
+        std::snprintf(buf, sizeof(buf), "%.3f mm", mm);
+    return std::string(buf);
+}
+
 const char *AnalysisWorkerPhaseTitle(uint32_t phaseId)
 {
     switch (phaseId)
@@ -823,7 +835,10 @@ void Display::Render()
                     const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vp[3]) +
                                      static_cast<float>(vp[1]);
                     ImDrawList *dl = ImGui::GetForegroundDrawList();
-                    const glm::vec4 tc = Color::GetUIText(0);
+                    glm::vec4 tc = Color::GetUIText(0);
+                    constexpr float kCalibSpanLabelLift = 0.14f;
+                    tc.r = tc.g = tc.b =
+                        std::clamp(tc.r + kCalibSpanLabelLift, 0.0f, 1.0f);
                     const ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
                     const ImVec2 ts = ImGui::CalcTextSize(calibHoverSpanLabel.c_str());
                     const ImVec2 pos(sx - ts.x * 0.5f, sy - ts.y * 0.5f);
@@ -2041,9 +2056,7 @@ void Display::RefreshCalibSpanOverlayForViewportRender()
             return;
         }
         calibHoverSpanPreviewActive = true;
-        char buf[48];
-        std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
-        calibHoverSpanLabel = buf;
+        calibHoverSpanLabel = FormatCalibSpanMmLabel(sp.nominalMm);
         calibHoverSpanP0 = sp.p0;
         calibHoverSpanP1 = sp.p1;
         calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
@@ -2069,9 +2082,7 @@ void Display::RefreshCalibSpanOverlayForViewportRender()
         if (sp.valid)
         {
             calibHoverSpanPreviewActive = true;
-            char buf[48];
-            std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
-            calibHoverSpanLabel = buf;
+            calibHoverSpanLabel = FormatCalibSpanMmLabel(sp.nominalMm);
             calibHoverSpanP0 = sp.p0;
             calibHoverSpanP1 = sp.p1;
             calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});

@@ -21,6 +21,7 @@ While in **Calibrate** with face prerequisites, show a world-space span segment 
 - **Awaiting second pick, empty hover**: segment from **first-face centroid** to **pick-ray ∩ plane through centroid with normal = view-ray direction** (screen-aligned plane); **no** numeric label.
 - Overlay rebuilt **every frame** inside `Render` so orbit/pan/track-pointer stubs stay coherent without relying on `pickDirty`.
 - Label placed at the midpoint of the **longest viewport-visible subsegment** (sampled in NDC vs \([-1,1]^3\)), not raw world midpoint (skipped when no measurement label).
+- **Readability**: label text slightly brighter than `GetUIText(0)`; whole-millimetre values use `"%.0f mm"` (e.g. `10 mm`), otherwise `"%.3f mm"`.
 - Clean Debug build of `CAD_OpenGL`.
 
 ## Mini retro
