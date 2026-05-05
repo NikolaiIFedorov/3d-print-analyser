@@ -140,3 +140,13 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
 
+---
+
+## Update — hole sidewalls + slanted openings (2026-05-05)
+
+**Problem:** Annular-only classification made **vertical hole walls** `Contour`, so **shrinkage** applied instead of **hole** compensation. Slanted window facets are not caps ∥ build, so inner-loop edges were never collected and sidewalls stayed `Contour`.
+
+**Approach:** Rebuild inner-loop edges from any **planar** face with ≥2 loops (tilted cap allowed for edge discovery). `FaceQualifiesAsHole`: annulus = ≥2 loops + cap ∥ build; **sidewall** = one loop + incident inner-loop **edge** + not cap ∥ build (no vertex-only rule). `buildDirWorld` on rebuild reserved for future layer filtering.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
+

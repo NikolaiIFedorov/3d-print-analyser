@@ -61,7 +61,53 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
     return tMin;
 }
 
+[[nodiscard]] bool FaceUsesAnyEdge(const Face *face, const std::unordered_set<const Edge *> &edges)
+{
+    if (face == nullptr || edges.empty())
+        return false;
+    for (const auto &loop : face->loops)
+    {
+        for (const auto &oe : loop)
+        {
+            if (oe.edge != nullptr && edges.count(oe.edge) != 0)
+                return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
+
+void RebuildHoleCalibTopology(const Scene &scene, [[maybe_unused]] const glm::dvec3 &buildDirWorld,
+                              std::unordered_set<const Edge *> &holeInnerEdgesOut)
+{
+    holeInnerEdgesOut.clear();
+
+    auto scanFace = [&](const Face *f)
+    {
+        if (f == nullptr || f->loops.size() < 2 || !f->GetSurface().IsPlanar())
+            return;
+        // Include inner loops even when the framing face is tilted vs build: through-holes from slanted
+        // facets still expose inner-loop edges to hole walls; sidewall classification below needs a
+        // non-empty edge set. Parallel-to-build is enforced in `FaceQualifiesAsHole` for the annulus.
+        for (size_t li = 1; li < f->loops.size(); ++li)
+        {
+            for (const auto &oe : f->loops[li])
+            {
+                if (oe.edge != nullptr)
+                    holeInnerEdgesOut.insert(oe.edge);
+            }
+        }
+    };
+
+    for (const Solid &solid : scene.solids)
+    {
+        for (const Face *f : solid.faces)
+            scanFace(f);
+    }
+    for (const Face &f : scene.faces)
+        scanFace(&f);
+}
 
 bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm,
                           const glm::dvec3 &buildDirWorld)
@@ -95,38 +141,58 @@ bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeig
     return fMin >= sceneMin - kEps && fMax <= top + kEps;
 }
 
-bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld)
+bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
+                         const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
-    if (face == nullptr || face->loops.size() < 2)
+    if (face == nullptr)
         return false;
-    return FaceCapParallelBuildDir(face, NormalizeBuildDir(buildDirWorld));
+
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+
+    if (face->loops.size() >= 2)
+        return FaceCapParallelBuildDir(face, d);
+
+    if (layerHoleInnerEdges.empty())
+        return false;
+
+    if (face->loops.size() != 1)
+        return false;
+
+    if (!FaceUsesAnyEdge(face, layerHoleInnerEdges))
+        return false;
+
+    // Sidewall: incident to inner-loop geometry but not a build-parallel cap (avoids mis-labeling caps
+    // that only share vertices).
+    return !FaceCapParallelBuildDir(face, d);
 }
 
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,
-                           const glm::dvec3 &buildDirWorld)
+                           const glm::dvec3 &buildDirWorld,
+                           const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
     if (face == nullptr || scene == nullptr)
         return CalibWorkflow::None;
 
     if (FaceInFirstLayerSlab(face, scene, layerHeightMm, buildDirWorld))
         return CalibWorkflow::ElephantFoot;
-    if (FaceQualifiesAsHole(face, buildDirWorld))
+    if (FaceQualifiesAsHole(face, buildDirWorld, layerHoleInnerEdges))
         return CalibWorkflow::Hole;
     return CalibWorkflow::Contour;
 }
 
 CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scene, double layerHeightMm,
-                                 const glm::dvec3 &buildDirWorld)
+                                 const glm::dvec3 &buildDirWorld,
+                                 const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
     if (a == nullptr && b == nullptr)
         return CalibWorkflow::None;
     if (b == nullptr)
-        return ClassifyFace(a, scene, layerHeightMm, buildDirWorld);
+        return ClassifyFace(a, scene, layerHeightMm, buildDirWorld, layerHoleInnerEdges);
     if (a == nullptr)
-        return ClassifyFace(b, scene, layerHeightMm, buildDirWorld);
+        return ClassifyFace(b, scene, layerHeightMm, buildDirWorld, layerHoleInnerEdges);
 
-    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, buildDirWorld);
-    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, buildDirWorld);
+    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, buildDirWorld, layerHoleInnerEdges);
+    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, buildDirWorld, layerHoleInnerEdges);
 
     if (!CalibSecondPickWorkflowsCompatible(ca, cb))
         return CalibWorkflow::None;

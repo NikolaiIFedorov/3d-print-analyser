@@ -104,8 +104,17 @@ bool CalibSlotHasPick(const Face *f, const Edge *e)
     return f != nullptr || e != nullptr;
 }
 
+void GatherCalibLayerHoleInnerEdges(const Scene *scene, const glm::dvec3 &buildDir,
+                                    std::unordered_set<const Edge *> &layerHoleInnerEdgesOut)
+{
+    layerHoleInnerEdgesOut.clear();
+    if (scene != nullptr)
+        CalibrateDistance::RebuildHoleCalibTopology(*scene, buildDir, layerHoleInnerEdgesOut);
+}
+
 bool CalibSecondPickAcceptsHit(const Face *firstResolved, const Face *hitFace, const Edge *hitEdge,
-                               const Scene *scene, double layerHeightMm, const glm::dvec3 &buildDirWorld)
+                               const Scene *scene, double layerHeightMm, const glm::dvec3 &buildDirWorld,
+                               const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
     const Face *cand = ResolveCalibFaceForWorkflow(hitFace, hitEdge);
     if (cand == nullptr)
@@ -116,8 +125,11 @@ bool CalibSecondPickAcceptsHit(const Face *firstResolved, const Face *hitFace, c
         return false;
     if (scene != nullptr)
     {
-        const CalibWorkflow w1 = CalibrateDistance::ClassifyFace(firstResolved, scene, layerHeightMm, buildDirWorld);
-        const CalibWorkflow w2 = CalibrateDistance::ClassifyFace(cand, scene, layerHeightMm, buildDirWorld);
+        const CalibWorkflow w1 =
+            CalibrateDistance::ClassifyFace(firstResolved, scene, layerHeightMm, buildDirWorld,
+                                            layerHoleInnerEdges);
+        const CalibWorkflow w2 =
+            CalibrateDistance::ClassifyFace(cand, scene, layerHeightMm, buildDirWorld, layerHoleInnerEdges);
         if (!CalibrateDistance::CalibSecondPickWorkflowsCompatible(w1, w2))
             return false;
     }
@@ -1790,11 +1802,14 @@ void Display::RebuildPickHighlightMesh()
     {
         std::unordered_set<const Face *> invalidFaces;
         invalidFaces.reserve(std::min(static_cast<size_t>(256), tris.size() / 2 + 1));
+        std::unordered_set<const Edge *> layerHoleInnerEdges;
         const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+        GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
-        const CalibWorkflow wFirst =
-            scene != nullptr ? CalibrateDistance::ClassifyFace(firstForInvalidPool, scene, layerMm, calibBuildDir)
-                             : CalibWorkflow::Contour;
+        const CalibWorkflow wFirst = scene != nullptr ? CalibrateDistance::ClassifyFace(firstForInvalidPool, scene,
+                                                                                        layerMm, calibBuildDir,
+                                                                                        layerHoleInnerEdges)
+                                                      : CalibWorkflow::Contour;
         for (const PickTriangle &tri : tris)
         {
             const Face *f = tri.face;
@@ -1809,7 +1824,8 @@ void Display::RebuildPickHighlightMesh()
             }
             if (scene != nullptr)
             {
-                const CalibWorkflow wf = CalibrateDistance::ClassifyFace(f, scene, layerMm, calibBuildDir);
+                const CalibWorkflow wf =
+                    CalibrateDistance::ClassifyFace(f, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
                 if (!CalibrateDistance::CalibSecondPickWorkflowsCompatible(wFirst, wf))
                     invalidFaces.insert(f);
             }
@@ -1917,9 +1933,12 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     {
         const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
         const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+        std::unordered_set<const Edge *> layerHoleInnerEdges;
+        GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
         if (hit.face != nullptr &&
-            !CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir))
+            !CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir,
+                                       layerHoleInnerEdges))
         {
             SetHoverCalibPick(hit.face, nullptr, true);
             return;
@@ -1955,8 +1974,11 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
     {
         const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
         const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+        std::unordered_set<const Edge *> layerHoleInnerEdges;
+        GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
-        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir))
+        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir,
+                                       layerHoleInnerEdges))
             return;
         calibFacePoint2 = hit.face;
         calibEdgePoint2 = nullptr;
@@ -1982,15 +2004,20 @@ void Display::RefreshCalibWorkflow()
         return;
     }
     const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+    std::unordered_set<const Edge *> layerHoleInnerEdges;
+    GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
     const double layerMm = static_cast<double>(layerHeight);
     const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
     const Face *f2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
     if (f1 != nullptr && f2 != nullptr)
-        calibWorkflow = CalibrateDistance::CombinePickedFaces(f1, f2, scene, layerMm, calibBuildDir);
+        calibWorkflow =
+            CalibrateDistance::CombinePickedFaces(f1, f2, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
     else if (f1 != nullptr)
-        calibWorkflow = CalibrateDistance::ClassifyFace(f1, scene, layerMm, calibBuildDir);
+        calibWorkflow =
+            CalibrateDistance::ClassifyFace(f1, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
     else if (f2 != nullptr)
-        calibWorkflow = CalibrateDistance::ClassifyFace(f2, scene, layerMm, calibBuildDir);
+        calibWorkflow =
+            CalibrateDistance::ClassifyFace(f2, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
     else
         calibWorkflow = CalibWorkflow::None;
 
