@@ -39,9 +39,9 @@ static glm::dvec3 FaceCentroid(const Face *f)
     return sum / static_cast<double>(count);
 }
 
-SpanResult SpanBetweenFaces(const Face *a, const Face *b)
+SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b)
 {
-    SpanResult out;
+    SpanPreview out;
     if (a == nullptr || b == nullptr || a == b)
         return out;
 
@@ -58,9 +58,18 @@ SpanResult SpanBetweenFaces(const Face *a, const Face *b)
 
     double spanMm = 0.0;
     if (align >= kFaceNormalParallelAlignThreshold)
-        spanMm = std::abs(glm::dot(delta, na));
+    {
+        const double signedAlong = glm::dot(delta, na);
+        spanMm = std::abs(signedAlong);
+        out.p0 = ca;
+        out.p1 = ca + signedAlong * na;
+    }
     else
+    {
         spanMm = glm::length(delta);
+        out.p0 = ca;
+        out.p1 = cb;
+    }
 
     if (spanMm < 1e-6)
         return out;
@@ -68,6 +77,12 @@ SpanResult SpanBetweenFaces(const Face *a, const Face *b)
     out.nominalMm = static_cast<float>(spanMm);
     out.valid = true;
     return out;
+}
+
+SpanResult SpanBetweenFaces(const Face *a, const Face *b)
+{
+    const SpanPreview p = SpanPreviewBetweenFaces(a, b);
+    return {p.nominalMm, p.valid};
 }
 
 } // namespace CalibrateNominal

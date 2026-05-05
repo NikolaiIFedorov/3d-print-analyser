@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 class Face;
 
 namespace CalibrateNominal
@@ -14,9 +16,20 @@ struct SpanResult
     bool valid = false;
 };
 
+/// Segment endpoints matching `SpanBetweenFaces` / nominal slab logic (for viewport preview).
+struct SpanPreview
+{
+    float nominalMm = 0.0f;
+    bool valid = false;
+    glm::dvec3 p0{};
+    glm::dvec3 p1{};
+};
+
 /// True if both faces exist, are distinct, and normals are parallel or opposite within
 /// `kFaceNormalParallelAlignThreshold` (used to constrain Calibrate second pick).
 bool NormalsAlignedForCalibPick(const Face *a, const Face *b);
+
+SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b);
 
 /// Distance between two picked faces along their shared normal direction (parallel / opposite planar
 /// faces → slab thickness; otherwise centroid distance as a fallback).

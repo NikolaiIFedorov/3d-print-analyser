@@ -525,6 +525,12 @@ void SceneRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &verti
     renderer.UploadPickHighlightLineMesh(vertices, indices, xrayIndexCount);
 }
 
+void SceneRenderer::UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices,
+                                                 const std::vector<uint32_t> &indices)
+{
+    renderer.UploadCalibHoverSpanLineMesh(vertices, indices);
+}
+
 void SceneRenderer::UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices,
                                                   const std::vector<uint32_t> &indices)
 {
@@ -565,6 +571,11 @@ void SceneRenderer::RenderPickHighlightLines(float lineWidthPx)
 void SceneRenderer::RenderPickHighlightLinesXray(float lineWidthPx)
 {
     renderer.DrawPickHighlightLines(lineWidthPx, true);
+}
+
+void SceneRenderer::RenderCalibHoverSpanLine(float lineWidthPx)
+{
+    renderer.DrawCalibHoverSpanLine(lineWidthPx);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)

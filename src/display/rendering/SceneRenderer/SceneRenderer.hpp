@@ -57,6 +57,7 @@ public:
     void RenderPickHighlightXray();
     void RenderPickHighlightLines(float lineWidthPx);
     void RenderPickHighlightLinesXray(float lineWidthPx);
+    void RenderCalibHoverSpanLine(float lineWidthPx);
     void RenderWireframe();
 
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
@@ -65,6 +66,7 @@ public:
     void UploadPickHighlightCalibInvalidMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                      uint32_t xrayIndexCount = 0);
+    void UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
     const std::vector<PickTriangle> &GetPickTriangles() const { return pickTriangles; }
     const std::vector<PickSegment> &GetPickSegments() const { return pickSegments; }

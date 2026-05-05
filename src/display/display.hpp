@@ -336,6 +336,10 @@ private:
     std::vector<Vertex> pickHighlightCalibInvalidVertices;
     std::vector<uint32_t> pickHighlightCalibInvalidIndices;
 
+    bool calibHoverSpanPreviewActive = false;
+    std::string calibHoverSpanLabel;
+    glm::dvec3 calibHoverSpanMidWorld{0.0};
+
     void ClearPickHover();
     void ClearCalibrateFacePicks();
     void SetHoverCalibPick(const Face *face, const Edge *edge, bool rejected = false);

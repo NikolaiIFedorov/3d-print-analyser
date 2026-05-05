@@ -65,6 +65,9 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
       pickHighlightCalibInvalidVBO(other.pickHighlightCalibInvalidVBO),
       pickHighlightCalibInvalidIBO(other.pickHighlightCalibInvalidIBO),
       pickHighlightCalibInvalidIndexCount(other.pickHighlightCalibInvalidIndexCount),
+      calibHoverSpanLineVAO(other.calibHoverSpanLineVAO), calibHoverSpanLineVBO(other.calibHoverSpanLineVBO),
+      calibHoverSpanLineIBO(other.calibHoverSpanLineIBO),
+      calibHoverSpanLineIndexCount(other.calibHoverSpanLineIndexCount),
       viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
       shader(std::move(other.shader)),
       lineShader(std::move(other.lineShader))
@@ -77,9 +80,10 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
     other.pickHighlightRejectVAO = other.pickHighlightRejectVBO = other.pickHighlightRejectIBO = 0;
     other.pickHighlightCalibInvalidVAO = other.pickHighlightCalibInvalidVBO = other.pickHighlightCalibInvalidIBO = 0;
+    other.calibHoverSpanLineVAO = other.calibHoverSpanLineVBO = other.calibHoverSpanLineIBO = 0;
     other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
         other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = other.pickHighlightRejectIndexCount =
-            other.pickHighlightCalibInvalidIndexCount = 0;
+            other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount = 0;
     other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
     other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
     other.lineVertexCapacity = other.lineIndexCapacity = 0;
@@ -120,6 +124,10 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         pickHighlightCalibInvalidVBO = other.pickHighlightCalibInvalidVBO;
         pickHighlightCalibInvalidIBO = other.pickHighlightCalibInvalidIBO;
         pickHighlightCalibInvalidIndexCount = other.pickHighlightCalibInvalidIndexCount;
+        calibHoverSpanLineVAO = other.calibHoverSpanLineVAO;
+        calibHoverSpanLineVBO = other.calibHoverSpanLineVBO;
+        calibHoverSpanLineIBO = other.calibHoverSpanLineIBO;
+        calibHoverSpanLineIndexCount = other.calibHoverSpanLineIndexCount;
         viewMatrix = other.viewMatrix;
         projectionMatrix = other.projectionMatrix;
         modelMatrix = other.modelMatrix;
@@ -133,9 +141,10 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         other.pickHighlightLineVAO = other.pickHighlightLineVBO = other.pickHighlightLineIBO = 0;
         other.pickHighlightRejectVAO = other.pickHighlightRejectVBO = other.pickHighlightRejectIBO = 0;
         other.pickHighlightCalibInvalidVAO = other.pickHighlightCalibInvalidVBO = other.pickHighlightCalibInvalidIBO = 0;
+        other.calibHoverSpanLineVAO = other.calibHoverSpanLineVBO = other.calibHoverSpanLineIBO = 0;
         other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
             other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = other.pickHighlightRejectIndexCount =
-                other.pickHighlightCalibInvalidIndexCount = 0;
+                other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount = 0;
         other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
         other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
         other.lineVertexCapacity = other.lineIndexCapacity = 0;
@@ -282,6 +291,15 @@ void OpenGLRenderer::Shutdown()
         glDeleteBuffers(1, &pickHighlightCalibInvalidIBO);
     pickHighlightCalibInvalidVAO = pickHighlightCalibInvalidVBO = pickHighlightCalibInvalidIBO = 0;
     pickHighlightCalibInvalidIndexCount = 0;
+
+    if (calibHoverSpanLineVBO)
+        glDeleteBuffers(1, &calibHoverSpanLineVBO);
+    if (calibHoverSpanLineVAO)
+        glDeleteVertexArrays(1, &calibHoverSpanLineVAO);
+    if (calibHoverSpanLineIBO)
+        glDeleteBuffers(1, &calibHoverSpanLineIBO);
+    calibHoverSpanLineVAO = calibHoverSpanLineVBO = calibHoverSpanLineIBO = 0;
+    calibHoverSpanLineIndexCount = 0;
 
     if (lineVBO)
         glDeleteBuffers(1, &lineVBO);
@@ -518,6 +536,44 @@ void OpenGLRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vert
         glGenBuffers(1, &pickHighlightLineIBO);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, pickHighlightLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices,
+                                                  const std::vector<uint32_t> &indices)
+{
+    calibHoverSpanLineIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (calibHoverSpanLineVAO == 0)
+        glGenVertexArrays(1, &calibHoverSpanLineVAO);
+
+    glBindVertexArray(calibHoverSpanLineVAO);
+
+    if (calibHoverSpanLineVBO == 0)
+        glGenBuffers(1, &calibHoverSpanLineVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, calibHoverSpanLineVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (calibHoverSpanLineIBO == 0)
+        glGenBuffers(1, &calibHoverSpanLineIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, calibHoverSpanLineIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
                  indices.empty() ? nullptr : indices.data(),
@@ -972,6 +1028,46 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth, bool xrayOverlay)
     {
         glDepthMask(GL_TRUE);
     }
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth)
+{
+    if (calibHoverSpanLineIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uAlpha", 1.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(DepthComparePass());
+    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
+
+    glBindVertexArray(calibHoverSpanLineVAO);
+    glDrawElements(GL_LINES, calibHoverSpanLineIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper)
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glDepthMask(GL_TRUE);
 
     GetGLError();
 }

@@ -34,6 +34,7 @@
 #include <chrono>
 #include <string_view>
 
+#include "ProjectionDepthMode.hpp"
 #include "ViewportDepthExperiments.hpp"
 #include "rendering/SceneLighting.hpp"
 #include "RenderingExperiments.hpp"
@@ -698,6 +699,7 @@ void Display::Render()
     // Occluded selection: translucent face tint behind nearer geometry, then line overlay (stronger).
     renderer.RenderPickHighlightXray();
     renderer.RenderPickHighlightLinesXray(4.0f);
+    renderer.RenderCalibHoverSpanLine(5.0f);
 
     // Start ImGui frame
     if (pendingFileTabsRebuild)
@@ -727,6 +729,34 @@ void Display::Render()
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+
+    if (calibHoverSpanPreviewActive && !calibHoverSpanLabel.empty())
+    {
+        GLint vp[4];
+        glGetIntegerv(GL_VIEWPORT, vp);
+        const glm::mat4 vpMat =
+            ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) * camera.GetViewMatrix();
+        const glm::vec4 clip = vpMat * glm::vec4(glm::vec3(calibHoverSpanMidWorld), 1.0f);
+        if (std::abs(clip.w) > 1e-8f)
+        {
+            const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+            if (ndc.z >= -1.05f && ndc.z <= 1.05f)
+            {
+                const float sx =
+                    (ndc.x * 0.5f + 0.5f) * static_cast<float>(vp[2]) + static_cast<float>(vp[0]);
+                const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vp[3]) +
+                                 static_cast<float>(vp[1]);
+                ImDrawList *dl = ImGui::GetForegroundDrawList();
+                const glm::vec4 tc = Color::GetUIText(0);
+                const ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+                const ImVec2 ts = ImGui::CalcTextSize(calibHoverSpanLabel.c_str());
+                const ImVec2 pos(sx - ts.x * 0.5f, sy - ts.y * 0.5f);
+                constexpr ImU32 shadow = IM_COL32(0, 0, 0, 160);
+                dl->AddText(ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow, calibHoverSpanLabel.c_str());
+                dl->AddText(pos, col, calibHoverSpanLabel.c_str());
+            }
+        }
+    }
 
     uiRenderer.Render();
 
@@ -1895,6 +1925,38 @@ void Display::RebuildPickHighlightMesh()
                                          xrayEdgeHighlightIndexCount);
     renderer.UploadPickHighlightRejectMesh(pickHighlightRejectVertices, pickHighlightRejectIndices);
     renderer.UploadPickHighlightCalibInvalidMesh(pickHighlightCalibInvalidVertices, pickHighlightCalibInvalidIndices);
+
+    calibHoverSpanPreviewActive = false;
+    calibHoverSpanLabel.clear();
+    std::vector<Vertex> calibHoverSpanVerts;
+    std::vector<uint32_t> calibHoverSpanIdx;
+    const bool calibAwaitingSecond =
+        activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
+        CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
+    if (calibAwaitingSecond && hoverPickFace != nullptr && !hoverCalibPickRejected)
+    {
+        const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+        const Face *hov = hoverPickFace;
+        if (f1 != nullptr && hov != nullptr)
+        {
+            const CalibrateNominal::SpanPreview sp = CalibrateNominal::SpanPreviewBetweenFaces(f1, hov);
+            if (sp.valid)
+            {
+                calibHoverSpanPreviewActive = true;
+                char buf[48];
+                std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
+                calibHoverSpanLabel = buf;
+                calibHoverSpanMidWorld = (sp.p0 + sp.p1) * 0.5;
+                const glm::vec3 rgb = glm::vec3(Color::GetAccentSteps(0.75f, 1.0f, 0.55f));
+                const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
+                calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
+                calibHoverSpanVerts.push_back({glm::vec3(sp.p1), rgb, lineNormal});
+                calibHoverSpanIdx.push_back(0);
+                calibHoverSpanIdx.push_back(1);
+            }
+        }
+    }
+    renderer.UploadCalibHoverSpanLineMesh(calibHoverSpanVerts, calibHoverSpanIdx);
 }
 
 Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const

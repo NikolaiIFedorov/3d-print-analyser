@@ -60,6 +60,11 @@ private:
     GLuint pickHighlightCalibInvalidIBO = 0;
     uint32_t pickHighlightCalibInvalidIndexCount = 0;
 
+    GLuint calibHoverSpanLineVAO = 0;
+    GLuint calibHoverSpanLineVBO = 0;
+    GLuint calibHoverSpanLineIBO = 0;
+    uint32_t calibHoverSpanLineIndexCount = 0;
+
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     glm::mat4 modelMatrix = glm::mat4(1.0f);
@@ -106,6 +111,7 @@ public:
     void UploadPickHighlightCalibInvalidMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                      uint32_t xrayIndexCount = 0);
+    void UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
                                const std::vector<uint32_t> &indices, size_t indexOffset);
@@ -116,6 +122,7 @@ public:
     void DrawPickHighlightCalibInvalid();
     /// Screen-space thick lines (same pipeline as wireframe); `pixelWidth` is in framebuffer pixels.
     void DrawPickHighlightLines(float pixelWidth, bool xrayOverlay = false);
+    void DrawCalibHoverSpanLine(float pixelWidth);
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);
