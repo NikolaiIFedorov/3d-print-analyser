@@ -29,6 +29,13 @@ bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,
                            const std::unordered_set<const Edge *> &holeEdges);
 
+/// True unless the pair mixes contour vs hole (outer shrink vs opening — different compensation paths).
+inline bool CalibSecondPickWorkflowsCompatible(CalibWorkflow a, CalibWorkflow b)
+{
+    return !((a == CalibWorkflow::Contour && b == CalibWorkflow::Hole) ||
+             (a == CalibWorkflow::Hole && b == CalibWorkflow::Contour));
+}
+
 /// After two picks: elephant if either is first-layer; else hole if either qualifies; else contour.
 CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scene, double layerHeightMm,
                                  const std::unordered_set<const Edge *> &holeEdges);

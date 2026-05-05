@@ -138,6 +138,9 @@ CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scen
     const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, holeEdges);
     const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, holeEdges);
 
+    if (!CalibSecondPickWorkflowsCompatible(ca, cb))
+        return CalibWorkflow::None;
+
     if (ca == CalibWorkflow::ElephantFoot || cb == CalibWorkflow::ElephantFoot)
         return CalibWorkflow::ElephantFoot;
     if (ca == CalibWorkflow::Hole || cb == CalibWorkflow::Hole)

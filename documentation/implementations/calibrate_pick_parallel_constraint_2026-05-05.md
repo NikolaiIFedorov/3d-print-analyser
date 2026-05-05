@@ -8,7 +8,7 @@ Gate Calibrate tool second measurement pick so it only accepts geometry whose **
 
 - Centralize threshold as `CalibrateNominal::kFaceNormalParallelAlignThreshold` and add `NormalsAlignedForCalibPick`.
 - Helper `CalibSecondPickAcceptsHit` in `display.cpp` (anonymous namespace) using existing `ResolveCalibFaceForWorkflow`.
-- `UpdatePickHover` / `TryCommitCalibrateFacePick`: when point 2 row is active and point 1 has a pick, reject non-matching hits.
+- `UpdatePickHover` / `TryCommitCalibrateFacePick`: when point 2 row is active and point 1 has a pick, reject non-matching hits (parallel + contour/hole workflow).
 
 ## Note on “same normal”
 
@@ -96,3 +96,12 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Change:** `Color::GetUI(depth)` vertex color + same lit pick mesh as valid hover. Tune via `kCalibrateRejectHoverGrayUiDepthDark` / `Light`.
 
+---
+
+## Update — contour vs hole second pick (2026-05-05)
+
+**Idea:** Contour (outer) and hole (opening) calibrations use different compensation parameters; do not allow pairing a contour-classified face with a hole-classified face on the two measurement picks.
+
+**Implementation:** `CalibSecondPickWorkflowsCompatible` in `CalibDistanceType.hpp` (`ClassifyFace` on both picks). `CalibSecondPickAcceptsHit` takes scene, layer height, `holeEdges` (same inputs as `ClassifyFace`). `CombinePickedFaces` returns `CalibWorkflow::None` for mixed contour+hole as a safety net. Invalid-face pool (when enabled) also treats workflow mismatch like non-parallel.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
