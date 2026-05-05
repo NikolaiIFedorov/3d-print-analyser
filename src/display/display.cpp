@@ -1918,21 +1918,26 @@ void Display::RebuildPickHighlightMesh()
 
     const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
     const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
-    auto appendEdgeLines = [&](const Edge *edge, float accentDepthSteps, float satMult)
+    auto appendEdgeLinesRgb = [&](const Edge *edge, const glm::vec3 &rgb)
     {
         if (edge == nullptr)
             return;
-        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
         for (const PickSegment &ps : segPick)
         {
             if (ps.edge != edge)
                 continue;
             const uint32_t base = static_cast<uint32_t>(pickHighlightLineVertices.size());
-            pickHighlightLineVertices.push_back({glm::vec3(ps.v0), accent, lineNormal});
-            pickHighlightLineVertices.push_back({glm::vec3(ps.v1), accent, lineNormal});
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v0), rgb, lineNormal});
+            pickHighlightLineVertices.push_back({glm::vec3(ps.v1), rgb, lineNormal});
             pickHighlightLineIndices.push_back(base);
             pickHighlightLineIndices.push_back(base + 1);
         }
+    };
+    auto appendEdgeLines = [&](const Edge *edge, float accentDepthSteps, float satMult)
+    {
+        if (edge == nullptr)
+            return;
+        appendEdgeLinesRgb(edge, glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult)));
     };
 
     appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
@@ -2023,7 +2028,10 @@ void Display::RebuildPickHighlightMesh()
         const Face *hoverDraw = hoverPickFace;
         if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
             hoverDraw = nullptr;
-        if (hoverDraw != nullptr)
+        // Calibrate edge snap: show edge hover alone — face fill hides whether the hit is edge vs face.
+        const bool calibrateEdgeHover =
+            activeTool == ActiveTool::Calibrate && hoverPickEdge != nullptr;
+        if (hoverDraw != nullptr && !calibrateEdgeHover)
         {
             if (hoverCalibPickRejected)
             {
@@ -2041,7 +2049,15 @@ void Display::RebuildPickHighlightMesh()
     const Edge *hoverEdgeDraw = hoverPickEdge;
     if (hoverEdgeDraw == calibEdgePoint1 || hoverEdgeDraw == calibEdgePoint2)
         hoverEdgeDraw = nullptr;
-    appendEdgeLines(hoverEdgeDraw, 0.5f, 0.5f);
+    if (hoverEdgeDraw != nullptr && activeTool == ActiveTool::Calibrate && hoverCalibPickRejected)
+    {
+        const int grayDepth =
+            Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverGrayUiDepthDark
+                              : RenderingExperiments::kCalibrateRejectHoverGrayUiDepthLight;
+        appendEdgeLinesRgb(hoverEdgeDraw, glm::vec3(Color::GetUI(grayDepth, 1.0f)));
+    }
+    else
+        appendEdgeLines(hoverEdgeDraw, 0.5f, 0.5f);
     const uint32_t xrayEdgeHighlightIndexCount = static_cast<uint32_t>(pickHighlightLineIndices.size());
 
     renderer.UploadPickHighlightMesh(pickHighlightVertices, pickHighlightIndices, xrayFaceHighlightIndexCount);

@@ -25,3 +25,5 @@ Shipped **elephant’s foot** as an explicit **two parallel edges on the same fi
 **Mini retro:** Thread-local scratch for filtered edge segments avoids per-hover heap allocation; threshold may need tuning per UI scale or ortho zoom later.
 
 Follow-up: optional modifier to force **face-only** pick on the first-layer cap when edges are nearby; document layer height dependence for first-layer slab.
+
+2026-05-06 follow-up: **Calibrate hover** — when `hoverPickEdge` is set (first-layer edge snap), **suppress face hover fill** so the edge line reads clearly; rejected picks tint that edge gray (`RebuildPickHighlightMesh`).
