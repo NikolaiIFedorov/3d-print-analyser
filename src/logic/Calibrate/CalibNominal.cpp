@@ -9,6 +9,19 @@
 namespace CalibrateNominal
 {
 
+bool NormalsAlignedForCalibPick(const Face *a, const Face *b)
+{
+    if (a == nullptr || b == nullptr || a == b)
+        return false;
+
+    const glm::dvec3 na = glm::normalize(a->GetSurface().GetNormal());
+    const glm::dvec3 nb = glm::normalize(b->GetSurface().GetNormal());
+    if (!std::isfinite(na.x) || !std::isfinite(nb.x))
+        return false;
+
+    return std::abs(glm::dot(na, nb)) >= kFaceNormalParallelAlignThreshold;
+}
+
 static glm::dvec3 FaceCentroid(const Face *f)
 {
     glm::dvec3 sum(0.0);
@@ -42,10 +55,9 @@ SpanResult SpanBetweenFaces(const Face *a, const Face *b)
     const glm::dvec3 delta = cb - ca;
 
     const double align = std::abs(glm::dot(na, nb));
-    constexpr double kParallel = 0.75;
 
     double spanMm = 0.0;
-    if (align >= kParallel)
+    if (align >= kFaceNormalParallelAlignThreshold)
         spanMm = std::abs(glm::dot(delta, na));
     else
         spanMm = glm::length(delta);

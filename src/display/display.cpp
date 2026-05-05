@@ -101,6 +101,16 @@ bool CalibSlotHasPick(const Face *f, const Edge *e)
     return f != nullptr || e != nullptr;
 }
 
+bool CalibSecondPickAcceptsHit(const Face *firstResolved, const Face *hitFace, const Edge *hitEdge)
+{
+    const Face *cand = ResolveCalibFaceForWorkflow(hitFace, hitEdge);
+    if (cand == nullptr)
+        return false;
+    if (firstResolved == nullptr)
+        return true;
+    return CalibrateNominal::NormalsAlignedForCalibPick(firstResolved, cand);
+}
+
 bool AccumulateFaceViewDirection(glm::dvec3 &sum, const Face *face)
 {
     if (face == nullptr || face->loops.empty())
@@ -1812,6 +1822,15 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     }
 
     const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
+    if (calibPara_Point2 && calibPara_Point2->selected && CalibSlotHasPick(calibFacePoint1, calibEdgePoint1))
+    {
+        const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, hit.edge))
+        {
+            SetHoverCalibPick(nullptr, nullptr);
+            return;
+        }
+    }
     SetHoverCalibPick(hit.face, hit.edge);
 }
 
@@ -1840,6 +1859,9 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
     }
     else if (calibPara_Point2 && calibPara_Point2->selected)
     {
+        const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, hit.edge))
+            return;
         calibFacePoint2 = hit.face;
         calibEdgePoint2 = hit.edge;
         calibStepPoint2 = Icons::StepState::Done;
@@ -3916,7 +3938,8 @@ void Display::InitUI()
         calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
                                           "to calibrate against",
                                           Icons::CheckBox(&calibStepPoint1), false, false});
-        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point", "",
+        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point",
+                                          "parallel to first pick",
                                           Icons::CheckBox(&calibStepPoint2), false, false});
 
         // ── Parameters — print measurement InputFloat ──────────────────────
