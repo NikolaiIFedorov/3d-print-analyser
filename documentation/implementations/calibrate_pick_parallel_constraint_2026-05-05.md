@@ -128,3 +128,15 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
 
+---
+
+## Update — annular-only “hole” workflow (2026-05-05)
+
+**Problem:** Classifying any single-loop face that **touches** inner-loop edges or ring vertices as `Hole` can pull in **contour** faces (shared boundary / mesh quirks). That defeats separating contour vs hole compensation paths.
+
+**Approach:** `Hole` is only the **annular cap**: planar face with **≥2 loops** (outer + inner hole boundary) whose normal aligns with the build direction. Removed `RebuildHoleCalibTopology`, `holeEdges`, and `holeRingPoints` from the Calibrate path — classification is purely per-face. **Vertical hole walls** are now `Contour`; only the top/bottom annulus with two loops is `Hole`.
+
+**Trade-off:** Picking two hole-wall faces stays contour+contour (allowed). Mixed annulus + wall becomes hole+contour and is **blocked** by the existing gate — users measure hole compensation on the **cap** annulus, not the wall.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
+
