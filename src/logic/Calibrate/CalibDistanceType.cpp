@@ -78,18 +78,20 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
 
 } // namespace
 
-void RebuildHoleCalibTopology(const Scene &scene, [[maybe_unused]] const glm::dvec3 &buildDirWorld,
+void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
                               std::unordered_set<const Edge *> &holeInnerEdgesOut)
 {
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
     holeInnerEdgesOut.clear();
 
     auto scanFace = [&](const Face *f)
     {
         if (f == nullptr || f->loops.size() < 2 || !f->GetSurface().IsPlanar())
             return;
-        // Include inner loops even when the framing face is tilted vs build: through-holes from slanted
-        // facets still expose inner-loop edges to hole walls; sidewall classification below needs a
-        // non-empty edge set. Parallel-to-build is enforced in `FaceQualifiesAsHole` for the annulus.
+        // Only caps ∥ build: inner loops on slanted pockets are not “holes in the layer” for slicing;
+        // including them falsely tagged oblique cavity walls as `Hole` (hole radius offset).
+        if (!FaceCapParallelBuildDir(f, d))
+            return;
         for (size_t li = 1; li < f->loops.size(); ++li)
         {
             for (const auto &oe : f->loops[li])

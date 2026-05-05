@@ -8,8 +8,8 @@ class Face;
 class Scene;
 
 /// Shown in the Calibrate tool.
-/// `Hole` = **layer hole**: annular cap (∥ build, ≥2 loops) or sidewall sharing a **layer-hole inner loop
-/// edge** with a wall not parallel to build — not vertex-only adjacency.
+/// `Hole` = **layer hole** in the slicer sense: opening from a cap ∥ build (annulus or sidewall tied to such
+/// inner loops only). Oblique pockets on tilted faces follow `Contour`.
 enum class CalibWorkflow
 {
     None,
@@ -27,7 +27,7 @@ inline glm::dvec3 DefaultCalibrateBuildDirection()
     return glm::dvec3(0.0, 0.0, 1.0);
 }
 
-/// Inner-loop edges of planar faces with ≥2 boundary loops (openings); framing face may be tilted vs build.
+/// Inner-loop edges of planar caps ∥ `buildDirWorld` (layer-plane openings). Slanted pockets excluded.
 /// Annular cap vs sidewall is decided in `FaceQualifiesAsHole`.
 void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
                               std::unordered_set<const Edge *> &holeInnerEdgesOut);

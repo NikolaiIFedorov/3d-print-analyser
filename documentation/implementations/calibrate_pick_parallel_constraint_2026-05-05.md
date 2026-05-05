@@ -150,3 +150,13 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
 
+---
+
+## Update — layer-hole topology only from caps ∥ build (2026-05-05)
+
+**Problem:** Collecting inner loops from **tilted** multi-loop faces made **oblique pocket walls** share `layerHoleInnerEdges` and get **`Hole` / hole radius offset**. For many slicers those openings are **not** per-layer enclosed voids (stair-step / no horizontal inner contour), so hole compensation is the wrong model.
+
+**Approach:** `RebuildHoleCalibTopology` again requires the framing face **`FaceCapParallelBuildDir`** before adding inner loops. Slanted recesses → for meshes with no horizontal annulus those walls classify **`Contour`**. Through-holes that meet a **horizontal** annulus still contribute inner-loop edges; vertical sidewalls there remain **`Hole`**.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`.
+
