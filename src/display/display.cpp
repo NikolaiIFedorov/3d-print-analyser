@@ -1695,6 +1695,30 @@ void Display::RebuildPickHighlightMesh()
     const std::vector<PickTriangle> &tris = renderer.GetPickTriangles();
     uint32_t nextVert = 0;
 
+    auto appendFaceTrisSolid = [&](const Face *face, const glm::vec3 &rgb)
+    {
+        if (face == nullptr)
+            return;
+        for (const PickTriangle &tri : tris)
+        {
+            if (tri.face != face)
+                continue;
+            const glm::dvec3 e1 = tri.v1 - tri.v0;
+            const glm::dvec3 e2 = tri.v2 - tri.v0;
+            glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+            if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                n = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            pickHighlightVertices.push_back({glm::vec3(tri.v0), rgb, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v1), rgb, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v2), rgb, n});
+            pickHighlightIndices.push_back(nextVert);
+            pickHighlightIndices.push_back(nextVert + 1);
+            pickHighlightIndices.push_back(nextVert + 2);
+            nextVert += 3;
+        }
+    };
+
     auto appendFaceTris = [&](const Face *face, float accentDepthSteps, float satMult)
     {
         if (face == nullptr)
@@ -1805,12 +1829,15 @@ void Display::RebuildPickHighlightMesh()
             hoverDraw = nullptr;
         if (hoverDraw != nullptr)
         {
-            const float accentDepth =
-                hoverCalibPickRejected
-                    ? (Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverAccentDepthStepsDark
-                                       : RenderingExperiments::kCalibrateRejectHoverAccentDepthStepsLight)
-                    : 0.5f;
-            appendFaceTris(hoverDraw, accentDepth, 0.5f);
+            if (hoverCalibPickRejected)
+            {
+                const int grayDepth =
+                    Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverGrayUiDepthDark
+                                      : RenderingExperiments::kCalibrateRejectHoverGrayUiDepthLight;
+                appendFaceTrisSolid(hoverDraw, glm::vec3(Color::GetUI(grayDepth, 1.0f)));
+            }
+            else
+                appendFaceTris(hoverDraw, 0.5f, 0.5f);
         }
     }
     const uint32_t xrayFaceHighlightIndexCount = static_cast<uint32_t>(pickHighlightIndices.size());

@@ -88,3 +88,11 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `RenderingExperiments.hpp`, `display.cpp`, `display.hpp`.
 
+---
+
+## Update — blocked hover: darker **neutral** gray (2026-05-05)
+
+**Correction:** Blocked second-pick hover should read as **grayscale**, not darker accent (low-L accent was reading mud/gray).
+
+**Change:** `Color::GetUI(depth)` vertex color + same lit pick mesh as valid hover. Tune via `kCalibrateRejectHoverGrayUiDepthDark` / `Light`.
+

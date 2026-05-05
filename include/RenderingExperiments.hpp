@@ -71,13 +71,13 @@ inline constexpr bool kPickHighlightNoPolygonOffset = true;
 /// Alpha for occluded-face x-ray pass (`DepthCompareBehind` + blend); keep modest — dense tessellation can read noisy.
 inline constexpr float kPickHighlightFaceXrayAlpha = 0.14f;
 
-/// Calibrate: second-pick **blocked** hover uses the same accent pick path as a valid face but darker
-/// (`GetAccentSteps`: dark mode lower depth → darker; light mode higher depth → darker). Valid hover uses depth 0.5.
-inline constexpr float kCalibrateRejectHoverAccentDepthStepsDark = 0.22f;
-inline constexpr float kCalibrateRejectHoverAccentDepthStepsLight = 0.82f;
+/// Calibrate: second-pick **blocked** hover — same lit pick mesh as valid hover but **neutral UI gray**
+/// (`Color::GetUI` depth). Dark mode: smaller depth = darker; light mode: larger depth = darker.
+inline constexpr int kCalibrateRejectHoverGrayUiDepthDark = 1;
+inline constexpr int kCalibrateRejectHoverGrayUiDepthLight = 5;
 
 /// When true, dim every non-parallel face while waiting for Calibrate point 2. Default off — blocked state is
-/// hover-only (darker accent on the face under the cursor).
+/// hover-only (darker neutral gray on the face under the cursor).
 inline constexpr bool kCalibrateSecondPickDrawInvalidFacePool = false;
 
 /// Used only when `kCalibrateSecondPickDrawInvalidFacePool` is true (full-model invalid veil).
