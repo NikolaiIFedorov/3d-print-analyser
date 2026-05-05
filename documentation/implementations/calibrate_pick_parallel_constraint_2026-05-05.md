@@ -105,3 +105,14 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 **Implementation:** `CalibSecondPickWorkflowsCompatible` in `CalibDistanceType.hpp` (`ClassifyFace` on both picks). `CalibSecondPickAcceptsHit` takes scene, layer height, `holeEdges` (same inputs as `ClassifyFace`). `CombinePickedFaces` returns `CalibWorkflow::None` for mixed contour+hole as a safety net. Invalid-face pool (when enabled) also treats workflow mismatch like non-parallel.
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
+
+---
+
+## Update — hole detection + second-pick gate (2026-05-05)
+
+**Problem:** Contour/hole block often did not apply: `CalibSecondPickAcceptsHit` skipped workflow when `layerHeightMm <= 0.0`; vertical hole walls often only shared **vertices** with inner loops, not the same `Edge*`. Annular faces use **two** loops (`>= 2`), not `>= 3`.
+
+**Changes:** Workflow check runs whenever `scene != nullptr`. `RebuildHoleCalibTopology` adds `holeRingPoints` from inner-loop edge endpoints. `FaceQualifiesAsHole` uses `loops.size() >= 2`, inner-loop edges, or any boundary vertex in `holeRingPoints`.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp` (`Geometry/Point.hpp`).
+

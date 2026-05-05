@@ -65,6 +65,20 @@ void RebuildHoleEdgeSet(const Scene &scene, std::unordered_set<const Edge *> &ou
         scanFace(&f);
 }
 
+void RebuildHoleCalibTopology(const Scene &scene, std::unordered_set<const Edge *> &holeEdgesOut,
+                             std::unordered_set<const Point *> &holeRingPointsOut)
+{
+    RebuildHoleEdgeSet(scene, holeEdgesOut);
+    holeRingPointsOut.clear();
+    for (const Edge *e : holeEdgesOut)
+    {
+        if (e->startPoint != nullptr)
+            holeRingPointsOut.insert(e->startPoint);
+        if (e->endPoint != nullptr)
+            holeRingPointsOut.insert(e->endPoint);
+    }
+}
+
 bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm)
 {
     if (face == nullptr || scene == nullptr || layerHeightMm <= 0.0)
@@ -93,12 +107,13 @@ bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeig
     return fMinZ >= sceneMinZ - kEps && fMaxZ <= topZ + kEps;
 }
 
-bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *> &holeEdges)
+bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *> &holeEdges,
+                         const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (face == nullptr)
         return false;
 
-    if (face->loops.size() >= 3)
+    if (face->loops.size() >= 2)
         return true;
 
     for (const auto &loop : face->loops)
@@ -107,36 +122,44 @@ bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *
         {
             if (oe.edge != nullptr && holeEdges.count(oe.edge) != 0)
                 return true;
+            Point *ps = oe.GetStart();
+            Point *pe = oe.GetEnd();
+            if (ps != nullptr && holeRingPoints.count(ps) != 0)
+                return true;
+            if (pe != nullptr && holeRingPoints.count(pe) != 0)
+                return true;
         }
     }
     return false;
 }
 
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,
-                           const std::unordered_set<const Edge *> &holeEdges)
+                           const std::unordered_set<const Edge *> &holeEdges,
+                           const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (face == nullptr || scene == nullptr)
         return CalibWorkflow::None;
 
     if (FaceInFirstLayerSlab(face, scene, layerHeightMm))
         return CalibWorkflow::ElephantFoot;
-    if (FaceQualifiesAsHole(face, holeEdges))
+    if (FaceQualifiesAsHole(face, holeEdges, holeRingPoints))
         return CalibWorkflow::Hole;
     return CalibWorkflow::Contour;
 }
 
 CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scene, double layerHeightMm,
-                                 const std::unordered_set<const Edge *> &holeEdges)
+                                 const std::unordered_set<const Edge *> &holeEdges,
+                                 const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (a == nullptr && b == nullptr)
         return CalibWorkflow::None;
     if (b == nullptr)
-        return ClassifyFace(a, scene, layerHeightMm, holeEdges);
+        return ClassifyFace(a, scene, layerHeightMm, holeEdges, holeRingPoints);
     if (a == nullptr)
-        return ClassifyFace(b, scene, layerHeightMm, holeEdges);
+        return ClassifyFace(b, scene, layerHeightMm, holeEdges, holeRingPoints);
 
-    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, holeEdges);
-    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, holeEdges);
+    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, holeEdges, holeRingPoints);
+    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, holeEdges, holeRingPoints);
 
     if (!CalibSecondPickWorkflowsCompatible(ca, cb))
         return CalibWorkflow::None;
