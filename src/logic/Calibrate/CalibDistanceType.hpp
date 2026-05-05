@@ -8,8 +8,8 @@ class Face;
 class Scene;
 
 /// Shown in the Calibrate tool.
-/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build) **or** ⊥ sidewall with ≥2 edges from those
-/// caps’ inner loops. Contour/Hole face picks are gated to ⊥ build in Display (elephant’s foot excepted).
+/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build) **or** ⊥ sidewall with ≥2 edges each witnessed
+/// on an inner loop of such a cap (opening parallel slice planes — tunnel ∥ build). Contour/Hole picks gated ⊥ build in Display (elephant’s foot excepted).
 /// `ElephantFoot` = two parallel **edges** on the same first-layer build-parallel cap (see Display picks).
 enum class CalibWorkflow
 {

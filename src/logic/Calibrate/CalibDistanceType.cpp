@@ -61,6 +61,32 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
     return tMin;
 }
 
+/// True iff `e` belongs to an inner loop of some planar cap whose normal ∥ build (slice-parallel opening).
+[[nodiscard]] bool EdgeBordersStackParallelHoleOpening(const Edge *e, const glm::dvec3 &buildDirWorld)
+{
+    if (e == nullptr)
+        return false;
+
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+    for (Face *fp : e->dependencies)
+    {
+        const Face *g = fp;
+        if (g == nullptr || g->loops.size() < 2 || !g->GetSurface().IsPlanar())
+            continue;
+        if (!FaceCapParallelBuildDir(g, d))
+            continue;
+        for (size_t li = 1; li < g->loops.size(); ++li)
+        {
+            for (const auto &oe : g->loops[li])
+            {
+                if (oe.edge == e)
+                    return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 bool FaceNormalPerpendicularToBuild(const Face *face, const glm::dvec3 &buildDirWorld)
@@ -149,6 +175,8 @@ bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeig
 bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
                          const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
+    (void)layerHoleInnerEdges;
+
     if (face == nullptr)
         return false;
 
@@ -158,24 +186,24 @@ bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
     if (face->loops.size() >= 2)
         return FaceCapParallelBuildDir(face, d);
 
-    // Sidewall of such an opening: ⊥ build and borders ≥2 inner-loop edges from those caps.
+    // Sidewall: ⊥ build (wall ∥ stack) and ≥2 boundary edges lie on inner loops of stack-parallel caps.
+    // Exterior vertical faces only meet outer caps / other walls — they never witness horizontal hole rims.
+    constexpr size_t kMinWitnessEdgesHoleSidewall = 2;
     if (!FaceNormalPerpendicularToBuild(face, buildDirWorld))
-        return false;
-    if (layerHoleInnerEdges.empty())
         return false;
     if (face->loops.size() != 1)
         return false;
 
-    size_t holeEdgeCount = 0;
+    size_t witnessed = 0;
     for (const auto &loop : face->loops)
     {
         for (const auto &oe : loop)
         {
-            if (oe.edge != nullptr && layerHoleInnerEdges.count(oe.edge) != 0)
-                ++holeEdgeCount;
+            if (oe.edge != nullptr && EdgeBordersStackParallelHoleOpening(oe.edge, buildDirWorld))
+                ++witnessed;
         }
     }
-    return holeEdgeCount >= 2;
+    return witnessed >= kMinWitnessEdgesHoleSidewall;
 }
 
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,
