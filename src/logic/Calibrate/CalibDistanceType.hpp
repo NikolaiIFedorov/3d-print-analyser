@@ -10,6 +10,7 @@ class Scene;
 /// Shown in the Calibrate tool.
 /// `Hole` = **layer hole** in the slicer sense: opening from a cap ∥ build (annulus or sidewall tied to such
 /// inner loops only). Oblique pockets on tilted faces follow `Contour`.
+/// `ElephantFoot` = two parallel **edges** on the same first-layer build-parallel cap (see Display picks).
 enum class CalibWorkflow
 {
     None,
@@ -35,6 +36,9 @@ void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorl
 /// Face lies within the first slice of thickness `layerHeightMm` along `buildDirWorld` from the scene extent.
 bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm,
                           const glm::dvec3 &buildDirWorld);
+
+/// Planar face whose normal aligns with `buildDirWorld` (horizontal slice cap for default +Z build).
+bool FaceIsLayerCapParallelBuild(const Face *face, const glm::dvec3 &buildDirWorld);
 
 bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
                          const std::unordered_set<const Edge *> &layerHoleInnerEdges);

@@ -1,5 +1,6 @@
 #include "CalibNominal.hpp"
 
+#include "Geometry/Edge.hpp"
 #include "Geometry/Face.hpp"
 #include "Geometry/OrientedEdge.hpp"
 
@@ -8,6 +9,29 @@
 
 namespace CalibrateNominal
 {
+
+namespace
+{
+
+[[nodiscard]] glm::dvec3 EdgeChordMidpoint(const Edge *e)
+{
+    if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+        return glm::dvec3(0.0);
+    return 0.5 * (e->startPoint->position + e->endPoint->position);
+}
+
+[[nodiscard]] glm::dvec3 EdgeChordDirectionUnit(const Edge *e)
+{
+    if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+        return glm::dvec3(0.0);
+    glm::dvec3 d = e->endPoint->position - e->startPoint->position;
+    const double len = glm::length(d);
+    if (len < 1e-12)
+        return glm::dvec3(0.0);
+    return d / len;
+}
+
+} // namespace
 
 bool NormalsAlignedForCalibPick(const Face *a, const Face *b)
 {
@@ -84,6 +108,66 @@ SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b)
 SpanResult SpanBetweenFaces(const Face *a, const Face *b)
 {
     const SpanPreview p = SpanPreviewBetweenFaces(a, b);
+    return {p.nominalMm, p.valid};
+}
+
+bool EdgeBelongsToFace(const Edge *e, const Face *f)
+{
+    if (e == nullptr || f == nullptr)
+        return false;
+    for (const auto &loop : f->loops)
+    {
+        for (const auto &oe : loop)
+        {
+            if (oe.edge == e)
+                return true;
+        }
+    }
+    return false;
+}
+
+bool EdgesAreParallelForCalib(const Edge *a, const Edge *b)
+{
+    constexpr double kMinAbsDot = 0.985;
+    const glm::dvec3 da = EdgeChordDirectionUnit(a);
+    const glm::dvec3 db = EdgeChordDirectionUnit(b);
+    if (glm::length(da) < 0.5 || glm::length(db) < 0.5)
+        return false;
+    return std::abs(glm::dot(da, db)) >= kMinAbsDot;
+}
+
+SpanPreview SpanPreviewBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, const Edge *eB)
+{
+    SpanPreview out;
+    if (face == nullptr || eA == nullptr || eB == nullptr || eA == eB)
+        return out;
+    if (!face->GetSurface().IsPlanar())
+        return out;
+    if (!EdgeBelongsToFace(eA, face) || !EdgeBelongsToFace(eB, face))
+        return out;
+    if (!EdgesAreParallelForCalib(eA, eB))
+        return out;
+
+    const glm::dvec3 u = EdgeChordDirectionUnit(eA);
+    const glm::dvec3 pa = EdgeChordMidpoint(eA);
+    const glm::dvec3 pb = EdgeChordMidpoint(eB);
+
+    const glm::dvec3 c1 = pa + u * glm::dot(pb - pa, u);
+    const glm::dvec3 c2 = pb;
+    const double span = glm::length(c2 - c1);
+    if (span < 1e-6)
+        return out;
+
+    out.nominalMm = static_cast<float>(span);
+    out.valid = true;
+    out.p0 = c1;
+    out.p1 = c2;
+    return out;
+}
+
+SpanResult SpanBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, const Edge *eB)
+{
+    const SpanPreview p = SpanPreviewBetweenParallelEdgesOnFace(face, eA, eB);
     return {p.nominalMm, p.valid};
 }
 

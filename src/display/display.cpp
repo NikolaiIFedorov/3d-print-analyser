@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <mutex>
 #include <unordered_set>
+#include <vector>
 #include <queue>
 #include <cstdio>
 #include <random>
@@ -194,7 +195,12 @@ void GatherCalibLayerHoleInnerEdges(const Scene *scene, const glm::dvec3 &buildD
         CalibrateDistance::RebuildHoleCalibTopology(*scene, buildDir, layerHoleInnerEdgesOut);
 }
 
-bool CalibSecondPickAcceptsHit(const Face *firstResolved, const Face *hitFace, const Edge *hitEdge,
+/// Squared ray→segment distance threshold (mm²) for snapping Calibrate picks to boundary edges on the
+/// first-layer cap only (`PickCalibrateAtPixel`).
+constexpr double kCalibEdgePickMaxDistSqMm = 36.0; // 6 mm
+
+bool CalibSecondPickAcceptsHit(const Face *slot1Face, const Edge *slot1Edge,
+                               const Face *firstResolved, const Face *hitFace, const Edge *hitEdge,
                                const Scene *scene, double layerHeightMm, const glm::dvec3 &buildDirWorld,
                                const std::unordered_set<const Edge *> &layerHoleInnerEdges)
 {
@@ -203,6 +209,23 @@ bool CalibSecondPickAcceptsHit(const Face *firstResolved, const Face *hitFace, c
         return false;
     if (firstResolved == nullptr)
         return true;
+
+    if (slot1Face != nullptr && slot1Edge != nullptr && scene != nullptr && layerHeightMm > 0.0 &&
+        CalibrateDistance::FaceInFirstLayerSlab(slot1Face, scene, layerHeightMm, buildDirWorld) &&
+        CalibrateDistance::FaceIsLayerCapParallelBuild(slot1Face, buildDirWorld) &&
+        CalibrateNominal::EdgeBelongsToFace(slot1Edge, slot1Face))
+    {
+        if (hitEdge == nullptr)
+            return false;
+        if (hitFace != slot1Face)
+            return false;
+        if (!CalibrateNominal::EdgeBelongsToFace(hitEdge, slot1Face))
+            return false;
+        if (hitEdge == slot1Edge)
+            return false;
+        return CalibrateNominal::EdgesAreParallelForCalib(slot1Edge, hitEdge);
+    }
+
     if (!CalibrateNominal::NormalsAlignedForCalibPick(firstResolved, cand))
         return false;
     if (scene != nullptr)
@@ -1922,67 +1945,76 @@ void Display::RebuildPickHighlightMesh()
         calibSecondPickConstrained ? ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1) : nullptr;
     if (firstForInvalidPool != nullptr && RenderingExperiments::kCalibrateSecondPickDrawInvalidFacePool)
     {
-        std::unordered_set<const Face *> invalidFaces;
-        invalidFaces.reserve(std::min(static_cast<size_t>(256), tris.size() / 2 + 1));
         std::unordered_set<const Edge *> layerHoleInnerEdges;
         const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
         GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
-        const CalibWorkflow wFirst = scene != nullptr ? CalibrateDistance::ClassifyFace(firstForInvalidPool, scene,
-                                                                                        layerMm, calibBuildDir,
-                                                                                        layerHoleInnerEdges)
-                                                      : CalibWorkflow::Contour;
-        for (const PickTriangle &tri : tris)
+
+        const bool elephantEdgeSecondPickMode =
+            calibEdgePoint1 != nullptr && scene != nullptr &&
+            CalibrateDistance::FaceInFirstLayerSlab(firstForInvalidPool, scene, layerMm, calibBuildDir) &&
+            CalibrateDistance::FaceIsLayerCapParallelBuild(firstForInvalidPool, calibBuildDir);
+
+        if (!elephantEdgeSecondPickMode)
         {
-            const Face *f = tri.face;
-            if (f == nullptr)
-                continue;
-            if (f == calibFacePoint1 || f == calibFacePoint2)
-                continue;
-            if (!CalibrateNominal::NormalsAlignedForCalibPick(firstForInvalidPool, f))
-            {
-                invalidFaces.insert(f);
-                continue;
-            }
-            if (scene != nullptr)
-            {
-                const CalibWorkflow wf =
-                    CalibrateDistance::ClassifyFace(f, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
-                if (!CalibrateDistance::CalibSecondPickWorkflowsCompatible(wFirst, wf))
-                    invalidFaces.insert(f);
-            }
-        }
-        if (!invalidFaces.empty())
-        {
-            // Pool tint must sit near **lit** patch luminance: SRC_ALPHA blend is
-            // `α*src + (1-α)*dst`. If src is much lighter than dst, smaller α darkens; larger α
-            // lightens — unrelated to “see-through”. Anchor to face albedo + typical diffuse.
-            const glm::vec3 albedo = Color::GetFace();
-            constexpr float kTypicalDiffuse = 0.55f;
-            const glm::vec3 approxLit =
-                glm::min(albedo * (1.0f + SceneLighting::SceneMeshBrightenAmount() * kTypicalDiffuse),
-                         glm::vec3(1.0f));
-            const glm::vec3 coolShift = glm::vec3(approxLit.r * 0.92f, approxLit.g * 0.96f,
-                                                  std::min(1.0f, approxLit.b * 1.1f + 0.02f));
-            const glm::vec3 poolTint = glm::mix(approxLit, coolShift, 0.38f);
-            uint32_t iv = 0;
+            std::unordered_set<const Face *> invalidFaces;
+            invalidFaces.reserve(std::min(static_cast<size_t>(256), tris.size() / 2 + 1));
+            const CalibWorkflow wFirst =
+                scene != nullptr ? CalibrateDistance::ClassifyFace(firstForInvalidPool, scene, layerMm, calibBuildDir,
+                                                                   layerHoleInnerEdges)
+                                 : CalibWorkflow::Contour;
             for (const PickTriangle &tri : tris)
             {
-                if (invalidFaces.find(tri.face) == invalidFaces.end())
+                const Face *f = tri.face;
+                if (f == nullptr)
                     continue;
-                const glm::dvec3 e1 = tri.v1 - tri.v0;
-                const glm::dvec3 e2 = tri.v2 - tri.v0;
-                glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
-                if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
-                    n = glm::vec3(0.0f, 0.0f, 1.0f);
+                if (f == calibFacePoint1 || f == calibFacePoint2)
+                    continue;
+                if (!CalibrateNominal::NormalsAlignedForCalibPick(firstForInvalidPool, f))
+                {
+                    invalidFaces.insert(f);
+                    continue;
+                }
+                if (scene != nullptr)
+                {
+                    const CalibWorkflow wf =
+                        CalibrateDistance::ClassifyFace(f, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
+                    if (!CalibrateDistance::CalibSecondPickWorkflowsCompatible(wFirst, wf))
+                        invalidFaces.insert(f);
+                }
+            }
+            if (!invalidFaces.empty())
+            {
+                // Pool tint must sit near **lit** patch luminance: SRC_ALPHA blend is
+                // `α*src + (1-α)*dst`. If src is much lighter than dst, smaller α darkens; larger α
+                // lightens — unrelated to “see-through”. Anchor to face albedo + typical diffuse.
+                const glm::vec3 albedo = Color::GetFace();
+                constexpr float kTypicalDiffuse = 0.55f;
+                const glm::vec3 approxLit =
+                    glm::min(albedo * (1.0f + SceneLighting::SceneMeshBrightenAmount() * kTypicalDiffuse),
+                             glm::vec3(1.0f));
+                const glm::vec3 coolShift = glm::vec3(approxLit.r * 0.92f, approxLit.g * 0.96f,
+                                                      std::min(1.0f, approxLit.b * 1.1f + 0.02f));
+                const glm::vec3 poolTint = glm::mix(approxLit, coolShift, 0.38f);
+                uint32_t iv = 0;
+                for (const PickTriangle &tri : tris)
+                {
+                    if (invalidFaces.find(tri.face) == invalidFaces.end())
+                        continue;
+                    const glm::dvec3 e1 = tri.v1 - tri.v0;
+                    const glm::dvec3 e2 = tri.v2 - tri.v0;
+                    glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+                    if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                        n = glm::vec3(0.0f, 0.0f, 1.0f);
 
-                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v0), poolTint, n});
-                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v1), poolTint, n});
-                pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v2), poolTint, n});
-                pickHighlightCalibInvalidIndices.push_back(iv);
-                pickHighlightCalibInvalidIndices.push_back(iv + 1);
-                pickHighlightCalibInvalidIndices.push_back(iv + 2);
-                iv += 3;
+                    pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v0), poolTint, n});
+                    pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v1), poolTint, n});
+                    pickHighlightCalibInvalidVertices.push_back({glm::vec3(tri.v2), poolTint, n});
+                    pickHighlightCalibInvalidIndices.push_back(iv);
+                    pickHighlightCalibInvalidIndices.push_back(iv + 1);
+                    pickHighlightCalibInvalidIndices.push_back(iv + 2);
+                    iv += 3;
+                }
             }
         }
     }
@@ -2049,7 +2081,13 @@ void Display::RefreshCalibSpanOverlayForViewportRender()
 
     if (hasBoth && f1 != nullptr && f2 != nullptr)
     {
-        const CalibrateNominal::SpanPreview sp = CalibrateNominal::SpanPreviewBetweenFaces(f1, f2);
+        const bool elephantEdges = calibFacePoint1 == calibFacePoint2 && calibEdgePoint1 != nullptr &&
+                                   calibEdgePoint2 != nullptr &&
+                                   CalibrateNominal::EdgesAreParallelForCalib(calibEdgePoint1, calibEdgePoint2);
+        const CalibrateNominal::SpanPreview sp =
+            elephantEdges ? CalibrateNominal::SpanPreviewBetweenParallelEdgesOnFace(f1, calibEdgePoint1,
+                                                                                   calibEdgePoint2)
+                          : CalibrateNominal::SpanPreviewBetweenFaces(f1, f2);
         if (!sp.valid)
         {
             upload();
@@ -2074,6 +2112,31 @@ void Display::RefreshCalibSpanOverlayForViewportRender()
     {
         upload();
         return;
+    }
+
+    const glm::dvec3 calibBuildDirAwait = CalibrateDistance::DefaultCalibrateBuildDirection();
+    const double layerMmAwait = static_cast<double>(layerHeight);
+
+    if (hoverPickFace != nullptr && calibEdgePoint1 != nullptr && hoverPickEdge != nullptr &&
+        calibFacePoint1 != nullptr && hoverPickFace == calibFacePoint1 &&
+        CalibrateDistance::FaceInFirstLayerSlab(calibFacePoint1, scene, layerMmAwait, calibBuildDirAwait) &&
+        CalibrateDistance::FaceIsLayerCapParallelBuild(calibFacePoint1, calibBuildDirAwait))
+    {
+        const CalibrateNominal::SpanPreview sp =
+            CalibrateNominal::SpanPreviewBetweenParallelEdgesOnFace(f1, calibEdgePoint1, hoverPickEdge);
+        if (sp.valid)
+        {
+            calibHoverSpanPreviewActive = true;
+            calibHoverSpanLabel = FormatCalibSpanMmLabel(sp.nominalMm);
+            calibHoverSpanP0 = sp.p0;
+            calibHoverSpanP1 = sp.p1;
+            calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
+            calibHoverSpanVerts.push_back({glm::vec3(sp.p1), rgb, lineNormal});
+            calibHoverSpanIdx.push_back(0);
+            calibHoverSpanIdx.push_back(1);
+            upload();
+            return;
+        }
     }
 
     if (hoverPickFace != nullptr)
@@ -2133,6 +2196,31 @@ Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) 
 
     double faceT = 0.0;
     out.face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces, &faceT);
+    if (out.face == nullptr || scene == nullptr)
+        return out;
+
+    const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
+    const double layerMm = static_cast<double>(layerHeight);
+    if (!CalibrateDistance::FaceInFirstLayerSlab(out.face, scene, layerMm, calibBuildDir) ||
+        !CalibrateDistance::FaceIsLayerCapParallelBuild(out.face, calibBuildDir))
+        return out;
+
+    thread_local std::vector<PickSegment> faceSegScratch;
+    faceSegScratch.clear();
+    for (const PickSegment &ps : renderer.GetPickSegments())
+    {
+        if (ps.edge != nullptr && CalibrateNominal::EdgeBelongsToFace(ps.edge, out.face))
+            faceSegScratch.push_back(ps);
+    }
+    if (faceSegScratch.empty())
+        return out;
+
+    double rayT = 0.0;
+    double distSq = 0.0;
+    const Edge *edgeHit = ScenePick::PickClosestEdgeAlongRay(faceSegScratch, ro, rd, kCalibEdgePickMaxDistSqMm,
+                                                             &rayT, &distSq);
+    if (edgeHit != nullptr)
+        out.edge = edgeHit;
     return out;
 }
 
@@ -2163,14 +2251,14 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
         GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
         if (hit.face != nullptr &&
-            !CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir,
-                                       layerHoleInnerEdges))
+            !CalibSecondPickAcceptsHit(calibFacePoint1, calibEdgePoint1, firstResolved, hit.face, hit.edge,
+                                       scene, layerMm, calibBuildDir, layerHoleInnerEdges))
         {
-            SetHoverCalibPick(hit.face, nullptr, true);
+            SetHoverCalibPick(hit.face, hit.edge, true);
             return;
         }
     }
-    SetHoverCalibPick(hit.face, nullptr, false);
+    SetHoverCalibPick(hit.face, hit.edge, false);
 }
 
 void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
@@ -2190,7 +2278,7 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
     if (calibPara_Point1->selected)
     {
         calibFacePoint1 = hit.face;
-        calibEdgePoint1 = nullptr;
+        calibEdgePoint1 = hit.edge;
         calibStepPoint1 = Icons::StepState::Done;
         calibPara_Point1->selected = false;
         if (calibPara_Point2)
@@ -2203,11 +2291,11 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
         std::unordered_set<const Edge *> layerHoleInnerEdges;
         GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
         const double layerMm = static_cast<double>(layerHeight);
-        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr, scene, layerMm, calibBuildDir,
-                                       layerHoleInnerEdges))
+        if (!CalibSecondPickAcceptsHit(calibFacePoint1, calibEdgePoint1, firstResolved, hit.face, hit.edge, scene,
+                                       layerMm, calibBuildDir, layerHoleInnerEdges))
             return;
         calibFacePoint2 = hit.face;
-        calibEdgePoint2 = nullptr;
+        calibEdgePoint2 = hit.edge;
         calibStepPoint2 = Icons::StepState::Done;
         calibPara_Point2->selected = false;
         calibPara_Point1->selected = !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
@@ -2235,7 +2323,19 @@ void Display::RefreshCalibWorkflow()
     const double layerMm = static_cast<double>(layerHeight);
     const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
     const Face *f2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
-    if (f1 != nullptr && f2 != nullptr)
+
+    const bool elephantFootEdges =
+        calibFacePoint1 != nullptr && calibFacePoint1 == calibFacePoint2 && calibEdgePoint1 != nullptr &&
+        calibEdgePoint2 != nullptr && calibEdgePoint1 != calibEdgePoint2 &&
+        CalibrateDistance::FaceInFirstLayerSlab(calibFacePoint1, scene, layerMm, calibBuildDir) &&
+        CalibrateDistance::FaceIsLayerCapParallelBuild(calibFacePoint1, calibBuildDir) &&
+        CalibrateNominal::EdgeBelongsToFace(calibEdgePoint1, calibFacePoint1) &&
+        CalibrateNominal::EdgeBelongsToFace(calibEdgePoint2, calibFacePoint1) &&
+        CalibrateNominal::EdgesAreParallelForCalib(calibEdgePoint1, calibEdgePoint2);
+
+    if (elephantFootEdges)
+        calibWorkflow = CalibWorkflow::ElephantFoot;
+    else if (f1 != nullptr && f2 != nullptr)
         calibWorkflow =
             CalibrateDistance::CombinePickedFaces(f1, f2, scene, layerMm, calibBuildDir, layerHoleInnerEdges);
     else if (f1 != nullptr)
@@ -2287,7 +2387,12 @@ void Display::RefreshCalibCompensation()
     if (scene == nullptr || spanA == nullptr || spanB == nullptr)
         return;
 
-    const CalibrateNominal::SpanResult span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
+    CalibrateNominal::SpanResult span;
+    if (calibWorkflow == CalibWorkflow::ElephantFoot && calibEdgePoint1 != nullptr &&
+        calibEdgePoint2 != nullptr && spanA != nullptr && spanA == spanB)
+        span = CalibrateNominal::SpanBetweenParallelEdgesOnFace(spanA, calibEdgePoint1, calibEdgePoint2);
+    else
+        span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
     if (!span.valid)
         return;
 
@@ -4284,10 +4389,10 @@ void Display::InitUI()
                                           [this]()
                                           { DoFileImport(); }});
         calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
-                                          "to calibrate against",
+                                          "faces (edges on first-layer cap for elephant's foot)",
                                           Icons::CheckBox(&calibStepPoint1), false, false});
         calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point",
-                                          "parallel to first pick",
+                                          "parallel to first (edges parallel on first-layer cap)",
                                           Icons::CheckBox(&calibStepPoint2), false, false});
 
         // ── Parameters — print measurement InputFloat ──────────────────────

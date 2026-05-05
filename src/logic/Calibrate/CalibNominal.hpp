@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 class Face;
+struct Edge;
 
 namespace CalibrateNominal
 {
@@ -37,5 +38,14 @@ SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b);
 /// Distance between two picked faces along their shared normal direction (parallel / opposite planar
 /// faces → slab thickness; otherwise centroid distance as a fallback).
 SpanResult SpanBetweenFaces(const Face *a, const Face *b);
+
+bool EdgeBelongsToFace(const Edge *e, const Face *f);
+
+/// Straight-edge chord parallelism (|dot| ≥ 0.985); curved edges use start→end chord.
+bool EdgesAreParallelForCalib(const Edge *a, const Edge *b);
+
+SpanPreview SpanPreviewBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, const Edge *eB);
+
+SpanResult SpanBetweenParallelEdgesOnFace(const Face *face, const Edge *eA, const Edge *eB);
 
 } // namespace CalibrateNominal

@@ -111,6 +111,11 @@ void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorl
         scanFace(&f);
 }
 
+bool FaceIsLayerCapParallelBuild(const Face *face, const glm::dvec3 &buildDirWorld)
+{
+    return FaceCapParallelBuildDir(face, NormalizeBuildDir(buildDirWorld));
+}
+
 bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm,
                           const glm::dvec3 &buildDirWorld)
 {
@@ -175,8 +180,7 @@ CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHei
     if (face == nullptr || scene == nullptr)
         return CalibWorkflow::None;
 
-    if (FaceInFirstLayerSlab(face, scene, layerHeightMm, buildDirWorld))
-        return CalibWorkflow::ElephantFoot;
+    (void)layerHeightMm;
     if (FaceQualifiesAsHole(face, buildDirWorld, layerHoleInnerEdges))
         return CalibWorkflow::Hole;
     return CalibWorkflow::Contour;
@@ -199,8 +203,6 @@ CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scen
     if (!CalibSecondPickWorkflowsCompatible(ca, cb))
         return CalibWorkflow::None;
 
-    if (ca == CalibWorkflow::ElephantFoot || cb == CalibWorkflow::ElephantFoot)
-        return CalibWorkflow::ElephantFoot;
     if (ca == CalibWorkflow::Hole || cb == CalibWorkflow::Hole)
         return CalibWorkflow::Hole;
     if (ca == CalibWorkflow::Contour || cb == CalibWorkflow::Contour)
