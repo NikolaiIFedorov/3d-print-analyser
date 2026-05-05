@@ -29,6 +29,9 @@ struct SpanPreview
 /// `kFaceNormalParallelAlignThreshold` (used to constrain Calibrate second pick).
 bool NormalsAlignedForCalibPick(const Face *a, const Face *b);
 
+/// Loop-vertex centroid of face boundaries (same anchor used inside span preview).
+glm::dvec3 FaceCentroidWorld(const Face *f);
+
 SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b);
 
 /// Distance between two picked faces along their shared normal direction (parallel / opposite planar

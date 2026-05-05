@@ -726,6 +726,8 @@ void Display::Render()
     }
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+    RefreshCalibSpanOverlayForViewportRender();
+
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
 
@@ -2000,41 +2002,114 @@ void Display::RebuildPickHighlightMesh()
                                          xrayEdgeHighlightIndexCount);
     renderer.UploadPickHighlightRejectMesh(pickHighlightRejectVertices, pickHighlightRejectIndices);
     renderer.UploadPickHighlightCalibInvalidMesh(pickHighlightCalibInvalidVertices, pickHighlightCalibInvalidIndices);
+}
 
+void Display::RefreshCalibSpanOverlayForViewportRender()
+{
     calibHoverSpanPreviewActive = false;
     calibHoverSpanLabel.clear();
     calibHoverSpanP0 = glm::dvec3(0.0);
     calibHoverSpanP1 = glm::dvec3(0.0);
+
     std::vector<Vertex> calibHoverSpanVerts;
     std::vector<uint32_t> calibHoverSpanIdx;
-    const bool calibAwaitingSecond =
-        activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
-        CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
-    if (calibAwaitingSecond && hoverPickFace != nullptr)
+
+    const auto upload = [&]() { renderer.UploadCalibHoverSpanLineMesh(calibHoverSpanVerts, calibHoverSpanIdx); };
+
+    if (activeTool != ActiveTool::Calibrate || !calibPara_Point1 || !calibPara_Point1->visible || scene == nullptr ||
+        (scene->solids.empty() && scene->faces.empty()))
     {
-        const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
-        const Face *hov = hoverPickFace;
-        if (f1 != nullptr && hov != nullptr)
+        upload();
+        return;
+    }
+
+    const glm::vec3 rgb = glm::vec3(Color::GetAccentSteps(0.75f, 1.0f, 0.55f));
+    const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
+
+    const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
+    const Face *f2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+
+    const bool hasBoth = CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) &&
+                         CalibSlotHasPick(calibFacePoint2, calibEdgePoint2);
+
+    if (hasBoth && f1 != nullptr && f2 != nullptr)
+    {
+        const CalibrateNominal::SpanPreview sp = CalibrateNominal::SpanPreviewBetweenFaces(f1, f2);
+        if (!sp.valid)
         {
-            const CalibrateNominal::SpanPreview sp = CalibrateNominal::SpanPreviewBetweenFaces(f1, hov);
-            if (sp.valid)
-            {
-                calibHoverSpanPreviewActive = true;
-                char buf[48];
-                std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
-                calibHoverSpanLabel = buf;
-                calibHoverSpanP0 = sp.p0;
-                calibHoverSpanP1 = sp.p1;
-                const glm::vec3 rgb = glm::vec3(Color::GetAccentSteps(0.75f, 1.0f, 0.55f));
-                const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
-                calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
-                calibHoverSpanVerts.push_back({glm::vec3(sp.p1), rgb, lineNormal});
-                calibHoverSpanIdx.push_back(0);
-                calibHoverSpanIdx.push_back(1);
-            }
+            upload();
+            return;
+        }
+        calibHoverSpanPreviewActive = true;
+        char buf[48];
+        std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
+        calibHoverSpanLabel = buf;
+        calibHoverSpanP0 = sp.p0;
+        calibHoverSpanP1 = sp.p1;
+        calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
+        calibHoverSpanVerts.push_back({glm::vec3(sp.p1), rgb, lineNormal});
+        calibHoverSpanIdx.push_back(0);
+        calibHoverSpanIdx.push_back(1);
+        upload();
+        return;
+    }
+
+    const bool awaitingSecond =
+        calibPara_Point2 && calibPara_Point2->selected && CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
+
+    if (!awaitingSecond || f1 == nullptr)
+    {
+        upload();
+        return;
+    }
+
+    if (hoverPickFace != nullptr)
+    {
+        const CalibrateNominal::SpanPreview sp = CalibrateNominal::SpanPreviewBetweenFaces(f1, hoverPickFace);
+        if (sp.valid)
+        {
+            calibHoverSpanPreviewActive = true;
+            char buf[48];
+            std::snprintf(buf, sizeof(buf), "%.3f mm", static_cast<double>(sp.nominalMm));
+            calibHoverSpanLabel = buf;
+            calibHoverSpanP0 = sp.p0;
+            calibHoverSpanP1 = sp.p1;
+            calibHoverSpanVerts.push_back({glm::vec3(sp.p0), rgb, lineNormal});
+            calibHoverSpanVerts.push_back({glm::vec3(sp.p1), rgb, lineNormal});
+            calibHoverSpanIdx.push_back(0);
+            calibHoverSpanIdx.push_back(1);
+            upload();
+            return;
         }
     }
-    renderer.UploadCalibHoverSpanLineMesh(calibHoverSpanVerts, calibHoverSpanIdx);
+
+    float mx = 0.0f;
+    float my = 0.0f;
+    SDL_GetMouseState(&mx, &my);
+    int w = 0;
+    int h = 0;
+    SDL_GetWindowSize(window, &w, &h);
+    glm::dvec3 ro;
+    glm::dvec3 rd;
+    ScenePick::OrthoPickRay(camera, w, h, mx, my, ro, rd);
+    const glm::dvec3 centroid = CalibrateNominal::FaceCentroidWorld(f1);
+    const double rdLen = glm::length(rd);
+    if (rdLen < 1e-30)
+    {
+        upload();
+        return;
+    }
+    const glm::dvec3 rdUnit = rd / rdLen;
+    const double t = -glm::dot(ro - centroid, rdUnit) / rdLen;
+    const glm::dvec3 hit = ro + rd * t;
+
+    calibHoverSpanP0 = centroid;
+    calibHoverSpanP1 = hit;
+    calibHoverSpanVerts.push_back({glm::vec3(centroid), rgb, lineNormal});
+    calibHoverSpanVerts.push_back({glm::vec3(hit), rgb, lineNormal});
+    calibHoverSpanIdx.push_back(0);
+    calibHoverSpanIdx.push_back(1);
+    upload();
 }
 
 Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const

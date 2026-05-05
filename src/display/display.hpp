@@ -356,6 +356,8 @@ private:
     void RefreshCalibCompensation();
     void RefreshCalibDerivedRowVisible();
 
+    void RefreshCalibSpanOverlayForViewportRender();
+
     struct CalibPickHit
     {
         const Face *face = nullptr;

@@ -22,8 +22,10 @@ bool NormalsAlignedForCalibPick(const Face *a, const Face *b)
     return std::abs(glm::dot(na, nb)) >= kFaceNormalParallelAlignThreshold;
 }
 
-static glm::dvec3 FaceCentroid(const Face *f)
+glm::dvec3 FaceCentroidWorld(const Face *f)
 {
+    if (f == nullptr)
+        return glm::dvec3(0.0);
     glm::dvec3 sum(0.0);
     size_t count = 0;
     for (const auto &loop : f->loops)
@@ -50,8 +52,8 @@ SpanPreview SpanPreviewBetweenFaces(const Face *a, const Face *b)
     if (!std::isfinite(na.x) || !std::isfinite(nb.x))
         return out;
 
-    const glm::dvec3 ca = FaceCentroid(a);
-    const glm::dvec3 cb = FaceCentroid(b);
+    const glm::dvec3 ca = FaceCentroidWorld(a);
+    const glm::dvec3 cb = FaceCentroidWorld(b);
     const glm::dvec3 delta = cb - ca;
 
     const double align = std::abs(glm::dot(na, nb));
