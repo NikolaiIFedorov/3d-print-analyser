@@ -33,6 +33,7 @@
 #include <string_view>
 
 #include "ViewportDepthExperiments.hpp"
+#include "rendering/SceneLighting.hpp"
 #include "RenderingExperiments.hpp"
 #include "UserTuning.hpp"
 #include "scene/scene.hpp"
@@ -1764,9 +1765,17 @@ void Display::RebuildPickHighlightMesh()
         }
         if (!invalidFaces.empty())
         {
-            const glm::vec3 base = Color::GetBase();
-            // Stay closer to base than to white: bright poolTint + blend was reading as milky opaque sheet.
-            const glm::vec3 poolTint = glm::mix(glm::vec3(base), glm::vec3(0.91f, 0.91f, 0.94f), 0.34f);
+            // Pool tint must sit near **lit** patch luminance: SRC_ALPHA blend is
+            // `α*src + (1-α)*dst`. If src is much lighter than dst, smaller α darkens; larger α
+            // lightens — unrelated to “see-through”. Anchor to face albedo + typical diffuse.
+            const glm::vec3 albedo = Color::GetFace();
+            constexpr float kTypicalDiffuse = 0.55f;
+            const glm::vec3 approxLit =
+                glm::min(albedo * (1.0f + SceneLighting::SceneMeshBrightenAmount() * kTypicalDiffuse),
+                         glm::vec3(1.0f));
+            const glm::vec3 coolShift = glm::vec3(approxLit.r * 0.92f, approxLit.g * 0.96f,
+                                                  std::min(1.0f, approxLit.b * 1.1f + 0.02f));
+            const glm::vec3 poolTint = glm::mix(approxLit, coolShift, 0.38f);
             uint32_t iv = 0;
             for (const PickTriangle &tri : tris)
             {

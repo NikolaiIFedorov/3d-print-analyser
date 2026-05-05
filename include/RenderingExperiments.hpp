@@ -74,9 +74,9 @@ inline constexpr float kPickHighlightFaceXrayAlpha = 0.14f;
 /// Calibrate reject-hover: dim translucent fill on faces that fail the second-pick constraint.
 inline constexpr float kPickHighlightRejectHoverAlpha = 0.32f;
 
-/// Calibrate: non-selectable faces (second pick) get this translucent veil; reject-hover draws on top.
-/// With flat shading (no diffuse brighten), lower alpha reads as true see-through over the patch.
-inline constexpr float kPickHighlightCalibInvalidPoolAlpha = 0.16f;
+/// Calibrate: non-selectable faces (second pick). Blend is `α·tint + (1-α)·patch`; with tint matched to
+/// lit face albedo in `RebuildPickHighlightMesh`, α acts as **veil strength** (subtle hue shift), not brightness.
+inline constexpr float kPickHighlightCalibInvalidPoolAlpha = 0.28f;
 
 // --- Theory #3: back-face cull only for filled patches + pick highlight (not grid/lines/axes).
 // `ViewportDepthExperiments::BackFaceCull` uses the same window.

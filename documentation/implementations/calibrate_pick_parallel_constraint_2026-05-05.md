@@ -60,3 +60,11 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Retro:** Any future “glass” overlay pass that reuses `basic` should treat **lighting + alpha** interaction as a footgun; flat unlit tints are safer for SRC_ALPHA blending.
 
+---
+
+## Update — alpha vs brightness (blend math) + albedo-matched pool tint (2026-05-05)
+
+**Observation:** With a **light** `poolTint` vs **darker** lit patch, standard blend `α·src + (1-α)·dst` makes **small α darken** and **large α lighten** — so `kPickHighlightCalibInvalidPoolAlpha` is **not** a transparency dial, it’s the mix ratio.
+
+**Change:** Build `poolTint` from `Color::GetFace()` times approximate lit response (`SceneMeshBrightenAmount`, typical diffuse), then a modest cool shift. Defaults: `kPickHighlightCalibInvalidPoolAlpha = 0.28f` (user’s experimental `0.9f` reset). Document in `RenderingExperiments.hpp` that α is veil strength once tint matches dst.
+
