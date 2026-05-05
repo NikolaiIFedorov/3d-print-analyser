@@ -802,9 +802,8 @@ void OpenGLRenderer::DrawPickHighlightReject()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
-    // Flat vertex color so modest uAlpha reads as see-through tint; lighting would blow RGB toward 1 and look opaque.
     shader.SetFloat("uLightingEnabled", 0.0f);
-    shader.SetFloat("uAlpha", RenderingExperiments::kPickHighlightRejectHoverAlpha);
+    shader.SetFloat("uAlpha", 1.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;

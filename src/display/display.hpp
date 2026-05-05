@@ -325,7 +325,7 @@ private:
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;
-    /// Second Calibrate pick: hovered face fails parallel constraint — warning fill + outline (not accent).
+    /// Second Calibrate pick: hovered face fails parallel — same accent highlight as valid hover, darker.
     bool hoverCalibPickRejected = false;
     std::vector<Vertex> pickHighlightVertices;
     std::vector<uint32_t> pickHighlightIndices;

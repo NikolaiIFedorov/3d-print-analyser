@@ -1799,62 +1799,19 @@ void Display::RebuildPickHighlightMesh()
         }
     }
 
-    if (hoverCalibPickRejected && hoverPickFace != nullptr)
-    {
-        const glm::vec3 warnFill =
-            Color::IsDark() ? glm::vec3(0.88f, 0.38f, 0.1f) : glm::vec3(0.72f, 0.22f, 0.06f);
-        const glm::vec3 warnOutline =
-            Color::IsDark() ? glm::vec3(1.0f, 0.58f, 0.12f) : glm::vec3(0.58f, 0.2f, 0.04f);
-        uint32_t rVert = 0;
-        for (const PickTriangle &tri : tris)
-        {
-            if (tri.face != hoverPickFace)
-                continue;
-            const glm::dvec3 e1 = tri.v1 - tri.v0;
-            const glm::dvec3 e2 = tri.v2 - tri.v0;
-            glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
-            if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
-                n = glm::vec3(0.0f, 0.0f, 1.0f);
-
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v0), warnFill, n});
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v1), warnFill, n});
-            pickHighlightRejectVertices.push_back({glm::vec3(tri.v2), warnFill, n});
-            pickHighlightRejectIndices.push_back(rVert);
-            pickHighlightRejectIndices.push_back(rVert + 1);
-            pickHighlightRejectIndices.push_back(rVert + 2);
-            rVert += 3;
-        }
-
-        std::unordered_set<const Edge *> rejectOutlineEdges;
-        rejectOutlineEdges.reserve(48);
-        for (const auto &loop : hoverPickFace->loops)
-        {
-            for (const auto &oe : loop)
-            {
-                if (oe.edge != nullptr)
-                    rejectOutlineEdges.insert(oe.edge);
-            }
-        }
-        for (const Edge *edge : rejectOutlineEdges)
-        {
-            for (const PickSegment &ps : segPick)
-            {
-                if (ps.edge != edge)
-                    continue;
-                const uint32_t base = static_cast<uint32_t>(pickHighlightLineVertices.size());
-                pickHighlightLineVertices.push_back({glm::vec3(ps.v0), warnOutline, lineNormal});
-                pickHighlightLineVertices.push_back({glm::vec3(ps.v1), warnOutline, lineNormal});
-                pickHighlightLineIndices.push_back(base);
-                pickHighlightLineIndices.push_back(base + 1);
-            }
-        }
-    }
-    else
     {
         const Face *hoverDraw = hoverPickFace;
         if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
             hoverDraw = nullptr;
-        appendFaceTris(hoverDraw, 0.5f, 0.5f);
+        if (hoverDraw != nullptr)
+        {
+            const float accentDepth =
+                hoverCalibPickRejected
+                    ? (Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverAccentDepthStepsDark
+                                       : RenderingExperiments::kCalibrateRejectHoverAccentDepthStepsLight)
+                    : 0.5f;
+            appendFaceTris(hoverDraw, accentDepth, 0.5f);
+        }
     }
     const uint32_t xrayFaceHighlightIndexCount = static_cast<uint32_t>(pickHighlightIndices.size());
 

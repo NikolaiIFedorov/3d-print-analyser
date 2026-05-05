@@ -80,3 +80,11 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Outcome:** Build clean.
 
+---
+
+## Update — blocked hover = same accent path, darker (2026-05-05)
+
+**Idea:** Avoid separate warning style; match valid-face pick highlight (`GetAccentSteps` + lit `basic` shader) with a **lower luminance** accent step (`kCalibrateRejectHoverAccentDepthStepsDark` / `Light`). No reject mesh or orange outline; `DrawPickHighlightReject` stays unused when mesh empty.
+
+**Files:** `RenderingExperiments.hpp`, `display.cpp`, `display.hpp`.
+
