@@ -24,3 +24,11 @@ Sidewalls were distinguished from contour walls using inner-loop edge hashes onl
 ## Mini retro
 
 Constants shared via `CalibDistanceType.hpp` (`kWallNormalMaxAbsDotBuild`, `kCalibSpanMaxAbsDotBuildAxis`). Tune if printers/build conventions change.
+
+## Follow-up 2026-05-06 — tessellated caps (STL)
+
+**Problem:** `FaceQualifiesAsHole` required B-rep-style caps with `loops.size() ≥ 2` or sidewall edges witnessed on those inner loops. STL / coplanar soup usually keeps one loop per triangle, so `RebuildHoleCalibTopology` never collected inner rims and **all** picks became Contour (including hole walls and caps touching holes).
+
+**Change:** After the usual inner-loop scan, `RebuildHoleCalibTopology` calls `AppendTessellatedStackParallelCapHoleInnerEdges`, which groups stack-parallel planar faces by plane offset, traces the boundary of the single-loop soup, and adds every non–outer boundary loop (by \|area\|) to the hole-rim set. `FaceQualifiesAsHole` then (1) treats stack-parallel caps that touch any rim edge as Hole before applying the ⊥-build wall gate, and (2) counts sidewall witnesses against that set as well as `EdgeBordersStackParallelHoleOpening`. Known limitation: nested islands inside cavities may add extra inner boundary loops.
+
+**Outcome:** Clean build; Calibrate hole vs contour classification works for typical tessellated plates with through-holes when the +Z stack direction matches geometry.

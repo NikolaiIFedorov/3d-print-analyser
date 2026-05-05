@@ -8,8 +8,9 @@ class Face;
 class Scene;
 
 /// Shown in the Calibrate tool.
-/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build) **or** ⊥ sidewall with ≥2 edges each witnessed
-/// on an inner loop of such a cap (opening parallel slice planes — tunnel ∥ build). Contour/Hole picks gated ⊥ build in Display (elephant’s foot excepted).
+/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build, or tessellated cap facets bordering a traced
+/// hole rim) **or** ⊥ sidewall with ≥2 edges each witnessed on those rims / B-rep inner loops (tunnel ∥ build).
+/// Contour/Hole picks gated ⊥ build in Display (elephant’s foot excepted).
 /// `ElephantFoot` = two parallel **edges** on the same first-layer build-parallel cap (see Display picks).
 enum class CalibWorkflow
 {
@@ -28,8 +29,9 @@ inline glm::dvec3 DefaultCalibrateBuildDirection()
     return glm::dvec3(0.0, 0.0, 1.0);
 }
 
-/// Inner-loop edges of planar caps ∥ `buildDirWorld` (layer-plane openings). Slanted pockets excluded.
-/// Annular cap vs sidewall is decided in `FaceQualifiesAsHole`.
+/// Inner-loop / hole-rim edges of planar caps ∥ `buildDirWorld` (layer-plane openings). Slanted pockets
+/// excluded. Includes explicit B-rep inner loops and rims found from tessellated cap soup (STL) by tracing
+/// boundary loops in each stack-parallel plane. Annular cap vs sidewall is decided in `FaceQualifiesAsHole`.
 void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
                               std::unordered_set<const Edge *> &holeInnerEdgesOut);
 
