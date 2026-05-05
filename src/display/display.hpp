@@ -72,9 +72,9 @@ public:
     /// Fills `out` with scene counts, analysis params, camera pose, clip planes, window sizes, and tool flags for logging.
     void FillSessionReproState(SessionState &out) const;
 
-    /// Face/edge hover for tools that use `GetActivePickFilter()` (e.g. Calibrate). Respects UI hit-test and ImGui capture.
+    /// Face hover for tools that use `GetActivePickFilter()` (e.g. Calibrate). Respects UI hit-test and ImGui capture.
     void UpdatePickHover(float pixelX, float pixelY);
-    /// Left-click in viewport: commits hovered face or edge to the active Calibrate point prerequisite when applicable.
+    /// Left-click in viewport: commits hovered face to the active Calibrate point prerequisite when applicable (face-only).
     void TryCommitCalibrateFacePick(float pixelX, float pixelY);
     PickFilter GetActivePickFilter() const;
 
@@ -325,14 +325,18 @@ private:
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;
+    /// Second Calibrate pick: hovered face fails parallel constraint — dim translucent fill instead of accent.
+    bool hoverCalibPickRejected = false;
     std::vector<Vertex> pickHighlightVertices;
     std::vector<uint32_t> pickHighlightIndices;
     std::vector<Vertex> pickHighlightLineVertices;
     std::vector<uint32_t> pickHighlightLineIndices;
+    std::vector<Vertex> pickHighlightRejectVertices;
+    std::vector<uint32_t> pickHighlightRejectIndices;
 
     void ClearPickHover();
     void ClearCalibrateFacePicks();
-    void SetHoverCalibPick(const Face *face, const Edge *edge);
+    void SetHoverCalibPick(const Face *face, const Edge *edge, bool rejected = false);
     void RebuildPickHighlightMesh();
     void ScheduleNode(InvalidationNode node);
     void RunPickNode();

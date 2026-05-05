@@ -19,6 +19,20 @@ Product language “same normal” often means **coplanar parallel faces** (incl
 - Clean build of `CAD_OpenGL`.
 - Second prerequisite subtitle updated to “parallel to first pick”.
 
-## Retro
+---
 
-- `CalibPickHit` is private; passing `(hitFace, hitEdge)` to a file-local helper avoided exposing the nested type.
+## Update — face-only picks + reject hover (same day)
+
+**Idea:** Calipers need a face to seat against; edge-primary picks removed for Calibrate. Invalid second-pick targets should read as blocked (dim + translucent), not invisible.
+
+**Implementation:**
+
+- `PickCalibrateAtPixel`: face raycast only; commits set `calibEdgePoint*` to null.
+- `hoverCalibPickRejected` + `SetHoverCalibPick(..., rejected)`; second-pick constraint fail → hover face kept, `rejected=true`.
+- Separate mesh `UploadPickHighlightRejectMesh` / `DrawPickHighlightReject` (blend, `kPickHighlightRejectHoverAlpha` in `RenderingExperiments`) after main pick fill; muted RGB from theme base.
+- Stencil: reject pass runs with patches + main pick highlight (same `GL_REPLACE` block).
+
+**Outcome:** Build clean; edges no longer selectable for new calibrate picks (legacy committed edge refs still clear via existing rebuild hygiene).
+
+**Retro:** Split VAO for reject avoids per-vertex alpha in shader; tune alpha and muted mix in one place.
+

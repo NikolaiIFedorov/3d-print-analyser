@@ -511,15 +511,24 @@ void SceneRenderer::RebuildPickTriangles()
     }
 }
 
-void SceneRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+void SceneRenderer::UploadPickHighlightMesh(const std::vector<Vertex> &vertices,
+                                            const std::vector<uint32_t> &indices,
+                                            uint32_t xrayIndexCount)
 {
-    renderer.UploadPickHighlightMesh(vertices, indices);
+    renderer.UploadPickHighlightMesh(vertices, indices, xrayIndexCount);
 }
 
 void SceneRenderer::UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices,
-                                                const std::vector<uint32_t> &indices)
+                                                const std::vector<uint32_t> &indices,
+                                                uint32_t xrayIndexCount)
 {
-    renderer.UploadPickHighlightLineMesh(vertices, indices);
+    renderer.UploadPickHighlightLineMesh(vertices, indices, xrayIndexCount);
+}
+
+void SceneRenderer::UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices,
+                                                  const std::vector<uint32_t> &indices)
+{
+    renderer.UploadPickHighlightRejectMesh(vertices, indices);
 }
 
 void SceneRenderer::RenderPickHighlight()
@@ -527,9 +536,24 @@ void SceneRenderer::RenderPickHighlight()
     renderer.DrawPickHighlight();
 }
 
+void SceneRenderer::RenderPickHighlightReject()
+{
+    renderer.DrawPickHighlightReject();
+}
+
+void SceneRenderer::RenderPickHighlightXray()
+{
+    renderer.DrawPickHighlight(true);
+}
+
 void SceneRenderer::RenderPickHighlightLines(float lineWidthPx)
 {
     renderer.DrawPickHighlightLines(lineWidthPx);
+}
+
+void SceneRenderer::RenderPickHighlightLinesXray(float lineWidthPx)
+{
+    renderer.DrawPickHighlightLines(lineWidthPx, true);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)
@@ -540,9 +564,9 @@ void SceneRenderer::SetCamera(Camera &camera)
         ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()));
     renderer.SetModelMatrix(glm::mat4(1.0f));
     renderer.SetViewPos(camera.GetPosition());
-    // Principal-axis views tighten depth precision; nudge wireframe slightly more so back edges
-    // stay behind filled surfaces.
-    renderer.SetWireframeDepthNudgeScale(camera.IsPrincipalAxisView() ? 2.25f : 1.0f);
+    // Snapped principal views make front/back edges nearly overlap on screen; an extra forward
+    // wire nudge can pull genuinely hidden edges through thin faces.
+    renderer.SetWireframeDepthNudgeScale(camera.IsPrincipalAxisView() ? 0.0f : 1.0f);
 }
 
 void SceneRenderer::RenderPatches()

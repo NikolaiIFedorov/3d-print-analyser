@@ -71,6 +71,9 @@ inline constexpr bool kPickHighlightNoPolygonOffset = true;
 /// Alpha for occluded-face x-ray pass (`DepthCompareBehind` + blend); keep modest — dense tessellation can read noisy.
 inline constexpr float kPickHighlightFaceXrayAlpha = 0.14f;
 
+/// Calibrate reject-hover: dim translucent fill on faces that fail the second-pick constraint.
+inline constexpr float kPickHighlightRejectHoverAlpha = 0.38f;
+
 // --- Theory #3: back-face cull only for filled patches + pick highlight (not grid/lines/axes).
 // `ViewportDepthExperiments::BackFaceCull` uses the same window.
 inline constexpr bool kCullBackFacesOpaquePatches = false;

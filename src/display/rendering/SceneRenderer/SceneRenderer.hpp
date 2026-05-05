@@ -52,11 +52,17 @@ public:
 
     void RenderPatches();
     void RenderPickHighlight();
+    void RenderPickHighlightReject();
+    void RenderPickHighlightXray();
     void RenderPickHighlightLines(float lineWidthPx);
+    void RenderPickHighlightLinesXray(float lineWidthPx);
     void RenderWireframe();
 
-    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
-    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                 uint32_t xrayIndexCount = 0);
+    void UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                     uint32_t xrayIndexCount = 0);
 
     const std::vector<PickTriangle> &GetPickTriangles() const { return pickTriangles; }
     const std::vector<PickSegment> &GetPickSegments() const { return pickSegments; }

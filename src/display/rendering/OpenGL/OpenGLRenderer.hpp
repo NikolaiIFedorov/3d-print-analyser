@@ -42,11 +42,18 @@ private:
     GLuint pickHighlightVBO = 0;
     GLuint pickHighlightIBO = 0;
     uint32_t pickHighlightIndexCount = 0;
+    uint32_t pickHighlightXrayIndexCount = 0;
 
     GLuint pickHighlightLineVAO = 0;
     GLuint pickHighlightLineVBO = 0;
     GLuint pickHighlightLineIBO = 0;
     uint32_t pickHighlightLineIndexCount = 0;
+    uint32_t pickHighlightLineXrayIndexCount = 0;
+
+    GLuint pickHighlightRejectVAO = 0;
+    GLuint pickHighlightRejectVBO = 0;
+    GLuint pickHighlightRejectIBO = 0;
+    uint32_t pickHighlightRejectIndexCount = 0;
 
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
@@ -55,7 +62,7 @@ private:
     glm::vec3 lightDir = glm::vec3(0.0f, 0.0f, 1.0f);
 
     float lineWidth = 3.0f;
-    /// Multiplier on `LineShaderWireZNudgeNdc` for scene wireframe (principal views need a bit more nudge).
+    /// Multiplier on `LineShaderWireZNudgeNdc` for scene wireframe.
     float wireframeDepthNudgeScale = 1.0f;
 
     bool GetGLError(const std::source_location &loc = std::source_location::current());
@@ -88,16 +95,20 @@ public:
     void UploadTriangleMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateTriangleMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
                                    const std::vector<uint32_t> &indices, size_t indexOffset);
-    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
-    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                 uint32_t xrayIndexCount = 0);
+    void UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
+                                     uint32_t xrayIndexCount = 0);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
                                const std::vector<uint32_t> &indices, size_t indexOffset);
 
     void DrawTriangles();
-    void DrawPickHighlight();
+    void DrawPickHighlight(bool xrayOverlay = false);
+    void DrawPickHighlightReject();
     /// Screen-space thick lines (same pipeline as wireframe); `pixelWidth` is in framebuffer pixels.
-    void DrawPickHighlightLines(float pixelWidth);
+    void DrawPickHighlightLines(float pixelWidth, bool xrayOverlay = false);
     void DrawLines();
 
     void SetWireFrameMode(bool enabled);

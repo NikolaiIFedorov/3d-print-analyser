@@ -651,13 +651,14 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
+    renderer.RenderPickHighlightReject();
     if (cullOpaqueTriangles)
         glDisable(GL_CULL_FACE);
 
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     if (!RenderingExperiments::kDebugSkipSceneWireframe)
         renderer.RenderWireframe();
-    // Calibrate edge picks: thick accent lines on top of wireframe (same GS line pipeline).
+    // Calibrate: thick accent lines when committed picks still reference an edge (legacy); new picks are face-only.
     renderer.RenderPickHighlightLines(6.0f);
 
     // Grid after solid + wireframe: stencil==0 only so lines do not bleed onto filled surfaces;
@@ -1636,6 +1637,7 @@ void Display::ClearPickHover()
 {
     hoverPickFace = nullptr;
     hoverPickEdge = nullptr;
+    hoverCalibPickRejected = false;
     MarkPickDirty();
 }
 
@@ -1657,20 +1659,21 @@ void Display::ClearCalibrateFacePicks()
     MarkPickDirty();
 }
 
-void Display::SetHoverCalibPick(const Face *face, const Edge *edge)
+void Display::SetHoverCalibPick(const Face *face, const Edge *edge, bool rejected)
 {
-    if (hoverPickFace == face && hoverPickEdge == edge)
+    if (hoverPickFace == face && hoverPickEdge == edge && hoverCalibPickRejected == rejected)
     {
         if (face != nullptr || edge != nullptr)
             return;
         if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
             calibEdgePoint2 != nullptr)
             return;
-        if (pickHighlightIndices.empty())
+        if (pickHighlightIndices.empty() && pickHighlightRejectIndices.empty())
             return;
     }
     hoverPickFace = face;
     hoverPickEdge = edge;
+    hoverCalibPickRejected = rejected;
     MarkPickDirty();
 }
 
@@ -1680,6 +1683,8 @@ void Display::RebuildPickHighlightMesh()
     pickHighlightIndices.clear();
     pickHighlightLineVertices.clear();
     pickHighlightLineIndices.clear();
+    pickHighlightRejectVertices.clear();
+    pickHighlightRejectIndices.clear();
 
     const std::vector<PickTriangle> &tris = renderer.GetPickTriangles();
     uint32_t nextVert = 0;
@@ -1734,10 +1739,37 @@ void Display::RebuildPickHighlightMesh()
     appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
     appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
 
-    const Face *hoverDraw = hoverPickFace;
-    if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
-        hoverDraw = nullptr;
-    appendFaceTris(hoverDraw, 0.5f, 0.5f);
+    if (hoverCalibPickRejected && hoverPickFace != nullptr)
+    {
+        const glm::vec3 base = Color::GetBase();
+        const glm::vec3 muted = glm::mix(glm::vec3(base), glm::vec3(0.11f, 0.11f, 0.13f), 0.72f);
+        uint32_t rVert = 0;
+        for (const PickTriangle &tri : tris)
+        {
+            if (tri.face != hoverPickFace)
+                continue;
+            const glm::dvec3 e1 = tri.v1 - tri.v0;
+            const glm::dvec3 e2 = tri.v2 - tri.v0;
+            glm::vec3 n = glm::normalize(glm::vec3(glm::cross(e1, e2)));
+            if (!std::isfinite(static_cast<double>(n.x)) || glm::length(n) < 1e-6f)
+                n = glm::vec3(0.0f, 0.0f, 1.0f);
+
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v0), muted, n});
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v1), muted, n});
+            pickHighlightRejectVertices.push_back({glm::vec3(tri.v2), muted, n});
+            pickHighlightRejectIndices.push_back(rVert);
+            pickHighlightRejectIndices.push_back(rVert + 1);
+            pickHighlightRejectIndices.push_back(rVert + 2);
+            rVert += 3;
+        }
+    }
+    else
+    {
+        const Face *hoverDraw = hoverPickFace;
+        if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
+            hoverDraw = nullptr;
+        appendFaceTris(hoverDraw, 0.5f, 0.5f);
+    }
     const uint32_t xrayFaceHighlightIndexCount = static_cast<uint32_t>(pickHighlightIndices.size());
 
     const Edge *hoverEdgeDraw = hoverPickEdge;
@@ -1749,6 +1781,7 @@ void Display::RebuildPickHighlightMesh()
     renderer.UploadPickHighlightMesh(pickHighlightVertices, pickHighlightIndices, xrayFaceHighlightIndexCount);
     renderer.UploadPickHighlightLineMesh(pickHighlightLineVertices, pickHighlightLineIndices,
                                          xrayEdgeHighlightIndexCount);
+    renderer.UploadPickHighlightRejectMesh(pickHighlightRejectVertices, pickHighlightRejectIndices);
 }
 
 Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) const
@@ -1760,46 +1793,7 @@ Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) 
     ScenePick::OrthoPickRay(camera, w, h, pixelX, pixelY, ro, rd);
 
     double faceT = 0.0;
-    const Face *face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces, &faceT);
-
-    const double halfH = static_cast<double>(camera.orthoSize);
-    const double worldPerPx =
-        std::max(2.0 * halfH / std::max(1, h), 2.0 * halfH * static_cast<double>(camera.aspectRatio) / std::max(1, w));
-    const double tol = 10.0 * worldPerPx;
-    const double maxDistSq = tol * tol;
-
-    double edgeT = 0.0;
-    double edgeDistSq = 0.0;
-    const Edge *edge = ScenePick::PickClosestEdgeAlongRay(renderer.GetPickSegments(), ro, rd, maxDistSq, &edgeT,
-                                                           &edgeDistSq);
-
-    if (face == nullptr && edge == nullptr)
-        return out;
-
-    if (face == nullptr)
-    {
-        out.edge = edge;
-        return out;
-    }
-    if (edge == nullptr)
-    {
-        out.face = face;
-        return out;
-    }
-
-    constexpr double kRayEps = 1e-4;
-    constexpr double kTightEdgeFrac = 0.04;
-    if (edgeDistSq < maxDistSq * kTightEdgeFrac && edgeT < faceT + kRayEps * (1.0 + std::abs(faceT)))
-    {
-        out.edge = edge;
-        return out;
-    }
-    if (edgeT + kRayEps < faceT)
-    {
-        out.edge = edge;
-        return out;
-    }
-    out.face = face;
+    out.face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces, &faceT);
     return out;
 }
 
@@ -1825,13 +1819,13 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     if (calibPara_Point2 && calibPara_Point2->selected && CalibSlotHasPick(calibFacePoint1, calibEdgePoint1))
     {
         const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
-        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, hit.edge))
+        if (hit.face != nullptr && !CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr))
         {
-            SetHoverCalibPick(nullptr, nullptr);
+            SetHoverCalibPick(hit.face, nullptr, true);
             return;
         }
     }
-    SetHoverCalibPick(hit.face, hit.edge);
+    SetHoverCalibPick(hit.face, nullptr, false);
 }
 
 void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
@@ -1845,13 +1839,13 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
         return;
 
     const CalibPickHit hit = PickCalibrateAtPixel(pixelX, pixelY);
-    if (hit.face == nullptr && hit.edge == nullptr)
+    if (hit.face == nullptr)
         return;
 
     if (calibPara_Point1->selected)
     {
         calibFacePoint1 = hit.face;
-        calibEdgePoint1 = hit.edge;
+        calibEdgePoint1 = nullptr;
         calibStepPoint1 = Icons::StepState::Done;
         calibPara_Point1->selected = false;
         if (calibPara_Point2)
@@ -1860,10 +1854,10 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
     else if (calibPara_Point2 && calibPara_Point2->selected)
     {
         const Face *firstResolved = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
-        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, hit.edge))
+        if (!CalibSecondPickAcceptsHit(firstResolved, hit.face, nullptr))
             return;
         calibFacePoint2 = hit.face;
-        calibEdgePoint2 = hit.edge;
+        calibEdgePoint2 = nullptr;
         calibStepPoint2 = Icons::StepState::Done;
         calibPara_Point2->selected = false;
         calibPara_Point1->selected = !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
