@@ -802,7 +802,8 @@ void OpenGLRenderer::DrawPickHighlightReject()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
-    shader.SetFloat("uLightingEnabled", 1.0f);
+    // Flat vertex color so modest uAlpha reads as see-through tint; lighting would blow RGB toward 1 and look opaque.
+    shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", RenderingExperiments::kPickHighlightRejectHoverAlpha);
 
     GLboolean blendWas = GL_FALSE;
@@ -863,7 +864,8 @@ void OpenGLRenderer::DrawPickHighlightCalibInvalid()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
-    shader.SetFloat("uLightingEnabled", 1.0f);
+    // Match reject pass: diffuse was washing poolTint toward white so blend looked like solid paint.
+    shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha);
 
     GLboolean blendWas = GL_FALSE;
