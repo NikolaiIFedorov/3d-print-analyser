@@ -7,10 +7,33 @@
 
 namespace CalibrateDistance
 {
-
-static double SceneMinZ(const Scene &scene)
+namespace
 {
-    double zMin = std::numeric_limits<double>::max();
+
+constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ build direction
+
+[[nodiscard]] glm::dvec3 NormalizeBuildDir(const glm::dvec3 &buildDirWorld)
+{
+    glm::dvec3 d = glm::normalize(buildDirWorld);
+    if (!std::isfinite(d.x) || !std::isfinite(d.y) || !std::isfinite(d.z) || glm::length(d) < 1e-9)
+        return glm::dvec3(0.0, 0.0, 1.0);
+    return d;
+}
+
+[[nodiscard]] bool FaceCapParallelBuildDir(const Face *face, const glm::dvec3 &dirUnit)
+{
+    if (face == nullptr || !face->GetSurface().IsPlanar())
+        return false;
+
+    glm::dvec3 n = glm::normalize(face->GetSurface().GetNormal());
+    if (!std::isfinite(n.x) || !std::isfinite(n.y) || !std::isfinite(n.z) || glm::length(n) < 1e-12)
+        return false;
+    return std::abs(glm::dot(n, dirUnit)) >= kCapNormalAlignMinAbsDot;
+}
+
+[[nodiscard]] double SceneMinAlongBuildDir(const Scene &scene, const glm::dvec3 &dirUnit)
+{
+    double tMin = std::numeric_limits<double>::max();
 
     auto considerFace = [&](const Face *f)
     {
@@ -22,7 +45,7 @@ static double SceneMinZ(const Scene &scene)
             {
                 const glm::dvec3 p0 = oe.GetStartPosition();
                 const glm::dvec3 p1 = oe.GetEndPosition();
-                zMin = std::min(zMin, std::min(p0.z, p1.z));
+                tMin = std::min(tMin, std::min(glm::dot(p0, dirUnit), glm::dot(p1, dirUnit)));
             }
         }
     };
@@ -35,23 +58,30 @@ static double SceneMinZ(const Scene &scene)
     for (const Face &f : scene.faces)
         considerFace(&f);
 
-    return zMin;
+    return tMin;
 }
 
-void RebuildHoleEdgeSet(const Scene &scene, std::unordered_set<const Edge *> &out)
+} // namespace
+
+void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
+                              std::unordered_set<const Edge *> &holeEdgesOut,
+                              std::unordered_set<const Point *> &holeRingPointsOut)
 {
-    out.clear();
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+    holeEdgesOut.clear();
 
     auto scanFace = [&](const Face *f)
     {
         if (f == nullptr || f->loops.size() < 2)
+            return;
+        if (!FaceCapParallelBuildDir(f, d))
             return;
         for (size_t li = 1; li < f->loops.size(); ++li)
         {
             for (const auto &oe : f->loops[li])
             {
                 if (oe.edge != nullptr)
-                    out.insert(oe.edge);
+                    holeEdgesOut.insert(oe.edge);
             }
         }
     };
@@ -63,12 +93,7 @@ void RebuildHoleEdgeSet(const Scene &scene, std::unordered_set<const Edge *> &ou
     }
     for (const Face &f : scene.faces)
         scanFace(&f);
-}
 
-void RebuildHoleCalibTopology(const Scene &scene, std::unordered_set<const Edge *> &holeEdgesOut,
-                             std::unordered_set<const Point *> &holeRingPointsOut)
-{
-    RebuildHoleEdgeSet(scene, holeEdgesOut);
     holeRingPointsOut.clear();
     for (const Edge *e : holeEdgesOut)
     {
@@ -79,42 +104,49 @@ void RebuildHoleCalibTopology(const Scene &scene, std::unordered_set<const Edge 
     }
 }
 
-bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm)
+bool FaceInFirstLayerSlab(const Face *face, const Scene *scene, double layerHeightMm,
+                          const glm::dvec3 &buildDirWorld)
 {
     if (face == nullptr || scene == nullptr || layerHeightMm <= 0.0)
         return false;
 
-    const double sceneMinZ = SceneMinZ(*scene);
-    if (sceneMinZ == std::numeric_limits<double>::max())
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+    const double sceneMin = SceneMinAlongBuildDir(*scene, d);
+    if (sceneMin == std::numeric_limits<double>::max())
         return false;
 
-    const double topZ = sceneMinZ + layerHeightMm;
+    const double top = sceneMin + layerHeightMm;
     constexpr double kEps = 1e-5;
 
-    double fMinZ = std::numeric_limits<double>::max();
-    double fMaxZ = std::numeric_limits<double>::lowest();
+    double fMin = std::numeric_limits<double>::max();
+    double fMax = std::numeric_limits<double>::lowest();
     for (const auto &loop : face->loops)
     {
         for (const auto &oe : loop)
         {
             const glm::dvec3 p0 = oe.GetStartPosition();
             const glm::dvec3 p1 = oe.GetEndPosition();
-            fMinZ = std::min(fMinZ, std::min(p0.z, p1.z));
-            fMaxZ = std::max(fMaxZ, std::max(p0.z, p1.z));
+            const double t0 = glm::dot(p0, d);
+            const double t1 = glm::dot(p1, d);
+            fMin = std::min(fMin, std::min(t0, t1));
+            fMax = std::max(fMax, std::max(t0, t1));
         }
     }
 
-    return fMinZ >= sceneMinZ - kEps && fMaxZ <= topZ + kEps;
+    return fMin >= sceneMin - kEps && fMax <= top + kEps;
 }
 
-bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *> &holeEdges,
+bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
+                         const std::unordered_set<const Edge *> &holeEdges,
                          const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (face == nullptr)
         return false;
 
+    const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+
     if (face->loops.size() >= 2)
-        return true;
+        return FaceCapParallelBuildDir(face, d);
 
     for (const auto &loop : face->loops)
     {
@@ -134,32 +166,34 @@ bool FaceQualifiesAsHole(const Face *face, const std::unordered_set<const Edge *
 }
 
 CalibWorkflow ClassifyFace(const Face *face, const Scene *scene, double layerHeightMm,
+                           const glm::dvec3 &buildDirWorld,
                            const std::unordered_set<const Edge *> &holeEdges,
                            const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (face == nullptr || scene == nullptr)
         return CalibWorkflow::None;
 
-    if (FaceInFirstLayerSlab(face, scene, layerHeightMm))
+    if (FaceInFirstLayerSlab(face, scene, layerHeightMm, buildDirWorld))
         return CalibWorkflow::ElephantFoot;
-    if (FaceQualifiesAsHole(face, holeEdges, holeRingPoints))
+    if (FaceQualifiesAsHole(face, buildDirWorld, holeEdges, holeRingPoints))
         return CalibWorkflow::Hole;
     return CalibWorkflow::Contour;
 }
 
 CalibWorkflow CombinePickedFaces(const Face *a, const Face *b, const Scene *scene, double layerHeightMm,
+                                 const glm::dvec3 &buildDirWorld,
                                  const std::unordered_set<const Edge *> &holeEdges,
                                  const std::unordered_set<const Point *> &holeRingPoints)
 {
     if (a == nullptr && b == nullptr)
         return CalibWorkflow::None;
     if (b == nullptr)
-        return ClassifyFace(a, scene, layerHeightMm, holeEdges, holeRingPoints);
+        return ClassifyFace(a, scene, layerHeightMm, buildDirWorld, holeEdges, holeRingPoints);
     if (a == nullptr)
-        return ClassifyFace(b, scene, layerHeightMm, holeEdges, holeRingPoints);
+        return ClassifyFace(b, scene, layerHeightMm, buildDirWorld, holeEdges, holeRingPoints);
 
-    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, holeEdges, holeRingPoints);
-    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, holeEdges, holeRingPoints);
+    const CalibWorkflow ca = ClassifyFace(a, scene, layerHeightMm, buildDirWorld, holeEdges, holeRingPoints);
+    const CalibWorkflow cb = ClassifyFace(b, scene, layerHeightMm, buildDirWorld, holeEdges, holeRingPoints);
 
     if (!CalibSecondPickWorkflowsCompatible(ca, cb))
         return CalibWorkflow::None;

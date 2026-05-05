@@ -116,3 +116,15 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp` (`Geometry/Point.hpp`).
 
+---
+
+## Update — layer hole semantics + display wiring (2026-05-05)
+
+**Idea:** Calibrate “hole” workflow means **layer hole** (opening in a slice ⟂ build direction), not “any face with an inner loop”. Topology rebuild restricts inner-loop edges to **cap** faces whose normals align with the build axis; first-layer slab extent uses projection along that axis.
+
+**Display wiring:** After `CalibDistanceType` gained `buildDirWorld` on `RebuildHoleCalibTopology`, `ClassifyFace`, and `CombinePickedFaces`, `display.cpp` now includes `CalibDistanceType.hpp`, passes `DefaultCalibrateBuildDirection()` at all call sites, and threads the same vector through `CalibSecondPickAcceptsHit`.
+
+**Outcome:** Clean build; hole classification and second-pick gating stay consistent with the layer-hole definition until build direction is user-configurable.
+
+**Files:** `CalibDistanceType.hpp` / `.cpp`, `display.cpp`.
+
