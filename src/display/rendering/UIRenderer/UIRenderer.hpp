@@ -44,6 +44,11 @@ public:
     UIRenderer &operator=(UIRenderer &&other) noexcept;
 
     void SetScreenSize(int width, int height);
+    /// GL text drawn **before** `Render()` panel mesh so labels stay under opaque UI chrome.
+    /// `centerPx` / `glViewport` are in framebuffer pixels (matches projected span labels).
+    void RenderHudGlyphTextCenteredPx(float centerPxX, float centerPxY, const std::string &text,
+                                      const glm::vec4 &color,
+                                      const glm::vec4 &shadowColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.45f));
     void Render();
     bool HitTest(float pixelX, float pixelY) const;
     void Shutdown();

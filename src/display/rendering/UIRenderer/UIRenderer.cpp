@@ -208,6 +208,65 @@ void UIRenderer::SetScreenSize(int width, int height)
     dirty = true;
 }
 
+void UIRenderer::RenderHudGlyphTextCenteredPx(float centerPxX, float centerPxY, const std::string &text,
+                                              const glm::vec4 &color, const glm::vec4 &shadowColor)
+{
+    if (text.empty())
+        return;
+
+    GLint vp[4];
+    glGetIntegerv(GL_VIEWPORT, vp);
+    if (vp[2] <= 0 || vp[3] <= 0)
+        return;
+
+    const float lh = textRenderer.GetLineHeight(1.0f);
+    if (lh < 1.0e-4f)
+        return;
+
+    const float targetPx = bodyImFont ? bodyImFont->FontSize * 0.94f : 16.0f;
+    const float scale = targetPx / lh;
+
+    PixelBounds ink = textRenderer.MeasureBounds(text, 0.0f, 0.0f, scale);
+    if (!ink.valid())
+        return;
+
+    const float cx = 0.5f * (ink.x0 + ink.x1);
+    const float cy = 0.5f * (ink.y0 + ink.y1);
+    const float sxRel = centerPxX - static_cast<float>(vp[0]);
+    const float syRel = centerPxY - static_cast<float>(vp[1]);
+    const float xDraw = sxRel - cx;
+    const float yDraw = syRel - cy;
+
+    const glm::mat4 hudProj = glm::ortho(0.0f, static_cast<float>(vp[2]),
+                                         static_cast<float>(vp[3]), 0.0f,
+                                         -1.0f, 1.0f);
+    const glm::mat4 restoreProj = projection;
+    textRenderer.SetProjection(hudProj);
+
+    const GLboolean depthWasEnabled = glIsEnabled(GL_DEPTH_TEST);
+    const GLboolean blendWasEnabled = glIsEnabled(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    constexpr float kShadowDx = 1.0f;
+    constexpr float kShadowDy = 1.0f;
+    glm::vec4 sh = shadowColor;
+    if (sh.a <= 0.0f)
+        sh = glm::vec4(0.0f, 0.0f, 0.0f, 0.45f);
+    textRenderer.RenderText(text, xDraw + kShadowDx, yDraw + kShadowDy, scale, sh);
+    textRenderer.RenderText(text, xDraw, yDraw, scale, color);
+
+    if (depthWasEnabled)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (!blendWasEnabled)
+        glDisable(GL_BLEND);
+
+    textRenderer.SetProjection(restoreProj);
+}
+
 RootPanel &UIRenderer::AddPanel(const RootPanel &panel)
 {
     panels.push_back(panel);

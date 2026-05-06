@@ -20,3 +20,13 @@ Date: 2026-05-06
 ## Mini retro
 
 Foreground draw lists are easy for HUD text but wrong when chrome must stay readable; a no-input root window preserves submission order without capturing input (`NoInputs`).
+
+---
+
+## Follow-up (same theme)
+
+**Issue:** ImGui window layer still drew **above** opaque panel backgrounds because those backgrounds are rasterized with GL in `UIRenderer::Render()` **before** `ImGui_ImplOpenGL3_RenderDrawData`. Any Dear ImGui geometry composites on top of that GL pass, so span labels always floated over side panels.
+
+**Fix:** Draw the span string with `TextRenderer` in `UIRenderer::RenderHudGlyphTextCenteredPx` **before** `UIRenderer::Render()` (same ortho as current `glViewport`). Typography: primary `GetUIText(0)` + small lift (`0.06f`), explicit shadow alpha.
+
+**Outcome:** Label sits under panel mesh; brightness tuned between previous `-1` attempt and heavy `0`+`0.14` lift.

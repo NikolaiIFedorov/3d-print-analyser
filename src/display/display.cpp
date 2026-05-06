@@ -824,6 +824,38 @@ void Display::Render()
     renderer.RenderCalibHoverSpanLine(5.0f, false);
     renderer.RenderCalibHoverSpanLine(4.0f, true);
 
+    // Nominal span label: GL TextRenderer **before** UI mesh so opaque panels occlude it (ImGui always
+    // composites above `UIRenderer`'s GL backgrounds).
+    if (calibHoverSpanPreviewActive && !calibHoverSpanLabel.empty())
+    {
+        GLint vpLabel[4];
+        glGetIntegerv(GL_VIEWPORT, vpLabel);
+        const glm::mat4 vpMatLabel =
+            ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) * camera.GetViewMatrix();
+        const std::optional<glm::dvec3> labelWorld =
+            CalibHoverSpanLabelWorldAlongViewportVisible(vpMatLabel, calibHoverSpanP0, calibHoverSpanP1);
+        if (labelWorld.has_value())
+        {
+            const glm::vec4 clip = vpMatLabel * glm::vec4(glm::vec3(*labelWorld), 1.0f);
+            if (std::abs(clip.w) > 1e-8f)
+            {
+                const glm::vec3 ndc = glm::vec3(clip) / clip.w;
+                if (ndc.z >= -1.05f && ndc.z <= 1.05f)
+                {
+                    const float sx =
+                        (ndc.x * 0.5f + 0.5f) * static_cast<float>(vpLabel[2]) + static_cast<float>(vpLabel[0]);
+                    const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vpLabel[3]) +
+                                     static_cast<float>(vpLabel[1]);
+                    glm::vec4 tc = Color::GetUIText(0);
+                    constexpr float kCalibSpanLabelLift = 0.06f;
+                    tc.r = tc.g = tc.b = std::clamp(tc.r + kCalibSpanLabelLift, 0.0f, 1.0f);
+                    uiRenderer.RenderHudGlyphTextCenteredPx(sx, sy, calibHoverSpanLabel, tc,
+                                                            glm::vec4(0.0f, 0.0f, 0.0f, 0.48f));
+                }
+            }
+        }
+    }
+
     // Start ImGui frame
     if (pendingFileTabsRebuild)
     {
@@ -852,60 +884,6 @@ void Display::Render()
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-
-    // Calibrate span measurement label: submit a fullscreen pass-through window *before* `uiRenderer`
-    // so the text layer sits under tool panels (foreground draw lists always paint above all windows).
-    if (calibHoverSpanPreviewActive && !calibHoverSpanLabel.empty())
-    {
-        ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-        ImGui::SetNextWindowSize(ImGui::GetIO().DisplaySize);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-        if (ImGui::Begin("##viewport_measure_overlay", nullptr,
-                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
-                             ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
-                             ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
-                             ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing))
-        {
-            GLint vp[4];
-            glGetIntegerv(GL_VIEWPORT, vp);
-            const glm::mat4 vpMat =
-                ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()) * camera.GetViewMatrix();
-            const std::optional<glm::dvec3> labelWorld =
-                CalibHoverSpanLabelWorldAlongViewportVisible(vpMat, calibHoverSpanP0, calibHoverSpanP1);
-            if (labelWorld.has_value())
-            {
-                const glm::vec4 clip = vpMat * glm::vec4(glm::vec3(*labelWorld), 1.0f);
-                if (std::abs(clip.w) > 1e-8f)
-                {
-                    const glm::vec3 ndc = glm::vec3(clip) / clip.w;
-                    if (ndc.z >= -1.05f && ndc.z <= 1.05f)
-                    {
-                        const float sx =
-                            (ndc.x * 0.5f + 0.5f) * static_cast<float>(vp[2]) + static_cast<float>(vp[0]);
-                        const float sy = (1.0f - (ndc.y * 0.5f + 0.5f)) * static_cast<float>(vp[3]) +
-                                         static_cast<float>(vp[1]);
-                        ImDrawList *dl = ImGui::GetWindowDrawList();
-                        ImFont *bodyFont = uiRenderer.GetBodyImFont();
-                        ImFont *fontForMeasure = bodyFont ? bodyFont : ImGui::GetFont();
-                        constexpr float kCalibSpanLabelFontScale = 0.92f;
-                        const float fs = fontForMeasure->FontSize * kCalibSpanLabelFontScale;
-                        glm::vec4 tc = Color::GetUIText(-1);
-                        const ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                        const ImVec2 ts =
-                            fontForMeasure->CalcTextSizeA(fs, FLT_MAX, 0.0f, calibHoverSpanLabel.c_str());
-                        const ImVec2 pos(sx - ts.x * 0.5f, sy - ts.y * 0.5f);
-                        constexpr ImU32 shadow = IM_COL32(0, 0, 0, 96);
-                        dl->AddText(fontForMeasure, fs, ImVec2(pos.x + 1.0f, pos.y + 1.0f), shadow,
-                                    calibHoverSpanLabel.c_str());
-                        dl->AddText(fontForMeasure, fs, pos, col, calibHoverSpanLabel.c_str());
-                    }
-                }
-            }
-        }
-        ImGui::End();
-        ImGui::PopStyleVar(2);
-    }
 
     uiRenderer.Render();
 
