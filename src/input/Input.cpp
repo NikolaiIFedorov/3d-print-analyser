@@ -68,11 +68,22 @@ Input::Input(Display *display)
 {
 }
 
+void Input::NotifySdlEventQueueFlushed()
+{
+    clearTouchState();
+    multiFingerSeenThisEventDrain = false;
+    touchPanAppliedThisEventDrain = false;
+    const Uint64 until = SDL_GetTicks() + kWheelSuppressAfterMultiTouchLiftMs;
+    suppressCameraWheelUntilMs = std::max(suppressCameraWheelUntilMs, until);
+}
+
 void Input::clearTouchState()
 {
     activeTouches.clear();
     fingerArrivalOrder.clear();
     touchPanHaveCentroidAnchor = false;
+    touchPanPrevCentroidX = 0.0f;
+    touchPanPrevCentroidY = 0.0f;
 }
 
 void Input::beginTouchPanAccumForFrame()

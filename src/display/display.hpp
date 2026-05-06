@@ -30,6 +30,8 @@ struct Edge;
 struct Solid;
 struct ImportProgress;
 
+class Input;
+
 class Display
 {
 public:
@@ -103,6 +105,9 @@ public:
     // Call at startup, on ThemeMode change, and on SDL_EVENT_SYSTEM_THEME_CHANGED.
     void ApplyTheme();
 
+    /// Non-owning; used to reset finger/trackpad state when SDL event queue is flushed after import.
+    void SetInput(Input *input) { inputForGestureSync = input; }
+
 private:
     enum class InvalidationNode : uint8_t
     {
@@ -134,6 +139,7 @@ private:
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
+    Input *inputForGestureSync = nullptr;
 
     SceneRenderer renderer;
     ViewportRenderer viewportRenderer;
@@ -316,6 +322,8 @@ private:
 
     void ProcessDeferredImportIfAny();
     void CompleteFileImport(const std::string &path);
+    /// After import, flush SDL's finger/mouse tail and sync `Input` (`activeTouches`) — queue vs model must match.
+    void FlushImportInputEventTail();
     void PublishImportProgress(uint64_t generation, const ImportProgress &progress);
     void ApplyImportProgressSnapshot();
     void ClearPendingImportProgressSnapshot();

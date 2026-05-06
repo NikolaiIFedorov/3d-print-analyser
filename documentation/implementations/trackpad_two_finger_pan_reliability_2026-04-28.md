@@ -134,3 +134,29 @@ Incremental **`tryApplyIncrementalTwoFingerPan`** can advance **`touchPanPrevCen
 ### Outcome
 
 Clean build; runtime check on macOS trackpad recommended.
+
+---
+
+## 2026-05-06 — Scroll bleed after import (SDL flush vs `Input` touch model)
+
+### Problem
+
+Intermittent roll/zoom after **file import**: `Display` calls **`SDL_FlushEvents`** on finger/mouse ranges after import completes (native dialog / async finalize) to drop inertia tails, but **`Input::activeTouches`** and pan flags were **not** cleared. Hardware/SDL queue and our tracked contacts diverged → suppression / wheel paths behaved oddly until the next clean gesture.
+
+### Approach
+
+- **`Input::NotifySdlEventQueueFlushed()`**: `clearTouchState()`, clear drain latches, extend **`suppressCameraWheelUntilMs`** by **`kWheelSuppressAfterMultiTouchLiftMs`** (same family as lift inertia).
+- **`clearTouchState()`** also zeros **`touchPanPrevCentroid`**.
+- **`Display::FlushImportInputEventTail()`**: centralizes the two **`SDL_FlushEvents`** calls + **`NotifySdlEventQueueFlushed()`**; used from **`CompleteFileImport`** and async **`import-finalize-ui`** pipeline step.
+- **`Display::SetInput(Input*)`** from **`main`** after **`Input`** construction.
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+- `src/display/display.cpp`, `display.hpp`
+- `src/main.cpp`
+- `documentation/implementations/trackpad_two_finger_pan_reliability_2026-04-28.md`
+
+### Outcome
+
+Clean build.

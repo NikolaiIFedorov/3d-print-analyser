@@ -57,6 +57,7 @@ bool Init()
     SessionLogger::Instance().Start();
     display.emplace(1280, 720, "CAD OpenGL");
     input.emplace(&display.value());
+    display->SetInput(&input.value());
     window = display->GetWindow();
     if (window == nullptr)
     {

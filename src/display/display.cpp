@@ -24,6 +24,7 @@
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
 #include "input/FileImport.hpp"
+#include "input/Input.hpp"
 #include "rendering/ScenePick.hpp"
 #include "Geometry/Edge.hpp"
 #include "Geometry/Point.hpp"
@@ -2925,6 +2926,14 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
         uiRenderer.MarkDirty();
 }
 
+void Display::FlushImportInputEventTail()
+{
+    SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
+    SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+    if (inputForGestureSync != nullptr)
+        inputForGestureSync->NotifySdlEventQueueFlushed();
+}
+
 void Display::CompleteFileImport(const std::string &path)
 {
     // Legacy synchronous path retained as fallback. Normal imports are now handled
@@ -2989,9 +2998,8 @@ void Display::CompleteFileImport(const std::string &path)
     renderDirty = true;
 
     // After returning from the native file dialog, macOS can deliver a short tail of synthesized
-    // wheel/touch events (trackpad inertia / focus handoff). They should not drive camera gestures.
-    SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
-    SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+    // wheel/touch events (trackpad inertia / focus handoff). Flush SDL queue and sync `Input` touch model.
+    FlushImportInputEventTail();
 
     importBusy = false;
     importProgress01 = -1.0f;
@@ -3157,8 +3165,7 @@ void Display::ProcessDeferredImportIfAny()
                                        uiRenderer.MarkDirty();
                                        renderDirty = true;
 
-                                       SDL_FlushEvents(SDL_EVENT_FINGER_DOWN, SDL_EVENT_FINGER_CANCELED);
-                                       SDL_FlushEvents(SDL_EVENT_MOUSE_MOTION, SDL_EVENT_MOUSE_WHEEL);
+                                       FlushImportInputEventTail();
 
                                        importBusy = false;
                                        importProgress01 = -1.0f;

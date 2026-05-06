@@ -14,6 +14,9 @@ public:
 
     bool handleEvents();
 
+    /// Call after `SDL_FlushEvents` removes finger/mouse events so `activeTouches` matches hardware (e.g. post-import).
+    void NotifySdlEventQueueFlushed();
+
 private:
     struct Touch
     {
