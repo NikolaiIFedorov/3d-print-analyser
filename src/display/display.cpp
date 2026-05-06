@@ -3609,10 +3609,15 @@ void Display::InitUI()
             float originX = rowOrigin.x;
 
             // ── Left nav zone: InvisibleButton placed BEFORE DragFloat ──────────
-            // Compute left zone width from count label (CalcTextSize valid here — inside a frame)
+            // Compute left zone width from the same string we draw (zero-count uses
+            // "No…" + plural, which is wider than "0" + singular — mismatch used to
+            // shrink the param zone and let the value hover tint overlap the title).
             char countBuf[64];
-            snprintf(countBuf, sizeof(countBuf), "%zu%s%s", fr.count, countLabel,
-                     fr.count > 1 ? plural : "");
+            if (fr.count > 0)
+                snprintf(countBuf, sizeof(countBuf), "%zu%s%s", fr.count, countLabel,
+                         fr.count > 1 ? plural : "");
+            else
+                snprintf(countBuf, sizeof(countBuf), "No%s%s", countLabel, plural);
             float leftW = iconOffset + ImGui::CalcTextSize(countBuf).x + normalPad * 2.5f;
             leftW = std::min(leftW, w * 0.65f); // never crowd out the param zone
 
@@ -3797,16 +3802,13 @@ void Display::InitUI()
             ImU32 dimCol = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a));
             ImU32 dimColZero = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a * 0.5f));
 
-            // Left label — always visible (even during text edit)
+            // Left label — always visible (even during text edit); countBuf matches layout above.
             if (fr.count > 0)
                 ImGui::GetWindowDrawList()->AddText(
                     ImVec2(originX + iconOffset + normalPad, ty), flawCol, countBuf);
             else
-            {
-                std::string noFlawLabel = std::string("No") + countLabel + plural;
                 ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + iconOffset + normalPad, ty), dimColZero, noFlawLabel.c_str());
-            }
+                    ImVec2(originX + iconOffset + normalPad, ty), dimColZero, countBuf);
 
             // Right side: readout and edit hints — align to param zone right edge (inside ImGui frame)
             const char *editUnitHint =

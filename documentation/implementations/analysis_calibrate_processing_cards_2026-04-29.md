@@ -126,3 +126,60 @@
 
 - **Import:** Drive `uiImportPara->accentProgressBar` / `accentProgress01` from the same `statusStripImportBusy` / `pendingImportTask` / `statusStripImportProgress01` state as the Files tab strip (`RefreshToolProcessingCards`).
 - **Layout:** Draw the bottom accent track in the padded content inset (`px0/px1` ± padding) and sit flush to the inner bottom (`py1 - pad`) so horizontal alignment matches body text and the extra gap under the bar is removed; tighten layout gap above strip (1px).
+
+## 2026-05-04 — Calibrate pick-flow reset
+
+### Problem
+- After plotting one calibration measurement point, the derived/result parameter row could stay allocated even after leaving and re-entering Calibrate.
+- The pick clear path recalculated calibration UI before resetting the step state, so `RefreshCalibDerivedRowVisible()` still saw point 1 as done.
+
+### Plan
+- Make clearing calibration picks reset the transient pick workflow in one place: picked face/edge pointers, point step states, selected prerequisite row, workflow/compensation, and derived row visibility.
+- Reuse that reset when switching files, switching tools, hiding/showing Calibrate, and activating a newly imported scene.
+
+### Outcome
+- `ClearCalibrateFacePicks()` now resets the point step states and selected prerequisite before refreshing workflow/derived-row UI.
+- The derived calibration row now waits for two valid picks, so one selection no longer reserves blank result space.
+- Tool re-entry, file-tab switches, and imported-scene activation all use the same reset path.
+- Validation: `cmake --build build -j8` passes.
+
+### Mini retrospective
+- Centralizing the reset removed several copy-pasted partial resets and fixed the ordering bug at the source.
+- The derived row visibility had drifted toward "show after first point" while its content still needed two picks; keying visibility off the actual picked span is clearer.
+
+### Follow-up: result spacing
+- Calibrate now opts its Parameters section back into child splitters, so the computed result is visually separated from `Print measurement`.
+- Tightened Calibrate parameter-row margins to reduce the extra bottom space left by the result/measurement block.
+
+### 2026-05-04 — Calibrate point-pick independence
+
+### Problem
+- Clicking the second measurement-point prerequisite before the first point was plotted could deselect Point 1.
+- The pick filter correctly rejected Point 2 until Point 1 was complete, but the UI then had no active eligible pick row, so edge/face hover and selection appeared disabled.
+
+### Fix
+- Treat Point 1 and Point 2 as independent measurement slots, not ordered prerequisites.
+- Either slot can be selected and picked first; after a pick, selection advances only to the other empty slot.
+- The derived/result row still waits until both slots have picks.
+
+### Note
+- The current compensation output still lives as `CalibDerived`, the second row in the Calibrate `Parameters` section. It is visually separated with child splitters, but it is not a separate `Result` section yet.
+
+### Follow-up: flatten Calibrate measurement/result rows
+- Calibrate is a sequential workflow rather than a settings panel, so `Print measurement` and the computed compensation result now render as direct panel rows after prerequisites.
+- Added an explicit `ToolPanelDef::flattenParameters` option so future tools can choose flat rows without changing existing sectioned panels.
+- The previous `Parameters` section path remains supported for tools that benefit from grouped settings.
+
+## 2026-05-07 — Analysis result row: value hover vs “No …” label
+
+### Problem
+- For zero findings, the left label is drawn as `No` + plural (e.g. “No thin sections”), but `leftW` for the nav/param split was sized from `0` + singular (`0 thin section`), so the DragFloat / hover tint started too far left and overlapped the title.
+
+### Approach
+- Build `countBuf` the same way for layout and drawing: numeric + label when `count > 0`, else `No%s%s` with `countLabel` and `plural`.
+
+### Outcome
+- Param zone starts after the full “No …” text; hover no longer intersects the title.
+
+### Mini retrospective
+- Root cause was layout measuring a different string than paint; aligning buffer + width removed the overlap without new layout constants.
