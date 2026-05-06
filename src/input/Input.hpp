@@ -65,8 +65,8 @@ private:
     void tryApplyIncrementalTwoFingerPan();
     void twoFingerOrMouseBridgePanOrbit(const SDL_Event &event);
     void syncWindowRelativeMouseMode();
-    /// If two-finger trackpad is also sent as `MOUSE_WHEEL`, skip unmodified roll/zoom (FINGER already pans).
-    /// Does not apply when Alt/Shift/Ctrl + wheel (explicit Orbit/Zoom/Roll).
+    /// During ≥2-finger trackpad contact, skip unmodified wheel zoom/roll (pan uses FINGER centroid; wheel is duplicate).
+    /// SDL may tag that wheel with a non-touch device id — suppress anyway. Alt/Shift/Ctrl + wheel still runs.
     bool shouldSuppressRedundantTrackpadScroll(const SDL_Event &wheel) const;
     void mouseGestures(const SDL_Event &event);
     bool processEvent(const SDL_Event &event);

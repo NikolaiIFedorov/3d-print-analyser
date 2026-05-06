@@ -215,13 +215,16 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
     {
         return false;
     }
-    // Real mouse wheels must keep working: SDL can still report ≥2 trackpad contacts while scrolling.
-    if (event.wheel.which != SDL_TOUCH_MOUSEID)
+    // Two-finger trackpad: pan comes from FINGER_MOTION centroid; scroll is also emitted as wheel with
+    // inconsistent `which` across SDL/OS paths. Suppress unmodified zoom/roll for any wheel device while
+    // a multi-finger gesture is active (trade-off: external mouse wheel may be ignored until contacts drop).
+    const bool multifingerGesture = activeTouches.size() >= 2U || sdlHasMultiTouchContact()
+                                    || multiFingerSeenThisEventDrain || touchPanAppliedThisEventDrain;
+    if (multifingerGesture)
     {
-        return false;
+        return true;
     }
-    return activeTouches.size() >= 2U || sdlHasMultiTouchContact() || multiFingerSeenThisEventDrain
-           || touchPanAppliedThisEventDrain;
+    return false;
 }
 
 void Input::mouseGestures(const SDL_Event &event)
