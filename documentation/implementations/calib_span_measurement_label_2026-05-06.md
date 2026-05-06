@@ -29,4 +29,4 @@ Foreground draw lists are easy for HUD text but wrong when chrome must stay read
 
 **Fix:** Draw the span string with `TextRenderer` in `UIRenderer::RenderHudGlyphTextCenteredPx` **before** `UIRenderer::Render()` (same ortho as current `glViewport`). Typography: primary `GetUIText(0)` + small lift (`0.06f`), explicit shadow alpha.
 
-**Outcome:** Label sits under panel mesh; brightness tuned between previous `-1` attempt and heavy `0`+`0.14` lift.
+- **Tweak:** `RenderHudGlyphTextCenteredPx` target size `body × 0.80` (fallback 14px); prior `0.94` / 16px read a bit large on retina.

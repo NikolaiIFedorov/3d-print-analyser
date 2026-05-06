@@ -223,7 +223,8 @@ void UIRenderer::RenderHudGlyphTextCenteredPx(float centerPxX, float centerPxY, 
     if (lh < 1.0e-4f)
         return;
 
-    const float targetPx = bodyImFont ? bodyImFont->FontSize * 0.94f : 16.0f;
+    // Slightly under body size: span readout is secondary HUD, not panel copy.
+    const float targetPx = bodyImFont ? bodyImFont->FontSize * 0.80f : 14.0f;
     const float scale = targetPx / lh;
 
     PixelBounds ink = textRenderer.MeasureBounds(text, 0.0f, 0.0f, scale);
