@@ -73,13 +73,11 @@ void Input::clearTouchState()
     activeTouches.clear();
     fingerArrivalOrder.clear();
     touchPanHaveCentroidAnchor = false;
-    touchPanBlockedByWheelModsThisPass = false;
 }
 
 void Input::beginTouchPanAccumForFrame()
 {
     multiFingerSeenThisEventDrain = false;
-    touchPanBlockedByWheelModsThisPass = false;
     touchPanHaveCentroidAnchor = false;
     if (activeTouches.size() >= 2U)
     {
@@ -93,6 +91,8 @@ void Input::beginTouchPanAccumForFrame()
         touchPanCentroidStartX = sx * inv;
         touchPanCentroidStartY = sy * inv;
         touchPanHaveCentroidAnchor = true;
+        touchPanPrevCentroidX = touchPanCentroidStartX;
+        touchPanPrevCentroidY = touchPanCentroidStartY;
     }
 }
 
@@ -112,11 +112,13 @@ void Input::ensureTouchPanCentroidAnchor()
     touchPanCentroidStartX = sx * inv;
     touchPanCentroidStartY = sy * inv;
     touchPanHaveCentroidAnchor = true;
+    touchPanPrevCentroidX = touchPanCentroidStartX;
+    touchPanPrevCentroidY = touchPanCentroidStartY;
 }
 
-void Input::applyBatchedTwoFingerPan()
+void Input::tryApplyIncrementalTwoFingerPan()
 {
-    if (touchPanBlockedByWheelModsThisPass || !touchPanHaveCentroidAnchor || activeTouches.size() < 2U)
+    if (!touchPanHaveCentroidAnchor || activeTouches.size() < 2U)
     {
         return;
     }
@@ -127,10 +129,20 @@ void Input::applyBatchedTwoFingerPan()
         sy += kv.second.y;
     }
     const float inv = 1.0f / static_cast<float>(activeTouches.size());
-    const float endX = sx * inv;
-    const float endY = sy * inv;
-    const float dnx = endX - touchPanCentroidStartX;
-    const float dny = endY - touchPanCentroidStartY;
+    const float cx = sx * inv;
+    const float cy = sy * inv;
+
+    // Shift/Alt + two-finger: explicit orbit/zoom comes from `MOUSE_WHEEL`; only track centroid, do not pan.
+    const SDL_Keymod mod = SDL_GetModState();
+    if ((mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0)
+    {
+        touchPanPrevCentroidX = cx;
+        touchPanPrevCentroidY = cy;
+        return;
+    }
+
+    const float dnx = cx - touchPanPrevCentroidX;
+    const float dny = cy - touchPanPrevCentroidY;
     if (std::hypot(dnx, dny) < kTouchDeadzone)
     {
         return;
@@ -140,13 +152,19 @@ void Input::applyBatchedTwoFingerPan()
     if (w > 0 && h > 0)
     {
         ImGuiIO &imguiIo = ImGui::GetIO();
-        const float px = endX * static_cast<float>(w);
-        const float py = endY * static_cast<float>(h);
+        const float px = cx * static_cast<float>(w);
+        const float py = cy * static_cast<float>(h);
         if (imguiIo.WantCaptureMouse || display->HitTestUI(px, py) || display->HitTestImGui(px, py))
+        {
+            touchPanPrevCentroidX = cx;
+            touchPanPrevCentroidY = cy;
             return;
+        }
     }
     const float s = display->mouseSensitivity / 30.0f;
     display->Pan(dnx * s, dny * s, true);
+    touchPanPrevCentroidX = cx;
+    touchPanPrevCentroidY = cy;
     const Uint64 until = SDL_GetTicks() + kWheelSuppressAfterPanApplyMs;
     suppressCameraWheelUntilMs = std::max(suppressCameraWheelUntilMs, until);
 }
@@ -420,12 +438,7 @@ bool Input::processEvent(const SDL_Event &event)
         }
         else if (nContacts >= 2U)
         {
-            // Two-finger scroll + Shift/Alt is handled via MOUSE_WHEEL (orbit/zoom); do not also pan from batch centroid.
-            const SDL_Keymod mod = SDL_GetModState();
-            const bool wheelOverridesTwoFingerPan =
-                (mod & SDL_KMOD_ALT) != 0 || (mod & SDL_KMOD_SHIFT) != 0;
-            if (wheelOverridesTwoFingerPan)
-                touchPanBlockedByWheelModsThisPass = true;
+            tryApplyIncrementalTwoFingerPan();
         }
         break;
     }
@@ -526,8 +539,6 @@ bool Input::handleEvents()
         pendingWheelOrbitSnap = false;
         display->FinishOrbitSnap();
     }
-
-    applyBatchedTwoFingerPan();
 
     display->renderDirty = true;
     return true;

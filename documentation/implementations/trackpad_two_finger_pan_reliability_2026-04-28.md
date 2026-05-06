@@ -91,3 +91,25 @@ After lifting fingers from a two-finger pan, **scroll inertia** often fired **ro
 ### Outcome
 
 Clean build. Trade-off: intentional mouse wheel within ~400 ms after ending multi-touch may be ignored (same family as existing post-gesture suppress).
+
+---
+
+## 2026-05-06 — Direction changes feel mushy during two-finger pan
+
+### Problem
+
+After suppress/inertia fixes, **changing pan direction** could feel odd: **batched** pan compared **final centroid vs centroid at start of `handleEvents`** and skipped motion when **net** displacement was below `kTouchDeadzone`. During a fast reversal, opposite motions in one queue drain often **cancel in net**, so the camera barely moved **even though fingers travelled**.
+
+### Approach
+
+- Replace end-of-pass **`applyBatchedTwoFingerPan`** with **`tryApplyIncrementalTwoFingerPan`**: on each **`FINGER_MOTION`** with ≥2 contacts, apply **`Pan(delta)`** where delta is **current centroid − previous centroid**, then advance **touchPanPrevCentroid**.
+- **Shift/Alt**: skip pan for that motion but **still advance prev** so releasing modifiers does not jump (uses live **`SDL_GetModState()` per motion**, not a whole-pass latch).
+- UI hit-test blocks pan but **still advances prev** so crossing chrome does not accumulate a snap later.
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+
+### Outcome
+
+Clean build. More `Pan()` calls per gesture (per finger motion); acceptable for navigation.
