@@ -5,19 +5,16 @@
 /// One-at-a-time geometry / import probes (rebuild between toggles).
 namespace GeometryExperiments
 {
-/// Which Calibrate hole detector inputs are active. Change **one** value at a time, rebuild, re-import
-/// (or reload scene) and test picks: `All` is production behavior.
+/// Which sources populate the Calibrate hole-loop edge set in `RebuildHoleCalibTopology`. Classification is
+/// always “face touches any hole-loop edge”; this controls **which** edges are in that set. Rebuild and re-import
+/// to test. `All` is production behavior.
 enum class CalibHoleQualifyProbe : std::uint8_t
 {
     All = 0,
-    /// Only B-rep–style stack-parallel caps with ≥2 edge loops. Rebuild uses inner-loop scan **only**
-    /// (no tessellated plane-boundary tracing).
+    /// Inner-loop scan on multi-loop stack-parallel caps only (no tessellated plane-boundary tracing).
     MultiLoopCapOnly,
-    /// Only tessellated STL-style caps: rebuild runs rim trace **only** (no explicit inner-loop scan).
+    /// Tessellated cap rim trace only (no B-rep inner-loop scan).
     TessellatedRimCapOnly,
-    /// Only ⊥–build sidewall witness (≥2 rim edges). Rebuild is **full** so both rim sources exist;
-    /// cap shortcuts are disabled.
-    SidewallWitnessOnly,
 };
 
 inline constexpr CalibHoleQualifyProbe kCalibHoleQualifyProbe = CalibHoleQualifyProbe::All;

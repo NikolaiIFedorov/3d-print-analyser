@@ -33,6 +33,10 @@ Constants shared via `CalibDistanceType.hpp` (`kWallNormalMaxAbsDotBuild`, `kCal
 
 **Outcome:** Clean build; Calibrate hole vs contour classification works for typical tessellated plates with through-holes when the +Z stack direction matches geometry.
 
-## Probe A/B: one hole condition at a time (`GeometryExperiments::kCalibHoleQualifyProbe`)
+## 2026-05-06 — simplified Hole definition
 
-Set `kCalibHoleQualifyProbe` to `MultiLoopCapOnly`, `TessellatedRimCapOnly`, or `SidewallWitnessOnly` (then rebuild the app + reload geometry). Rebuild and `FaceQualifiesAsHole` honor the probe so you can see which path ever tags `Hole`: merged annulus caps vs tessellated rim trace vs vertical witnesses. Default `All` restores combined behavior.
+**Classification:** `Hole` iff the picked face uses **any** edge present in the hole-loop edge set built by `RebuildHoleCalibTopology` (B-rep inner loops on stack-parallel caps ± tessellated cap rim traces per `kCalibHoleQualifyProbe`). Removed cap-orientation / sidewall witness / `EdgeBordersStackParallelHoleOpening` branching.
+
+**Outcome:** Clean build; semantics are edge-membership only.
+
+`kCalibHoleQualifyProbe` still gates **how** the hole-loop edge set is built (`All` = B-rep inner loops + tessellated rims; `MultiLoopCapOnly` / `TessellatedRimCapOnly` = one source) — not the membership rule.

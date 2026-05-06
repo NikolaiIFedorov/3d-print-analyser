@@ -8,8 +8,7 @@ class Face;
 class Scene;
 
 /// Shown in the Calibrate tool.
-/// `Hole` = stack-parallel annulus (≥2 loops on cap ∥ build, or tessellated cap facets bordering a traced
-/// hole rim) **or** ⊥ sidewall with ≥2 edges each witnessed on those rims / B-rep inner loops (tunnel ∥ build).
+/// `Hole` = face shares **any** edge with a hole inner contour (`RebuildHoleCalibTopology` / rim-edge set).
 /// Contour/Hole picks gated ⊥ build in Display (elephant’s foot excepted).
 /// `ElephantFoot` = two parallel **edges** on the same first-layer build-parallel cap (see Display picks).
 enum class CalibWorkflow
@@ -29,9 +28,9 @@ inline glm::dvec3 DefaultCalibrateBuildDirection()
     return glm::dvec3(0.0, 0.0, 1.0);
 }
 
-/// Inner-loop / hole-rim edges of planar caps ∥ `buildDirWorld` (layer-plane openings). Slanted pockets
-/// excluded. Includes explicit B-rep inner loops and rims found from tessellated cap soup (STL) by tracing
-/// boundary loops in each stack-parallel plane. Annular cap vs sidewall is decided in `FaceQualifiesAsHole`.
+/// Hole-loop edges on stack-parallel planar caps ∥ `buildDirWorld` (layer-plane openings). Slanted pockets
+/// excluded: B-rep inner loops plus tessellated cap soup rims (`AppendTessellatedStackParallelCapHoleInnerEdges`).
+/// `FaceQualifiesAsHole` is true iff the face uses any of these edges.
 void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorld,
                               std::unordered_set<const Edge *> &holeInnerEdgesOut);
 
@@ -52,6 +51,7 @@ inline constexpr double kWallNormalMaxAbsDotBuild = 0.15;
 /// Nominal CAD span direction vs build axis for contour/hole must satisfy the same bound.
 inline constexpr double kCalibSpanMaxAbsDotBuildAxis = 0.15;
 
+/// True iff `face` uses any edge from `layerHoleInnerEdges` (hole loops built by `RebuildHoleCalibTopology`).
 bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
                          const std::unordered_set<const Edge *> &layerHoleInnerEdges);
 
