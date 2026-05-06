@@ -32,3 +32,7 @@ Constants shared via `CalibDistanceType.hpp` (`kWallNormalMaxAbsDotBuild`, `kCal
 **Change:** After the usual inner-loop scan, `RebuildHoleCalibTopology` calls `AppendTessellatedStackParallelCapHoleInnerEdges`, which groups stack-parallel planar faces by plane offset, traces the boundary of the single-loop soup, and adds every non–outer boundary loop (by \|area\|) to the hole-rim set. `FaceQualifiesAsHole` then (1) treats stack-parallel caps that touch any rim edge as Hole before applying the ⊥-build wall gate, and (2) counts sidewall witnesses against that set as well as `EdgeBordersStackParallelHoleOpening`. Known limitation: nested islands inside cavities may add extra inner boundary loops.
 
 **Outcome:** Clean build; Calibrate hole vs contour classification works for typical tessellated plates with through-holes when the +Z stack direction matches geometry.
+
+## Probe A/B: one hole condition at a time (`GeometryExperiments::kCalibHoleQualifyProbe`)
+
+Set `kCalibHoleQualifyProbe` to `MultiLoopCapOnly`, `TessellatedRimCapOnly`, or `SidewallWitnessOnly` (then rebuild the app + reload geometry). Rebuild and `FaceQualifiesAsHole` honor the probe so you can see which path ever tags `Hole`: merged annulus caps vs tessellated rim trace vs vertical witnesses. Default `All` restores combined behavior.

@@ -344,6 +344,13 @@ void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorl
     const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
     holeInnerEdgesOut.clear();
 
+    using HoleProbe = GeometryExperiments::CalibHoleQualifyProbe;
+    const HoleProbe probe = GeometryExperiments::kCalibHoleQualifyProbe;
+    const bool scanInnerLoops = (probe == HoleProbe::All || probe == HoleProbe::MultiLoopCapOnly ||
+                                 probe == HoleProbe::SidewallWitnessOnly);
+    const bool traceTessellated = (probe == HoleProbe::All || probe == HoleProbe::TessellatedRimCapOnly ||
+                                   probe == HoleProbe::SidewallWitnessOnly);
+
     auto scanFace = [&](const Face *f)
     {
         if (f == nullptr || f->loops.size() < 2 || !f->GetSurface().IsPlanar())
@@ -362,15 +369,19 @@ void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorl
         }
     };
 
-    for (const Solid &solid : scene.solids)
+    if (scanInnerLoops)
     {
-        for (const Face *f : solid.faces)
-            scanFace(f);
+        for (const Solid &solid : scene.solids)
+        {
+            for (const Face *f : solid.faces)
+                scanFace(f);
+        }
+        for (const Face &f : scene.faces)
+            scanFace(&f);
     }
-    for (const Face &f : scene.faces)
-        scanFace(&f);
 
-    AppendTessellatedStackParallelCapHoleInnerEdges(scene, d, holeInnerEdgesOut);
+    if (traceTessellated)
+        AppendTessellatedStackParallelCapHoleInnerEdges(scene, d, holeInnerEdgesOut);
 }
 
 bool FaceIsLayerCapParallelBuild(const Face *face, const glm::dvec3 &buildDirWorld)
@@ -417,26 +428,37 @@ bool FaceQualifiesAsHole(const Face *face, const glm::dvec3 &buildDirWorld,
         return false;
 
     const glm::dvec3 d = NormalizeBuildDir(buildDirWorld);
+    using HoleProbe = GeometryExperiments::CalibHoleQualifyProbe;
+    const HoleProbe probe = GeometryExperiments::kCalibHoleQualifyProbe;
 
     // Layer-hole annulus on a stack-parallel cap (inner contour in the slice plane).
-    if (face->loops.size() >= 2)
-        return FaceCapParallelBuildDir(face, d);
+    if (probe == HoleProbe::All || probe == HoleProbe::MultiLoopCapOnly)
+    {
+        if (face->loops.size() >= 2)
+            return FaceCapParallelBuildDir(face, d);
+    }
 
     // Tessellated or single-loop cap touching a hole rim (STL triangles along the opening).
-    if (FaceCapParallelBuildDir(face, d) && !layerHoleInnerEdges.empty())
+    if (probe == HoleProbe::All || probe == HoleProbe::TessellatedRimCapOnly)
     {
-        for (const auto &loop : face->loops)
+        if (FaceCapParallelBuildDir(face, d) && !layerHoleInnerEdges.empty())
         {
-            for (const auto &oe : loop)
+            for (const auto &loop : face->loops)
             {
-                if (oe.edge != nullptr && layerHoleInnerEdges.count(oe.edge))
-                    return true;
+                for (const auto &oe : loop)
+                {
+                    if (oe.edge != nullptr && layerHoleInnerEdges.count(oe.edge))
+                        return true;
+                }
             }
         }
     }
 
     // Sidewall: ⊥ build (wall ∥ stack) and ≥2 boundary edges lie on inner loops of stack-parallel caps.
     // Exterior vertical faces only meet outer caps / other walls — they never witness horizontal hole rims.
+    if (probe != HoleProbe::All && probe != HoleProbe::SidewallWitnessOnly)
+        return false;
+
     constexpr size_t kMinWitnessEdgesHoleSidewall = 2;
     if (!FaceNormalPerpendicularToBuild(face, buildDirWorld))
         return false;
