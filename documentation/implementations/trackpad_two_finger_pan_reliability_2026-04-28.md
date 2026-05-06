@@ -69,3 +69,25 @@ Two-finger trackpad pan often also drove **roll** (horizontal wheel) and **zoom*
 ### Outcome
 
 `cmake --build build --target CAD_OpenGL` succeeded. Needs runtime confirmation on macOS trackpad (two-finger pan vs roll/zoom bleed).
+
+---
+
+## 2026-05-06 — Trackpad pan end triggers zoom/roll (inertia)
+
+### Problem
+
+After lifting fingers from a two-finger pan, **scroll inertia** often fired **roll/zoom** via `MOUSE_WHEEL`. Existing guards skipped touch-derived wheel when **no** fingers down (`SDL_TOUCH_MOUSEID` + `!anySdlTouchFingerDown()`), but inertia may report **`which != SDL_TOUCH_MOUSEID`**, and **`suppressCameraWheelUntilMs` was only refreshed when batched pan crossed the deadzone**—not when multi-touch ended.
+
+### Approach
+
+- **`kWheelSuppressAfterMultiTouchLiftMs` (400 ms):** extend `suppressCameraWheelUntilMs` when contacts drop **from ≥2 to \<2** (`FINGER_UP`) or on **`FINGER_CANCELED`** if ≥2 touches were tracked (covers bursts without relying on `wheel.which`).
+- **`std::max` with existing deadline:** batched pan apply and RMB/MMB release use **`kWheelSuppressAfterPanApplyMs` (220)** without shortening a longer lift window.
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+- `documentation/implementations/trackpad_two_finger_pan_reliability_2026-04-28.md`
+
+### Outcome
+
+Clean build. Trade-off: intentional mouse wheel within ~400 ms after ending multi-touch may be ignored (same family as existing post-gesture suppress).

@@ -147,7 +147,8 @@ void Input::applyBatchedTwoFingerPan()
     }
     const float s = display->mouseSensitivity / 30.0f;
     display->Pan(dnx * s, dny * s, true);
-    suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+    const Uint64 until = SDL_GetTicks() + kWheelSuppressAfterPanApplyMs;
+    suppressCameraWheelUntilMs = std::max(suppressCameraWheelUntilMs, until);
 }
 
 void Input::twoFingerOrMouseBridgePanOrbit(const SDL_Event &event)
@@ -285,7 +286,8 @@ void Input::mouseGestures(const SDL_Event &event)
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
             rightMouseDown = false;
-            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+            suppressCameraWheelUntilMs =
+                std::max(suppressCameraWheelUntilMs, SDL_GetTicks() + kWheelSuppressAfterPanApplyMs);
             syncWindowRelativeMouseMode();
             display->UpdatePickHover(static_cast<float>(event.button.x), static_cast<float>(event.button.y));
         }
@@ -293,7 +295,8 @@ void Input::mouseGestures(const SDL_Event &event)
         {
             const bool wasOrbiting = middleMouseDown;
             middleMouseDown = false;
-            suppressCameraWheelUntilMs = SDL_GetTicks() + 220;
+            suppressCameraWheelUntilMs =
+                std::max(suppressCameraWheelUntilMs, SDL_GetTicks() + kWheelSuppressAfterPanApplyMs);
             syncWindowRelativeMouseMode();
             if (wasOrbiting)
                 display->FinishOrbitSnap();
@@ -347,6 +350,11 @@ bool Input::processEvent(const SDL_Event &event)
         break;
     case SDL_EVENT_FINGER_CANCELED:
         // Always sync hardware touch model; skipping here desyncs nContacts vs real fingers.
+        if (activeTouches.size() >= 2U)
+        {
+            suppressCameraWheelUntilMs = std::max(
+                suppressCameraWheelUntilMs, SDL_GetTicks() + kWheelSuppressAfterMultiTouchLiftMs);
+        }
         if (middleMouseDown)
             display->FinishOrbitSnap();
         clearTouchState();
@@ -366,11 +374,17 @@ bool Input::processEvent(const SDL_Event &event)
     }
     case SDL_EVENT_FINGER_UP:
     {
+        const size_t before = activeTouches.size();
         const SDL_TouchFingerEvent &tf = event.tfinger;
         activeTouches.erase(tf.fingerID);
         fingerArrivalOrder.erase(
             std::remove(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID),
             fingerArrivalOrder.end());
+        if (before >= 2U && activeTouches.size() < 2U)
+        {
+            suppressCameraWheelUntilMs = std::max(
+                suppressCameraWheelUntilMs, SDL_GetTicks() + kWheelSuppressAfterMultiTouchLiftMs);
+        }
         if (activeTouches.size() >= 2U || sdlHasMultiTouchContact())
             multiFingerSeenThisEventDrain = true;
         break;

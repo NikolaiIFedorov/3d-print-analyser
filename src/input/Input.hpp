@@ -47,6 +47,10 @@ private:
 
     /// Normalized centroid / finger delta magnitude gate (bridge pan + batch pan).
     static constexpr float kTouchDeadzone = 0.00006f;
+    /// Ignore unmodified camera wheel briefly after batched two-finger pan applies (trackpad inertia).
+    static constexpr Uint64 kWheelSuppressAfterPanApplyMs = 220;
+    /// After multi-touch drops below 2 (lift); inertia may use non-`SDL_TOUCH_MOUSEID` wheel `which`.
+    static constexpr Uint64 kWheelSuppressAfterMultiTouchLiftMs = 400;
 
     void clearTouchState();
     void beginTouchPanAccumForFrame();
