@@ -34,6 +34,10 @@ private:
     float touchPanCentroidStartY = 0.0f;
     bool touchPanHaveCentroidAnchor = false;
     bool touchPanBlockedByWheelModsThisPass = false;
+    /// True if `activeTouches` ever had ≥2 contacts while processing the current `handleEvents` drain.
+    /// Used so `shouldSuppressRedundantTrackpadScroll` still drops duplicate wheel when contact count is
+    /// momentarily inconsistent with SDL touch queries at wheel handling time.
+    bool multiFingerSeenThisEventDrain = false;
     /// Processed after draining the event queue so FINGER* updates `activeTouches` before suppress checks.
     std::vector<SDL_Event> pendingMouseWheel;
     /// Alt-wheel orbit has no button-up event; snap once after the wheel batch has been applied.

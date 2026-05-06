@@ -78,6 +78,7 @@ void Input::clearTouchState()
 
 void Input::beginTouchPanAccumForFrame()
 {
+    multiFingerSeenThisEventDrain = false;
     touchPanBlockedByWheelModsThisPass = false;
     touchPanHaveCentroidAnchor = false;
     if (activeTouches.size() >= 2U)
@@ -187,7 +188,7 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
     {
         return false;
     }
-    return activeTouches.size() >= 2U || sdlHasMultiTouchContact();
+    return activeTouches.size() >= 2U || sdlHasMultiTouchContact() || multiFingerSeenThisEventDrain;
 }
 
 void Input::mouseGestures(const SDL_Event &event)
@@ -358,6 +359,8 @@ bool Input::processEvent(const SDL_Event &event)
             fingerArrivalOrder.push_back(tf.fingerID);
         }
         activeTouches[tf.fingerID] = Touch{0.0f, 0.0f, tf.x, tf.y};
+        if (activeTouches.size() >= 2U || sdlHasMultiTouchContact())
+            multiFingerSeenThisEventDrain = true;
         ensureTouchPanCentroidAnchor();
         break;
     }
@@ -368,6 +371,8 @@ bool Input::processEvent(const SDL_Event &event)
         fingerArrivalOrder.erase(
             std::remove(fingerArrivalOrder.begin(), fingerArrivalOrder.end(), tf.fingerID),
             fingerArrivalOrder.end());
+        if (activeTouches.size() >= 2U || sdlHasMultiTouchContact())
+            multiFingerSeenThisEventDrain = true;
         break;
     }
     case SDL_EVENT_FINGER_MOTION:
@@ -385,6 +390,8 @@ bool Input::processEvent(const SDL_Event &event)
             }
         }
         activeTouches[tf.fingerID] = Touch{tf.dx, tf.dy, tf.x, tf.y};
+        if (activeTouches.size() >= 2U || sdlHasMultiTouchContact())
+            multiFingerSeenThisEventDrain = true;
         ensureTouchPanCentroidAnchor();
 
         const size_t nContacts = activeTouches.size();

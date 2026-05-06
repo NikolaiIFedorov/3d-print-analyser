@@ -48,3 +48,24 @@ Hit-test-any-finger was the main surprise for multi-touch; centroid is a cheap f
 ### Outcome
 
 Clean `cmake --build build --target CAD_OpenGL`. Note: unmodified touch-derived wheel is no longer globally suppressed—only when multi-contact pan would duplicate; single-finger trackpad scroll may now reach zoom/roll unless blocked by inertia / UI gates.
+
+---
+
+## 2026-05-06 — Duplicate wheel roll/zoom during two-finger pan
+
+### Problem
+
+Two-finger trackpad pan often also drove **roll** (horizontal wheel) and **zoom** (vertical wheel) because duplicate `SDL_EVENT_MOUSE_WHEEL` events (`SDL_TOUCH_MOUSEID`) were not always suppressed when multi-touch was momentarily inconsistent inside one event drain.
+
+### Approach
+
+- Track **`multiFingerSeenThisEventDrain`**: set when `activeTouches.size() >= 2` or `sdlHasMultiTouchContact()` while handling finger events in the current `handleEvents` drain (cleared at the start of each drain).
+- Extend **`shouldSuppressRedundantTrackpadScroll`** to treat that latch like multi-contact for suppression (still only `SDL_TOUCH_MOUSEID`, still never suppress physical mouse wheel `which`).
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+
+### Outcome
+
+`cmake --build build --target CAD_OpenGL` succeeded. Needs runtime confirmation on macOS trackpad (two-finger pan vs roll/zoom bleed).
