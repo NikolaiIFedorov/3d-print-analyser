@@ -589,9 +589,9 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
 
 SDL_Window *Display::InitWindow(int16_t width, int16_t height, const char *title)
 {
-    // macOS: built-in trackpad reports 2-finger drags as touch, not as mouse wheel, so we can
-    // map them to pan. Physical scroll wheels still use SDL_EVENT_MOUSE_WHEEL.
-    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, "1");
+    // `RenderingExperiments::kSdlTrackpadIsTouchOnly`: see comment on that constant (restart required).
+    SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY,
+                RenderingExperiments::kSdlTrackpadIsTouchOnly ? "1" : "0");
     SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 

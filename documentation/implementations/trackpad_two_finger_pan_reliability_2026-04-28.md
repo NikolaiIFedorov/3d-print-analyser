@@ -160,3 +160,24 @@ Intermittent roll/zoom after **file import**: `Display` calls **`SDL_FlushEvents
 ### Outcome
 
 Clean build.
+
+---
+
+## 2026-05-06 — Experiment: `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY` off
+
+### Problem / goal
+
+Dual **finger + wheel** trackpad streams remained hard to stabilize; try **mouse-emulated** trackpad (`hint` `"0"`).
+
+### Approach
+
+- **`RenderingExperiments::kSdlTrackpadIsTouchOnly`** (default **`false`**) drives **`SDL_SetHint(SDL_HINT_TRACKPAD_IS_TOUCH_ONLY, …)`** in **`Display::InitWindow`**. Set to **`true`** to restore prior touch-only trackpad behavior. **Restart app** after change.
+
+### Files
+
+- `include/RenderingExperiments.hpp`
+- `src/display/display.cpp`
+
+### Outcome
+
+Build verified. Expect **no two-finger touch-centroid pan** when `false`; use **RMB/MMB + wheel + modifiers** for navigation.
