@@ -39,6 +39,9 @@ private:
     /// Used so `shouldSuppressRedundantTrackpadScroll` still drops duplicate wheel when contact count is
     /// momentarily inconsistent with SDL touch queries at wheel handling time.
     bool multiFingerSeenThisEventDrain = false;
+    /// True if incremental two-finger pan applied `Display::Pan` during this `handleEvents` drain.
+    /// Suppresses duplicate `SDL_TOUCH_MOUSEID` wheel even when finger-contact snapshots disagree mid-gesture.
+    bool touchPanAppliedThisEventDrain = false;
     /// Processed after draining the event queue so FINGER* updates `activeTouches` before suppress checks.
     std::vector<SDL_Event> pendingMouseWheel;
     /// Alt-wheel orbit has no button-up event; snap once after the wheel batch has been applied.

@@ -78,6 +78,7 @@ void Input::clearTouchState()
 void Input::beginTouchPanAccumForFrame()
 {
     multiFingerSeenThisEventDrain = false;
+    touchPanAppliedThisEventDrain = false;
     touchPanHaveCentroidAnchor = false;
     if (activeTouches.size() >= 2U)
     {
@@ -163,6 +164,7 @@ void Input::tryApplyIncrementalTwoFingerPan()
     }
     const float s = display->mouseSensitivity / 30.0f;
     display->Pan(dnx * s, dny * s, true);
+    touchPanAppliedThisEventDrain = true;
     touchPanPrevCentroidX = cx;
     touchPanPrevCentroidY = cy;
     const Uint64 until = SDL_GetTicks() + kWheelSuppressAfterPanApplyMs;
@@ -207,7 +209,8 @@ bool Input::shouldSuppressRedundantTrackpadScroll(const SDL_Event &event) const
     {
         return false;
     }
-    return activeTouches.size() >= 2U || sdlHasMultiTouchContact() || multiFingerSeenThisEventDrain;
+    return activeTouches.size() >= 2U || sdlHasMultiTouchContact() || multiFingerSeenThisEventDrain
+           || touchPanAppliedThisEventDrain;
 }
 
 void Input::mouseGestures(const SDL_Event &event)

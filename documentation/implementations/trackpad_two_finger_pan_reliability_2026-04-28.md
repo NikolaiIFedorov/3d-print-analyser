@@ -113,3 +113,24 @@ After suppress/inertia fixes, **changing pan direction** could feel odd: **batch
 ### Outcome
 
 Clean build. More `Pan()` calls per gesture (per finger motion); acceptable for navigation.
+
+---
+
+## 2026-05-06 — Scroll bleed after incremental pan
+
+### Problem
+
+Incremental **`tryApplyIncrementalTwoFingerPan`** can advance **`touchPanPrevCentroid`** without **`multiFingerSeenThisEventDrain`** / SDL multi-contact lining up with **`shouldSuppressRedundantTrackpadScroll`** at wheel handling time, so duplicate **`SDL_TOUCH_MOUSEID`** zoom/roll leaked again during two-finger pan.
+
+### Approach
+
+- **`touchPanAppliedThisEventDrain`**: set when **`Display::Pan`** runs from incremental two-finger pan in the current drain; cleared in **`beginTouchPanAccumForFrame`**.
+- Extend **`shouldSuppressRedundantTrackpadScroll`** (still **`SDL_TOUCH_MOUSEID`**, no modifiers) to treat this latch like multi-contact.
+
+### Files
+
+- `src/input/Input.cpp`, `Input.hpp`
+
+### Outcome
+
+Clean build; runtime check on macOS trackpad recommended.
