@@ -183,3 +183,17 @@
 
 ### Mini retrospective
 - Root cause was layout measuring a different string than paint; aligning buffer + width removed the overlap without new layout constants.
+
+## 2026-05-07 — Calibrate committed edge pick: show edge highlight, not face fill
+
+### Problem
+- After picking an edge (elephant’s foot / cap edge workflow), the mesh still drew `appendFaceTris` for the stored owning face, so the selection read visually as a face pick even though `calibEdgePoint1/2` was set (edge lines were easy to miss under the face tint).
+
+### Approach
+- Match hover behaviour: if a slot has a committed edge (`calibEdgePoint* != nullptr`), skip face triangle highlights for that slot; keep `appendEdgeLines` for the edge.
+
+### Outcome
+- Edge-only visual for edge-snapped committed picks; face-only picks unchanged.
+
+### Mini retrospective
+- Reused the same rule already documented for hover (`calibrateEdgeHover`); committed state had been left drawing both layers.

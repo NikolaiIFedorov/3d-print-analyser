@@ -809,7 +809,7 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     if (!RenderingExperiments::kDebugSkipSceneWireframe)
         renderer.RenderWireframe();
-    // Calibrate: thick accent lines when committed picks still reference an edge (legacy); new picks are face-only.
+    // Calibrate: thick accent lines for committed edge picks (and any other pick-highlight lines).
     renderer.RenderPickHighlightLines(6.0f);
 
     // Grid after solid + wireframe: stencil==0 only so lines do not bleed onto filled surfaces;
@@ -1926,8 +1926,13 @@ void Display::RebuildPickHighlightMesh()
         }
     };
 
-    appendFaceTris(calibFacePoint1, 1.0f, 0.72f);
-    appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
+    // Face-only committed picks get the face tint. Edge-snapped picks store the owning face for
+    // geometry logic but drawing both reads as "face selected" (hover already suppresses face fill
+    // when hoverPickEdge is set — mirror that for committed calibEdgePoint1/2).
+    if (calibFacePoint1 != nullptr && calibEdgePoint1 == nullptr)
+        appendFaceTris(calibFacePoint1, 1.0f, 0.72f);
+    if (calibFacePoint2 != nullptr && calibEdgePoint2 == nullptr)
+        appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
 
     const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
     const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
