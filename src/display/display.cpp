@@ -880,6 +880,7 @@ void Display::Render()
         }
         uiRenderer.MarkDirty();
         SyncToolbarToolVisualState();
+        RefreshUIMinWindowSize();
     }
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -3455,6 +3456,7 @@ void Display::InitUI()
                     }
                     SyncToolbarToolVisualState();
                     renderDirty = true;
+                    RefreshUIMinWindowSize();
                     return;
                 }
                 activeTool = ActiveTool::Analysis;
@@ -3479,6 +3481,7 @@ void Display::InitUI()
                     ClearCalibrateFacePicks();
                     SyncToolbarToolVisualState();
                     renderDirty = true;
+                    RefreshUIMinWindowSize();
                     return;
                 }
                 activeTool = ActiveTool::Calibrate;
@@ -4803,7 +4806,13 @@ void Display::InitUI()
         RefreshCalibDerivedRowVisible();
     }
 
-    // Compute minimum grid extent and enforce as SDL minimum window size
+    RefreshUIMinWindowSize();
+}
+
+void Display::RefreshUIMinWindowSize()
+{
+    if (!window)
+        return;
     uiRenderer.ComputeMinGridSize();
     const auto &grid = uiRenderer.GetGrid();
     SDL_SetWindowMinimumSize(window, grid.MinWidthPixels(), grid.MinHeightPixels());

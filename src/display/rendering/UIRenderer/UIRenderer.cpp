@@ -538,6 +538,18 @@ void UIRenderer::ResolveAnchors()
         float pad = item.padding;
         float mar = item.margin;
 
+        // Hidden root panels (e.g. inactive tool) must not contribute header/subtitle/child
+        // text width to layout — long single-line descriptions would otherwise inflate
+        // `ComputeMinGridSize` / SDL minimum window width while the panel is off-screen.
+        if (!item.visible)
+        {
+            item.box.contentWidth = 0.0f;
+            item.box.contentHeight = 0.0f;
+            item.box.outerWidth = 2.0f * mar + 2.0f * pad;
+            item.box.outerHeight = 2.0f * mar + 2.0f * pad;
+            return;
+        }
+
         for (auto &child : item.children)
             std::visit([&](auto &el)
                        { if constexpr (std::is_same_v<std::decay_t<decltype(el)>, Section>) computeSectionBox(el); else computeParagraphBox(el); }, child);

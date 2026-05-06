@@ -137,6 +137,8 @@ private:
     int16_t windowWidth;
     int16_t windowHeight;
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
+    /// Recompute UI-derived minimum window size (after tool/panel visibility changes).
+    void RefreshUIMinWindowSize();
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;
