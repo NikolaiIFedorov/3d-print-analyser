@@ -1856,9 +1856,9 @@ void UIRenderer::Render()
     }
 
     // --- Debug layout overlay ---
-    // One **content** outline per element (margin/padding inset from `UIElement` grid), with a small
-    // per-layer inset so nested Section / header / Paragraph boxes do not share the same pixel edges
-    // (which used to read as a messy stack when outer+inner rects were both drawn).
+    // Box model in grid cells: outer allocation (col,row,colSpan,rowSpan) → margin inset → padding inset → content.
+    // Draw margin boundary, padding band (fill + stroke), and content outline so padding reads as the region
+    // between the blue padding box and the green content box. Per-layer nudge keeps nested elements separable.
     if (debugLayout)
     {
         ImDrawList *dl = ImGui::GetForegroundDrawList();
@@ -1868,21 +1868,80 @@ void UIRenderer::Render()
             if (!item.visible)
                 return;
 
-            float cx0 = grid.ToPixelsX(item.col + item.margin + item.padding);
-            float cy0 = grid.ToPixelsY(item.row + item.margin + item.padding);
-            float cx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin - item.padding);
-            float cy1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin - item.padding);
+            const float layerInset = 0.5f + static_cast<float>(std::max(0, item.layer)) * 0.85f;
+            const int aStroke = 210 - std::min(70, item.layer * 18);
+            const int aFillPad = std::max(18, 55 - item.layer * 10);
 
-            const float inset = 0.5f + static_cast<float>(std::max(0, item.layer)) * 0.85f;
-            cx0 += inset;
-            cy0 += inset;
-            cx1 -= inset;
-            cy1 -= inset;
-            if (cx1 <= cx0 + 2.0f || cy1 <= cy0 + 2.0f)
+            auto pxBox = [&](float c0, float r0, float cw, float rh) -> std::optional<std::array<float, 4>>
+            {
+                float x0 = grid.ToPixelsX(c0) + layerInset;
+                float y0 = grid.ToPixelsY(r0) + layerInset;
+                float x1 = grid.ToPixelsX(c0 + cw) - layerInset;
+                float y1 = grid.ToPixelsY(r0 + rh) - layerInset;
+                if (x1 <= x0 + 0.5f || y1 <= y0 + 0.5f)
+                    return std::nullopt;
+                return std::array<float, 4>{x0, y0, x1, y1};
+            };
+
+            const float m = item.margin;
+            const float p = item.padding;
+
+            // 1) Outer footprint (margin outer). Skip when margin is zero — same as step 2.
+            if (m > 1.0e-5f)
+            {
+                if (auto o = pxBox(item.col, item.row, item.colSpan, item.rowSpan))
+                {
+                    const auto &[ox0, oy0, ox1, oy1] = *o;
+                    dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(200, 190, 120, aStroke), 0.0f, 0, 1.0f);
+                }
+            }
+
+            // 2) Inside margin: padding + content (same as background / localGrid outer)
+            const float innerW = item.colSpan - 2.0f * m;
+            const float innerH = item.rowSpan - 2.0f * m;
+            if (innerW <= 0.0f || innerH <= 0.0f)
                 return;
 
-            const int a = 210 - std::min(70, item.layer * 18);
-            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(40, 190, 150, a), 0.0f, 0, 1.25f);
+            if (auto padOuter = pxBox(item.col + m, item.row + m, innerW, innerH))
+            {
+                const auto &[px0, py0, px1, py1] = *padOuter;
+                dl->AddRect(ImVec2(px0, py0), ImVec2(px1, py1), IM_COL32(130, 170, 255, aStroke), 0.0f, 0, 1.1f);
+            }
+
+            // 3) Padding band: light fill in the ring between padding outer and content
+            const float contentW = innerW - 2.0f * p;
+            const float contentH = innerH - 2.0f * p;
+            if (contentW > 0.0f && contentH > 0.0f && p > 1.0e-5f)
+            {
+                if (auto inner = pxBox(item.col + m + p, item.row + m + p, contentW, contentH))
+                {
+                    const auto &[ix0, iy0, ix1, iy1] = *inner;
+                    if (auto outer = pxBox(item.col + m, item.row + m, innerW, innerH))
+                    {
+                        const auto &[ox0, oy0, ox1, oy1] = *outer;
+                        const float t = 0.5f; // min pixel thickness to draw strip fills
+                        if (ix0 - ox0 >= t)
+                            dl->AddRectFilled(ImVec2(ox0, oy0), ImVec2(ix0, oy1), IM_COL32(100, 140, 230, aFillPad));
+                        if (ox1 - ix1 >= t)
+                            dl->AddRectFilled(ImVec2(ix1, oy0), ImVec2(ox1, oy1), IM_COL32(100, 140, 230, aFillPad));
+                        if (iy0 - oy0 >= t)
+                            dl->AddRectFilled(ImVec2(ix0, oy0), ImVec2(ix1, iy0), IM_COL32(100, 140, 230, aFillPad));
+                        if (oy1 - iy1 >= t)
+                            dl->AddRectFilled(ImVec2(ix0, iy1), ImVec2(ix1, oy1), IM_COL32(100, 140, 230, aFillPad));
+                    }
+                }
+            }
+
+            // 4) Content outline
+            if (contentW <= 0.0f || contentH <= 0.0f)
+                return;
+            if (auto c = pxBox(item.col + m + p, item.row + m + p, contentW, contentH))
+            {
+                const auto &[cx0, cy0, cx1, cy1] = *c;
+                if (cx1 <= cx0 + 2.0f || cy1 <= cy0 + 2.0f)
+                    return;
+                dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(40, 190, 150, aStroke), 0.0f, 0, 1.25f);
+            }
         };
 
         for (const auto &panel : panels)

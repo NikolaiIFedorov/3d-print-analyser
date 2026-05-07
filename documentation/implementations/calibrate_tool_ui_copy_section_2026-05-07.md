@@ -30,3 +30,12 @@
 **Change:** For headed sections, `outerWidth` / `outerHeight` now include **`2*margin + 2*padding + content`** (same idea as `RootPanel`), and `placeSectionChildren` uses **`insetX = margin + padding`** with the same vertical start as before. Layout, min grid size, and debug rects stay consistent.
 
 **Files:** `UIRenderer.cpp` (`computeSectionBox`, `placeSectionChildren`).
+
+## Debug overlay — box model (margin / padding / content)
+
+- **Yellow** stroke: margin outer (full `col`/`colSpan` footprint); skipped when `margin == 0`.
+- **Blue** stroke: inside margin — boundary of padding + content (matches localGrid outer).
+- **Blue** fill: padding band only (four strips when `padding > 0` and thick enough in pixels).
+- **Green** stroke: content box (`margin + padding` inset).
+
+Per-layer pixel nudge unchanged so nested elements stay separable.
