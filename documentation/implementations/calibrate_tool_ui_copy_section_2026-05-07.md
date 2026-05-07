@@ -31,11 +31,10 @@
 
 **Files:** `UIRenderer.cpp` (`computeSectionBox`, `placeSectionChildren`).
 
-## Debug overlay — box model (margin / padding / content)
+## Debug overlay — box model (simplified)
 
-- **Yellow** stroke: margin outer (full `col`/`colSpan` footprint); skipped when `margin == 0`.
-- **Blue** stroke: inside margin — boundary of padding + content (matches localGrid outer).
-- **Blue** fill: padding band only (four strips when `padding > 0` and thick enough in pixels).
-- **Green** stroke: content box (`margin + padding` inset).
+- **Blue** stroke: outer allocation (margin outline).
+- **Blue** fill: band between outer and **green** content outline = margin + padding combined (same read as the older overlay).
+- **Green** stroke: content box.
 
-Per-layer pixel nudge unchanged so nested elements stay separable.
+Per-layer pixel nudge unchanged.
