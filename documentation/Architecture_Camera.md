@@ -82,12 +82,7 @@ ViewportRenderer / Renderer  — upload view + projection matrices to GPU unifor
 ### Navigation Math Details
 
 #### Orbit
-```
-axis = normalize(right * deltaY + up * deltaX)   // perpendicular to drag in screen space
-rotation = angleAxis(-magnitude, axis)
-orientation = normalize(rotation * orientation)
-```
-The rotation is applied as a pre-multiplication so the axis is always expressed in camera space, producing intuitive "tumble" behaviour.
+Horizontal drag rotates around the camera's **up** axis (`orientation * (0,1,0)` in world space — vertical on screen when roll is small); vertical drag rotates around **right** after that yaw (`orientation' * (1,0,0)`). Quaternion composition: `orientation = normalize(qPitch * qYaw * orientation)` with `qYaw = angleAxis(-deltaX, up)` and `qPitch = angleAxis(-deltaY, rightAfterYaw)`. This keeps pointer motion aligned with on-screen rotation at arbitrary poses (the prior world-+Z-only yaw felt inverted after tilting).
 
 #### Pan
 ```
@@ -96,7 +91,7 @@ target += up    * (deltaY * scaleY)
 ```
 Scale factors equal `orthoSize * aspectRatio` (X) and `orthoSize` (Y) so pan speed is proportional to the visible world area — no pixel-size recalibration needed when zooming.
 
-When `scroll = false` (right-click drag via `Display::Pan`), a `snapInput` pre-filter axis-aligns the delta when one axis is dominant (ratio ≥ 2:1), producing clean horizontal/vertical pan lanes.
+When `scroll = false` (right-click drag via `Display::Pan`), a `snapInput` pre-filter axis-aligns the delta when one axis is dominant (ratio ≥ 2:1), producing clean horizontal/vertical pan lanes. Snapping applies only after cumulative scaled motion exceeds a small floor so the first pixels are not forced into a lane.
 
 #### Zoom
 ```
@@ -168,7 +163,7 @@ No new dependencies are introduced. GLM is already a core project dependency.
 |----------|----------------------|-----------------|-----------|
 | All members `public` | Private members with accessors | Public fields | Convenience during development; renderers read several fields in `SetCamera`; reduces boilerplate |
 | `cameraDirty` deferred upload | Immediate upload in each nav call | Deferred via dirty flag | Avoids redundant GPU uploads when multiple events arrive per frame |
-| `snapInput` axis-alignment in `Display::Pan` | No snapping | Snap when one axis is dominant | Prevents diagonal drift during intentional horizontal/vertical pan |
+| `snapInput` axis-alignment in `Display::Pan` | No snapping | Snap when one axis is dominant (after small movement floor) | Prevents diagonal drift during intentional horizontal/vertical pan; floor avoids a sticky start |
 | `nearPlane = -100000` / `farPlane = 100000` | Smaller symmetric range | ±100 000 | Ensures axes grid (±10 000 units) and arbitrarily large models are never near-clipped; linear ortho depth precision remains ample |
 | `distance` retained in ortho | Remove `distance` (irrelevant for ortho) | Kept | `GetPosition()` is used by `GetViewMatrix`; retaining distance keeps the camera outside the model for correct depth sorting in the depth buffer |
 

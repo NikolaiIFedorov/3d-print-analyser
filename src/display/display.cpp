@@ -54,6 +54,10 @@ namespace
 
 constexpr float kCalibSpanLabelNdcEps = 0.004f;
 
+/// Pan axis-snapping (`snapInput`) stays off until movement exceeds this so the first few pixels are not
+/// forced into pure horizontal/vertical lanes (same units as `Pan` deltas after mouse sensitivity scale).
+constexpr float kPanSnapTravelFloor = 3.5e-4f;
+
 /// Font for custom `imguiContent` rows: matches `UIRenderer` (pixel stack when pushed, else pixel/body).
 [[nodiscard]] inline ImFont *FontOrInteractiveRow(const UIRenderer &renderer, ImFont *settingsBodyFont)
 {
@@ -2552,6 +2556,8 @@ void Display::RefreshCalibCompensation()
 
 void Display::snapInput(float &x, float &y)
 {
+    if (std::hypot(x, y) < kPanSnapTravelFloor)
+        return;
     if (std::abs(x) <= std::abs(y) * 0.5f)
         x = 0;
     else if (std::abs(y) <= std::abs(x) * 0.5f)
