@@ -510,15 +510,20 @@ void UIRenderer::ResolveAnchors()
         if (!item.collapsed)
         {
             bool isFirst = true;
+            float prevVisibleMargin = 0.0f;
             for (auto &child : item.children)
             {
                 if (!child.visible)
                     continue;
-                // tightHeader: absorb only the first child's top margin (header margins are kept intact).
+                // Match `placeSectionChildren`: tightHeader shortens first body row; noChildSplitters
+                // merges adjacent paragraph margins so section height matches stacked placement.
                 float childH = (isFirst && item.tightHeader) ? child.box.outerHeight - child.margin
-                                                             : child.box.outerHeight;
+                                                           : child.box.outerHeight;
+                if (!isFirst && item.noChildSplitters)
+                    contentH -= std::min(prevVisibleMargin, child.margin);
                 contentH += childH;
                 contentW = std::max(contentW, child.box.outerWidth);
+                prevVisibleMargin = child.margin;
                 isFirst = false;
             }
         }
@@ -1862,7 +1867,7 @@ void UIRenderer::Render()
     {
         ImDrawList *dl = ImGui::GetForegroundDrawList();
 
-        auto drawDebugElement = [&](const UIElement &item)
+        auto drawDebugElement = [&](const UIElement &item, std::optional<float> paddingOverride = std::nullopt)
         {
             if (!item.visible)
                 return;
@@ -1886,7 +1891,7 @@ void UIRenderer::Render()
             };
 
             const float m = item.margin;
-            const float p = item.padding;
+            const float p = paddingOverride.value_or(item.padding);
             const float contentW = item.colSpan - 2.0f * m - 2.0f * p;
             const float contentH = item.rowSpan - 2.0f * m - 2.0f * p;
 
@@ -1947,7 +1952,7 @@ void UIRenderer::Render()
                     {
                         if (!el.visible)
                             return;
-                        drawDebugElement(el);
+                        drawDebugElement(el, el.header.has_value() ? std::nullopt : std::optional<float>(0.0f));
                         if (el.header.has_value())
                             drawDebugElement(el.header->para);
                         for (const auto &para : el.children)

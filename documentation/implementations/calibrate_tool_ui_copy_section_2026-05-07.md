@@ -38,3 +38,13 @@
 - **Green** stroke: content box.
 
 Per-layer pixel nudge unchanged.
+
+## Prerequisites bottom gap (2026-05-07)
+
+**Symptom:** Extra space / thick blue band below the last prerequisite row in debug.
+
+**Cause (not extra paragraph padding):**
+1. **`computeSectionBox` vs `placeSectionChildren`:** With `noChildSplitters`, stacked paragraphs are placed with **collapsed margins** (`row -= min(prevMargin, child.margin)`), but section height was **`sum(child.outerHeight)`**, so the section `rowSpan` was **taller** than the stacked children — empty band under the last row (looked like “bottom padding” in the overlay).
+2. **Debug:** Headerless `Section` still has default `padding` in data, but layout does **not** inset children by it; debug drew a false **green** content inset → misleading blue fill on the section box.
+
+**Fix:** `computeSectionBox` applies the same margin merge as placement when `noChildSplitters`; debug uses **padding = 0** for sections without a header.
