@@ -1855,8 +1855,9 @@ void UIRenderer::Render()
     }
 
     // --- Debug layout overlay ---
-    // Draws **outer** grid bounds (blue) and **content** bounds after margin+padding (green). With nested
-    // Sections (header + rows), boxes stack at shared edges — that overlap is expected, not a layout bug.
+    // One **content** outline per element (margin/padding inset from `UIElement` grid), with a small
+    // per-layer inset so nested Section / header / Paragraph boxes do not share the same pixel edges
+    // (which used to read as a messy stack when outer+inner rects were both drawn).
     if (debugLayout)
     {
         ImDrawList *dl = ImGui::GetForegroundDrawList();
@@ -1866,18 +1867,21 @@ void UIRenderer::Render()
             if (!item.visible)
                 return;
 
-            float ox0 = grid.ToPixelsX(item.col);
-            float oy0 = grid.ToPixelsY(item.row);
-            float ox1 = grid.ToPixelsX(item.col + item.colSpan);
-            float oy1 = grid.ToPixelsY(item.row + item.rowSpan);
-
             float cx0 = grid.ToPixelsX(item.col + item.margin + item.padding);
             float cy0 = grid.ToPixelsY(item.row + item.margin + item.padding);
             float cx1 = grid.ToPixelsX(item.col + item.colSpan - item.margin - item.padding);
             float cy1 = grid.ToPixelsY(item.row + item.rowSpan - item.margin - item.padding);
 
-            dl->AddRect(ImVec2(ox0, oy0), ImVec2(ox1, oy1), IM_COL32(0, 140, 255, 200), 0.0f, 0, 1.0f);
-            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(0, 210, 90, 200), 0.0f, 0, 1.0f);
+            const float inset = 0.5f + static_cast<float>(std::max(0, item.layer)) * 0.85f;
+            cx0 += inset;
+            cy0 += inset;
+            cx1 -= inset;
+            cy1 -= inset;
+            if (cx1 <= cx0 + 2.0f || cy1 <= cy0 + 2.0f)
+                return;
+
+            const int a = 210 - std::min(70, item.layer * 18);
+            dl->AddRect(ImVec2(cx0, cy0), ImVec2(cx1, cy1), IM_COL32(40, 190, 150, a), 0.0f, 0, 1.25f);
         };
 
         for (const auto &panel : panels)

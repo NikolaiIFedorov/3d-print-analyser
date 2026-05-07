@@ -54,6 +54,16 @@ namespace
 
 constexpr float kCalibSpanLabelNdcEps = 0.004f;
 
+/// Font for custom `imguiContent` rows: matches `UIRenderer` (pixel stack when pushed, else pixel/body).
+[[nodiscard]] inline ImFont *FontOrInteractiveRow(const UIRenderer &renderer, ImFont *settingsBodyFont)
+{
+    if (ImFont *f = ImGui::GetFont())
+        return f;
+    if (ImFont *f = renderer.GetPixelImFont())
+        return f;
+    return settingsBodyFont;
+}
+
 /// Full-row hit target; clipboard is **value only** when `valueStr` is non-empty, otherwise the label (status text).
 void CalibDrawCopyableResultRow(ImDrawList *dl, float x0, float y, float w, float rowH, float pad, ImFont *bodyFont,
                                 glm::vec4 tcLabel, glm::vec4 tcValue, const char *label, const char *valueStr,
@@ -3677,6 +3687,9 @@ void Display::InitUI()
             ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
             float originX = rowOrigin.x;
 
+            ImFont *rowFont = FontOrInteractiveRow(uiRenderer, nullptr);
+            const float rowFs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
+
             // ── Left nav zone: InvisibleButton placed BEFORE DragFloat ──────────
             // Compute left zone width from the same string we draw (zero-count uses
             // "No…" + plural, which is wider than "0" + singular — mismatch used to
@@ -3687,7 +3700,9 @@ void Display::InitUI()
                          fr.count > 1 ? plural : "");
             else
                 snprintf(countBuf, sizeof(countBuf), "No%s%s", countLabel, plural);
-            float leftW = iconOffset + ImGui::CalcTextSize(countBuf).x + normalPad * 2.5f;
+            float leftW = iconOffset + (rowFont ? rowFont->CalcTextSizeA(rowFs, FLT_MAX, 0.0f, countBuf).x
+                                                     : ImGui::CalcTextSize(countBuf).x) +
+                           normalPad * 2.5f;
             leftW = std::min(leftW, w * 0.65f); // never crowd out the param zone
 
             bool navFired = false;
@@ -3872,12 +3887,24 @@ void Display::InitUI()
             ImU32 dimColZero = ImGui::GetColorU32(ImVec4(dimLow.r, dimLow.g, dimLow.b, dimLow.a * 0.5f));
 
             // Left label — always visible (even during text edit); countBuf matches layout above.
-            if (fr.count > 0)
-                ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + iconOffset + normalPad, ty), flawCol, countBuf);
+            if (rowFont)
+            {
+                if (fr.count > 0)
+                    ImGui::GetWindowDrawList()->AddText(rowFont, rowFs, ImVec2(originX + iconOffset + normalPad, ty),
+                                                        flawCol, countBuf);
+                else
+                    ImGui::GetWindowDrawList()->AddText(rowFont, rowFs, ImVec2(originX + iconOffset + normalPad, ty),
+                                                        dimColZero, countBuf);
+            }
             else
-                ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(originX + iconOffset + normalPad, ty), dimColZero, countBuf);
+            {
+                if (fr.count > 0)
+                    ImGui::GetWindowDrawList()->AddText(
+                        ImVec2(originX + iconOffset + normalPad, ty), flawCol, countBuf);
+                else
+                    ImGui::GetWindowDrawList()->AddText(
+                        ImVec2(originX + iconOffset + normalPad, ty), dimColZero, countBuf);
+            }
 
             // Right side: readout and edit hints — align to param zone right edge (inside ImGui frame)
             const char *editUnitHint =
@@ -3895,16 +3922,25 @@ void Display::InitUI()
                     snprintf(valBuf, sizeof(valBuf), "%.2f %s", param, unit);
                 else
                     snprintf(valBuf, sizeof(valBuf), "%.1f %s", param, unit);
-                ImVec2 vs = ImGui::CalcTextSize(valBuf);
+                ImVec2 vs = rowFont ? rowFont->CalcTextSizeA(rowFs, FLT_MAX, 0.0f, valBuf) : ImGui::CalcTextSize(valBuf);
                 ImU32 valCol = (fr.count > 0) ? dimCol : dimColZero;
-                ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(paramZoneRight - normalPad - vs.x, ty), valCol, valBuf);
+                if (rowFont)
+                    ImGui::GetWindowDrawList()->AddText(rowFont, rowFs,
+                                                        ImVec2(paramZoneRight - normalPad - vs.x, ty), valCol, valBuf);
+                else
+                    ImGui::GetWindowDrawList()->AddText(
+                        ImVec2(paramZoneRight - normalPad - vs.x, ty), valCol, valBuf);
             }
             else if (!skipEditUnitOverlay)
             {
-                ImVec2 us = ImGui::CalcTextSize(editUnitHint);
-                ImGui::GetWindowDrawList()->AddText(
-                    ImVec2(paramZoneRight - normalPad - us.x, ty), dimCol, editUnitHint);
+                ImVec2 us =
+                    rowFont ? rowFont->CalcTextSizeA(rowFs, FLT_MAX, 0.0f, editUnitHint) : ImGui::CalcTextSize(editUnitHint);
+                if (rowFont)
+                    ImGui::GetWindowDrawList()->AddText(rowFont, rowFs,
+                                                        ImVec2(paramZoneRight - normalPad - us.x, ty), dimCol, editUnitHint);
+                else
+                    ImGui::GetWindowDrawList()->AddText(
+                        ImVec2(paramZoneRight - normalPad - us.x, ty), dimCol, editUnitHint);
             }
 
             if (navFired)
@@ -3988,12 +4024,15 @@ void Display::InitUI()
                                 const char *dragId,
                                 std::function<void()> onChange)
     {
-        line.getMinContentWidthPx = [settingsBodyFont, label]() -> float
+        line.getMinContentWidthPx = [this, settingsBodyFont, label]() -> float
         {
-            if (!settingsBodyFont)
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                f = settingsBodyFont;
+            if (!f)
                 return 0.0f;
             float pad = ImGui::GetStyle().FramePadding.x;
-            float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x;
+            float labelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, label).x;
             constexpr float minValueAreaW = 40.0f; // room for value text + drag affordance
             constexpr float gap = 24.0f;
             return pad * 2.0f + labelW + gap + minValueAreaW;
@@ -4021,7 +4060,8 @@ void Display::InitUI()
             ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
             float originX = rowOrigin.x;
 
-            float labelFontSz = settingsBodyFont ? settingsBodyFont->FontSize : ImGui::GetFont()->FontSize;
+            ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+            const float fs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
 
             bool showEdit = dragState->editing || dragState->focusPending;
 
@@ -4037,9 +4077,8 @@ void Display::InitUI()
             if (showEdit)
             {
                 // Edit mode: right zone only so ImGui cursor text doesn't overlap the label.
-                float labelTextW = settingsBodyFont
-                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
-                                       : ImGui::CalcTextSize(label).x;
+                float labelTextW =
+                    rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, label).x : ImGui::CalcTextSize(label).x;
                 float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
                 dragOffsetX = leftW;
                 dragW = w - leftW;
@@ -4082,13 +4121,9 @@ void Display::InitUI()
             // Label: always drawn over the drag widget.
             ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
             {
-                float ty_label = bottom - labelFontSz;
-                if (settingsBodyFont)
-                {
-                    ImGui::PushFont(settingsBodyFont);
-                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
-                    ImGui::PopFont();
-                }
+                float ty_label = bottom - fs;
+                if (rowFont)
+                    dl->AddText(rowFont, fs, ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
                 else
                     dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
             }
@@ -4098,10 +4133,13 @@ void Display::InitUI()
             {
                 char valBuf[32];
                 snprintf(valBuf, sizeof(valBuf), valueFmt, param);
-                ImVec2 vs = ImGui::CalcTextSize(valBuf);
-                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImVec2 vs = rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, valBuf) : ImGui::CalcTextSize(valBuf);
+                float ty_value = bottom - fs;
                 ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+                if (rowFont)
+                    dl->AddText(rowFont, fs, ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
+                else
+                    dl->AddText(ImVec2(originX + w - pad - vs.x, ty_value), valCol, valBuf);
             }
 
             if (changed)
@@ -4120,12 +4158,15 @@ void Display::InitUI()
                                       const char *dragId,
                                       std::function<void()> onChange)
     {
-        line.getMinContentWidthPx = [settingsBodyFont, label]() -> float
+        line.getMinContentWidthPx = [this, settingsBodyFont, label]() -> float
         {
-            if (!settingsBodyFont)
+            ImFont *f = uiRenderer.GetPixelImFont();
+            if (!f)
+                f = settingsBodyFont;
+            if (!f)
                 return 0.0f;
             float pad = ImGui::GetStyle().FramePadding.x;
-            float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x;
+            float labelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, label).x;
             constexpr float minValueAreaW = 56.0f;
             constexpr float gap = 24.0f;
             return pad * 2.0f + labelW + gap + minValueAreaW;
@@ -4157,7 +4198,8 @@ void Display::InitUI()
             ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
             float originX = rowOrigin.x;
 
-            float labelFontSz = settingsBodyFont ? settingsBodyFont->FontSize : ImGui::GetFont()->FontSize;
+            ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+            float labelFontSz = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
 
             bool showEdit = dragState->editing || dragState->focusPending;
 
@@ -4176,9 +4218,8 @@ void Display::InitUI()
             float dragW, dragOffsetX;
             if (showEdit)
             {
-                float labelTextW = settingsBodyFont
-                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, label).x
-                                       : ImGui::CalcTextSize(label).x;
+                float labelTextW =
+                    rowFont ? rowFont->CalcTextSizeA(labelFontSz, FLT_MAX, 0.0f, label).x : ImGui::CalcTextSize(label).x;
                 float leftW = std::min(iconOffset + pad + labelTextW + pad * 2.5f, w * 0.6f);
                 dragOffsetX = leftW;
                 dragW = w - leftW;
@@ -4282,12 +4323,8 @@ void Display::InitUI()
             ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
             {
                 float ty_label = bottom - labelFontSz;
-                if (settingsBodyFont)
-                {
-                    ImGui::PushFont(settingsBodyFont);
-                    dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
-                    ImGui::PopFont();
-                }
+                if (rowFont)
+                    dl->AddText(rowFont, labelFontSz, ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
                 else
                     dl->AddText(ImVec2(originX + iconOffset + pad, ty_label), labelCol, label);
             }
@@ -4296,18 +4333,26 @@ void Display::InitUI()
             {
                 char valBuf[48];
                 FormatLengthMmForDisplay(valBuf, sizeof(valBuf), paramMm, du);
-                ImVec2 vs = ImGui::CalcTextSize(valBuf);
-                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImVec2 vs =
+                    rowFont ? rowFont->CalcTextSizeA(labelFontSz, FLT_MAX, 0.0f, valBuf) : ImGui::CalcTextSize(valBuf);
+                float ty_value = bottom - labelFontSz;
                 ImU32 valCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                dl->AddText(ImVec2(paramZoneRight - pad - vs.x, ty_value), valCol, valBuf);
+                if (rowFont)
+                    dl->AddText(rowFont, labelFontSz, ImVec2(paramZoneRight - pad - vs.x, ty_value), valCol, valBuf);
+                else
+                    dl->AddText(ImVec2(paramZoneRight - pad - vs.x, ty_value), valCol, valBuf);
             }
             else if (!*lenText)
             {
                 const char *abbr = LengthUnitAbbreviation(du);
-                ImVec2 us = ImGui::CalcTextSize(abbr);
-                float ty_value = bottom - ImGui::GetFont()->FontSize;
+                ImVec2 us =
+                    rowFont ? rowFont->CalcTextSizeA(labelFontSz, FLT_MAX, 0.0f, abbr) : ImGui::CalcTextSize(abbr);
+                float ty_value = bottom - labelFontSz;
                 ImU32 dimU = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                dl->AddText(ImVec2(paramZoneRight - pad - us.x, ty_value), dimU, abbr);
+                if (rowFont)
+                    dl->AddText(rowFont, labelFontSz, ImVec2(paramZoneRight - pad - us.x, ty_value), dimU, abbr);
+                else
+                    dl->AddText(ImVec2(paramZoneRight - pad - us.x, ty_value), dimU, abbr);
             }
 
             if (changed)
@@ -4571,15 +4616,10 @@ void Display::InitUI()
                 glm::vec4 tcValue = Color::GetUIText(0);
                 float pad = ImGui::GetStyle().FramePadding.x;
 
-                ImFont *rowFont = ImGui::GetFont();
-                if (!rowFont)
-                    rowFont = uiRenderer.GetPixelImFont();
-                if (!rowFont)
-                    rowFont = settingsBodyFont;
-
                 UIStyle::PushInputStyle(h, tcLabel);
                 ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
 
+                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
                 const float fs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
                 float labelTextW =
                     rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Print measurement").x : ImGui::CalcTextSize("Print measurement").x;
@@ -4707,11 +4747,7 @@ void Display::InitUI()
                 ImVec2 row0 = ImGui::GetCursorScreenPos();
                 ImDrawList *dl = ImGui::GetWindowDrawList();
 
-                ImFont *rowFont = ImGui::GetFont();
-                if (!rowFont)
-                    rowFont = uiRenderer.GetPixelImFont();
-                if (!rowFont)
-                    rowFont = settingsBodyFont;
+                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
                 const float fs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
                 float lh = rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Mg").y : ImGui::GetTextLineHeight();
                 const float rowHitH = std::max(lh * 1.35f, ImGui::GetFrameHeight());

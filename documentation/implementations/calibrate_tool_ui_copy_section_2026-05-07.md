@@ -19,5 +19,6 @@
 - Follow-up pass: separate **RESULT** section, non-collapsing section headers, shorter subtitle.
 - **Assert fix:** `std::vector` copy into `UIRenderer::AddPanel` does not preserve `capacity()` on empty `children`; `Section::AddParagraph` / `RootPanel::{AddSection,AddParagraph}` now grow capacity when `size >= capacity` instead of asserting.
 - Print measurement + result rows use **`pixelImFont` via `ImGui::GetFont()`** inside `imguiContent` (same stack as renderer); idle hit target spans full row width; result clipboard copies **value string only** when present.
+- **All custom `imguiContent` rows** (Settings DragFloat / length drags, Analysis flaw rows) share `FontOrInteractiveRow()` so label + value overlays use the same interactive font as renderer-pushed `pixelImFont`.
 - **PARAMETERS** section title restored (`parametersSectionTitle = "Parameters"`).
-- **Debug layout:** removed semi-transparent margin “ring” fill so nested section/header/row outlines no longer stack muddy blue fills (comment documents expected edge overlap for outlines).
+- **Debug layout:** inner-content outline only, per-layer inset + alpha so nested boxes separate visually; removed dual outer/inner outlines and margin fill ring.
