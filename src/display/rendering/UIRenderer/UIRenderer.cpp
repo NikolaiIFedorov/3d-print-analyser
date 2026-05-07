@@ -1421,7 +1421,9 @@ void UIRenderer::Render()
             ImFont *font = (line.onClick && pixelImFont) ? pixelImFont
                            : (!line.bold && bodyImFont)  ? bodyImFont
                                                          : ImGui::GetFont();
-            float renderSize = font->FontSize * line.fontScale;
+            // Integer size + pixel-snapped Y so scaled-down body lines (e.g. prerequisite subtitles) stay crisp
+            // on bitmap-style fonts instead of sitting on fractional texel scales.
+            float renderSize = std::max(1.0f, std::round(font->FontSize * line.fontScale));
             PixelBounds ink = MeasureImGuiInkBounds(line.prefix + line.text, font);
             float inkH = (ink.valid() ? ink.height() : bearingY) * line.fontScale;
             float inkY0 = (ink.valid() ? ink.y0 : 0.0f) * line.fontScale;
@@ -1659,6 +1661,7 @@ void UIRenderer::Render()
                     }
                     // Centre the ink region in the visual slot
                     float ty = btnY + (baseH - inkH) * 0.5f - inkY0;
+                    const float tyDraw = std::round(ty);
                     ImDrawList *dl = ImGui::GetWindowDrawList();
                     float rowRadius = std::min(winW, winH) * UIStyle::FRAME_ROUNDING_RATIO;
                     // Neutral dim fill — completed step
@@ -1697,14 +1700,14 @@ void UIRenderer::Render()
                     if (!line.prefix.empty())
                     {
                         ImU32 pc = ImGui::GetColorU32(ImVec4(line.prefixColor.r, line.prefixColor.g, line.prefixColor.b, line.prefixColor.a));
-                        dl->AddText(font, renderSize, ImVec2(tx, ty), pc, line.prefix.c_str());
+                        dl->AddText(font, renderSize, ImVec2(tx, tyDraw), pc, line.prefix.c_str());
                         tx += font->CalcTextSizeA(renderSize, FLT_MAX, 0.0f, line.prefix.c_str()).x;
                     }
                     if (!line.text.empty())
                     {
                         glm::vec4 tc = Color::GetUIText(line.textDepth);
                         ImU32 textCol = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-                        dl->AddText(font, renderSize, ImVec2(tx, ty), textCol, line.text.c_str());
+                        dl->AddText(font, renderSize, ImVec2(tx, tyDraw), textCol, line.text.c_str());
                         tx += font->CalcTextSizeA(renderSize, FLT_MAX, 0.0f, line.text.c_str()).x;
                     }
                     if (item.accentProgressBar && tx > textStartX)

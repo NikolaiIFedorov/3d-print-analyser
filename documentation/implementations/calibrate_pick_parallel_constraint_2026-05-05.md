@@ -160,3 +160,20 @@ Constants: `RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha`; new GL p
 
 **Files:** `CalibDistanceType.hpp` / `.cpp`.
 
+---
+
+## Update — prerequisite copy, sharper subtitle text, stricter parallel gate (2026-05-08)
+
+**Problem:** Calibrate prerequisite subtitles were long; second-line text looked soft at `fontScale` 0.85; users could commit second face picks that still looked visibly non-parallel.
+
+**Approach:**
+
+- UI copy in `display.cpp`: point 1 subtitle **"to measure against"**, point 2 **"parallel point to first selection"**.
+- `kFaceNormalParallelAlignThreshold` raised from **0.75** to **0.985** (same order as edge chord `EdgesAreParallelForCalib`, ~10°) so `NormalsAlignedForCalibPick` matches product “parallel walls” expectation; `SpanPreviewBetweenFaces` / slab vs centroid heuristic uses the same constant.
+- `UIRenderer::renderParagraph`: `renderSize = round(FontSize * fontScale)` and `tyDraw = round(ty)` for `AddText` so scaled lines align to the pixel grid (reduces mushy bitmap-font output).
+
+**Files:** `display.cpp`, `CalibNominal.hpp`, `UIRenderer.cpp`, this log.
+
+**Outcome:** Clean `CAD_OpenGL` build; second pick rejects normals with |dot| < 0.985 (~10° from parallel or opposite).
+
+**Retro:** Loose 0.75 was historical “slab vs centroid” split in span preview; unifying with edge parallelism removes a confusing UX gap. ImGui `AddText` at fractional `FontSize * scale` is a common sharpness footgun — prefer rounding for small pixel fonts.

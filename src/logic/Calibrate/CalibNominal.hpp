@@ -9,7 +9,8 @@ namespace CalibrateNominal
 {
 
 /// Minimum |dot(na, nb)| for treating two planar picks as a parallel pair (slab thickness path).
-inline constexpr double kFaceNormalParallelAlignThreshold = 0.75;
+/// Matched to `EdgesAreParallelForCalib` chord tolerance (~10°) so visibly non-parallel walls do not pass.
+inline constexpr double kFaceNormalParallelAlignThreshold = 0.985;
 
 struct SpanResult
 {

@@ -4578,11 +4578,9 @@ void Display::InitUI()
                                           Icons::CheckBox(&calibStepImport), false, true,
                                           [this]()
                                           { DoFileImport(); }});
-        calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point",
-                                          "vertical faces (⊥ +Z); edges on first-layer cap for elephant's foot",
+        calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point", "to measure against",
                                           Icons::CheckBox(&calibStepPoint1), false, false});
-        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point",
-                                          "parallel to first (parallel edges on same cap for elephant's foot)",
+        calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point", "parallel point to first selection",
                                           Icons::CheckBox(&calibStepPoint2), false, false});
 
         // ── Parameters — print measurement InputFloat ──────────────────────
