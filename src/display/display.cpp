@@ -45,11 +45,73 @@
 #include "LengthUnit.hpp"
 
 #include <array>
+#include <string>
+
+#include "imgui.h"
 
 namespace
 {
 
 constexpr float kCalibSpanLabelNdcEps = 0.004f;
+
+/// Full-row hit target; copies `label` and `valueStr` as one line (`Label: value` or `Label` if value empty).
+void CalibDrawCopyableResultRow(ImDrawList *dl, float x0, float y, float w, float rowH, float pad, ImFont *bodyFont,
+                                glm::vec4 tcLabel, glm::vec4 tcValue, const char *label, const char *valueStr,
+                                const char *imguiIdSuffix)
+{
+    std::string clip;
+    if (label[0] != '\0')
+    {
+        clip = label;
+        if (valueStr[0] != '\0')
+        {
+            clip += ": ";
+            clip += valueStr;
+        }
+    }
+
+    ImGui::SetCursorScreenPos(ImVec2(x0, y));
+    ImGui::PushID(imguiIdSuffix);
+    ImGui::InvisibleButton("copyRow", ImVec2(w, rowH));
+    const bool hovered = ImGui::IsItemHovered();
+    const bool clicked = ImGui::IsItemClicked();
+    ImGui::PopID();
+    if (clicked && !clip.empty())
+        ImGui::SetClipboardText(clip.c_str());
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+    if (hovered)
+    {
+        const ImVec2 mn = ImGui::GetItemRectMin();
+        const ImVec2 mx = ImGui::GetItemRectMax();
+        glm::vec4 ac = Color::GetAccent(1, 0.12f, 1.0f);
+        dl->AddRectFilled(mn, mx, ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)), 4.0f);
+    }
+
+    const ImU32 lc = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+    const ImU32 vc = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
+    if (bodyFont)
+        ImGui::PushFont(bodyFont);
+    ImFont *drawFont = bodyFont ? bodyFont : ImGui::GetFont();
+    const float fs = drawFont ? drawFont->FontSize : ImGui::GetFontSize();
+    if (label[0] != '\0')
+    {
+        const float labelH = drawFont ? drawFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, label).y : ImGui::CalcTextSize(label).y;
+        const float ty = y + std::max(0.0f, (rowH - labelH) * 0.5f);
+        dl->AddText(drawFont, fs, ImVec2(x0 + pad, ty), lc, label);
+    }
+    if (valueStr[0] != '\0')
+    {
+        const ImVec2 vs = drawFont ? drawFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, valueStr)
+                                    : ImGui::CalcTextSize(valueStr);
+        const float valueH = vs.y;
+        const float ty = y + std::max(0.0f, (rowH - valueH) * 0.5f);
+        dl->AddText(drawFont, fs, ImVec2(x0 + w - pad - vs.x, ty), vc, valueStr);
+    }
+    if (bodyFont)
+        ImGui::PopFont();
+}
 
 [[nodiscard]] bool CalibSpanNdcInsideVisibleViewport(glm::vec3 ndc)
 {
@@ -4457,10 +4519,10 @@ void Display::InitUI()
         ToolPanelDef calibDef;
         calibDef.id = "Calibrate";
         calibDef.name = "Calibrate";
-        calibDef.description =
-            "Printer calibration: pick planar faces whose normals are orthogonal to the layer stack (+Z), "
-            "or parallel edges on the first-layer cap for elephant's foot.";
-        calibDef.flattenParameters = true;
+        calibDef.description = "Calibrate 3D printer accuracy by comparing nominal CAD geometry to measured print dimensions.";
+        calibDef.flattenParameters = false;
+        calibDef.showSectionHeaders = true;
+        calibDef.parametersSectionTitle = "Measurement";
 
         // ── Prerequisites ──────────────────────────────────────────────────
         calibDef.prerequisites.reserve(3);
@@ -4619,7 +4681,7 @@ void Display::InitUI()
                     return 0.0f;
                 float pad = ImGui::GetStyle().FramePadding.x;
                 float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f,
-                                                                "First-layer excess (printed − CAD)").x;
+                                                                "First-layer excess (printed \xe2\x88\x92 CAD)").x;
                 return pad * 2.0f + labelW + 72.0f;
             };
             pmDer.line.imguiContent = [this, settingsBodyFont](float w, float h, float iconOffset)
@@ -4632,23 +4694,10 @@ void Display::InitUI()
                 ImVec2 row0 = ImGui::GetCursorScreenPos();
                 ImDrawList *dl = ImGui::GetWindowDrawList();
 
-                auto drawLine = [&](float y, const char *label, const char *valueStr)
-                {
-                    ImU32 lc = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
-                    ImU32 vc = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                    if (settingsBodyFont)
-                        ImGui::PushFont(settingsBodyFont);
-                    ImVec2 ls = ImGui::CalcTextSize(label);
-                    dl->AddText(ImVec2(row0.x + pad, y), lc, label);
-                    ImVec2 vs = ImGui::CalcTextSize(valueStr);
-                    dl->AddText(ImVec2(row0.x + w - pad - vs.x, y), vc, valueStr);
-                    if (settingsBodyFont)
-                        ImGui::PopFont();
-                };
-
                 float lh = settingsBodyFont
                                ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Mg").y
                                : ImGui::GetTextLineHeight();
+                const float rowHitH = std::max(lh * 1.35f, ImGui::GetFrameHeight());
                 const float y0 = row0.y + pad * 0.25f;
 
                 const bool missingFaces =
@@ -4671,8 +4720,9 @@ void Display::InitUI()
                 }
                 if (spanBad)
                 {
-                    drawLine(y0, "Could not estimate span (try parallel faces).", "");
-                    ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                    CalibDrawCopyableResultRow(dl, row0.x, y0, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                                               "Could not estimate span (try parallel faces).", "", "spanBad");
+                    ImGui::Dummy(ImVec2(w, rowHitH + pad));
                     return;
                 }
 
@@ -4684,29 +4734,34 @@ void Display::InitUI()
                     switch (calibWorkflow)
                     {
                     case CalibWorkflow::Contour:
-                        lab = "shrinkage";
+                        lab = "Shrinkage";
                         std::snprintf(valB, sizeof(valB), "%.4f", calibContourScale);
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                                                   lab, valB, "contour");
                         break;
                     case CalibWorkflow::Hole:
-                        lab = "Hole radius offset";
+                        lab = "Hole Radius Offset";
                         std::snprintf(valB, sizeof(valB), "%.3f mm", calibHoleOffsetMm);
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                                                   lab, valB, "hole");
                         break;
                     case CalibWorkflow::ElephantFoot:
-                        lab = "First-layer excess (printed − CAD)";
+                        lab = "First-layer excess (printed \xe2\x88\x92 CAD)";
                         std::snprintf(valB, sizeof(valB), "%.3f mm", calibElephantFootMm);
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                                                   lab, valB, "elephant");
                         break;
                     default:
                         break;
                     }
-                    if (lab[0] != '\0')
-                        drawLine(y, lab, valB);
                 }
                 else
                 {
-                    drawLine(y, "Adjust print measurement to compute compensation.", "");
+                    CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                                               "Adjust print measurement to compute compensation.", "", "hint");
                 }
 
-                ImGui::Dummy(ImVec2(w, lh * 1.4f + pad));
+                ImGui::Dummy(ImVec2(w, rowHitH + pad));
             };
             calibDef.parameters.push_back(std::move(pmDer));
         }

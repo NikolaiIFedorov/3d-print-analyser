@@ -53,7 +53,8 @@ struct ParameterDef
 //   RootPanel  (bgParentDepth=0, header = name)
 //     Paragraph "desc"           — single dim subtitle line
 //     Section   "Prerequisites"  — no header; children built from prerequisites
-//     Section   "Parameters"     — collapsible; children built from parameters
+//     Section   "Parameters"     — collapsible; children built from parameters (optional titled header via
+//                                `showSectionHeaders` + `parametersSectionTitle`)
 //     Section   "Calculator"     — optional; collapsible
 //
 // Anchor fields are NOT set by the factory — the caller must set them before
@@ -66,9 +67,12 @@ struct ToolPanelDef
     std::string description;                    // dim subtitle,      e.g. "Scale model to real-world units"
     std::vector<PrerequisiteDef> prerequisites; // built into Prerequisites section automatically
     std::vector<ParameterDef> parameters;       // built into Parameters section automatically
+    bool flattenParameters = false;             // true = place parameter rows directly under the root panel
     bool hasCalculator = false;                 // true = add a third "Calculator" section
     int maxCalculatorLines = 4;                 // reserve hint for Calculator section children
     bool showSectionHeaders = false;            // true = render labeled collapsible headers on Parameters / Calculator sections
+    /// When `showSectionHeaders` is true, used as the Parameters section header text (displayed uppercase via `Header`).
+    std::string parametersSectionTitle = "Parameters";
 };
 
 // Returns a pointer to the first Section child of panel with the given id,

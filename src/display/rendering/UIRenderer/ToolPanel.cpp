@@ -39,9 +39,10 @@ Paragraph BuildPrerequisiteParagraph(const PrerequisiteDef &def)
 
 RootPanel BuildToolPanel(const ToolPanelDef &def)
 {
-    const int totalChildren = 1                              // Prerequisites
-                              + 1                            // Parameters
-                              + (def.hasCalculator ? 1 : 0); // Calculator
+    const int parameterChildren = def.flattenParameters ? static_cast<int>(def.parameters.size()) : 1;
+    const int totalChildren = 1                                      // Prerequisites
+                              + parameterChildren                    // Parameters
+                              + (def.hasCalculator ? 1 : 0);         // Calculator
 
     RootPanel panel;
     panel.id = def.id;
@@ -66,21 +67,33 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
     for (const auto &pd : def.prerequisites)
         prereqSec.AddParagraph(pd.id) = BuildPrerequisiteParagraph(pd);
 
-    // ── Parameters section ────────────────────────────────────────────────
-    Section &paramSec = panel.AddSection("Parameters");
-    // Stack measurement + derived rows without an inner rail (one visual block).
-    paramSec.noChildSplitters = true;
-    if (def.showSectionHeaders)
+    // ── Parameters ────────────────────────────────────────────────────────
+    if (def.flattenParameters)
     {
-        paramSec.header = Header{"Parameters", 1.0f, 2};
-        paramSec.tightHeader = true;
+        for (const auto &pm : def.parameters)
+        {
+            Paragraph &p = panel.AddParagraph(pm.id);
+            p.values.reserve(1);
+            p.values.push_back(pm.line);
+        }
     }
-    paramSec.children.reserve(def.parameters.size());
-    for (const auto &pm : def.parameters)
+    else
     {
-        Paragraph &p = paramSec.AddParagraph(pm.id);
-        p.values.reserve(1);
-        p.values.push_back(pm.line);
+        Section &paramSec = panel.AddSection("Parameters");
+        // Stack measurement + derived rows without an inner rail (one visual block).
+        paramSec.noChildSplitters = true;
+        if (def.showSectionHeaders)
+        {
+            paramSec.header = Header{def.parametersSectionTitle, 1.0f, 2};
+            paramSec.tightHeader = true;
+        }
+        paramSec.children.reserve(def.parameters.size());
+        for (const auto &pm : def.parameters)
+        {
+            Paragraph &p = paramSec.AddParagraph(pm.id);
+            p.values.reserve(1);
+            p.values.push_back(pm.line);
+        }
     }
 
     // ── Calculator section (optional) ─────────────────────────────────────
