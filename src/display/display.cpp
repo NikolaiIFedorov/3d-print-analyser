@@ -54,21 +54,16 @@ namespace
 
 constexpr float kCalibSpanLabelNdcEps = 0.004f;
 
-/// Full-row hit target; copies `label` and `valueStr` as one line (`Label: value` or `Label` if value empty).
+/// Full-row hit target; clipboard is **value only** when `valueStr` is non-empty, otherwise the label (status text).
 void CalibDrawCopyableResultRow(ImDrawList *dl, float x0, float y, float w, float rowH, float pad, ImFont *bodyFont,
                                 glm::vec4 tcLabel, glm::vec4 tcValue, const char *label, const char *valueStr,
                                 const char *imguiIdSuffix)
 {
     std::string clip;
-    if (label[0] != '\0')
-    {
+    if (valueStr[0] != '\0')
+        clip = valueStr;
+    else if (label[0] != '\0')
         clip = label;
-        if (valueStr[0] != '\0')
-        {
-            clip += ": ";
-            clip += valueStr;
-        }
-    }
 
     ImGui::SetCursorScreenPos(ImVec2(x0, y));
     ImGui::PushID(imguiIdSuffix);
@@ -91,8 +86,6 @@ void CalibDrawCopyableResultRow(ImDrawList *dl, float x0, float y, float w, floa
 
     const ImU32 lc = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
     const ImU32 vc = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-    if (bodyFont)
-        ImGui::PushFont(bodyFont);
     ImFont *drawFont = bodyFont ? bodyFont : ImGui::GetFont();
     const float fs = drawFont ? drawFont->FontSize : ImGui::GetFontSize();
     if (label[0] != '\0')
@@ -109,8 +102,6 @@ void CalibDrawCopyableResultRow(ImDrawList *dl, float x0, float y, float w, floa
         const float ty = y + std::max(0.0f, (rowH - valueH) * 0.5f);
         dl->AddText(drawFont, fs, ImVec2(x0 + w - pad - vs.x, ty), vc, valueStr);
     }
-    if (bodyFont)
-        ImGui::PopFont();
 }
 
 [[nodiscard]] bool CalibSpanNdcInsideVisibleViewport(glm::vec3 ndc)
@@ -4531,7 +4522,7 @@ void Display::InitUI()
         calibDef.flattenParameters = false;
         calibDef.showSectionHeaders = true;
         calibDef.sectionHeadersCollapsible = false;
-        calibDef.parametersSectionTitle = "Measurement";
+        calibDef.parametersSectionTitle = "Parameters";
         calibDef.hasCalculator = true;
         calibDef.maxCalculatorLines = 1;
         calibDef.calculatorSectionTitle = "Result";
@@ -4556,12 +4547,15 @@ void Display::InitUI()
             ParameterDef pm;
             pm.id = "CalibMeasure";
             pm.line.iconDraw = Icons::StepDot(&calibStepMeasure);
-            pm.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            pm.line.getMinContentWidthPx = [this, settingsBodyFont]() -> float
             {
-                if (!settingsBodyFont)
+                ImFont *f = uiRenderer.GetPixelImFont();
+                if (!f)
+                    f = settingsBodyFont;
+                if (!f)
                     return 0.0f;
                 float pad = ImGui::GetStyle().FramePadding.x;
-                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x;
+                float labelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Print measurement").x;
                 return pad * 2.0f + labelW + 24.0f + 48.0f;
             };
             auto pmEditing = std::make_shared<bool>(false);
@@ -4571,17 +4565,24 @@ void Display::InitUI()
             calibText->data()[0] = '\0';
             pm.line.imguiContent = [this, settingsBodyFont, pmEditing, calibText, calibFocusRequest, calibEditHadFocus](float w, float h, float iconOffset)
             {
+                (void)iconOffset;
                 const LengthUnit du = LengthUnitFromIndex(settings.defaultLengthUnit);
                 glm::vec4 tcLabel = Color::GetUIText(2);
                 glm::vec4 tcValue = Color::GetUIText(0);
                 float pad = ImGui::GetStyle().FramePadding.x;
 
+                ImFont *rowFont = ImGui::GetFont();
+                if (!rowFont)
+                    rowFont = uiRenderer.GetPixelImFont();
+                if (!rowFont)
+                    rowFont = settingsBodyFont;
+
                 UIStyle::PushInputStyle(h, tcLabel);
                 ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
 
-                float labelTextW = settingsBodyFont
-                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").x
-                                       : ImGui::CalcTextSize("Print measurement").x;
+                const float fs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
+                float labelTextW =
+                    rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Print measurement").x : ImGui::CalcTextSize("Print measurement").x;
                 // Keep the input visually closer to the label (was too far right).
                 float leftW = pad + labelTextW + pad * 1.25f;
                 float inputW = w - leftW;
@@ -4631,9 +4632,9 @@ void Display::InitUI()
                     std::snprintf(calibText->data(), calibText->size(), "%.6g %s",
                                   static_cast<double>(FromMillimeters(calibMeasured, du)),
                                   LengthUnitAbbreviation(du));
-                    ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x + leftW, rowOrigin.y));
+                    ImGui::SetCursorScreenPos(ImVec2(rowOrigin.x, rowOrigin.y));
                     const float hitH = std::max(h, ImGui::GetFrameHeight());
-                    ImGui::InvisibleButton("##calibMeasured", ImVec2(inputW, hitH));
+                    ImGui::InvisibleButton("##calibMeasured", ImVec2(w, hitH));
                     UIStyle::DrawInputHoverTint(1);
                     if (ImGui::IsItemClicked())
                     {
@@ -4646,29 +4647,27 @@ void Display::InitUI()
                 ImDrawList *dl = ImGui::GetWindowDrawList();
                 float itemBottom = ImGui::GetItemRectMax().y;
                 const float cellRight = ImGui::GetItemRectMax().x;
-                float labelTextH = settingsBodyFont
-                                       ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Print measurement").y
-                                       : ImGui::CalcTextSize("Print measurement").y;
+                float labelTextH =
+                    rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Print measurement").y : ImGui::CalcTextSize("Print measurement").y;
                 ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
-                if (settingsBodyFont)
-                    ImGui::PushFont(settingsBodyFont);
-                dl->AddText(ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
-                if (settingsBodyFont)
-                    ImGui::PopFont();
+                if (rowFont)
+                    dl->AddText(rowFont, fs, ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
+                else
+                    dl->AddText(ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
 
                 // Readout / edit: keep inside the input frame; full string includes unit when idle.
                 if (!*pmEditing)
                 {
                     char valueBuf[48];
                     FormatLengthMmForDisplay(valueBuf, sizeof(valueBuf), calibMeasured, du);
-                    ImFont *valFont = ImGui::GetFont();
+                    ImFont *valFont = rowFont;
                     if (!valFont && ImGui::GetIO().Fonts && ImGui::GetIO().Fonts->Fonts.Size > 0)
                         valFont = ImGui::GetIO().Fonts->Fonts[0];
                     if (valFont)
                     {
                         ImVec2 vs = valFont->CalcTextSizeA(valFont->FontSize, FLT_MAX, 0.0f, valueBuf);
                         ImU32 unitCol = ImGui::GetColorU32(ImVec4(tcValue.r, tcValue.g, tcValue.b, tcValue.a));
-                        dl->AddText(ImVec2(cellRight - pad - vs.x, itemBottom - vs.y), unitCol, valueBuf);
+                        dl->AddText(valFont, valFont->FontSize, ImVec2(cellRight - pad - vs.x, itemBottom - vs.y), unitCol, valueBuf);
                     }
                 }
 
@@ -4686,13 +4685,16 @@ void Display::InitUI()
         ParameterDef pmDer;
             pmDer.id = "CalibDerived";
             pmDer.line.iconDraw = Icons::StepDot(&calibStepMeasure);
-            pmDer.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+            pmDer.line.getMinContentWidthPx = [this, settingsBodyFont]() -> float
             {
-                if (!settingsBodyFont)
+                ImFont *f = uiRenderer.GetPixelImFont();
+                if (!f)
+                    f = settingsBodyFont;
+                if (!f)
                     return 0.0f;
                 float pad = ImGui::GetStyle().FramePadding.x;
-                float labelW = settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f,
-                                                                "First-layer excess (printed \xe2\x88\x92 CAD)").x;
+                float labelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f,
+                                                "First-layer excess (printed \xe2\x88\x92 CAD)").x;
                 return pad * 2.0f + labelW + 72.0f;
             };
             pmDer.line.imguiContent = [this, settingsBodyFont](float w, float h, float iconOffset)
@@ -4705,9 +4707,13 @@ void Display::InitUI()
                 ImVec2 row0 = ImGui::GetCursorScreenPos();
                 ImDrawList *dl = ImGui::GetWindowDrawList();
 
-                float lh = settingsBodyFont
-                               ? settingsBodyFont->CalcTextSizeA(settingsBodyFont->FontSize, FLT_MAX, 0.0f, "Mg").y
-                               : ImGui::GetTextLineHeight();
+                ImFont *rowFont = ImGui::GetFont();
+                if (!rowFont)
+                    rowFont = uiRenderer.GetPixelImFont();
+                if (!rowFont)
+                    rowFont = settingsBodyFont;
+                const float fs = rowFont ? rowFont->FontSize : ImGui::GetFontSize();
+                float lh = rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Mg").y : ImGui::GetTextLineHeight();
                 const float rowHitH = std::max(lh * 1.35f, ImGui::GetFrameHeight());
                 const float y0 = row0.y + pad * 0.25f;
 
@@ -4731,7 +4737,7 @@ void Display::InitUI()
                 }
                 if (spanBad)
                 {
-                    CalibDrawCopyableResultRow(dl, row0.x, y0, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                    CalibDrawCopyableResultRow(dl, row0.x, y0, w, rowHitH, pad, nullptr, tcLabel, tcValue,
                                                "Could not estimate span (try parallel faces).", "", "spanBad");
                     ImGui::Dummy(ImVec2(w, rowHitH + pad));
                     return;
@@ -4747,19 +4753,19 @@ void Display::InitUI()
                     case CalibWorkflow::Contour:
                         lab = "Shrinkage";
                         std::snprintf(valB, sizeof(valB), "%.4f", calibContourScale);
-                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, nullptr, tcLabel, tcValue,
                                                    lab, valB, "contour");
                         break;
                     case CalibWorkflow::Hole:
                         lab = "Hole Radius Offset";
                         std::snprintf(valB, sizeof(valB), "%.3f mm", calibHoleOffsetMm);
-                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, nullptr, tcLabel, tcValue,
                                                    lab, valB, "hole");
                         break;
                     case CalibWorkflow::ElephantFoot:
                         lab = "First-layer excess (printed \xe2\x88\x92 CAD)";
                         std::snprintf(valB, sizeof(valB), "%.3f mm", calibElephantFootMm);
-                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                        CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, nullptr, tcLabel, tcValue,
                                                    lab, valB, "elephant");
                         break;
                     default:
@@ -4768,7 +4774,7 @@ void Display::InitUI()
                 }
                 else
                 {
-                    CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, settingsBodyFont, tcLabel, tcValue,
+                    CalibDrawCopyableResultRow(dl, row0.x, y, w, rowHitH, pad, nullptr, tcLabel, tcValue,
                                                "Adjust print measurement to compute compensation.", "", "hint");
                 }
 
