@@ -147,6 +147,33 @@ std::optional<glm::quat> OrientationFromBackDirection(const glm::quat &currentOr
         q = -q;
     return q;
 }
+
+/// World-+Z turntable yaw moves the eye on a circle about `target`; `cross(Z, radialXY)` is the
+/// tangent to that circle in the XY plane (positive ω). Compare to camera **right** so horizontal
+/// mouse deltas keep the same screen-space swing when the view tilts (±1; +1 when ambiguous).
+[[nodiscard]] float TurntableYawScreenAlignSign(const glm::mat3 &M_ori, const glm::vec3 &kWorldUp,
+                                                float distance)
+{
+    const glm::vec3 toCamUnit = M_ori * glm::vec3(0.0f, 0.0f, 1.0f);
+    const glm::vec3 posRel = toCamUnit * distance;
+    glm::vec3 radialXY(posRel.x, posRel.y, 0.0f);
+    const float rl = glm::length(radialXY);
+    constexpr float kRlMin = 1e-5f;
+    if (rl <= kRlMin)
+        return 1.0f;
+
+    radialXY *= 1.0f / rl;
+    glm::vec3 tangent = glm::normalize(glm::cross(kWorldUp, radialXY));
+    glm::vec3 camR = glm::normalize(M_ori * glm::vec3(1.0f, 0.0f, 0.0f));
+    if (!std::isfinite(camR.x) || glm::length(camR) < 1e-12f)
+        return 1.0f;
+
+    const float d = glm::dot(camR, tangent);
+    constexpr float kDotDead = 1e-4f;
+    if (std::abs(d) < kDotDead)
+        return 1.0f;
+    return glm::sign(d);
+}
 } // namespace
 
 Camera::Camera(uint16_t width, uint16_t height)
@@ -224,43 +251,54 @@ glm::mat4 Camera::GetProjectionMatrix() const
 
 void Camera::Orbit(float deltaX, float deltaY)
 {
-    // Screen-relative orbit: horizontal drag rotates around the camera's **up** axis (vertical on
-    // screen); vertical drag rotates around **right** after that yaw. This keeps left/right and
-    // up/down consistent with pointer motion at any pose (world-Z turntable yaw flipped apparent
-    // direction once the view tilted or rolled).
+    // Turntable yaw about world +Z; pitch about camera **right** after that yaw (same as legacy).
+    // Scale yaw by TurntableYawScreenAlignSign so horizontal drag keeps the same apparent left/right
+    // swing on screen after tilts (camera right vs horizontal orbit tangent).
+    // R = R_pitch * R_yaw * R_current (explicit mat3); roll stays in R_current between frames.
     constexpr float kEps = 1e-6f;
     if (std::abs(deltaX) < kEps && std::abs(deltaY) < kEps)
         return;
 
+    const glm::vec3 kWorldUp(0.0f, 0.0f, 1.0f);
+
     const glm::mat3 M_ori = glm::mat3_cast(orientation);
-    glm::vec3 up = M_ori * glm::vec3(0.0f, 1.0f, 0.0f);
-    float upLen = glm::length(up);
-    if (!std::isfinite(upLen) || upLen < 1e-12f)
+    const glm::vec3 f0 = glm::normalize(M_ori * glm::vec3(0.0f, 0.0f, 1.0f));
+    if (!std::isfinite(f0.x) || glm::length(f0) < 1e-12f)
         return;
-    up *= 1.0f / upLen;
 
-    glm::quat qYaw(1.0f, 0.0f, 0.0f, 0.0f);
+    glm::mat3 M_horizontal(1.0f);
     if (std::abs(deltaX) > kEps)
-        qYaw = glm::angleAxis(-deltaX, up);
+    {
+        const float yawAlign = TurntableYawScreenAlignSign(M_ori, kWorldUp, distance);
+        const float yawAngle = -deltaX * yawAlign;
+        M_horizontal = glm::mat3_cast(glm::angleAxis(yawAngle, kWorldUp));
+    }
 
-    glm::quat qAfterYaw = glm::normalize(qYaw * orientation);
-    if (!std::isfinite(qAfterYaw.x) || !std::isfinite(qAfterYaw.y) || !std::isfinite(qAfterYaw.z) ||
-        !std::isfinite(qAfterYaw.w))
-        return;
+    const glm::vec3 fAfterYaw = glm::normalize(M_horizontal * f0);
 
-    glm::vec3 right = glm::mat3_cast(qAfterYaw) * glm::vec3(1.0f, 0.0f, 0.0f);
-    float rLen = glm::length(right);
-    if (!std::isfinite(rLen) || rLen < 1e-12f)
-        return;
-    right *= 1.0f / rLen;
-
-    glm::quat qPitch(1.0f, 0.0f, 0.0f, 0.0f);
+    glm::mat3 M_p(1.0f);
     if (std::abs(deltaY) > kEps)
-        qPitch = glm::angleAxis(-deltaY, right);
+    {
+        glm::vec3 pitchAxis = glm::normalize(M_horizontal * M_ori * glm::vec3(1.0f, 0.0f, 0.0f));
+        if (glm::length(pitchAxis) < 1e-6f)
+        {
+            pitchAxis = glm::cross(kWorldUp, fAfterYaw);
+            const float paLen = glm::length(pitchAxis);
+            if (paLen > 1e-6f)
+                pitchAxis *= 1.0f / paLen;
+            else
+                pitchAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+        }
 
-    glm::quat qNew = glm::normalize(qPitch * qAfterYaw);
+        M_p = glm::mat3_cast(glm::angleAxis(-deltaY, pitchAxis));
+    }
+
+    const glm::mat3 M_new = M_p * M_horizontal * M_ori;
+
+    glm::quat qNew = glm::normalize(glm::quat_cast(M_new));
     if (!std::isfinite(qNew.x) || !std::isfinite(qNew.y) || !std::isfinite(qNew.z) || !std::isfinite(qNew.w))
         return;
+    // quat_cast picks q or −q; choose the hemisphere continuous with the previous orientation.
     if (glm::dot(qNew, orientation) < 0.0f)
         qNew = -qNew;
 

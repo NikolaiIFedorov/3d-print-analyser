@@ -82,7 +82,7 @@ ViewportRenderer / Renderer  — upload view + projection matrices to GPU unifor
 ### Navigation Math Details
 
 #### Orbit
-Horizontal drag rotates around the camera's **up** axis (`orientation * (0,1,0)` in world space — vertical on screen when roll is small); vertical drag rotates around **right** after that yaw (`orientation' * (1,0,0)`). Quaternion composition: `orientation = normalize(qPitch * qYaw * orientation)` with `qYaw = angleAxis(-deltaX, up)` and `qPitch = angleAxis(-deltaY, rightAfterYaw)`. This keeps pointer motion aligned with on-screen rotation at arbitrary poses (the prior world-+Z-only yaw felt inverted after tilting).
+Turntable **yaw** is rotation about fixed **world +Z** through `target`, then **pitch** about camera **right** after that yaw (`R_pitch * R_yaw * R_current`). Horizontal mouse magnitude is scaled by `TurntableYawScreenAlignSign`: compare camera **right** to the horizontal orbit tangent `normalize(cross(Z, radialXY))` (radialXY = projection of target→camera onto XY) so left/right drag keeps the same apparent swing on screen when the view tilts; near the vertical pole or ambiguous dot product the scale defaults to +1.
 
 #### Pan
 ```
