@@ -17,3 +17,4 @@
 
 - Clean build; behaviour limited to Calibrate panel UI.
 - Follow-up pass: separate **RESULT** section, non-collapsing section headers, shorter subtitle.
+- **Assert fix:** `std::vector` copy into `UIRenderer::AddPanel` does not preserve `capacity()` on empty `children`; `Section::AddParagraph` / `RootPanel::{AddSection,AddParagraph}` now grow capacity when `size >= capacity` instead of asserting.

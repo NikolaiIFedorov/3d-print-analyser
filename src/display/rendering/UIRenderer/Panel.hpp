@@ -2,7 +2,6 @@
 
 #include <glm/glm.hpp>
 #include <algorithm>
-#include <cassert>
 #include <cfloat>
 #include <deque>
 #include <functional>
@@ -241,7 +240,10 @@ struct Section : UIElement
 
     Paragraph &AddParagraph(const std::string &paragraphId)
     {
-        assert(children.size() < children.capacity());
+        // `reserve()` on an empty section does not survive all panel copies (e.g. `UIRenderer::AddPanel`);
+        // ensure room before `emplace_back`.
+        if (children.size() >= children.capacity())
+            children.reserve(children.size() + 1);
         Paragraph &p = children.emplace_back();
         p.id = paragraphId;
         return p;
@@ -283,7 +285,8 @@ struct RootPanel : UIElement
 
     Section &AddSection(const std::string &sectionId)
     {
-        assert(children.size() < children.capacity());
+        if (children.size() >= children.capacity())
+            children.reserve(children.size() + 1);
         Section &s = std::get<Section>(children.emplace_back(Section{}));
         s.id = sectionId;
         return s;
@@ -291,7 +294,8 @@ struct RootPanel : UIElement
 
     Paragraph &AddParagraph(const std::string &paragraphId)
     {
-        assert(children.size() < children.capacity());
+        if (children.size() >= children.capacity())
+            children.reserve(children.size() + 1);
         Paragraph &p = std::get<Paragraph>(children.emplace_back(Paragraph{}));
         p.id = paragraphId;
         return p;
