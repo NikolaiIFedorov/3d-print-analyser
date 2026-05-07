@@ -86,6 +86,7 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
         {
             paramSec.header = Header{def.parametersSectionTitle, 1.0f, 2};
             paramSec.tightHeader = true;
+            paramSec.collapsibleHeader = def.sectionHeadersCollapsible;
         }
         paramSec.children.reserve(def.parameters.size());
         for (const auto &pm : def.parameters)
@@ -102,8 +103,9 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
         Section &calcSec = panel.AddSection("Calculator");
         if (def.showSectionHeaders)
         {
-            calcSec.header = Header{"Result", 1.0f, 2};
+            calcSec.header = Header{def.calculatorSectionTitle, 1.0f, 2};
             calcSec.tightHeader = true;
+            calcSec.collapsibleHeader = def.sectionHeadersCollapsible;
         }
         calcSec.children.reserve(def.maxCalculatorLines);
     }

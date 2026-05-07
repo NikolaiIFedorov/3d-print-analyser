@@ -53,9 +53,9 @@ struct ParameterDef
 //   RootPanel  (bgParentDepth=0, header = name)
 //     Paragraph "desc"           — single dim subtitle line
 //     Section   "Prerequisites"  — no header; children built from prerequisites
-//     Section   "Parameters"     — collapsible; children built from parameters (optional titled header via
-//                                `showSectionHeaders` + `parametersSectionTitle`)
-//     Section   "Calculator"     — optional; collapsible
+//     Section   "Parameters"     — children from `parameters`; optional titled header
+//                                (`showSectionHeaders`, `parametersSectionTitle`, `sectionHeadersCollapsible`)
+//     Section   "Calculator"     — optional; optional titled header (`calculatorSectionTitle`)
 //
 // Anchor fields are NOT set by the factory — the caller must set them before
 // passing the panel to UIRenderer::AddPanel().
@@ -70,9 +70,13 @@ struct ToolPanelDef
     bool flattenParameters = false;             // true = place parameter rows directly under the root panel
     bool hasCalculator = false;                 // true = add a third "Calculator" section
     int maxCalculatorLines = 4;                 // reserve hint for Calculator section children
-    bool showSectionHeaders = false;            // true = render labeled collapsible headers on Parameters / Calculator sections
+    bool showSectionHeaders = false;            // true = render titled headers on Parameters / Calculator sections
+    /// When `showSectionHeaders` is true, chevron collapse is enabled unless this is false.
+    bool sectionHeadersCollapsible = true;
     /// When `showSectionHeaders` is true, used as the Parameters section header text (displayed uppercase via `Header`).
     std::string parametersSectionTitle = "Parameters";
+    /// When `showSectionHeaders` is true, used as the Calculator section header text.
+    std::string calculatorSectionTitle = "Result";
 };
 
 // Returns a pointer to the first Section child of panel with the given id,

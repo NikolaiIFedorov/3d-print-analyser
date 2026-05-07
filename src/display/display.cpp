@@ -2493,11 +2493,19 @@ void Display::RefreshCalibDerivedRowVisible()
         next = importDone && hasTwoPicks;
     }
 
+    bool changedVis = false;
     if (calibPara_Derived->visible != next)
     {
         calibPara_Derived->visible = next;
-        uiRenderer.MarkDirty();
+        changedVis = true;
     }
+    if (calibSec_Result && calibSec_Result->visible != next)
+    {
+        calibSec_Result->visible = next;
+        changedVis = true;
+    }
+    if (changedVis)
+        uiRenderer.MarkDirty();
 }
 
 void Display::RefreshCalibCompensation()
@@ -4519,10 +4527,14 @@ void Display::InitUI()
         ToolPanelDef calibDef;
         calibDef.id = "Calibrate";
         calibDef.name = "Calibrate";
-        calibDef.description = "Calibrate 3D printer accuracy by comparing nominal CAD geometry to measured print dimensions.";
+        calibDef.description = "Calibrate 3D printer accuracy by making measurements.";
         calibDef.flattenParameters = false;
         calibDef.showSectionHeaders = true;
+        calibDef.sectionHeadersCollapsible = false;
         calibDef.parametersSectionTitle = "Measurement";
+        calibDef.hasCalculator = true;
+        calibDef.maxCalculatorLines = 1;
+        calibDef.calculatorSectionTitle = "Result";
 
         // ── Prerequisites ──────────────────────────────────────────────────
         calibDef.prerequisites.reserve(3);
@@ -4671,8 +4683,7 @@ void Display::InitUI()
             calibDef.parameters.push_back(std::move(pm));
         }
 
-        {
-            ParameterDef pmDer;
+        ParameterDef pmDer;
             pmDer.id = "CalibDerived";
             pmDer.line.iconDraw = Icons::StepDot(&calibStepMeasure);
             pmDer.line.getMinContentWidthPx = [settingsBodyFont]() -> float
@@ -4763,8 +4774,7 @@ void Display::InitUI()
 
                 ImGui::Dummy(ImVec2(w, rowHitH + pad));
             };
-            calibDef.parameters.push_back(std::move(pmDer));
-        }
+        // `pmDer` is moved into the Calculator ("Result") section after `BuildToolPanel`.
 
         RootPanel calibPanel = BuildToolPanel(calibDef);
         calibPanel.visible = false;
@@ -4785,13 +4795,13 @@ void Display::InitUI()
         calibLine_Point2Primary = &prereqs->children[2].values[0];
 
         calibSec_Parameters = FindSection(*uiCalibrate, "Parameters");
-        if (calibSec_Parameters && calibSec_Parameters->children.size() >= 2)
+        calibSec_Result = FindSection(*uiCalibrate, "Calculator");
+        if (calibSec_Parameters && !calibSec_Parameters->children.empty())
         {
             calibSec_Parameters->noChildSplitters = false;
             for (Paragraph &child : calibSec_Parameters->children)
                 child.margin = UIGrid::GAP * UIElement::INSET_RATIO * 0.5f;
             calibPara_Measure = &calibSec_Parameters->children[0];
-            calibPara_Derived = &calibSec_Parameters->children[1];
         }
         else
         {
@@ -4805,12 +4815,22 @@ void Display::InitUI()
                 return nullptr;
             };
             calibPara_Measure = findRootParagraph("CalibMeasure");
-            calibPara_Derived = findRootParagraph("CalibDerived");
-            for (Paragraph *p : {calibPara_Measure, calibPara_Derived})
-            {
-                if (p)
-                    p->margin = UIGrid::GAP * UIElement::INSET_RATIO * 0.5f;
-            }
+            if (calibPara_Measure)
+                calibPara_Measure->margin = UIGrid::GAP * UIElement::INSET_RATIO * 0.5f;
+        }
+
+        if (calibSec_Result)
+        {
+            calibSec_Result->noChildSplitters = false;
+            Paragraph &derivedPara = calibSec_Result->AddParagraph("CalibDerived");
+            derivedPara.values.reserve(1);
+            derivedPara.values.push_back(std::move(pmDer.line));
+            calibPara_Derived = &derivedPara;
+            calibPara_Derived->margin = UIGrid::GAP * UIElement::INSET_RATIO * 0.5f;
+        }
+        else
+        {
+            calibPara_Derived = nullptr;
         }
 
         // Click handlers — selecting a point prerequisite deselects the other.
@@ -4842,6 +4862,8 @@ void Display::InitUI()
         calibPara_Point2->visible = false;
         if (calibSec_Parameters)
             calibSec_Parameters->visible = false;
+        if (calibSec_Result)
+            calibSec_Result->visible = false;
         if (calibPara_Measure)
             calibPara_Measure->visible = false;
         if (calibPara_Derived)

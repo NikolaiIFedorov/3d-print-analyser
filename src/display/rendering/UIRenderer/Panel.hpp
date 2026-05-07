@@ -226,6 +226,8 @@ struct Section : UIElement
     std::optional<Header> header; // present = render a title row above children
     std::vector<Paragraph> children;
     bool collapsed = false;        // true = children hidden, only header row rendered
+    /// When false and `header` is set, the title renders without chevron or collapse toggle.
+    bool collapsibleHeader = true;
     bool tightHeader = false;      // true = no gap between header title and first content row
     bool noChildSplitters = false; // true = suppress splitter lines between children (e.g. visually separated by their own backgrounds)
 

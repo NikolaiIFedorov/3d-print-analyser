@@ -1800,15 +1800,24 @@ void UIRenderer::Render()
 
         if (sec.header.has_value())
         {
-            // Wire chevron onto header line each frame (direction reflects current collapsed state).
             Paragraph &hpara = sec.header->para;
             if (!hpara.values.empty())
             {
                 SectionLine &hl = hpara.values[0];
-                hl.iconSizeRatio = ICON_SIZE_RATIO_SMALL;
-                hl.iconDraw = Icons::Chevron(!sec.collapsed);
-                hl.onClick = [&sec, this]()
-                { sec.collapsed = !sec.collapsed; dirty = true; };
+                if (sec.collapsibleHeader)
+                {
+                    hl.iconSizeRatio = ICON_SIZE_RATIO_SMALL;
+                    hl.iconDraw = Icons::Chevron(!sec.collapsed);
+                    hl.onClick = [&sec, this]()
+                    { sec.collapsed = !sec.collapsed; dirty = true; };
+                }
+                else
+                {
+                    hl.iconDraw = nullptr;
+                    hl.iconSizeRatio = 0.0f;
+                    hl.onClick = nullptr;
+                    sec.collapsed = false;
+                }
             }
             renderParagraph(hpara, secPath + "_header");
         }

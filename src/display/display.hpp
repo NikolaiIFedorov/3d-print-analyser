@@ -214,7 +214,8 @@ private:
     Paragraph *calibPara_Point1 = nullptr;          // shown/activated after import
     Paragraph *calibPara_Point2 = nullptr;          // shown after point1 is plotted
     Paragraph *calibPara_Measure = nullptr;         // direct Calibrate row; hidden until import
-    Section *calibSec_Parameters = nullptr;         // legacy sectioned parameter layout, if used by a tool variant
+    Section *calibSec_Parameters = nullptr;         // measurement row(s); legacy flat layout if absent
+    Section *calibSec_Result = nullptr;             // Calculator section: compensation result row
     Section *calibSec_Prerequisites = nullptr;
     Paragraph *calibPara_Derived = nullptr;         // result row (span / compensation); hidden when unused
     SectionLine *calibLine_Point1Primary = nullptr; // for per-line state (textDepth etc.)
