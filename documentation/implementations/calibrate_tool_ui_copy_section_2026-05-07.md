@@ -22,3 +22,11 @@
 - **All custom `imguiContent` rows** (Settings DragFloat / length drags, Analysis flaw rows) share `FontOrInteractiveRow()` so label + value overlays use the same interactive font as renderer-pushed `pixelImFont`.
 - **PARAMETERS** section title restored (`parametersSectionTitle = "Parameters"`).
 - **Debug layout:** inner-content outline only, per-layer inset + alpha so nested boxes separate visually; removed dual outer/inner outlines and margin fill ring.
+
+## Section box model fix (same session)
+
+**Problem:** Headed `Section` used **vertical-only** padding in `computeSectionBox` (`outerWidth = 2*margin + content`, `outerHeight = 2*margin + padding + content`) while `placeSectionChildren` only inset children by **horizontal `margin`**. The debug overlay drew `margin + padding` on all sides, so the Parameters “content” rect looked narrower than the Print measurement row and margins did not stack like RootPanel.
+
+**Change:** For headed sections, `outerWidth` / `outerHeight` now include **`2*margin + 2*padding + content`** (same idea as `RootPanel`), and `placeSectionChildren` uses **`insetX = margin + padding`** with the same vertical start as before. Layout, min grid size, and debug rects stay consistent.
+
+**Files:** `UIRenderer.cpp` (`computeSectionBox`, `placeSectionChildren`).

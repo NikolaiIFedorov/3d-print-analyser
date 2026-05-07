@@ -528,8 +528,9 @@ void UIRenderer::ResolveAnchors()
         // Headerless sections are transparent containers: no margin/padding overhead.
         const float effMar = item.header.has_value() ? mar : 0.0f;
         const float effPad = item.header.has_value() ? pad : 0.0f;
-        item.box.outerWidth  = 2.0f * effMar + contentW;        // Section has no background: padding is vertical-only
-        item.box.outerHeight = 2.0f * effMar + effPad + contentH; // only top padding; last child's bottom margin provides bottom spacing
+        // With a header, padding is a full inset (same as RootPanel): horizontal + vertical.
+        item.box.outerWidth  = 2.0f * effMar + 2.0f * effPad + contentW;
+        item.box.outerHeight = 2.0f * effMar + 2.0f * effPad + contentH;
     };
 
     // Compute box for a RootPanel — dispatches into Section/Paragraph children.
@@ -647,7 +648,7 @@ void UIRenderer::ResolveAnchors()
     auto placeSectionChildren = [&](Section &parent) -> void
     {
         // Headerless sections are transparent: no margin/padding inset.
-        float insetX = parent.header.has_value() ? parent.margin : 0.0f;
+        float insetX = parent.header.has_value() ? parent.margin + parent.padding : 0.0f;
         float cursor = parent.row + (parent.header.has_value() ? parent.margin + parent.padding : 0.0f);
         if (parent.header.has_value())
         {
