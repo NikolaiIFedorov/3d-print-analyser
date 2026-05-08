@@ -46,6 +46,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibDistanceType.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibNominal.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLCgalPlanarExperiment.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"

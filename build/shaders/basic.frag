@@ -8,12 +8,22 @@ out vec4 outColor;
 uniform vec3 uLightDir;
 uniform float uBrightenAmount;
 uniform float uLightingEnabled;
+uniform float uGridPlaneFade;
+uniform float uGridOpacity;
+uniform float uAlpha;
 
 void main()
 {
     if (uLightingEnabled < 0.5)
     {
-        outColor = vec4(fragColor, 1.0);
+        vec3 c = fragColor;
+        if (uGridPlaneFade > 0.5)
+        {
+            // RGB from vertex; alpha from tilt vs XY plane (see ViewportRenderer).
+            outColor = vec4(c, uGridOpacity);
+            return;
+        }
+        outColor = vec4(c, uAlpha);
         return;
     }
 
@@ -25,5 +35,5 @@ void main()
     float diff = max(0.0, dot(N, L));
     float lighting = 1.0 + uBrightenAmount * diff;
 
-    outColor = vec4(min(fragColor * lighting, vec3(1.0)), 1.0);
+    outColor = vec4(min(fragColor * lighting, vec3(1.0)), uAlpha);
 }

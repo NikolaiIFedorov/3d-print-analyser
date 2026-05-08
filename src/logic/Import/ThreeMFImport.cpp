@@ -113,8 +113,9 @@ static void CollectMeshes(
     }
 }
 
-bool ThreeMFImport::Import(const std::string &filePath, Scene *scene)
+bool ThreeMFImport::Import(const std::string &filePath, Scene *scene, const ImportProgressCallback *progress)
 {
+    ReportImportProgress(progress, "Opening 3MF archive...", 0.0f);
     mz_zip_archive zip{};
     if (!mz_zip_reader_init_file(&zip, filePath.c_str(), 0))
         return LOG_FALSE("Failed to open 3MF archive: " + filePath);
@@ -131,6 +132,13 @@ bool ThreeMFImport::Import(const std::string &filePath, Scene *scene)
         LOG_DESC("3MF archive file: " + std::string(filename))
         if (std::string(filename).find(".model") != std::string::npos)
             modelFiles.push_back(filename);
+        if (numFiles > 0)
+        {
+            ReportImportProgress(
+                progress,
+                "Indexing 3MF archive...",
+                MapImportProgress(static_cast<float>(i + 1) / static_cast<float>(numFiles), 0.05f, 0.20f));
+        }
     }
 
     if (modelFiles.empty())
@@ -144,8 +152,9 @@ bool ThreeMFImport::Import(const std::string &filePath, Scene *scene)
     std::unordered_map<std::string, tinyxml2::XMLElement *> objectMap;
     tinyxml2::XMLElement *buildElem = nullptr;
 
-    for (const auto &modelFile : modelFiles)
+    for (std::size_t modelIndex = 0; modelIndex < modelFiles.size(); ++modelIndex)
     {
+        const auto &modelFile = modelFiles[modelIndex];
         size_t xmlSize = 0;
         void *xmlData = mz_zip_reader_extract_file_to_heap(&zip, modelFile.c_str(), &xmlSize, 0);
         if (!xmlData)
@@ -180,12 +189,20 @@ bool ThreeMFImport::Import(const std::string &filePath, Scene *scene)
             buildElem = root->FirstChildElement("build");
 
         docs.push_back(std::move(doc));
+        if (!modelFiles.empty())
+        {
+            ReportImportProgress(
+                progress,
+                "Parsing 3MF model XML...",
+                MapImportProgress(static_cast<float>(modelIndex + 1) / static_cast<float>(modelFiles.size()), 0.20f, 0.55f));
+        }
     }
     mz_zip_reader_end(&zip);
 
     LOG_DESC("3MF: indexed " + std::to_string(objectMap.size()) + " objects from " + std::to_string(modelFiles.size()) + " model files")
 
     std::vector<Face *> faces;
+    ReportImportProgress(progress, "Building 3MF mesh...", 0.55f);
 
     if (buildElem)
     {
@@ -208,7 +225,10 @@ bool ThreeMFImport::Import(const std::string &filePath, Scene *scene)
     LOG_DESC("3MF: total " + std::to_string(faces.size()) + " faces imported")
 
     if (!faces.empty())
+    {
+        ReportImportProgress(progress, "Creating 3MF solid...", 0.85f);
         scene->CreateSolid(faces);
+    }
 
     return true;
 }

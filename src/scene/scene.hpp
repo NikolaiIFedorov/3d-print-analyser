@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <functional>
 #include <unordered_set>
 #include <cstddef>
 #include "Geometry/AllGeometry.hpp"
@@ -26,6 +27,8 @@ struct MergeCoplanarDiagnostics
     double bboxDiagonal = 0.0;
     double planeTolUsed = 0.0;
 };
+
+using SceneProgressCallback = std::function<void(float progress01)>;
 
 class Scene
 {
@@ -58,7 +61,10 @@ public:
     /// Initialize diagnostics before a merge step (baseline face/edge histogram, tolerances).
     void RecordCoplanarDiagnosticsBaselineForMerge(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
 
-    void MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut = nullptr);
+    void MergeCoplanarFaces(
+        Solid *solid,
+        MergeCoplanarDiagnostics *diagnosticsOut = nullptr,
+        const SceneProgressCallback *progress = nullptr);
 
     std::unordered_set<uint32_t> renderBuffer;
     std::unordered_set<uint32_t> lockedBuffer;

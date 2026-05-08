@@ -17,7 +17,7 @@ inline constexpr int kGlFramebufferMsaaSamples = 0;
 // --- macOS built-in trackpad: `SDL_HINT_TRACKPAD_IS_TOUCH_ONLY` (restart required).
 //     `true`: two-finger drags use `FINGER_*` (touch-centroid pan) and often duplicate `MOUSE_WHEEL`.
 //     `false`: trackpad behaves like mouse + wheel only — simpler, no touch pan path.
-inline constexpr bool kSdlTrackpadIsTouchOnly = false;
+inline constexpr bool kSdlTrackpadIsTouchOnly = true;
 
 // --- Depth precision (phase 1): reverse-Z — `ProjectionDepthMode::EffectiveProjection`,
 //     `glClearDepth(0)`, `GL_GEQUAL`; wire Z nudge sign flips. Improves ULP spacing along the ray

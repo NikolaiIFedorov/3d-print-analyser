@@ -37,3 +37,37 @@ STL import creates one face per triangle, then `Scene::MergeCoplanarFaces` merge
 - **`MergeCoplanarDiagnostics`** collected in `Scene::MergeCoplanarFaces` (and `CollectCoplanarMergeTopology` when merge experiment skips merge).
 - STL import stores them in **`STLImportStats`**; after import, **`SessionLogger::LogStlMergeDiagnostics`** emits event type **`stl_merge_diagnostics`** (face/edge histograms before & after, merge sweep counts, boundary-loop failures, bbox diagonal, plane tolerance).
 - Written on the main thread after async import finalizes (same point as `file_import`), and on the legacy synchronous import path.
+
+## 2026-05 follow-up — binary STL float-aware weld
+
+### Idea
+
+The diagonal-derived snap grid can miss duplicated STL seam vertices when two independently exported float32 coordinates are only a few ULPs apart but land on opposite quantization buckets. Binary STL is already float32, so use a tolerance derived from float precision instead of a user-selected grid accuracy.
+
+### Plan
+
+- Keep ASCII STL on the existing conservative text-path quantization.
+- Replace binary STL's rounded diagonal grid with a small spatial weld map.
+- Derive weld tolerance from `2 * FLT_EPSILON * maxAbsCoordinate`, then search neighboring cells so values near a cell boundary still weld when they are within tolerance.
+
+### Outcome
+
+- Binary STL import now welds vertices by nearby float32-scale position instead of snapping them to a global diagonal grid.
+- Created points keep the original imported coordinate from the first matching vertex; later matches only reuse the point when all coordinate deltas are within the float-aware tolerance.
+- Clean build: `cmake --build build`.
+
+### Mini retro
+
+- What worked: treating binary STL noise as float32-scale data kept the tolerance tied to the file format instead of another user-facing accuracy knob.
+- What to watch: if real models contain intentional gaps below a few float ULPs at their coordinate scale, this weld may still be too permissive; session diagnostics should make that visible through unique point / shared-edge changes.
+
+## 2026-05 follow-up — plane tolerance floor
+
+### Idea
+
+Remaining unmerged facets after float-aware vertex welding may be passing topology but failing the planar distance check. For mm-scale print CAD, a `0.001` model-unit floor is still far below normal printable feature size while giving exporter / float drift more room than the current diagonal-derived value on medium models.
+
+### Outcome
+
+- Added `GeometryExperiments::kMergeCoplanarPlaneTolFloor = 1e-3`.
+- `MergePlaneTolFromDiagonal` now uses the maximum of the existing geometric / float / import tolerances and that explicit floor.

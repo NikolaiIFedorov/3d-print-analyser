@@ -12,8 +12,11 @@
 #include <cstring>
 #include <chrono>
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <limits>
+#include <unordered_map>
+#include <vector>
 
 struct Vec3Compare
 {
@@ -37,20 +40,96 @@ static glm::dvec3 QuantizePosition(const glm::dvec3 &p, double weldEps)
         std::round(p.z / weldEps) * weldEps);
 }
 
-/// Weld vertices that differ only by floating-point noise so triangles share edges for coplanar merge.
-static double StlWeldEpsilonFromDiagonal(double diagonal)
+struct WeldGridKey
 {
-    if (!std::isfinite(diagonal) || diagonal <= 0.0)
-        return 1e-6;
-    return std::clamp(1e-7 * diagonal, 1e-10, 1e-3);
+    std::int64_t x = 0;
+    std::int64_t y = 0;
+    std::int64_t z = 0;
+
+    bool operator==(const WeldGridKey &other) const
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+};
+
+struct WeldGridKeyHash
+{
+    std::size_t operator()(const WeldGridKey &key) const
+    {
+        std::size_t h = std::hash<std::int64_t>{}(key.x);
+        h ^= std::hash<std::int64_t>{}(key.y) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        h ^= std::hash<std::int64_t>{}(key.z) + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+        return h;
+    }
+};
+
+struct SpatialPointWeld
+{
+    double tolerance = 0.0;
+    std::unordered_map<WeldGridKey, std::vector<Point *>, WeldGridKeyHash> cells;
+    std::size_t pointCount = 0;
+};
+
+static void ReportLoopProgress(
+    const ImportProgressCallback *progress,
+    const char *phase,
+    std::uint64_t index,
+    std::uint64_t total,
+    float rangeStart01,
+    float rangeEnd01)
+{
+    if (progress == nullptr || !*progress || total == 0)
+        return;
+
+    const std::uint64_t stride = std::max<std::uint64_t>(1, total / 200);
+    if ((index + 1) != total && (index % stride) != 0)
+        return;
+
+    const float localProgress01 = static_cast<float>(index + 1) / static_cast<float>(total);
+    ReportImportProgress(progress, phase, MapImportProgress(localProgress01, rangeStart01, rangeEnd01));
+}
+
+/// Binary STL stores float32 coordinates, so weld only within a few float ULPs at file scale.
+static double BinaryStlWeldToleranceFromBounds(const glm::dvec3 &boundMin, const glm::dvec3 &boundMax)
+{
+    const double maxAbsCoord = std::max({
+        std::abs(boundMin.x), std::abs(boundMin.y), std::abs(boundMin.z),
+        std::abs(boundMax.x), std::abs(boundMax.y), std::abs(boundMax.z),
+        1.0});
+    return 2.0 * static_cast<double>(std::numeric_limits<float>::epsilon()) * maxAbsCoord;
+}
+
+static std::int64_t WeldCellIndex(double coord, double tolerance)
+{
+    return static_cast<std::int64_t>(std::floor(coord / tolerance));
+}
+
+static WeldGridKey MakeWeldGridKey(const glm::dvec3 &pos, double tolerance)
+{
+    return {
+        WeldCellIndex(pos.x, tolerance),
+        WeldCellIndex(pos.y, tolerance),
+        WeldCellIndex(pos.z, tolerance)};
 }
 
 /// Runs coplanar face merge after STL triangle soup, or only captures topology when merge is disabled.
-static void MergeStlCoplanarMaybe(Scene *scene, Solid *solid, STLImportStats *stats)
+static void MergeStlCoplanarMaybe(
+    Scene *scene,
+    Solid *solid,
+    STLImportStats *stats,
+    const ImportProgressCallback *progress)
 {
     MergeCoplanarDiagnostics *diagOut = stats ? &stats->mergeDiagnostics : nullptr;
     if (stats)
         stats->hasMergeDiagnostics = true;
+
+    SceneProgressCallback mergeProgress = [progress](float mergeProgress01)
+    {
+        ReportImportProgress(
+            progress,
+            "Merging coplanar STL faces...",
+            MapImportProgress(mergeProgress01, 0.70f, 0.85f));
+    };
 
     if (GeometryExperiments::kSkipStlMergeCoplanarFaces)
     {
@@ -65,12 +144,12 @@ static void MergeStlCoplanarMaybe(Scene *scene, Solid *solid, STLImportStats *st
     {
         // CGAL still emits a triangle mesh per planar patch (CDT); scene merge removes internal
         // coplanar edges so wireframe / patches match large facets.
-        scene->MergeCoplanarFaces(solid, diagOut);
+        scene->MergeCoplanarFaces(solid, diagOut, &mergeProgress);
         return;
     }
 #endif
 
-    scene->MergeCoplanarFaces(solid, diagOut);
+    scene->MergeCoplanarFaces(solid, diagOut, &mergeProgress);
 }
 
 static bool IsBinarySTL(std::ifstream &file, uint32_t &triangleCount)
@@ -106,11 +185,46 @@ static Point *GetOrCreatePoint(
     return p;
 }
 
-static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCount, STLImportStats *stats)
+static Point *GetOrCreateNearbyFloatPoint(Scene *scene, SpatialPointWeld &weld, const glm::dvec3 &pos)
+{
+    const WeldGridKey key = MakeWeldGridKey(pos, weld.tolerance);
+    for (int dx = -1; dx <= 1; ++dx)
+        for (int dy = -1; dy <= 1; ++dy)
+            for (int dz = -1; dz <= 1; ++dz)
+            {
+                const WeldGridKey neighborKey{key.x + dx, key.y + dy, key.z + dz};
+                auto cellIt = weld.cells.find(neighborKey);
+                if (cellIt == weld.cells.end())
+                    continue;
+
+                for (Point *candidate : cellIt->second)
+                {
+                    const glm::dvec3 delta = candidate->position - pos;
+                    if (std::abs(delta.x) <= weld.tolerance &&
+                        std::abs(delta.y) <= weld.tolerance &&
+                        std::abs(delta.z) <= weld.tolerance)
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+    Point *p = scene->CreatePoint(pos);
+    weld.cells[key].push_back(p);
+    ++weld.pointCount;
+    return p;
+}
+
+static bool ImportBinary(
+    std::ifstream &file,
+    Scene *scene,
+    uint32_t triangleCount,
+    STLImportStats *stats,
+    const ImportProgressCallback *progress)
 {
     using Clock = std::chrono::steady_clock;
     const Clock::time_point tStart = Clock::now();
-    std::map<glm::dvec3, Point *, Vec3Compare> pointMap;
+    SpatialPointWeld pointWeld;
     std::vector<Face *> faces;
     faces.reserve(triangleCount);
 
@@ -132,8 +246,9 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
             boundMin = glm::min(boundMin, pos);
             boundMax = glm::max(boundMax, pos);
         }
+        ReportLoopProgress(progress, "Scanning STL bounds...", i, triangleCount, 0.02f, 0.15f);
     }
-    const double weldEps = StlWeldEpsilonFromDiagonal(glm::length(boundMax - boundMin));
+    pointWeld.tolerance = BinaryStlWeldToleranceFromBounds(boundMin, boundMax);
     file.clear();
     file.seekg(triBlockStart);
 
@@ -152,7 +267,7 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
         for (int v = 0; v < 3; ++v)
         {
             glm::dvec3 pos(data[3 + v * 3], data[4 + v * 3], data[5 + v * 3]);
-            pts[v] = GetOrCreatePoint(scene, pointMap, pos, weldEps);
+            pts[v] = GetOrCreateNearbyFloatPoint(scene, pointWeld, pos);
         }
 
         if (pts[0] == pts[1] || pts[1] == pts[2] || pts[0] == pts[2])
@@ -174,15 +289,17 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
         }
 
         faces.push_back(f);
+        ReportLoopProgress(progress, "Reading STL triangles...", i, triangleCount, 0.15f, 0.70f);
     }
 
     double parseMs = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
     double mergeMs = 0.0;
     if (!faces.empty())
     {
+        ReportImportProgress(progress, "Merging coplanar STL faces...", 0.70f);
         const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        MergeStlCoplanarMaybe(scene, solid, stats);
+        MergeStlCoplanarMaybe(scene, solid, stats, progress);
         mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 
@@ -190,7 +307,7 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
     {
         stats->isBinary = true;
         stats->triangleCount = triangleCount;
-        stats->uniquePoints = pointMap.size();
+        stats->uniquePoints = pointWeld.pointCount;
         stats->faces = faces.size();
         stats->parseMs = parseMs;
         stats->mergeMs = mergeMs;
@@ -199,7 +316,11 @@ static bool ImportBinary(std::ifstream &file, Scene *scene, uint32_t triangleCou
     return true;
 }
 
-static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats)
+static bool ImportASCII(
+    std::ifstream &file,
+    Scene *scene,
+    STLImportStats *stats,
+    const ImportProgressCallback *progress)
 {
     using Clock = std::chrono::steady_clock;
     const Clock::time_point tStart = Clock::now();
@@ -207,7 +328,12 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
     std::vector<Face *> faces;
     const double weldEps = 1e-6; // ASCII path: no bbox pre-scan; conservative absolute snap
 
+    file.seekg(0, std::ios::end);
+    const std::streamoff fileSize = file.tellg();
+    file.seekg(0);
+
     std::string line;
+    std::uint64_t faceLineIndex = 0;
     while (std::getline(file, line))
     {
         if (line.find("outer loop") == std::string::npos)
@@ -246,15 +372,33 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
         }
 
         faces.push_back(f);
+
+        if (progress != nullptr && *progress && fileSize > 0 && (faceLineIndex++ % 256) == 0)
+        {
+            const std::streampos pos = file.tellg();
+            if (pos != std::streampos(-1))
+            {
+                const std::streamoff posOffset = static_cast<std::streamoff>(pos);
+                ReportImportProgress(
+                    progress,
+                    "Reading ASCII STL triangles...",
+                    MapImportProgress(
+                        std::clamp(static_cast<float>(static_cast<double>(posOffset) / static_cast<double>(fileSize)), 0.0f, 1.0f),
+                        0.05f,
+                        0.70f));
+            }
+        }
     }
+    ReportImportProgress(progress, "Reading ASCII STL triangles...", 0.70f);
 
     double parseMs = std::chrono::duration<double, std::milli>(Clock::now() - tStart).count();
     double mergeMs = 0.0;
     if (!faces.empty())
     {
+        ReportImportProgress(progress, "Merging coplanar STL faces...", 0.70f);
         const Clock::time_point tMergeStart = Clock::now();
         Solid *solid = scene->CreateSolid(faces);
-        MergeStlCoplanarMaybe(scene, solid, stats);
+        MergeStlCoplanarMaybe(scene, solid, stats, progress);
         mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tMergeStart).count();
     }
 
@@ -271,8 +415,13 @@ static bool ImportASCII(std::ifstream &file, Scene *scene, STLImportStats *stats
     return true;
 }
 
-bool STLImport::Import(const std::string &filePath, Scene *scene, STLImportStats *stats)
+bool STLImport::Import(
+    const std::string &filePath,
+    Scene *scene,
+    STLImportStats *stats,
+    const ImportProgressCallback *progress)
 {
+    ReportImportProgress(progress, "Opening STL file...", 0.0f);
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open())
         return LOG_FALSE("Failed to open STL file: " + filePath);
@@ -281,7 +430,7 @@ bool STLImport::Import(const std::string &filePath, Scene *scene, STLImportStats
     if (IsBinarySTL(file, triangleCount))
     {
         LOG_DESC("Importing binary STL: " + filePath)
-        return ImportBinary(file, scene, triangleCount, stats);
+        return ImportBinary(file, scene, triangleCount, stats, progress);
     }
 
     file.clear();
@@ -293,5 +442,5 @@ bool STLImport::Import(const std::string &filePath, Scene *scene, STLImportStats
         return LOG_FALSE("Failed to reopen STL file as text: " + filePath);
 
     LOG_DESC("Importing ASCII STL: " + filePath)
-    return ImportASCII(file, scene, stats);
+    return ImportASCII(file, scene, stats, progress);
 }

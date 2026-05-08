@@ -15,7 +15,8 @@ static double MergePlaneTolFromDiagonal(double diagonal)
     const double planeTolGeometric = std::clamp(1e-7 * diagonal, 1e-10, 1.0);
     const double planeTolFloat = 4.0 * static_cast<double>(FLT_EPSILON) * std::max(diagonal, 1e-300);
     const double planeTolImport = 2e-6 * std::max(diagonal, 1e-300);
-    return std::max({planeTolGeometric, planeTolFloat, planeTolImport});
+    return std::max({planeTolGeometric, planeTolFloat, planeTolImport,
+                     GeometryExperiments::kMergeCoplanarPlaneTolFloor});
 }
 
 namespace
@@ -302,7 +303,10 @@ void Scene::CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics 
     out->edgesThreePlusAfter = out->edgesThreePlusBefore;
 }
 
-void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut)
+void Scene::MergeCoplanarFaces(
+    Solid *solid,
+    MergeCoplanarDiagnostics *diagnosticsOut,
+    const SceneProgressCallback *progress)
 {
     if (!solid)
         return;
@@ -327,6 +331,19 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
 
     const double diagonal = diag ? diag->bboxDiagonal : SolidDiagonalFromFacePoints(solid);
     const double planeTol = MergePlaneTolFromDiagonal(diagonal);
+    const std::size_t initialFaceCount = solid->faces.size();
+    float lastReportedProgress = -1.0f;
+    auto reportProgress = [&](float progress01, bool force = false)
+    {
+        if (progress == nullptr || !*progress)
+            return;
+        progress01 = std::clamp(progress01, 0.0f, 1.0f);
+        if (!force && lastReportedProgress >= 0.0f && progress01 - lastReportedProgress < 0.005f)
+            return;
+        lastReportedProgress = progress01;
+        (*progress)(progress01);
+    };
+    reportProgress(0.0f, true);
 
     // Debug: check edge dependency counts
     {
@@ -568,6 +585,11 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
             mergedThisFi = true;
             if (diag)
                 diag->mergeOperations++;
+            if (initialFaceCount > 1)
+            {
+                const std::size_t removedFaces = initialFaceCount - solid->faces.size();
+                reportProgress(static_cast<float>(removedFaces) / static_cast<float>(initialFaceCount - 1));
+            }
             break; // done with neighbors of fi; outer `while` will rescan
             }
 
@@ -578,6 +600,7 @@ void Scene::MergeCoplanarFaces(Solid *solid, MergeCoplanarDiagnostics *diagnosti
 
     if (diag)
         CompleteCoplanarMergeDiagnostics(solid, diag);
+    reportProgress(1.0f, true);
 
     if constexpr (kLogMergeDebug)
         LOG_DEBU("Merged to " + std::to_string(solid->faces.size()) + " faces");

@@ -28,8 +28,9 @@ enum class ViewportDepthExperiment : std::uint8_t
 
 namespace ViewportDepthExperiments
 {
-// Edit only this line between runs:
-inline constexpr ViewportDepthExperiment kActive = ViewportDepthExperiment::BackFaceCull;
+// Edit only this line between probe runs. Keep the default two-sided because imported/merged
+// faces do not yet guarantee globally consistent outward winding.
+inline constexpr ViewportDepthExperiment kActive = ViewportDepthExperiment::Baseline;
 
 [[nodiscard]] constexpr ViewportDepthExperiment Active() noexcept { return kActive; }
 

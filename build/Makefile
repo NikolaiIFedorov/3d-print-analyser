@@ -1078,6 +1078,30 @@ src/logic/Import/OBJImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s
 .PHONY : src/logic/Import/OBJImport.cpp.s
 
+src/logic/Import/STLCgalPlanarExperiment.o: src/logic/Import/STLCgalPlanarExperiment.cpp.o
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.o
+
+# target to build an object file
+src/logic/Import/STLCgalPlanarExperiment.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.o
+
+src/logic/Import/STLCgalPlanarExperiment.i: src/logic/Import/STLCgalPlanarExperiment.cpp.i
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.i
+
+# target to preprocess a source file
+src/logic/Import/STLCgalPlanarExperiment.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.i
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.i
+
+src/logic/Import/STLCgalPlanarExperiment.s: src/logic/Import/STLCgalPlanarExperiment.cpp.s
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.s
+
+# target to generate assembly for a file
+src/logic/Import/STLCgalPlanarExperiment.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.s
+.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.s
+
 src/logic/Import/STLImport.o: src/logic/Import/STLImport.cpp.o
 .PHONY : src/logic/Import/STLImport.o
 
@@ -1469,6 +1493,9 @@ help:
 	@echo "... src/logic/Import/OBJImport.o"
 	@echo "... src/logic/Import/OBJImport.i"
 	@echo "... src/logic/Import/OBJImport.s"
+	@echo "... src/logic/Import/STLCgalPlanarExperiment.o"
+	@echo "... src/logic/Import/STLCgalPlanarExperiment.i"
+	@echo "... src/logic/Import/STLCgalPlanarExperiment.s"
 	@echo "... src/logic/Import/STLImport.o"
 	@echo "... src/logic/Import/STLImport.i"
 	@echo "... src/logic/Import/STLImport.s"

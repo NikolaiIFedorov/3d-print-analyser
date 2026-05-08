@@ -7,13 +7,19 @@ layout(location = 2) in vec3 aNormal;
 uniform mat4 uViewProjection;
 uniform mat4 uModel;
 uniform float uLightingEnabled;
+uniform float uClipZBiasW;
 
 out vec3 fragColor;
 out vec3 fragNormal;
 
 void main()
 {
-    gl_Position = uViewProjection * uModel * vec4(aPosition, 1.0);
+    vec4 pos = uViewProjection * uModel * vec4(aPosition, 1.0);
+    float biasedZ = pos.z + uClipZBiasW * pos.w;
+    // Keep depth layering bias from pushing primitives beyond clip planes when zoomed in.
+    float clipMargin = max(1e-6, 1e-6 * abs(pos.w));
+    pos.z = clamp(biasedZ, -pos.w + clipMargin, pos.w - clipMargin);
+    gl_Position = pos;
     fragColor = aColor;
     // Guard: skip normalize when lighting is off — aNormal may be zero
     // (e.g. grid/axis VAOs that don't supply a normal attribute).

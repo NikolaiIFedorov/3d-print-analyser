@@ -8,9 +8,11 @@ uniform float uLineWidth;
 
 in VS_OUT {
     vec3 color;
+    vec3 normal;
 } gs_in[];
 
 out vec3 fragColor;
+out vec3 fragNormal;
 
 void main()
 {
@@ -31,12 +33,14 @@ void main()
     vec2 offset = vec2(-lineDir.y, lineDir.x) * halfWidth / uViewportSize;
 
     fragColor = gs_in[0].color;
+    fragNormal = gs_in[0].normal;
     gl_Position = vec4((ndc0 + offset) * p0.w, p0.z, p0.w);
     EmitVertex();
     gl_Position = vec4((ndc0 - offset) * p0.w, p0.z, p0.w);
     EmitVertex();
 
     fragColor = gs_in[1].color;
+    fragNormal = gs_in[1].normal;
     gl_Position = vec4((ndc1 + offset) * p1.w, p1.z, p1.w);
     EmitVertex();
     gl_Position = vec4((ndc1 - offset) * p1.w, p1.z, p1.w);

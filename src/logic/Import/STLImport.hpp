@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "ImportProgress.hpp"
 #include "scene/scene.hpp"
 
 class Scene;
@@ -26,5 +27,9 @@ struct STLImportStats
 class STLImport
 {
 public:
-    static bool Import(const std::string &filePath, Scene *scene, STLImportStats *stats = nullptr);
+    static bool Import(
+        const std::string &filePath,
+        Scene *scene,
+        STLImportStats *stats = nullptr,
+        const ImportProgressCallback *progress = nullptr);
 };

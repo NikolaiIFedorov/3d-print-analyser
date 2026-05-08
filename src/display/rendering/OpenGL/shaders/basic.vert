@@ -15,7 +15,10 @@ out vec3 fragNormal;
 void main()
 {
     vec4 pos = uViewProjection * uModel * vec4(aPosition, 1.0);
-    pos.z += uClipZBiasW * pos.w;
+    float biasedZ = pos.z + uClipZBiasW * pos.w;
+    // Keep depth layering bias from pushing primitives beyond clip planes when zoomed in.
+    float clipMargin = max(1e-6, 1e-6 * abs(pos.w));
+    pos.z = clamp(biasedZ, -pos.w + clipMargin, pos.w - clipMargin);
     gl_Position = pos;
     fragColor = aColor;
     // Guard: skip normalize when lighting is off — aNormal may be zero

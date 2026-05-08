@@ -5,10 +5,22 @@
 #include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 class Camera
 {
 public:
+    enum class OrbitSnapAxis : uint8_t
+    {
+        None,
+        PosX,
+        NegX,
+        PosY,
+        NegY,
+        PosZ,
+        NegZ,
+    };
+
     Camera() {};
     Camera(uint16_t width, uint16_t height);
 
@@ -16,11 +28,14 @@ public:
     glm::mat4 GetProjectionMatrix() const;
 
     void Orbit(const float deltaX, const float deltaY);
+    OrbitSnapAxis SnapToPrincipalAxis(float snapDegrees, OrbitSnapAxis suppressedAxis = OrbitSnapAxis::None);
+    OrbitSnapAxis FinishOrbitSnap(OrbitSnapAxis suppressedAxis = OrbitSnapAxis::None);
     void Roll(const float delta);
     void Pan(const float deltaX, const float deltaY, bool scroll = true);
     void Zoom(const float delta, const glm::vec3 &targetPoint);
 
     void FrameBounds(const glm::vec3 &min, const glm::vec3 &max);
+    void FrameBoundsFromDirection(const glm::vec3 &min, const glm::vec3 &max, const glm::vec3 &cameraBackDirection);
 
     void SetTarget(const glm::vec3 &target);
     void SetDistance(const float distance);
@@ -36,10 +51,6 @@ public:
     float distance;
     glm::quat orientation;
 
-    /// Principal-axis snap hysteresis latch state (angles are tuned via `UserTuning`).
-    bool principalSnapLatched = false;
-    glm::quat latchedPrincipalOrientation{1.0f, 0.0f, 0.0f, 0.0f};
-
     float orthoSize;
     float aspectRatio;
     float fov;
@@ -54,4 +65,6 @@ public:
 
     /// True when the view direction is within the same cone as principal-axis snap (canonical top/front/side).
     bool IsPrincipalAxisView(float marginDegrees = 3.0f) const;
+    OrbitSnapAxis PrincipalSnapAxis(float marginDegrees) const;
+    bool IsWithinSnapAxis(OrbitSnapAxis axis, float marginDegrees) const;
 };

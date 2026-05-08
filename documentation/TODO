@@ -169,6 +169,9 @@ Source: session investigation vs reference viewers; probes in `include/Rendering
 - Tightening ortho clip (incl. view-scaled axis extent), pick polygon offset, wire Z bias,
       back-face cull for patches, and STL coplanar merge skips were tried without clearing the
       core artifact class.
+- Back-face cull is not a valid default yet: STL import / coplanar merge do not guarantee
+      globally consistent outward face winding, so `BackFaceCull` can make faces disappear based
+      on camera orientation. Keep it as a temporary probe only.
 - Default framebuffer MSAA: `RenderingExperiments::kGlFramebufferMsaaSamples` — **0 vs 4**
       reproduced **same** layering artifact (2026 session); MSAA unlikely primary cause here.
       Log still reports `GL_SAMPLES` / `GL_SAMPLE_BUFFERS` after context creation.

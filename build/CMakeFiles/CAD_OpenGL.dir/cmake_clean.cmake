@@ -77,6 +77,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
