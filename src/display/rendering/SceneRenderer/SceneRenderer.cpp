@@ -23,27 +23,25 @@ inline void LogSlowStage(const char *stage, double ms)
         LOG_SESSION("Render stage", stage, "ms", ms);
 }
 
-static void BuildStructurePreviewLineMesh(const std::vector<std::pair<glm::vec3, glm::vec3>> &segments,
-                                          std::vector<Vertex> &vertices, std::vector<uint32_t> &indices)
+static void AppendPreviewLineSegments(const std::vector<std::pair<glm::vec3, glm::vec3>> &segments,
+                                      const glm::vec3 &lineRgb, std::vector<Vertex> &vertices,
+                                      std::vector<uint32_t> &indices)
 {
-    vertices.clear();
-    indices.clear();
     if (segments.empty())
         return;
-    const glm::vec3 col = glm::vec3(Color::GetAccent(1, 1.0f));
     const glm::vec3 nrm(0.0f);
-    vertices.reserve(segments.size() * 2);
-    indices.reserve(segments.size() * 2);
+    vertices.reserve(vertices.size() + segments.size() * 2);
+    indices.reserve(indices.size() + segments.size() * 2);
     for (const auto &seg : segments)
     {
         const uint32_t base = static_cast<uint32_t>(vertices.size());
         Vertex v0{};
         v0.position = seg.first;
-        v0.color = col;
+        v0.color = lineRgb;
         v0.normal = nrm;
         Vertex v1{};
         v1.position = seg.second;
-        v1.color = col;
+        v1.color = lineRgb;
         v1.normal = nrm;
         vertices.push_back(v0);
         vertices.push_back(v1);
@@ -56,6 +54,11 @@ static void BuildStructurePreviewLineMesh(const std::vector<std::pair<glm::vec3,
 void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
 {
     structurePreviewSegments = std::move(segments);
+}
+
+void SceneRenderer::SetStructureRibSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
+{
+    structureRibSegments = std::move(segments);
 }
 
 void SceneRenderer::SetStructureViewTranslucentSolid(bool enable, float alpha01)
@@ -548,7 +551,12 @@ void SceneRenderer::CommitStructurePreviewLinesToGpu()
 {
     std::vector<Vertex> verts;
     std::vector<uint32_t> idx;
-    BuildStructurePreviewLineMesh(structurePreviewSegments, verts, idx);
+    const glm::vec4 accentRgba = Color::GetAccent(1, 1.0f);
+    const glm::vec3 accentRgb(accentRgba.x, accentRgba.y, accentRgba.z);
+    const glm::vec4 ribRgba = Color::GetAccent(2, 1.0f);
+    const glm::vec3 ribRgb(ribRgba.x, ribRgba.y, ribRgba.z);
+    AppendPreviewLineSegments(structurePreviewSegments, accentRgb, verts, idx);
+    AppendPreviewLineSegments(structureRibSegments, ribRgb, verts, idx);
     renderer.UploadStructurePreviewLineMesh(verts, idx);
 }
 

@@ -853,7 +853,8 @@ void Display::Render()
     const bool structureShellTranslucent =
         structureUiActive && structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
     const bool structurePreviewStrutsVisible =
-        structureUiActive && structurePreviewEnabled && scene != nullptr && !scene->solids.empty();
+        structureUiActive && scene != nullptr && !scene->solids.empty() &&
+        (structurePreviewEnabled || structureRibPreviewEnabled);
 
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
@@ -5006,9 +5007,9 @@ void Display::InitUI()
         structDef.id = "Structure";
         structDef.name = "Structure";
         structDef.description =
-            "Preview adaptive internal bracing. Changing the solid mesh is planned for a later release.";
+            "Preview internal bracing (diamond/struts/ribs as lines). Exporting modified solid mesh is planned later.";
         structDef.flattenParameters = true;
-        structDef.parameters.reserve(4);
+        structDef.parameters.reserve(8);
 
         ParameterDef pmPreviewShow;
         pmPreviewShow.id = "StructPreviewShow";
@@ -5066,6 +5067,67 @@ void Display::InitUI()
             }
         };
         structDef.parameters.push_back(std::move(pmPreviewPattern));
+
+        ParameterDef pmRibToggle;
+        pmRibToggle.id = "StructRibToggle";
+        pmRibToggle.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw =
+                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Interior ribs (preview)").x : 210.0f;
+            return pad * 2.0f + tw + 28.0f;
+        };
+        pmRibToggle.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            if (ImGui::Checkbox("Interior ribs (preview)", &structureRibPreviewEnabled))
+            {
+                RefreshStructurePreviewForRenderer();
+                MarkGeometryDirtyAll();
+                renderDirty = true;
+            }
+        };
+        structDef.parameters.push_back(std::move(pmRibToggle));
+
+        ParameterDef pmRibSliders;
+        pmRibSliders.id = "StructRibParams";
+        pmRibSliders.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw = f ? std::max({
+                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Rib spacing (mm)").x,
+                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Into solid (mm)").x,
+                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset from edge").x,
+                                 })
+                               : 260.0f;
+            return pad * 2.0f + tw + 120.0f;
+        };
+        pmRibSliders.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            bool changed = false;
+            changed |= ImGui::SliderFloat("Rib spacing (mm)", &structureRibSpacingMm, 3.0f, 72.0f, "%.0f");
+            changed |= ImGui::SliderFloat("Rib depth into solid (mm)", &structureRibDepthMm, 0.0f, 25.0f, "%.1f");
+            changed |= ImGui::SliderFloat("Rib inset from edge", &structureRibMarginFrac, 0.02f, 0.35f, "%.2f");
+            if (changed)
+            {
+                structureRibSpacingMm = std::max(0.25f, structureRibSpacingMm);
+                structureRibDepthMm = std::max(0.0f, structureRibDepthMm);
+                structureRibMarginFrac = std::clamp(structureRibMarginFrac, 0.02f, 0.35f);
+                RefreshStructurePreviewForRenderer();
+                MarkGeometryDirtyAll();
+                renderDirty = true;
+            }
+        };
+        structDef.parameters.push_back(std::move(pmRibSliders));
 
         ParameterDef pmTranslucent;
         pmTranslucent.id = "StructTranslucent";
@@ -5141,6 +5203,18 @@ void Display::RefreshStructurePreviewForRenderer()
         }
     }
     renderer.SetStructurePreviewSegments(std::move(segs));
+
+    std::vector<std::pair<glm::vec3, glm::vec3>> ribSegs;
+    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
+        structureRibPreviewEnabled && !scene->solids.empty())
+    {
+        StructurePreview::RibPreviewParams ribParams;
+        ribParams.spacingMm = structureRibSpacingMm;
+        ribParams.depthMm = structureRibDepthMm;
+        ribParams.marginFrac = structureRibMarginFrac;
+        StructurePreview::BuildInteriorFaceRibs(*scene, ribParams, ribSegs);
+    }
+    renderer.SetStructureRibSegments(std::move(ribSegs));
 }
 
 void Display::RefreshUIMinWindowSize()

@@ -200,6 +200,13 @@ private:
     bool structurePreviewEnabled = true;
     /// Which preview graph (`StructurePreview::Build*`).
     StructurePreview::PreviewPattern structurePreviewPattern = StructurePreview::PreviewPattern::AdjacentFaceMidpoints;
+
+    /// Structure tool: planar-face rib rectangles (spacing / inward depth preview; line mesh only).
+    bool structureRibPreviewEnabled = false;
+    float structureRibSpacingMm = 12.0f;
+    float structureRibDepthMm = 2.5f;
+    float structureRibMarginFrac = 0.07f;
+
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;
     /// Storage for the disabled “inner walls” ImGui row (always false).

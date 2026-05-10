@@ -50,8 +50,11 @@ public:
     void RecolorOnly(Scene *scene, const AnalysisResults *results = nullptr);
     void RebuildScope(Scene *scene, const GeometryInvalidationScope &scope, const AnalysisResults *results = nullptr);
 
-    /// Optional preview lines (e.g. Structure tool) appended after loose wireframe geometry each rebuild.
+    /// Optional preview lines (e.g. Structure tool diamond/struts) rebuilt each upload.
     void SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
+
+    /// Optional rib preview rectangles (distinct vertex colour vs `structurePreviewSegments`).
+    void SetStructureRibSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
 
     /// Per frame: translucent solid shell while Structure view is active (depth prepass + alpha in OpenGLRenderer).
     void SetStructureViewTranslucentSolid(bool enable, float alpha01);
@@ -66,7 +69,7 @@ public:
     void RenderPickHighlightLines(float lineWidthPx);
     void RenderPickHighlightLinesXray(float lineWidthPx);
     void RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay = false);
-    /// Dedicated mesh from `structurePreviewSegments`; foreground pass + occluded (“behind”) pass.
+    /// Dedicated mesh from `structurePreviewSegments` + optional `structureRibSegments`; foreground + occluded passes.
     void RenderStructurePreviewLines(float lineWidthPx);
     void RenderWireframe();
     /// Second pass: first `packedSolidWireframeIndexCount` line indices (solid wire only), depth-behind shell.
@@ -137,6 +140,7 @@ private:
     std::vector<PickSegment> pickSegments;
 
     std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureRibSegments;
 
     uint32_t packedSolidPatchIndexCount = 0;
     /// Line indices belonging to solid wireframe chunks only (prefix of packed line IBO); set in `RepackOffsets`.

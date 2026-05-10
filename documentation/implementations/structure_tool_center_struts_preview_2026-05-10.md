@@ -57,3 +57,13 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Code:** `StructurePreview::BuildAdjacentFaceMidpoints`, `PreviewPattern` enum. `Display`: “Structure preview lines” checkbox + “Preview pattern” combo; default pattern `AdjacentFaceMidpoints`. Renamed `structureCenterStrutsEnabled` → `structurePreviewEnabled`.
 
 **Behaviour:** Skips edges unless exactly two incident faces, both planar, same `Face::dependency` solid, centroids distinct. **Non-manifold** edges (3+ faces) are skipped.
+
+---
+
+## Update: interior ribs preview (2026-05-10)
+
+**Geometry:** `StructurePreview::BuildInteriorFaceRibs` — per planar **outer loop only** (`face.loops.size() == 1`), build orthonormal `(u,v)` in the face plane, clip **parallel chords** to the polygon in uv (convex clip via line–edge intersections; non-convex layouts may be imperfect). Spacing along each axis from `RibPreviewParams::spacingMm`; each chord becomes a **rectangle** of GL lines: chord on the face + inward offset `depthMm` along **−outward normal**. **Cap** 24 ribs per direction per face.
+
+**UI:** Checkbox “Interior ribs (preview)” plus sliders spacing / depth / inset (margin fraction). Rib lines use `Color::GetAccent(2, …)` vs depth 1 for diamond/struts.
+
+**Integration:** `SceneRenderer::SetStructureRibSegments`; `CommitStructurePreviewLinesToGpu` appends accent + rib colours into one Structure preview line mesh. `Display::RefreshStructurePreviewForRenderer` fills both segment lists. Overlay draws when **either** main preview lines or ribs are enabled.
