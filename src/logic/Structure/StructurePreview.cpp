@@ -173,6 +173,26 @@ void MergeCloseSorted(std::vector<double> &vals, double eps)
     return outSuHigh - outSuLow > eps;
 }
 
+/// Move endpoints inward along the chord; returns false if the segment collapses.
+[[nodiscard]] bool ApplyChordEndInset(glm::dvec3 &a0, glm::dvec3 &a1, double insetPerEndMm,
+                                      double minRemainingLengthMm)
+{
+    if (insetPerEndMm <= 1.0e-9)
+        return true;
+
+    const glm::dvec3 chord = a1 - a0;
+    const double fullLen = glm::length(chord);
+    if (!(fullLen > 1.0e-9))
+        return false;
+    const glm::dvec3 dir = chord / fullLen;
+    const double trim = 2.0 * insetPerEndMm;
+    if (!(fullLen > trim + minRemainingLengthMm))
+        return false;
+    a0 = a0 + dir * insetPerEndMm;
+    a1 = a1 - dir * insetPerEndMm;
+    return true;
+}
+
 /// Chord lies too close to the XY plane (unsupportable / “horizontal” in FDM with build-up +Z).
 [[nodiscard]] bool ChordTooHorizontalForBuildUp(const glm::dvec3 &a0, const glm::dvec3 &a1,
                                                 const glm::dvec3 &buildUpUnitZ, double minAbsDotZ)
@@ -225,6 +245,8 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
     const double spacing = std::max(0.25, params.spacingMm);
     const double depthMm = std::max(0.0, params.depthMm);
     const double marginFrac = std::clamp(params.marginFrac, 0.01, 0.45);
+    const double chordEndInsetMm = std::max(0.0, params.chordEndInsetMm);
+    constexpr double kMinChordAfterInsetMm = 0.6;
 
     constexpr glm::dvec3 kBuildUpWorldZ(0.0, 0.0, 1.0);
     // Drop rib chords whose direction is nearly parallel to the print bed (|d·Z| tiny). Surviving
@@ -318,8 +340,10 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                 double su0 = 0.0, su1 = 0.0;
                 if (!ClipConvexPolygonHorizontalLine(svLine, ring2d, kUvEps, su0, su1))
                     return;
-                const glm::dvec3 a0 = centroid + u * su0 + v * svLine;
-                const glm::dvec3 a1 = centroid + u * su1 + v * svLine;
+                glm::dvec3 a0 = centroid + u * su0 + v * svLine;
+                glm::dvec3 a1 = centroid + u * su1 + v * svLine;
+                if (!ApplyChordEndInset(a0, a1, chordEndInsetMm, kMinChordAfterInsetMm))
+                    return;
                 if (ChordTooHorizontalForBuildUp(a0, a1, kBuildUpWorldZ, kMinAbsChordDotBuildUpZ))
                     return;
                 AppendRibRectangle(out, a0, a1, inward, depthMm);
@@ -330,8 +354,10 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                 double sv0 = 0.0, sv1 = 0.0;
                 if (!ClipConvexPolygonVerticalLine(suLine, ring2d, kUvEps, sv0, sv1))
                     return;
-                const glm::dvec3 a0 = centroid + u * suLine + v * sv0;
-                const glm::dvec3 a1 = centroid + u * suLine + v * sv1;
+                glm::dvec3 a0 = centroid + u * suLine + v * sv0;
+                glm::dvec3 a1 = centroid + u * suLine + v * sv1;
+                if (!ApplyChordEndInset(a0, a1, chordEndInsetMm, kMinChordAfterInsetMm))
+                    return;
                 if (ChordTooHorizontalForBuildUp(a0, a1, kBuildUpWorldZ, kMinAbsChordDotBuildUpZ))
                     return;
                 AppendRibRectangle(out, a0, a1, inward, depthMm);

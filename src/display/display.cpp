@@ -5105,8 +5105,9 @@ void Display::InitUI()
                                      f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Rib spacing (mm)").x,
                                      f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Into solid (mm)").x,
                                      f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset from edge").x,
+                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Chord end inset (mm)").x,
                                  })
-                               : 260.0f;
+                               : 280.0f;
             return pad * 2.0f + tw + 120.0f;
         };
         pmRibSliders.line.imguiContent = [this](float w, float h, float)
@@ -5117,11 +5118,13 @@ void Display::InitUI()
             changed |= ImGui::SliderFloat("Rib spacing (mm)", &structureRibSpacingMm, 3.0f, 72.0f, "%.0f");
             changed |= ImGui::SliderFloat("Rib depth into solid (mm)", &structureRibDepthMm, 0.0f, 25.0f, "%.1f");
             changed |= ImGui::SliderFloat("Rib inset from edge", &structureRibMarginFrac, 0.02f, 0.35f, "%.2f");
+            changed |= ImGui::SliderFloat("Chord end inset (mm)", &structureRibChordEndInsetMm, 0.0f, 40.0f, "%.1f");
             if (changed)
             {
                 structureRibSpacingMm = std::max(0.25f, structureRibSpacingMm);
                 structureRibDepthMm = std::max(0.0f, structureRibDepthMm);
                 structureRibMarginFrac = std::clamp(structureRibMarginFrac, 0.02f, 0.35f);
+                structureRibChordEndInsetMm = std::max(0.0f, structureRibChordEndInsetMm);
                 RefreshStructurePreviewForRenderer();
                 MarkGeometryDirtyAll();
                 renderDirty = true;
@@ -5212,6 +5215,7 @@ void Display::RefreshStructurePreviewForRenderer()
         ribParams.spacingMm = structureRibSpacingMm;
         ribParams.depthMm = structureRibDepthMm;
         ribParams.marginFrac = structureRibMarginFrac;
+        ribParams.chordEndInsetMm = structureRibChordEndInsetMm;
         StructurePreview::BuildInteriorFaceRibs(*scene, ribParams, ribSegs);
     }
     renderer.SetStructureRibSegments(std::move(ribSegs));

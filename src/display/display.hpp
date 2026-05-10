@@ -206,6 +206,8 @@ private:
     float structureRibSpacingMm = 12.0f;
     float structureRibDepthMm = 2.5f;
     float structureRibMarginFrac = 0.07f;
+    /// Shorten each rib chord from both ends along the rib (mm); 0 = face-edge to face-edge.
+    float structureRibChordEndInsetMm = 2.0f;
 
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;

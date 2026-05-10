@@ -71,3 +71,5 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Update (suppress horizontal caps):** `BuildInteriorFaceRibs` skips planar faces whose outward normal satisfies `|n·(0,0,1)| > 0.9` (assume build-up **+world Z**) so lid/floor-style facets get no ribbons for now—FDM bridging/support + weak interlayer bending along Z—replace later with print-axis UI or alternate stiffening on those faces.
 
 **Update (chord direction):** Lid skip alone leaves **horizontal** ribbons on **vertical** walls (one grid family runs parallel to XY). Each clipped chord is dropped when `|normalize(a1-a0)·ẑ| < 0.22` so surviving ribs lean “more vertical” in world space for **+Z** build-up.
+
+**Chord end inset:** `RibPreviewParams::chordEndInsetMm` trims each clipped chord by that distance from **both** ends along the chord (UI “Chord end inset (mm)”, default 2). Ribs shorter than `2*inset + 0.6mm` are skipped.

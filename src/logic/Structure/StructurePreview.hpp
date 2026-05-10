@@ -17,6 +17,8 @@ struct RibPreviewParams
     double depthMm = 2.5;
     /// Inset ribs from the face perimeter in each in-plane axis; fraction of face u/v span (∈ (0, 0.45) typical).
     double marginFrac = 0.07;
+    /// Shorten each rib along its chord direction by this distance from **each** end (mm); 0 = full clipped span.
+    double chordEndInsetMm = 0.0;
     // Future: print-up vector + max overhang cone; today `BuildInteriorFaceRibs` skips near-horizontal caps in world Z.
 };
 
