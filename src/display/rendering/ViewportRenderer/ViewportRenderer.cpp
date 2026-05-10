@@ -9,6 +9,11 @@
 
 namespace
 {
+[[nodiscard]] GLenum DepthCompareBehind()
+{
+    return RenderingExperiments::kReverseZDepth ? GL_LESS : GL_GREATER;
+}
+
 constexpr float kGridOpacityMax = 1.0f;
 /// Below this |view·ẑ|, grid stays at min opacity (nearly parallel to XY plane).
 constexpr float kGridPlaneTiltOpaqueStart = 0.08f;
@@ -354,6 +359,54 @@ void ViewportRenderer::RenderAxes()
     glBindVertexArray(0);
 
     glDepthMask(GL_TRUE);
+}
+
+void ViewportRenderer::RenderAxesBehindScene()
+{
+    if (lineIndexCount == 0)
+        return;
+
+    uint32_t axisIndexCount = lineIndexCount - gridIndexCount;
+    if (axisIndexCount == 0)
+        return;
+
+    shader.Use();
+    shader.SetMat4("uViewProjection", viewProjection);
+    shader.SetMat4("uModel", glm::mat4(1.0f));
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetFloat("uGridOpacity", 1.0f);
+    shader.SetFloat("uClipZBiasW", AxesClipZBiasW());
+    constexpr float kBehindAxisAlpha = 0.52f;
+    shader.SetFloat("uAlpha", kBehindAxisAlpha);
+
+    glDisable(GL_STENCIL_TEST);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(DepthCompareBehind());
+    glDepthMask(GL_FALSE);
+
+    glBindVertexArray(lineVAO);
+    glDrawElements(GL_LINES, axisIndexCount, GL_UNSIGNED_INT,
+                   (void *)(gridIndexCount * sizeof(uint32_t)));
+    glBindVertexArray(0);
+
+    glDepthMask(depthMaskWas);
+    if (depthTestWas)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (!blendWas)
+        glDisable(GL_BLEND);
 }
 
 void ViewportRenderer::Shutdown()

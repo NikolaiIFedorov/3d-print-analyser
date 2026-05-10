@@ -906,6 +906,8 @@ void Display::Render()
         viewportRenderer.Render();
 
     viewportRenderer.RenderAxes();
+    if (structureShellTranslucent)
+        viewportRenderer.RenderAxesBehindScene();
 
     glDisable(GL_STENCIL_TEST);
     // Occluded selection: translucent face tint behind nearer geometry, then line overlay (stronger).

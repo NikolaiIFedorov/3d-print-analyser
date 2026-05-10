@@ -37,3 +37,9 @@ Add a third toolbar tool **Structure** (alongside Analysis and Calibrate) for ad
 **Causes:** (1) Blending ran before the grid and against the clear color; stencil still hid the late grid under the shell. (2) Shell depth prepass occluded interior strut segments in the main wire draw.
 
 **Changes:** Draw the reference grid once **before** patches when Structure translucent shell is on (stencil off), and **skip** the second `viewportRenderer.Render()` for that mode. Upload center-strut segments to a **separate** line mesh and draw **twice** (normal depth + `DepthCompareBehind` x-ray) like pick span overlay. Slightly higher shell alpha (0.42) in `Display::Render`.
+
+---
+
+## Reference axes occluded pass (Structure translucent shell)
+
+RGB axes drew with normal depth only, so segments behind the shell depth failed. Added `ViewportRenderer::RenderAxesBehindScene()` (`DepthCompareBehind` + blend), called after `RenderAxes()` when Structure translucent shell is active.

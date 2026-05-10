@@ -30,6 +30,9 @@ public:
     void SetGridPlaneTiltMinOpacity(float minOpacity01);
     void Render();         // draws grid where the scene stencil is empty
     void RenderAxes();     // axes after scene — depth-tested, no stencil gate
+    /// Same axis geometry as `RenderAxes`, but only where depth is **behind** stored scene Z (x-ray pass).
+    /// Use with translucent shell so occluded axis segments read through the hull.
+    void RenderAxesBehindScene();
     void RegenerateGrid(); // rebuild grid/axis vertex buffers (call after appearance change)
     void Shutdown();
 
