@@ -69,6 +69,8 @@ public:
     /// Dedicated mesh from `structurePreviewSegments`; foreground pass + occluded (“behind”) pass.
     void RenderStructurePreviewLines(float lineWidthPx);
     void RenderWireframe();
+    /// Second pass: first `packedSolidWireframeIndexCount` line indices (solid wire only), depth-behind shell.
+    void RenderSolidWireframeOccludedOverlay();
 
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                  uint32_t xrayIndexCount = 0);
@@ -137,6 +139,8 @@ private:
     std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
 
     uint32_t packedSolidPatchIndexCount = 0;
+    /// Line indices belonging to solid wireframe chunks only (prefix of packed line IBO); set in `RepackOffsets`.
+    uint32_t packedSolidWireframeIndexCount = 0;
     bool structureViewTranslucentSolidEnabled = false;
     float structureViewTranslucentSolidAlpha = 0.32f;
 

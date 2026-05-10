@@ -140,6 +140,8 @@ public:
     void DrawCalibHoverSpanLine(float pixelWidth, bool xrayOverlay = false);
     void DrawStructurePreviewLines(float pixelWidth, bool xrayOverlay);
     void DrawLines();
+    /// Draws the first `lineIndexPrefixCount` line indices using depth-behind + blend (translucent shell x-ray edges).
+    void DrawSolidWireframePrefixBehindDepth(uint32_t lineIndexPrefixCount);
 
     void SetWireFrameMode(bool enabled);
     void SetWireframeDepthNudgeScale(float scale) { wireframeDepthNudgeScale = scale; }

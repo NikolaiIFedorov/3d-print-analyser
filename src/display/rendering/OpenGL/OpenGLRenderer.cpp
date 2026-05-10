@@ -1354,6 +1354,57 @@ void OpenGLRenderer::DrawLines()
     GetGLError();
 }
 
+void OpenGLRenderer::DrawSolidWireframePrefixBehindDepth(uint32_t lineIndexPrefixCount)
+{
+    if (lineIndexPrefixCount == 0 || lineIndexCount == 0)
+        return;
+    lineIndexPrefixCount = std::min(lineIndexPrefixCount, lineIndexCount);
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", lineWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc() * wireframeDepthNudgeScale);
+    lineShader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    constexpr float kBehindEdgeAlpha = 0.42f;
+    lineShader.SetFloat("uAlpha", kBehindEdgeAlpha);
+    lineShader.SetFloat("uLightingEnabled", 1.0f);
+    lineShader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
+    lineShader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(DepthCompareBehind());
+    glDepthMask(GL_FALSE);
+
+    glBindVertexArray(lineVAO);
+    glDrawElements(GL_LINES, static_cast<GLsizei>(lineIndexPrefixCount), GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
+
+    glDepthMask(depthMaskWas);
+    if (depthTestWas)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    glDepthFunc(DepthComparePass());
+    if (!blendWas)
+        glDisable(GL_BLEND);
+
+    GetGLError();
+}
+
 void OpenGLRenderer::SetWireFrameMode(bool enabled)
 {
     if (enabled)

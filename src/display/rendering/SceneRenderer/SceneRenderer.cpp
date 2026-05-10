@@ -461,6 +461,7 @@ void SceneRenderer::RepackOffsets()
     looseWireframe.indexOffset = lineI;
     loosePatch.vertexOffset = triV;
     loosePatch.indexOffset = triI;
+    packedSolidWireframeIndexCount = static_cast<uint32_t>(lineI);
 }
 
 bool SceneRenderer::UploadChunkSubData(const Solid *solid, const SolidChunk &chunk)
@@ -658,6 +659,13 @@ void SceneRenderer::RenderPatches()
 void SceneRenderer::RenderWireframe()
 {
     renderer.DrawLines();
+}
+
+void SceneRenderer::RenderSolidWireframeOccludedOverlay()
+{
+    if (packedSolidWireframeIndexCount == 0)
+        return;
+    renderer.DrawSolidWireframePrefixBehindDepth(packedSolidWireframeIndexCount);
 }
 
 void SceneRenderer::RenderStructurePreviewLines(float lineWidthPx)

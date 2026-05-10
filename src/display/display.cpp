@@ -893,6 +893,9 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     if (!RenderingExperiments::kDebugSkipSceneWireframe)
         renderer.RenderWireframe();
+    // Solid hull edges occluded by the translucent shell depth (back edges, etc.).
+    if (structureShellTranslucent)
+        renderer.RenderSolidWireframeOccludedOverlay();
     // Center-strut preview: foreground + occluded pass (same mesh) so limbs behind the hull read through.
     if (structurePreviewStrutsVisible)
         renderer.RenderStructurePreviewLines(5.25f);
