@@ -75,6 +75,12 @@ private:
     /// Multiplier on `LineShaderWireZNudgeNdc` for scene wireframe.
     float wireframeDepthNudgeScale = 1.0f;
 
+    /// When enabled, first `solidPatchIndexPrefix` indices are solid meshes: depth prepass + translucent draw.
+    /// Remaining indices (loose patch) stay opaque. Ignored unless `solidPatchIndexPrefix` is in (0, triangleIndexCount).
+    bool structureViewTranslucentSolid = false;
+    uint32_t structureSolidTriangleIndexPrefix = 0;
+    float structureTranslucentSolidAlpha = 0.32f;
+
     bool GetGLError(const std::source_location &loc = std::source_location::current());
     bool InitializeShaders();
     void DrawTrianglesPass(bool writeColor);
@@ -117,6 +123,9 @@ public:
                                const std::vector<uint32_t> &indices, size_t indexOffset);
 
     void DrawTriangles();
+
+    /// Used by SceneRenderer for Structure-tool shell translucency (see `structureViewTranslucentSolid`).
+    void SetStructureViewSolidTranslucent(bool enabled, uint32_t solidTriangleIndexPrefix, float alpha01);
     void DrawPickHighlight(bool xrayOverlay = false);
     void DrawPickHighlightReject();
     void DrawPickHighlightCalibInvalid();

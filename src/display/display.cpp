@@ -866,6 +866,12 @@ void Display::Render()
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+    {
+        const bool structureShellTranslucent =
+            activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
+            structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
+        renderer.SetStructureViewTranslucentSolid(structureShellTranslucent, 0.32f);
+    }
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
     if (RenderingExperiments::kCalibrateSecondPickDrawInvalidFacePool)
@@ -4982,7 +4988,7 @@ void Display::InitUI()
         structDef.description =
             "Preview adaptive internal bracing. Changing the solid mesh is planned for a later release.";
         structDef.flattenParameters = true;
-        structDef.parameters.reserve(2);
+        structDef.parameters.reserve(3);
 
         ParameterDef pmCenter;
         pmCenter.id = "StructCenter";
@@ -5008,6 +5014,28 @@ void Display::InitUI()
             }
         };
         structDef.parameters.push_back(std::move(pmCenter));
+
+        ParameterDef pmTranslucent;
+        pmTranslucent.id = "StructTranslucent";
+        pmTranslucent.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw =
+                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Translucent solid shell (see inside)").x
+                  : 280.0f;
+            return pad * 2.0f + tw + 28.0f;
+        };
+        pmTranslucent.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            if (ImGui::Checkbox("Translucent solid shell (see inside)", &structureTranslucentShellEnabled))
+                renderDirty = true;
+        };
+        structDef.parameters.push_back(std::move(pmTranslucent));
 
         ParameterDef pmShell;
         pmShell.id = "StructShell";

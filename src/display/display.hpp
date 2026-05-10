@@ -197,6 +197,8 @@ private:
 
     /// Structure tool: preview inward struts from face centroids (v1 heuristic).
     bool structureCenterStrutsEnabled = true;
+    /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
+    bool structureTranslucentShellEnabled = true;
     /// Storage for the disabled “inner walls” ImGui row (always false).
     bool structureInnerShellRowUnchecked = false;
 

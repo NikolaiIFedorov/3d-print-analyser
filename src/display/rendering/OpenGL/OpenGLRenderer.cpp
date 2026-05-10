@@ -350,6 +350,14 @@ void OpenGLRenderer::SetViewPos(const glm::vec3 &pos)
     lightDir = glm::normalize(viewPos);
 }
 
+void OpenGLRenderer::SetStructureViewSolidTranslucent(bool enabled, uint32_t solidTriangleIndexPrefix,
+                                                      float alpha01)
+{
+    structureViewTranslucentSolid = enabled;
+    structureSolidTriangleIndexPrefix = solidTriangleIndexPrefix;
+    structureTranslucentSolidAlpha = std::clamp(alpha01, 0.06f, 0.92f);
+}
+
 void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                                         const std::vector<uint32_t> &indices)
 {
@@ -599,9 +607,88 @@ void OpenGLRenderer::DrawTriangles()
     if (triangleIndexCount == 0)
         return;
 
-    if (RenderingExperiments::kDepthPrepassOpaquePatches)
-        DrawTrianglesPass(false);
-    DrawTrianglesPass(true);
+    const uint32_t solidPrefix = structureSolidTriangleIndexPrefix;
+    const bool splitShell = structureViewTranslucentSolid && solidPrefix > 0 && solidPrefix < triangleIndexCount &&
+                            !RenderingExperiments::kDepthPrepassOpaquePatches;
+
+    if (!splitShell)
+    {
+        if (RenderingExperiments::kDepthPrepassOpaquePatches)
+            DrawTrianglesPass(false);
+        DrawTrianglesPass(true);
+        return;
+    }
+
+    // Structure view: solid patches get a depth prepass + translucent color (depth write off) so
+    // interior wireframe/struts still depth-test against the shell. Loose patch stays opaque.
+    shader.Use();
+
+    glm::mat4 viewProj = projectionMatrix * viewMatrix;
+    shader.SetMat4("uViewProjection", viewProj);
+    shader.SetMat4("uModel", modelMatrix);
+    shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
+    shader.SetVec3("uViewPos", viewPos);
+    shader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
+    shader.SetFloat("uBlueMin", 0.0f);
+    shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
+    shader.SetFloat("uBlueNear", 0.0f);
+    shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetFloat("uGridOpacity", 1.0f);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uLightingEnabled", 1.0f);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(DepthComparePass());
+
+    glBindVertexArray(triangleVAO);
+
+    // 1) Establish depth from solid shells only (no color).
+    shader.SetFloat("uAlpha", 1.0f);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    glDepthMask(GL_TRUE);
+    if (blendWas == GL_FALSE)
+        glDisable(GL_BLEND);
+    glDrawElements(GL_TRIANGLES, solidPrefix, GL_UNSIGNED_INT, nullptr);
+
+    // 2) Translucent solid surface (blend on, no depth write — see interior edges/struts).
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    shader.SetFloat("uAlpha", structureTranslucentSolidAlpha);
+    glDrawElements(GL_TRIANGLES, solidPrefix, GL_UNSIGNED_INT, nullptr);
+
+    // 3) Opaque loose geometry (fills, stray faces): normal depth write.
+    shader.SetFloat("uAlpha", 1.0f);
+    glDepthMask(GL_TRUE);
+    if (blendWas == GL_FALSE)
+        glDisable(GL_BLEND);
+    const uint32_t looseCount = triangleIndexCount - solidPrefix;
+    if (looseCount > 0)
+    {
+        const void *const indicesOffset =
+            reinterpret_cast<void *>(static_cast<size_t>(solidPrefix) * sizeof(uint32_t));
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(looseCount), GL_UNSIGNED_INT, indicesOffset);
+    }
+
+    glBindVertexArray(0);
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    if (blendWas == GL_FALSE)
+        glDisable(GL_BLEND);
+    else
+    {
+        glEnable(GL_BLEND);
+    }
+    glDepthMask(depthMaskWas);
+
+    GetGLError();
 }
 
 void OpenGLRenderer::DrawTrianglesPass(bool writeColor)

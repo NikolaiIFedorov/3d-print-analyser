@@ -53,6 +53,9 @@ public:
     /// Optional preview lines (e.g. Structure tool) appended after loose wireframe geometry each rebuild.
     void SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
 
+    /// Per frame: translucent solid shell while Structure view is active (depth prepass + alpha in OpenGLRenderer).
+    void SetStructureViewTranslucentSolid(bool enable, float alpha01);
+
     void SetCamera(Camera &camera);
 
     void RenderPatches();
@@ -129,6 +132,10 @@ private:
     std::vector<PickSegment> pickSegments;
 
     std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
+
+    uint32_t packedSolidPatchIndexCount = 0;
+    bool structureViewTranslucentSolidEnabled = false;
+    float structureViewTranslucentSolidAlpha = 0.32f;
 
     enum class FullRebuildPhase
     {

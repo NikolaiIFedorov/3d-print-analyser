@@ -20,3 +20,11 @@ Add a third toolbar tool **Structure** (alongside Analysis and Calibrate) for ad
 
 - Reused `BuildToolPanel` + `SceneRenderer::RebuildLoose` extension to avoid a parallel overlay upload path; keeps one wire mesh path at the cost of recomputing segments whenever full solid geometry rebuild runs.
 - `pendingToolSwitch` needed explicit `RefreshStructurePreviewForRenderer` + `MarkGeometryDirtyAll` when `analysisEnabled` unchanged (e.g. Calibrate → Structure) so preview lines appear on first switch.
+
+---
+
+## Update: translucent solid shell in Structure view (same log)
+
+- **UI:** Checkbox “Translucent solid shell (see inside)” (default on) in Structure panel.
+- **Render:** `UploadAllPacked` records `packedSolidPatchIndexCount` (triangle indices belonging to solid chunks before loose patch). `OpenGLRenderer::DrawTriangles` draws that prefix in two sub-passes: depth-only (write Z), then blended color with `uAlpha` and **no** depth write, so wireframe struts still depth-test against the shell. Remaining indices (loose patch) draw opaque as before.
+- **Note:** Split path is skipped when `kDepthPrepassOpaquePatches` is enabled (experiment flag; default off).

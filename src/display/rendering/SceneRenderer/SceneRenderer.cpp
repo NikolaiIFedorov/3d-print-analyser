@@ -3,6 +3,7 @@
 #include "rendering/CalibPickSegments.hpp"
 #include "Geometry/Geometry.hpp"
 #include "utils/log.hpp"
+#include <algorithm>
 #include <chrono>
 
 namespace
@@ -51,6 +52,12 @@ static void AppendStructurePreviewLines(std::vector<Vertex> &vertices,
 void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
 {
     structurePreviewSegments = std::move(segments);
+}
+
+void SceneRenderer::SetStructureViewTranslucentSolid(bool enable, float alpha01)
+{
+    structureViewTranslucentSolidEnabled = enable;
+    structureViewTranslucentSolidAlpha = std::clamp(alpha01, 0.06f, 0.92f);
 }
 
 void SceneRenderer::AbortIncrementalFullRebuild()
@@ -512,6 +519,8 @@ void SceneRenderer::UploadAllPacked()
             triIndices.push_back(triBase + idx);
     }
 
+    packedSolidPatchIndexCount = static_cast<uint32_t>(triIndices.size());
+
     const uint32_t looseLineBase = static_cast<uint32_t>(lineVertices.size());
     lineVertices.insert(lineVertices.end(), looseWireframe.vertices.begin(), looseWireframe.vertices.end());
     for (uint32_t idx : looseWireframe.indices)
@@ -626,6 +635,8 @@ void SceneRenderer::SetCamera(Camera &camera)
 
 void SceneRenderer::RenderPatches()
 {
+    const bool useShell = structureViewTranslucentSolidEnabled && packedSolidPatchIndexCount > 0;
+    renderer.SetStructureViewSolidTranslucent(useShell, packedSolidPatchIndexCount, structureViewTranslucentSolidAlpha);
     renderer.DrawTriangles();
 }
 
