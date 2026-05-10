@@ -299,6 +299,7 @@ void ViewportRenderer::Render()
                                 0.0f, 1.0f));
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasGridW());
     shader.SetFloat("uAlpha", 1.0f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_EQUAL, 0, 0xFF);
@@ -344,6 +345,7 @@ void ViewportRenderer::RenderAxes()
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", AxesClipZBiasW());
     shader.SetFloat("uAlpha", 1.0f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     // Depth already handles occlusion against scene geometry. Avoid stencil gating here:
     // near-origin zoom can leave stale/over-conservative stencil coverage that chops axis segments.
@@ -379,6 +381,7 @@ void ViewportRenderer::RenderAxesBehindScene()
     shader.SetFloat("uClipZBiasW", AxesClipZBiasW());
     constexpr float kBehindAxisAlpha = 0.52f;
     shader.SetFloat("uAlpha", kBehindAxisAlpha);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     glDisable(GL_STENCIL_TEST);
 

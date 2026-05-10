@@ -698,6 +698,7 @@ void OpenGLRenderer::DrawTriangles()
     glBindVertexArray(triangleVAO);
 
     // 1) Establish depth from solid shells only (no color).
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
     shader.SetFloat("uAlpha", 1.0f);
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     glDepthMask(GL_TRUE);
@@ -710,10 +711,12 @@ void OpenGLRenderer::DrawTriangles()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 1.0f);
     shader.SetFloat("uAlpha", structureTranslucentSolidAlpha);
     glDrawElements(GL_TRIANGLES, solidPrefix, GL_UNSIGNED_INT, nullptr);
 
     // 3) Opaque loose geometry (fills, stray faces): normal depth write.
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
     shader.SetFloat("uAlpha", 1.0f);
     glDepthMask(GL_TRUE);
     if (blendWas == GL_FALSE)
@@ -763,6 +766,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", 1.0f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(DepthComparePass());
@@ -923,6 +927,7 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", xrayOverlay ? RenderingExperiments::kPickHighlightFaceXrayAlpha : 1.0f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;
@@ -996,6 +1001,7 @@ void OpenGLRenderer::DrawPickHighlightReject()
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", 1.0f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;
@@ -1058,6 +1064,7 @@ void OpenGLRenderer::DrawPickHighlightCalibInvalid()
     // Match reject pass: diffuse was washing poolTint toward white so blend looked like solid paint.
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;
