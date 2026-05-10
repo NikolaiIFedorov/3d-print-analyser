@@ -35,6 +35,7 @@
 #include <cmath>
 #include <limits>
 #include <chrono>
+#include <functional>
 #include <string_view>
 
 #include "ProjectionDepthMode.hpp"
@@ -67,6 +68,66 @@ constexpr float kPanSnapTravelFloor = 3.5e-4f;
     if (ImFont *f = renderer.GetPixelImFont())
         return f;
     return settingsBodyFont;
+}
+
+/// Two text zones styled like settings theme `Select` pills (text-only segments, hover accent fill).
+static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, const char *left, const char *right,
+                                     const std::function<void()> &onLeft, const std::function<void()> &onRight,
+                                     int accentDepth)
+{
+    if (!lblFont)
+        lblFont = ImGui::GetFont();
+    const float pad = ImGui::GetStyle().FramePadding.x;
+    const float lblSize = lblFont->FontSize;
+    const float baseH = winH;
+    const float pillR = std::round(baseH * 0.35f);
+    constexpr float zoneInset = 2.0f; // matches `UIRenderer` segmented Select
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+
+    const float lw0 = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, left).x;
+    const float lw1 = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, right).x;
+    float z0 = lw0 + 2.0f * pad + 2.0f * zoneInset;
+    float z1 = lw1 + 2.0f * pad + 2.0f * zoneInset;
+    const float total = z0 + z1;
+    const float surplus = winW - total;
+    if (surplus > 0.0f)
+    {
+        z0 += surplus * 0.5f;
+        z1 += surplus * 0.5f;
+    }
+
+    float cumX = 0.0f;
+    auto drawZone = [&](int idx, float zw, const char *txt, const std::function<void()> &fn)
+    {
+        const float zx0 = cumX;
+        const float zx1 = cumX + zw;
+        ImGui::SetCursorPos(ImVec2(zx0, 0.0f));
+        ImGui::InvisibleButton((std::string("##scSeg") + std::to_string(idx)).c_str(), ImVec2(zw, baseH));
+        const bool hovered = ImGui::IsItemHovered();
+        const bool clicked = ImGui::IsItemClicked();
+        if (hovered)
+            ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+        if (clicked)
+            fn();
+        if (hovered)
+        {
+            glm::vec4 hc = Color::GetAccent(accentDepth, 0.12f, UIStyle::ACCENT_SAT_MULT_HOVER);
+            dl->AddRectFilled(ImVec2(zx0 + 2.f, 2.f), ImVec2(zx1 - 2.f, baseH - 2.f),
+                              ImGui::GetColorU32(ImVec4(hc.r, hc.g, hc.b, hc.a)), pillR);
+        }
+        dl->PushClipRect(ImVec2(zx0 + 2.f, 0.f), ImVec2(zx1 - 2.f, baseH), true);
+        const float tw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, txt).x;
+        const float mid = (zx0 + zx1) * 0.5f;
+        const float ty = (baseH - lblSize) * 0.5f;
+        const int depth = hovered ? 2 : 0;
+        glm::vec4 tc = Color::GetUIText(depth);
+        dl->AddText(lblFont, lblSize, ImVec2(mid - tw * 0.5f, ty), ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a)), txt);
+        dl->PopClipRect();
+        cumX += zw;
+    };
+
+    drawZone(0, z0, left, onLeft);
+    drawZone(1, z1, right, onRight);
 }
 
 /// Full-row hit target; clipboard is **value only** when `valueStr` is non-empty, otherwise the label (status text).
@@ -982,6 +1043,7 @@ void Display::Render()
         uiRenderer.MarkDirty();
         SyncToolbarToolVisualState();
         RefreshUIMinWindowSize();
+        SyncStructurePanelDerivedVisibility();
     }
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -3115,8 +3177,7 @@ void Display::CompleteFileImport(const std::string &path)
 
     calibStepImport = Icons::StepState::Done;
     calibPara_Import->visible = false;
-    if (structPara_Import)
-        structPara_Import->visible = false;
+    SyncStructurePanelDerivedVisibility();
     calibPara_Point1->visible = true;
     calibPara_Point2->visible = true;
     if (calibSec_Parameters)
@@ -3284,8 +3345,7 @@ void Display::ProcessDeferredImportIfAny()
                                        {
                                            calibStepImport = Icons::StepState::Done;
                                            calibPara_Import->visible = false;
-                                           if (structPara_Import)
-                                               structPara_Import->visible = false;
+                                           SyncStructurePanelDerivedVisibility();
                                            calibPara_Point1->visible = true;
                                            calibPara_Point2->visible = true;
                                            if (calibSec_Parameters)
@@ -5025,22 +5085,25 @@ void Display::InitUI()
             ImFont *f = settingsBodyFont;
             if (!f)
                 f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x * 2.0f;
-            const float gap = ImGui::GetStyle().ItemSpacing.x;
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            constexpr float zoneInset = 2.0f; // matches DrawSceneEditDualPillRow / settings Select
             const float cancelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Cancel").x;
             const float acceptW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Accept").x;
-            return cancelW + acceptW + pad * 4.0f + gap + 12.0f;
+            return cancelW + acceptW + 4.0f * pad + 4.0f * zoneInset + 4.0f;
         };
-        structDef.sceneEditFooter.line.imguiContent = [this](float w, float h, float)
+        structDef.sceneEditFooter.line.imguiContent = [this, settingsBodyFont](float w, float h, float)
         {
-            (void)h;
-            const float gap = ImGui::GetStyle().ItemSpacing.x;
-            const float btnW = std::max(1.0f, (w - gap) * 0.5f);
-            if (ImGui::Button("Cancel", ImVec2(btnW, 0.0f)))
-                FinalizeStructureSceneToolSession(false);
-            ImGui::SameLine(0.0f, gap);
-            if (ImGui::Button("Accept", ImVec2(btnW, 0.0f)))
-                FinalizeStructureSceneToolSession(true);
+            ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+            if (rowFont)
+                ImGui::PushFont(rowFont);
+            DrawSceneEditDualPillRow(w, h, rowFont, "Cancel", "Accept",
+                                     [this]()
+                                     { FinalizeStructureSceneToolSession(false); },
+                                     [this]()
+                                     { FinalizeStructureSceneToolSession(true); },
+                                     3);
+            if (rowFont)
+                ImGui::PopFont();
         };
 
         RootPanel structPanel = BuildToolPanel(structDef);
@@ -5051,10 +5114,16 @@ void Display::InitUI()
 
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
-        {
             structPara_Import = &structPrereqs->children[0];
-            structPara_Import->visible = (calibStepImport != Icons::StepState::Done);
+        for (auto &ch : uiStructure->children)
+        {
+            if (Paragraph *pp = std::get_if<Paragraph>(&ch); pp != nullptr && pp->id == "StructSceneEditFooter")
+            {
+                structPara_SceneEditFooter = pp;
+                break;
+            }
         }
+        SyncStructurePanelDerivedVisibility();
     }
 
     SyncToolbarToolVisualState();
@@ -5087,6 +5156,18 @@ void Display::FinalizeStructureSceneToolSession(bool accepted)
     activeTool = ActiveTool::Analysis;
     pendingToolSwitch = true;
     renderDirty = true;
+}
+
+void Display::SyncStructurePanelDerivedVisibility()
+{
+    if (uiStructure == nullptr)
+        return;
+    const bool importDone = (calibStepImport == Icons::StepState::Done);
+    if (structPara_Import)
+        structPara_Import->visible = !importDone;
+    if (structPara_SceneEditFooter)
+        structPara_SceneEditFooter->visible = importDone;
+    uiRenderer.MarkDirty();
 }
 
 void Display::RefreshUIMinWindowSize()

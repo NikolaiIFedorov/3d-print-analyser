@@ -383,6 +383,15 @@ void UIRenderer::ResolveAnchors()
         float mar = item.margin;
         item.lineGap = pad * UIElement::LINE_GAP_RATIO;
 
+        if (!item.visible)
+        {
+            item.box.contentWidth = 0.0f;
+            item.box.contentHeight = 0.0f;
+            item.box.outerWidth = 2.0f * mar + 2.0f * pad + item.box.contentWidth;
+            item.box.outerHeight = 2.0f * mar + 2.0f * pad + item.box.contentHeight;
+            return;
+        }
+
         float contentH = 0.0f;
         float contentW = 0.0f;
 

@@ -143,6 +143,8 @@ private:
     void RefreshStructurePreviewForRenderer();
     /// Structure scene-edit footer: `accepted` will choose commit vs discard once staging exists; both leave the tool for now.
     void FinalizeStructureSceneToolSession(bool accepted);
+    /// Import row vs scene-edit footer visibility (footer only when prerequisites are satisfied).
+    void SyncStructurePanelDerivedVisibility();
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;
@@ -238,6 +240,8 @@ private:
     SectionLine *calibLine_Point2Primary = nullptr;
     /// Structure prerequisites: import row (hidden after import; uses `calibStepImport` like Calibrate).
     Paragraph *structPara_Import = nullptr;
+    /// Cancel/Accept row; hidden until import prerequisite is complete.
+    Paragraph *structPara_SceneEditFooter = nullptr;
 
     std::vector<std::string> openFiles;
 
