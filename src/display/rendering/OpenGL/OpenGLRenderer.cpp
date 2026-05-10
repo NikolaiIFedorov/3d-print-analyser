@@ -1370,11 +1370,12 @@ void OpenGLRenderer::DrawSolidWireframePrefixBehindDepth(uint32_t lineIndexPrefi
     lineShader.SetFloat("uLineWidth", lineWidth);
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc() * wireframeDepthNudgeScale);
     lineShader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
-    constexpr float kBehindEdgeAlpha = 0.42f;
+    // Occluded hull edges spend many fragments on sides facing away from the key light;
+    // with lighting + low alpha they read as invisible on typical dark clears. Axes bypass
+    // lighting for their behind-depth pass — match that so back edges survive like RGB axes.
+    constexpr float kBehindEdgeAlpha = 0.52f;
     lineShader.SetFloat("uAlpha", kBehindEdgeAlpha);
-    lineShader.SetFloat("uLightingEnabled", 1.0f);
-    lineShader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
-    lineShader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
 
     GLboolean blendWas = GL_FALSE;
     GLboolean depthTestWas = GL_FALSE;

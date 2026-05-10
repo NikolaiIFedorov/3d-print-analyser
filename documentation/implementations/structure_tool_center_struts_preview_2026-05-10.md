@@ -45,3 +45,5 @@ Add a third toolbar tool **Structure** (alongside Analysis and Calibrate) for ad
 RGB axes drew with normal depth only, so segments behind the shell depth failed. Added `ViewportRenderer::RenderAxesBehindScene()` (`DepthCompareBehind` + blend), called after `RenderAxes()` when Structure translucent shell is active.
 
 **Solid wireframe back edges:** Track `packedSolidWireframeIndexCount` in `RepackOffsets` (line index prefix before loose wire). `OpenGLRenderer::DrawSolidWireframePrefixBehindDepth` draws only that prefix with `DepthCompareBehind` when Structure translucent shell is on (after main `RenderWireframe`).
+
+**Fix (edges still invisible):** Behind-pass used lit wireframe colours; grazing / back-lit normals yielded near-black fragments at ~0.42 α on a dark viewport. Switched occluded-solid-wire pass to **unlit** vertex colour (`uLightingEnabled = 0`) and aligned α (~0.52) with axes behind-pass.
