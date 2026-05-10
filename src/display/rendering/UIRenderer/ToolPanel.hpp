@@ -56,6 +56,7 @@ struct ParameterDef
 //     Section   "Parameters"     — children from `parameters`; optional titled header
 //                                (`showSectionHeaders`, `parametersSectionTitle`, `sectionHeadersCollapsible`)
 //     Section   "Calculator"     — optional; optional titled header (`calculatorSectionTitle`)
+//     Paragraph (optional)       — scene-edit footer row (`hasSceneEditFooter` + `sceneEditFooter`)
 //
 // Anchor fields are NOT set by the factory — the caller must set them before
 // passing the panel to UIRenderer::AddPanel().
@@ -77,6 +78,10 @@ struct ToolPanelDef
     std::string parametersSectionTitle = "Parameters";
     /// When `showSectionHeaders` is true, used as the Calculator section header text.
     std::string calculatorSectionTitle = "Result";
+    /// Appends a root-level Paragraph after parameters (and Calculator if any) for scene-edit tools.
+    bool hasSceneEditFooter = false;
+    /// Used when `hasSceneEditFooter`; set `line.imguiContent` (and optional `getMinContentWidthPx`).
+    ParameterDef sceneEditFooter;
 };
 
 // Returns a pointer to the first Section child of panel with the given id,

@@ -141,6 +141,8 @@ private:
     void RefreshUIMinWindowSize();
     /// Upload Structure preview polylines to the renderer before wireframe rebuild.
     void RefreshStructurePreviewForRenderer();
+    /// Structure scene-edit footer: `accepted` will choose commit vs discard once staging exists; both leave the tool for now.
+    void FinalizeStructureSceneToolSession(bool accepted);
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;

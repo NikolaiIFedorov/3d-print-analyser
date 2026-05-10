@@ -40,9 +40,11 @@ Paragraph BuildPrerequisiteParagraph(const PrerequisiteDef &def)
 RootPanel BuildToolPanel(const ToolPanelDef &def)
 {
     const int parameterChildren = def.flattenParameters ? static_cast<int>(def.parameters.size()) : 1;
+    const int footerChildren = def.hasSceneEditFooter ? 1 : 0;
     const int totalChildren = 1                                      // Prerequisites
                               + parameterChildren                    // Parameters
-                              + (def.hasCalculator ? 1 : 0);         // Calculator
+                              + (def.hasCalculator ? 1 : 0)          // Calculator
+                              + footerChildren;                      // Scene-edit footer (root Paragraph)
 
     RootPanel panel;
     panel.id = def.id;
@@ -108,6 +110,13 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
             calcSec.collapsibleHeader = def.sectionHeadersCollapsible;
         }
         calcSec.children.reserve(def.maxCalculatorLines);
+    }
+
+    if (def.hasSceneEditFooter)
+    {
+        Paragraph &p = panel.AddParagraph(def.sceneEditFooter.id);
+        p.values.reserve(1);
+        p.values.push_back(def.sceneEditFooter.line);
     }
 
     return panel;

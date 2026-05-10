@@ -5018,6 +5018,31 @@ void Display::InitUI()
                                            [this]()
                                            { DoFileImport(); }});
 
+        structDef.hasSceneEditFooter = true;
+        structDef.sceneEditFooter.id = "StructSceneEditFooter";
+        structDef.sceneEditFooter.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x * 2.0f;
+            const float gap = ImGui::GetStyle().ItemSpacing.x;
+            const float cancelW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Cancel").x;
+            const float acceptW = f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Accept").x;
+            return cancelW + acceptW + pad * 4.0f + gap + 12.0f;
+        };
+        structDef.sceneEditFooter.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)h;
+            const float gap = ImGui::GetStyle().ItemSpacing.x;
+            const float btnW = std::max(1.0f, (w - gap) * 0.5f);
+            if (ImGui::Button("Cancel", ImVec2(btnW, 0.0f)))
+                FinalizeStructureSceneToolSession(false);
+            ImGui::SameLine(0.0f, gap);
+            if (ImGui::Button("Accept", ImVec2(btnW, 0.0f)))
+                FinalizeStructureSceneToolSession(true);
+        };
+
         RootPanel structPanel = BuildToolPanel(structDef);
         structPanel.visible = false;
         structPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
@@ -5052,6 +5077,16 @@ void Display::RefreshStructurePreviewForRenderer()
         StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, structureInsetFaceDepthMm,
                                               structureInsetFaceFullDepthThroughSolid, insetSegs);
     renderer.SetStructureInsetFaceSegments(std::move(insetSegs));
+}
+
+void Display::FinalizeStructureSceneToolSession(bool accepted)
+{
+    (void)accepted; // Future: `true` commits staged solid edits; `false` restores pre-tool snapshot.
+    if (activeTool != ActiveTool::Structure)
+        return;
+    activeTool = ActiveTool::Analysis;
+    pendingToolSwitch = true;
+    renderDirty = true;
 }
 
 void Display::RefreshUIMinWindowSize()
