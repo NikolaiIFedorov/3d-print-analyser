@@ -173,6 +173,18 @@ void MergeCloseSorted(std::vector<double> &vals, double eps)
     return outSuHigh - outSuLow > eps;
 }
 
+/// Chord lies too close to the XY plane (unsupportable / “horizontal” in FDM with build-up +Z).
+[[nodiscard]] bool ChordTooHorizontalForBuildUp(const glm::dvec3 &a0, const glm::dvec3 &a1,
+                                                const glm::dvec3 &buildUpUnitZ, double minAbsDotZ)
+{
+    const glm::dvec3 chord = a1 - a0;
+    const double len = glm::length(chord);
+    if (!(len > 1.0e-9))
+        return true;
+    const glm::dvec3 dir = chord / len;
+    return std::fabs(glm::dot(dir, buildUpUnitZ)) < minAbsDotZ;
+}
+
 void AppendRibRectangle(std::vector<std::pair<glm::vec3, glm::vec3>> &out, const glm::dvec3 &a0,
                         const glm::dvec3 &a1, const glm::dvec3 &inwardUnit, double depthMm)
 {
@@ -214,6 +226,11 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
     const double depthMm = std::max(0.0, params.depthMm);
     const double marginFrac = std::clamp(params.marginFrac, 0.01, 0.45);
 
+    constexpr glm::dvec3 kBuildUpWorldZ(0.0, 0.0, 1.0);
+    // Drop rib chords whose direction is nearly parallel to the print bed (|d·Z| tiny). Surviving
+    // families run “more vertical” in world space; ~0.22 ≈ chords under ~12.7° elevation are removed.
+    constexpr double kMinAbsChordDotBuildUpZ = 0.22;
+
     for (const Solid &solid : scene.solids)
     {
         for (const Face *fp : solid.faces)
@@ -232,7 +249,6 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
             // Near-horizontal lids/floors: in-plane ribbons are problematic for FDM without supports;
             // layer weakness along Z doesn’t motivate them strongly on caps. Assume build-up == world +Z until
             // a dedicated print-orientation axis exists (`RibPreviewParams` can grow that later).
-            constexpr glm::dvec3 kBuildUpWorldZ(0.0, 0.0, 1.0);
             constexpr double kSkipRibsIfAbsCosNormalBuildUp =
                 0.90; // |n·buildUp|; skip faces within ~25° of horizontal (top/bottom-ish)
             if (std::fabs(glm::dot(nOut, kBuildUpWorldZ)) > kSkipRibsIfAbsCosNormalBuildUp)
@@ -304,6 +320,8 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                     return;
                 const glm::dvec3 a0 = centroid + u * su0 + v * svLine;
                 const glm::dvec3 a1 = centroid + u * su1 + v * svLine;
+                if (ChordTooHorizontalForBuildUp(a0, a1, kBuildUpWorldZ, kMinAbsChordDotBuildUpZ))
+                    return;
                 AppendRibRectangle(out, a0, a1, inward, depthMm);
             };
 
@@ -314,6 +332,8 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                     return;
                 const glm::dvec3 a0 = centroid + u * suLine + v * sv0;
                 const glm::dvec3 a1 = centroid + u * suLine + v * sv1;
+                if (ChordTooHorizontalForBuildUp(a0, a1, kBuildUpWorldZ, kMinAbsChordDotBuildUpZ))
+                    return;
                 AppendRibRectangle(out, a0, a1, inward, depthMm);
             };
 
