@@ -25,8 +25,6 @@
 #include "rendering/ScenePick.hpp"
 #include "Geometry/Geometry.hpp"
 #include "Calibrate/CalibDistanceType.hpp"
-#include "Structure/StructurePreview.hpp"
-
 struct Edge;
 struct Solid;
 struct ImportProgress;
@@ -196,31 +194,15 @@ private:
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
-    /// Structure tool: draw preview line segments when Structure panel is visible.
-    bool structurePreviewEnabled = true;
-    /// Which preview graph (`StructurePreview::Build*`).
-    StructurePreview::PreviewPattern structurePreviewPattern = StructurePreview::PreviewPattern::AdjacentFaceMidpoints;
-
-    /// Structure tool: planar-face rib rectangles (spacing / inward depth preview; line mesh only).
-    bool structureRibPreviewEnabled = false;
-    float structureRibSpacingMm = 12.0f;
-    float structureRibDepthMm = 2.5f;
-    float structureRibMarginFrac = 0.07f;
-    /// Shorten each rib chord from both ends along the rib (mm); 0 = face-edge to face-edge.
-    float structureRibChordEndInsetMm = 2.0f;
-
-    /// In-plane scaled-down boundary loop per planar face (preview lines).
-    bool structureInsetFaceLoopEnabled = false;
+    /// Structure tool: inset loop tuning (panel no longer exposes sliders).
     float structureInsetFaceMm = 3.0f;
-    /// Inset loop extrusion into solid along −face normal (same idea as rib depth); 0 = loop on surface only.
+    /// Inset loop extrusion into solid along −face normal; 0 = loop on surface only.
     float structureInsetFaceDepthMm = 2.5f;
     /// Bbox penetration along inward normal from each cap; skips opposite horizontal cap to avoid double overlap.
     bool structureInsetFaceFullDepthThroughSolid = false;
 
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;
-    /// Storage for the disabled “inner walls” ImGui row (always false).
-    bool structureInnerShellRowUnchecked = false;
 
     bool settingsOpenAccentPicker = false;
     Select *uiAppearanceThemeSelect = nullptr;

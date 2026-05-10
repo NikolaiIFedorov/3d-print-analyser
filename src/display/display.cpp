@@ -853,8 +853,7 @@ void Display::Render()
     const bool structureShellTranslucent =
         structureUiActive && structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
     const bool structurePreviewStrutsVisible =
-        structureUiActive && scene != nullptr && !scene->solids.empty() &&
-        (structurePreviewEnabled || structureRibPreviewEnabled || structureInsetFaceLoopEnabled);
+        structureUiActive && scene != nullptr && !scene->solids.empty();
 
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
@@ -5007,221 +5006,9 @@ void Display::InitUI()
         structDef.id = "Structure";
         structDef.name = "Structure";
         structDef.description =
-            "Preview internal bracing (diamond/struts/ribs as lines). Exporting modified solid mesh is planned later.";
+            "Diamond strut preview (adjacent face midpoints) and inset face loops on planar faces. Shell draws "
+            "translucently while this tool is active so lines read inside the solid.";
         structDef.flattenParameters = true;
-        structDef.parameters.reserve(11);
-
-        ParameterDef pmPreviewShow;
-        pmPreviewShow.id = "StructPreviewShow";
-        pmPreviewShow.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw =
-                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Structure preview lines").x : 200.0f;
-            return pad * 2.0f + tw + 28.0f;
-        };
-        pmPreviewShow.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            if (ImGui::Checkbox("Structure preview lines", &structurePreviewEnabled))
-            {
-                RefreshStructurePreviewForRenderer();
-                MarkGeometryDirtyAll();
-                renderDirty = true;
-            }
-        };
-        structDef.parameters.push_back(std::move(pmPreviewShow));
-
-        ParameterDef pmPreviewPattern;
-        pmPreviewPattern.id = "StructPreviewPattern";
-        pmPreviewPattern.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw =
-                f ? std::max(f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Adjacent face midpoints (3D diamond)").x,
-                             f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Preview pattern").x)
-                  : 320.0f;
-            return pad * 4.0f + tw + 60.0f;
-        };
-        pmPreviewPattern.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            int pat = static_cast<int>(structurePreviewPattern);
-            const char *items[] = {"Adjacent face midpoints (3D diamond)", "Center -> bbox (heuristic)"};
-            constexpr int itemCount = static_cast<int>(sizeof(items) / sizeof(items[0]));
-            if (ImGui::Combo("Preview pattern", &pat, items, itemCount))
-            {
-                structurePreviewPattern =
-                    static_cast<StructurePreview::PreviewPattern>(std::clamp(pat, 0, itemCount - 1));
-                RefreshStructurePreviewForRenderer();
-                MarkGeometryDirtyAll();
-                renderDirty = true;
-            }
-        };
-        structDef.parameters.push_back(std::move(pmPreviewPattern));
-
-        ParameterDef pmRibToggle;
-        pmRibToggle.id = "StructRibToggle";
-        pmRibToggle.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw =
-                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Interior ribs (preview)").x : 210.0f;
-            return pad * 2.0f + tw + 28.0f;
-        };
-        pmRibToggle.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            if (ImGui::Checkbox("Interior ribs (preview)", &structureRibPreviewEnabled))
-            {
-                RefreshStructurePreviewForRenderer();
-                MarkGeometryDirtyAll();
-                renderDirty = true;
-            }
-        };
-        structDef.parameters.push_back(std::move(pmRibToggle));
-
-        ParameterDef pmRibSliders;
-        pmRibSliders.id = "StructRibParams";
-        pmRibSliders.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw = f ? std::max({
-                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Rib spacing (mm)").x,
-                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Into solid (mm)").x,
-                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset from edge").x,
-                                     f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Chord end inset (mm)").x,
-                                 })
-                               : 280.0f;
-            return pad * 2.0f + tw + 120.0f;
-        };
-        pmRibSliders.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            bool changed = false;
-            changed |= ImGui::SliderFloat("Rib spacing (mm)", &structureRibSpacingMm, 3.0f, 72.0f, "%.0f");
-            changed |= ImGui::SliderFloat("Rib depth into solid (mm)", &structureRibDepthMm, 0.0f, 25.0f, "%.1f");
-            changed |= ImGui::SliderFloat("Rib inset from edge", &structureRibMarginFrac, 0.02f, 0.35f, "%.2f");
-            changed |= ImGui::SliderFloat("Chord end inset (mm)", &structureRibChordEndInsetMm, 0.0f, 40.0f, "%.1f");
-            if (changed)
-            {
-                structureRibSpacingMm = std::max(0.25f, structureRibSpacingMm);
-                structureRibDepthMm = std::max(0.0f, structureRibDepthMm);
-                structureRibMarginFrac = std::clamp(structureRibMarginFrac, 0.02f, 0.35f);
-                structureRibChordEndInsetMm = std::max(0.0f, structureRibChordEndInsetMm);
-                RefreshStructurePreviewForRenderer();
-                MarkGeometryDirtyAll();
-                renderDirty = true;
-            }
-        };
-        structDef.parameters.push_back(std::move(pmRibSliders));
-
-        ParameterDef pmInsetFace;
-        pmInsetFace.id = "StructInsetFace";
-        pmInsetFace.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw =
-                f ? std::max({f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset face loop (preview)").x,
-                              f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset distance (mm)").x,
-                              f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset extrude (mm)").x,
-                              f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f,
-                                               "Inset full depth via bbox (one horizontal cap)")
-                                    .x})
-                  : 300.0f;
-            return pad * 2.0f + tw + 120.0f;
-        };
-        pmInsetFace.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            bool changed = false;
-            changed |= ImGui::Checkbox("Inset face loop (preview)", &structureInsetFaceLoopEnabled);
-            changed |= ImGui::SliderFloat("Inset distance (mm)", &structureInsetFaceMm, 0.1f, 80.0f, "%.1f");
-            changed |= ImGui::Checkbox("Inset full depth via bbox (one horizontal cap)",
-                                     &structureInsetFaceFullDepthThroughSolid);
-            ImGui::SetItemTooltip(
-                "Extrusion depth follows the inward normal through the solid's axis-aligned bounding box (preview "
-                "heuristic). When both horizontal lids exist, only caps with outward +Z are used so the two insets do "
-                "not overlap; solids with only downward-outward lids use those instead.");
-            ImGui::BeginDisabled(structureInsetFaceFullDepthThroughSolid);
-            changed |= ImGui::SliderFloat("Inset extrude (mm)", &structureInsetFaceDepthMm, 0.0f, 25.0f, "%.1f");
-            ImGui::EndDisabled();
-            if (changed)
-            {
-                structureInsetFaceMm = std::max(0.1f, structureInsetFaceMm);
-                structureInsetFaceDepthMm = std::max(0.0f, structureInsetFaceDepthMm);
-                RefreshStructurePreviewForRenderer();
-                MarkGeometryDirtyAll();
-                renderDirty = true;
-            }
-        };
-        structDef.parameters.push_back(std::move(pmInsetFace));
-
-        ParameterDef pmTranslucent;
-        pmTranslucent.id = "StructTranslucent";
-        pmTranslucent.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw =
-                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Translucent solid shell (see inside)").x
-                  : 280.0f;
-            return pad * 2.0f + tw + 28.0f;
-        };
-        pmTranslucent.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            if (ImGui::Checkbox("Translucent solid shell (see inside)", &structureTranslucentShellEnabled))
-                renderDirty = true;
-        };
-        structDef.parameters.push_back(std::move(pmTranslucent));
-
-        ParameterDef pmShell;
-        pmShell.id = "StructShell";
-        pmShell.line.getMinContentWidthPx = [settingsBodyFont]() -> float
-        {
-            ImFont *f = settingsBodyFont;
-            if (!f)
-                f = ImGui::GetFont();
-            const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw = f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f,
-                                                "Inner offset walls / bending stiffness (soon)")
-                                 .x
-                           : 280.0f;
-            return pad * 2.0f + tw + 28.0f;
-        };
-        pmShell.line.imguiContent = [this](float w, float h, float)
-        {
-            (void)w;
-            (void)h;
-            ImGui::BeginDisabled();
-            ImGui::Checkbox("Inner offset walls / bending stiffness (soon)", &structureInnerShellRowUnchecked);
-            ImGui::EndDisabled();
-        };
-        structDef.parameters.push_back(std::move(pmShell));
 
         RootPanel structPanel = BuildToolPanel(structDef);
         structPanel.visible = false;
@@ -5238,36 +5025,15 @@ void Display::RefreshStructurePreviewForRenderer()
 {
     std::vector<std::pair<glm::vec3, glm::vec3>> segs;
     if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        structurePreviewEnabled && !scene->solids.empty())
-    {
-        switch (structurePreviewPattern)
-        {
-        case StructurePreview::PreviewPattern::AdjacentFaceMidpoints:
-            StructurePreview::BuildAdjacentFaceMidpoints(*scene, segs);
-            break;
-        case StructurePreview::PreviewPattern::CenterStrutsBBox:
-            StructurePreview::BuildCenterStruts(*scene, segs);
-            break;
-        }
-    }
+        !scene->solids.empty())
+        StructurePreview::BuildAdjacentFaceMidpoints(*scene, segs);
     renderer.SetStructurePreviewSegments(std::move(segs));
 
-    std::vector<std::pair<glm::vec3, glm::vec3>> ribSegs;
-    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        structureRibPreviewEnabled && !scene->solids.empty())
-    {
-        StructurePreview::RibPreviewParams ribParams;
-        ribParams.spacingMm = structureRibSpacingMm;
-        ribParams.depthMm = structureRibDepthMm;
-        ribParams.marginFrac = structureRibMarginFrac;
-        ribParams.chordEndInsetMm = structureRibChordEndInsetMm;
-        StructurePreview::BuildInteriorFaceRibs(*scene, ribParams, ribSegs);
-    }
-    renderer.SetStructureRibSegments(std::move(ribSegs));
+    renderer.SetStructureRibSegments({});
 
     std::vector<std::pair<glm::vec3, glm::vec3>> insetSegs;
     if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        structureInsetFaceLoopEnabled && !scene->solids.empty())
+        !scene->solids.empty())
         StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, structureInsetFaceDepthMm,
                                               structureInsetFaceFullDepthThroughSolid, insetSegs);
     renderer.SetStructureInsetFaceSegments(std::move(insetSegs));
