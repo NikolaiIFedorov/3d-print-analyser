@@ -205,6 +205,34 @@ void MergeCloseSorted(std::vector<double> &vals, double eps)
     return std::fabs(glm::dot(dir, buildUpUnitZ)) < minAbsDotZ;
 }
 
+[[nodiscard]] bool RayAabbInterval(const glm::dvec3 &ro, const glm::dvec3 &rd, const glm::dvec3 &bmin,
+                                     const glm::dvec3 &bmax, double &tEnter, double &tExit)
+{
+    double tNear = -std::numeric_limits<double>::infinity();
+    double tFar = std::numeric_limits<double>::infinity();
+    for (int ax = 0; ax < 3; ++ax)
+    {
+        if (std::abs(rd[ax]) < 1e-15)
+        {
+            if (ro[ax] < bmin[ax] || ro[ax] > bmax[ax])
+                return false;
+            continue;
+        }
+        const double inv = 1.0 / rd[ax];
+        double t1 = (bmin[ax] - ro[ax]) * inv;
+        double t2 = (bmax[ax] - ro[ax]) * inv;
+        double tNearSlab = std::min(t1, t2);
+        double tFarSlab = std::max(t1, t2);
+        tNear = std::max(tNear, tNearSlab);
+        tFar = std::min(tFar, tFarSlab);
+        if (tNear > tFar)
+            return false;
+    }
+    tEnter = tNear;
+    tExit = tFar;
+    return true;
+}
+
 void AppendRibRectangle(std::vector<std::pair<glm::vec3, glm::vec3>> &out, const glm::dvec3 &a0,
                         const glm::dvec3 &a1, const glm::dvec3 &inwardUnit, double depthMm)
 {
@@ -384,24 +412,56 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
 }
 
 void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepthMm,
-                         std::vector<std::pair<glm::vec3, glm::vec3>> &out)
+                         bool extrudeFullDepthThroughSolid, std::vector<std::pair<glm::vec3, glm::vec3>> &out)
 {
     out.clear();
     constexpr double kEps = 1.0e-9;
     constexpr double kUvEps = 1.0e-7;
     constexpr double kMinEdgeLen = 5.0e-4;
+    constexpr double kBBoxPadMm = 1.0e-4;
+    constexpr double kFullDepthEpsilonMm = 0.05;
 
     constexpr glm::dvec3 kWorldUpZ(0.0, 0.0, 1.0);
     /// Only lids/floors (normal ≈ ±Z): |n·+(0,0,1)| ≥ this. Vertical walls have small |n·Z|.
     constexpr double kTreatFaceHorizontalMinAbsNormalDotZ = 0.82;
 
     const double inset = std::max(0.0, insetMm);
-    const double depthMm = std::max(0.0, extrudeDepthMm);
+    const double userDepthMm = std::max(0.0, extrudeDepthMm);
     if (!(inset > kEps))
         return;
 
     for (const Solid &solid : scene.solids)
     {
+        glm::dvec3 solidMin{};
+        glm::dvec3 solidMax{};
+        const bool solidHasBounds = SolidBounds(solid, solidMin, solidMax);
+
+        glm::dvec3 bmin{};
+        glm::dvec3 bmax{};
+        if (solidHasBounds)
+        {
+            bmin = solidMin - glm::dvec3(kBBoxPadMm);
+            bmax = solidMax + glm::dvec3(kBBoxPadMm);
+        }
+
+        bool prefersPositiveZOutwardCap = false;
+        if (extrudeFullDepthThroughSolid && solidHasBounds)
+        {
+            for (const Face *fprobe : solid.faces)
+            {
+                if (fprobe == nullptr || fprobe->dependency != &solid)
+                    continue;
+                const Face &faceProbe = *fprobe;
+                if (faceProbe.loops.size() != 1 || !faceProbe.GetSurface().IsPlanar())
+                    continue;
+                const glm::dvec3 nProbe = OutwardNormalPlanar(faceProbe);
+                if (glm::dot(nProbe, kWorldUpZ) < kTreatFaceHorizontalMinAbsNormalDotZ)
+                    continue;
+                prefersPositiveZOutwardCap = true;
+                break;
+            }
+        }
+
         for (const Face *fp : solid.faces)
         {
             if (fp == nullptr || fp->dependency != &solid)
@@ -414,9 +474,18 @@ void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepth
                 continue;
 
             const glm::dvec3 nOut = OutwardNormalPlanar(face);
-            const double absNz = std::fabs(glm::dot(nOut, kWorldUpZ));
+            const double nzDot = glm::dot(nOut, kWorldUpZ);
+            const double absNz = std::fabs(nzDot);
             if (absNz < kTreatFaceHorizontalMinAbsNormalDotZ)
                 continue;
+
+            if (extrudeFullDepthThroughSolid)
+            {
+                if (prefersPositiveZOutwardCap && nzDot <= -kTreatFaceHorizontalMinAbsNormalDotZ)
+                    continue;
+                if (!prefersPositiveZOutwardCap && nzDot >= kTreatFaceHorizontalMinAbsNormalDotZ)
+                    continue;
+            }
 
             glm::dvec3 uAxis(1.0, 0.0, 0.0);
             if (std::abs(glm::dot(uAxis, nOut)) > 0.92)
@@ -480,6 +549,21 @@ void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepth
                 continue;
 
             const glm::dvec3 inward = -nOut;
+
+            double depthMm = userDepthMm;
+            if (extrudeFullDepthThroughSolid && solidHasBounds)
+            {
+                double t0 = 0.0;
+                double t1 = 0.0;
+                if (RayAabbInterval(centroid, inward, bmin, bmax, t0, t1))
+                {
+                    const double tStart = std::max(0.0, t0);
+                    const double tPen = std::max(0.0, t1) - tStart - kFullDepthEpsilonMm;
+                    depthMm = std::max(0.0, tPen);
+                }
+                else
+                    depthMm = 0.0;
+            }
 
             std::vector<glm::dvec3> innerRing;
             innerRing.reserve(nV);

@@ -46,7 +46,13 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
 
 /// Inset loops on **horizontal-ish** faces only (|outward normal·world +Z| high); uniform shrink in the face plane
 /// about the polygon centroid. Vertical walls skipped. Inner edges extruded inward along −outward normal (rib-style).
+///
+/// **`extrudeFullDepthThroughSolid`:** extrusion depth follows the inward ray across the solid’s **axis-aligned
+/// bbox** (preview heuristic until real interior hits exist). Avoids doubling when both lids would meet: keeps one cap
+/// per solid — if any horizontal face has outward normal in the **+world Z** hemisphere, only those faces contribute;
+/// otherwise **−Z outward** lids only (e.g. open cup).
 void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepthMm,
+                         bool extrudeFullDepthThroughSolid,
                          std::vector<std::pair<glm::vec3, glm::vec3>> &out);
 
 } // namespace StructurePreview

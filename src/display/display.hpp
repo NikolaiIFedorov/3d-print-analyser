@@ -214,6 +214,8 @@ private:
     float structureInsetFaceMm = 3.0f;
     /// Inset loop extrusion into solid along −face normal (same idea as rib depth); 0 = loop on surface only.
     float structureInsetFaceDepthMm = 2.5f;
+    /// Bbox penetration along inward normal from each cap; skips opposite horizontal cap to avoid double overlap.
+    bool structureInsetFaceFullDepthThroughSolid = false;
 
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;

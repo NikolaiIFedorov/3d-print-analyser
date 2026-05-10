@@ -81,3 +81,17 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Outcome (horizontal inset flip):** `cmake --build` clean; committed as `fix(structure): inset face loops on horizontal caps only`. Threshold `kTreatFaceHorizontalMinAbsNormalDotZ = 0.82` is tunable if sloped lids should be excluded or included.
 
 **Mini retro:** Reused the rib `(u,v)` + uniform-scale pattern already familiar from sketch geometry; aligning “horizontal” with world **+Z** matches ribs’ cap skip heuristic but differs slightly (`0.82` vs `0.9`) — optional follow-up: one shared constant or build-axis param.
+
+---
+
+## Update: inset full-depth extrusion + single-cap dedupe (2026-05-10)
+
+**UI:** Checkbox “Inset full depth via bbox (one horizontal cap)”. When enabled, manual “Inset extrude (mm)” is disabled (depth is computed). Tooltip documents bbox heuristic and overlap policy.
+
+**Behaviour:** From each remaining horizontal cap, extrusion depth = ray `(face centroid, −outward_normal)` clipped through an **epsilon-padded axis-aligned bbox** of the owning solid (`RayAabbInterval`), minus small epsilon. Same **hemisphere preference** as below avoids drawing both lids meet-in-the-middle when both qualify.
+
+**Overlap:** Before geometry, scan the solid once: if **any** horizontal-ish face (`|n·ẑ|` threshold) has `n·ẑ ≥ threshold` **(+Z‑outward / “upper” hemisphere)**, then drop all horizontal caps with **`n·ẑ ≤ −threshold`** (lower hemisphere). Otherwise keep only lower hemisphere caps (covers open cup / floor‑only lids).
+
+**Code:** `BuildInsetFaceLoops(..., extrudeFullDepthThroughSolid)`; helpers `RayAabbInterval`; `StructurePreview.hpp` docs.
+
+**Outcome / follow-up:** Bounding box approximate true interior penetration; eventual ray-vs-mesh opposite hit would tighten shape fidelity. Depth uses face centroid ray, not each inner-loop vertex.
