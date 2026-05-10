@@ -31,6 +31,7 @@
 #include "CalibNominal.hpp"
 #include "CalibDistanceType.hpp"
 #include "CalibCompensation.hpp"
+#include "Structure/StructurePreview.hpp"
 #include <cmath>
 #include <limits>
 #include <chrono>
@@ -937,14 +938,21 @@ void Display::Render()
         ClearPickHover();
         ClearCalibrateFacePicks();
         uiRenderer.MarkDirty();
-        bool nowAnalysis = (activeTool == ActiveTool::Analysis);
-        uiAnalysis->visible = nowAnalysis;
-        uiCalibrate->visible = !nowAnalysis;
-        if (analysisEnabled != nowAnalysis)
+        const bool showAnalysis = (activeTool == ActiveTool::Analysis);
+        const bool showCalibrate = (activeTool == ActiveTool::Calibrate);
+        const bool showStructure = (activeTool == ActiveTool::Structure);
+        uiAnalysis->visible = showAnalysis;
+        uiCalibrate->visible = showCalibrate;
+        if (uiStructure)
+            uiStructure->visible = showStructure;
+        RefreshStructurePreviewForRenderer();
+        if (analysisEnabled != showAnalysis)
         {
-            analysisEnabled = nowAnalysis;
+            analysisEnabled = showAnalysis;
             UpdateScene();
         }
+        else
+            MarkGeometryDirtyAll();
         uiRenderer.MarkDirty();
         SyncToolbarToolVisualState();
         RefreshUIMinWindowSize();
@@ -1270,6 +1278,9 @@ void Display::Frame()
             activeAnalysisTintForRebuild.has_value() ? &*activeAnalysisTintForRebuild : nullptr;
         const uint64_t activeTintId =
             activeAnalysisTintForRebuild.has_value() ? activeAnalysisTintIdentityForRebuild : 0;
+
+        if (geometryDirtyAll || !geometryDirtySolids.empty())
+            RefreshStructurePreviewForRenderer();
 
         if (geometryDirtyAll)
         {
@@ -2695,19 +2706,27 @@ void Display::FillSessionReproState(SessionState &s) const
         s.windowPixelsH = 0;
     }
 
-    s.activeToolOrdinal = (activeTool == ActiveTool::Calibrate) ? 1u : 0u;
+    if (activeTool == ActiveTool::Calibrate)
+        s.activeToolOrdinal = 1u;
+    else if (activeTool == ActiveTool::Structure)
+        s.activeToolOrdinal = 2u;
+    else
+        s.activeToolOrdinal = 0u;
     s.viewportAnalysisEnabled = analysisEnabled;
     s.depthExperimentOrdinal = static_cast<uint8_t>(ViewportDepthExperiments::Active());
 }
 
 void Display::SyncToolbarToolVisualState()
 {
-    if (toolbarAnalysisLine && toolbarCalibrateLine && uiAnalysis && uiCalibrate)
+    if (toolbarAnalysisLine && toolbarCalibrateLine && toolbarStructureLine && uiAnalysis && uiCalibrate &&
+        uiStructure)
     {
         toolbarAnalysisLine->selected =
             (activeTool == ActiveTool::Analysis && uiAnalysis->visible);
         toolbarCalibrateLine->selected =
             (activeTool == ActiveTool::Calibrate && uiCalibrate->visible);
+        toolbarStructureLine->selected =
+            (activeTool == ActiveTool::Structure && uiStructure->visible);
     }
     uiRenderer.MarkDirty();
 }
@@ -3506,7 +3525,7 @@ void Display::InitUI()
         toolbarDef.bottomAnchor = PanelAnchor{nullptr, PanelAnchor::Bottom};
         toolbarDef.width = toolbarWidth;
         uiToolbar = &uiRenderer.AddPanel(toolbarDef);
-        uiToolbar->children.reserve(2);
+        uiToolbar->children.reserve(3);
 
         {
             Paragraph &p = uiToolbar->AddParagraph("ToolAnalysis");
@@ -3566,6 +3585,33 @@ void Display::InitUI()
                 renderDirty = true;
             };
             toolbarCalibrateLine = &line;
+        }
+        {
+            Paragraph &p = uiToolbar->AddParagraph("ToolStructure");
+            p.values.reserve(1);
+            SectionLine &line = p.values.emplace_back();
+            line.iconDraw = Icons::ToolStructure();
+            line.fontScale = 1.4f;
+            line.squareIconHit = true;
+            line.onClick = [this]()
+            {
+                if (activeTool == ActiveTool::Structure)
+                {
+                    uiStructure->visible = !uiStructure->visible;
+                    ClearPickHover();
+                    ClearCalibrateFacePicks();
+                    RefreshStructurePreviewForRenderer();
+                    MarkGeometryDirtyAll();
+                    SyncToolbarToolVisualState();
+                    renderDirty = true;
+                    RefreshUIMinWindowSize();
+                    return;
+                }
+                activeTool = ActiveTool::Structure;
+                pendingToolSwitch = true;
+                renderDirty = true;
+            };
+            toolbarStructureLine = &line;
         }
     }
 
@@ -4929,7 +4975,82 @@ void Display::InitUI()
         RefreshCalibDerivedRowVisible();
     }
 
+    {
+        ToolPanelDef structDef;
+        structDef.id = "Structure";
+        structDef.name = "Structure";
+        structDef.description =
+            "Preview adaptive internal bracing. Changing the solid mesh is planned for a later release.";
+        structDef.flattenParameters = true;
+        structDef.parameters.reserve(2);
+
+        ParameterDef pmCenter;
+        pmCenter.id = "StructCenter";
+        pmCenter.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw =
+                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Center face supports (preview)").x : 220.0f;
+            return pad * 2.0f + tw + 28.0f;
+        };
+        pmCenter.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            if (ImGui::Checkbox("Center face supports (preview)", &structureCenterStrutsEnabled))
+            {
+                RefreshStructurePreviewForRenderer();
+                MarkGeometryDirtyAll();
+                renderDirty = true;
+            }
+        };
+        structDef.parameters.push_back(std::move(pmCenter));
+
+        ParameterDef pmShell;
+        pmShell.id = "StructShell";
+        pmShell.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw = f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f,
+                                                "Inner offset walls / bending stiffness (soon)")
+                                 .x
+                           : 280.0f;
+            return pad * 2.0f + tw + 28.0f;
+        };
+        pmShell.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            ImGui::BeginDisabled();
+            ImGui::Checkbox("Inner offset walls / bending stiffness (soon)", &structureInnerShellRowUnchecked);
+            ImGui::EndDisabled();
+        };
+        structDef.parameters.push_back(std::move(pmShell));
+
+        RootPanel structPanel = BuildToolPanel(structDef);
+        structPanel.visible = false;
+        structPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
+        structPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
+        uiStructure = &uiRenderer.AddPanel(structPanel);
+    }
+
+    SyncToolbarToolVisualState();
     RefreshUIMinWindowSize();
+}
+
+void Display::RefreshStructurePreviewForRenderer()
+{
+    std::vector<std::pair<glm::vec3, glm::vec3>> segs;
+    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
+        structureCenterStrutsEnabled && !scene->solids.empty())
+        StructurePreview::BuildCenterStruts(*scene, segs);
+    renderer.SetStructurePreviewSegments(std::move(segs));
 }
 
 void Display::RefreshUIMinWindowSize()

@@ -50,7 +50,7 @@ struct SessionState
     int windowLogicalH = 0;
     int windowPixelsW = 0;
     int windowPixelsH = 0;
-    /// 0 = Analysis tool, 1 = Calibrate tool (matches `Display::ActiveTool`).
+    /// 0 = Analysis, 1 = Calibrate, 2 = Structure (matches `Display::ActiveTool`).
     uint8_t activeToolOrdinal = 0;
     bool viewportAnalysisEnabled = true;
     /// `ViewportDepthExperiment` as integer when that header is used; otherwise 0.

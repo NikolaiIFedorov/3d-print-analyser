@@ -354,6 +354,35 @@ namespace Icons
         };
     }
 
+    // --- ToolStructure ---
+    // Internal bracing: small isometric “frame” (two uprights + roof + floor) reads as structure, not mesh.
+    inline DrawFn ToolStructure(int textDepth = 1)
+    {
+        return [textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO * 1.1f);
+            const float cx = std::round(x + s);
+            const float cy = std::round(midY);
+            const float w = s * 0.55f;
+            const float h = s * 0.62f;
+            // Parallelogram frame (isometric box front face)
+            const float skew = s * 0.28f;
+            const ImVec2 bl{cx - w - skew * 0.5f, cy + h * 0.5f};
+            const ImVec2 br{cx + w - skew * 0.5f, cy + h * 0.5f};
+            const ImVec2 tr{cx + w + skew * 0.5f, cy - h * 0.5f};
+            const ImVec2 tl{cx - w + skew * 0.5f, cy - h * 0.5f};
+            dl->AddLine(bl, br, col, stroke);
+            dl->AddLine(br, tr, col, stroke);
+            dl->AddLine(tr, tl, col, stroke);
+            dl->AddLine(tl, bl, col, stroke);
+            // One internal diagonal (bracing hint)
+            dl->AddLine(ImVec2((bl.x + tl.x) * 0.5f, (bl.y + tl.y) * 0.5f),
+                        ImVec2((br.x + tr.x) * 0.5f, (br.y + tr.y) * 0.5f), col, stroke);
+        };
+    }
+
     // --- StepState / StepDot ---
     // Sequential workflow step indicator. Active state is conveyed by row background shading
     // (SectionLine::selected); Done by dimmed text. No circle is drawn for any state —

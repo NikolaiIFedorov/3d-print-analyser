@@ -240,7 +240,9 @@ std::vector<std::pair<std::string, std::string>> SessionLogger::BuildFullSession
         return ss.str();
     };
 
-    const char *toolStr = (s.activeToolOrdinal == 1) ? "calibrate" : "analysis";
+    const char *toolStr = (s.activeToolOrdinal == 1)   ? "calibrate"
+                         : (s.activeToolOrdinal == 2) ? "structure"
+                                                      : "analysis";
 
     return {
         {"points", std::to_string(s.points)},

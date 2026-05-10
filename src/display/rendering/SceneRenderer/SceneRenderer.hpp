@@ -13,6 +13,8 @@
 
 #include "scene/scene.hpp"
 
+#include <utility>
+
 #include "mapbox/earcut.hpp"
 #include <cstddef>
 #include <unordered_map>
@@ -47,6 +49,9 @@ public:
                        const AnalysisResults *results = nullptr);
     void RecolorOnly(Scene *scene, const AnalysisResults *results = nullptr);
     void RebuildScope(Scene *scene, const GeometryInvalidationScope &scope, const AnalysisResults *results = nullptr);
+
+    /// Optional preview lines (e.g. Structure tool) appended after loose wireframe geometry each rebuild.
+    void SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
 
     void SetCamera(Camera &camera);
 
@@ -122,6 +127,8 @@ private:
     uint64_t recolorOnlyCount = 0;
     std::vector<PickTriangle> pickTriangles;
     std::vector<PickSegment> pickSegments;
+
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
 
     enum class FullRebuildPhase
     {

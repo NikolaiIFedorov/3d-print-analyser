@@ -69,6 +69,7 @@ add_executable(CAD_OpenGL
     src/logic/Calibrate/CalibDistanceType.cpp
     src/logic/Calibrate/CalibNominal.cpp
     src/logic/Calibrate/CalibCompensation.cpp
+    src/logic/Structure/StructurePreview.cpp
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp

@@ -1,6 +1,7 @@
 #include "SceneRenderer.hpp"
 #include "ProjectionDepthMode.hpp"
 #include "rendering/CalibPickSegments.hpp"
+#include "Geometry/Geometry.hpp"
 #include "utils/log.hpp"
 #include <chrono>
 
@@ -19,7 +20,38 @@ inline void LogSlowStage(const char *stage, double ms)
     if (ms >= 4.0)
         LOG_SESSION("Render stage", stage, "ms", ms);
 }
+
+static void AppendStructurePreviewLines(std::vector<Vertex> &vertices,
+                                        std::vector<uint32_t> &indices,
+                                        const std::vector<std::pair<glm::vec3, glm::vec3>> &segments)
+{
+    if (segments.empty())
+        return;
+    const glm::vec3 col = glm::vec3(Color::GetAccent(1, 1.0f));
+    const glm::vec3 nrm(0.0f);
+    for (const auto &seg : segments)
+    {
+        const uint32_t base = static_cast<uint32_t>(vertices.size());
+        Vertex v0{};
+        v0.position = seg.first;
+        v0.color = col;
+        v0.normal = nrm;
+        Vertex v1{};
+        v1.position = seg.second;
+        v1.color = col;
+        v1.normal = nrm;
+        vertices.push_back(v0);
+        vertices.push_back(v1);
+        indices.push_back(base);
+        indices.push_back(base + 1u);
+    }
+}
 } // namespace
+
+void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
+{
+    structurePreviewSegments = std::move(segments);
+}
 
 void SceneRenderer::AbortIncrementalFullRebuild()
 {
@@ -368,6 +400,7 @@ void SceneRenderer::RebuildLoose(Scene *scene, const AnalysisResults *results)
     looseWireframe.vertices.clear();
     looseWireframe.indices.clear();
     wireframe.GenerateLoose(scene, looseWireframe.vertices, looseWireframe.indices);
+    AppendStructurePreviewLines(looseWireframe.vertices, looseWireframe.indices, structurePreviewSegments);
 
     GLint viewPort[4];
     glGetIntegerv(GL_VIEWPORT, viewPort);

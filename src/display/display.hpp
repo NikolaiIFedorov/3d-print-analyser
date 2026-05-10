@@ -97,7 +97,8 @@ public:
     enum class ActiveTool
     {
         Analysis,
-        Calibrate
+        Calibrate,
+        Structure
     };
     ActiveTool activeTool = ActiveTool::Analysis;
 
@@ -139,6 +140,8 @@ private:
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
     /// Recompute UI-derived minimum window size (after tool/panel visibility changes).
     void RefreshUIMinWindowSize();
+    /// Upload Structure preview polylines to the renderer before wireframe rebuild.
+    void RefreshStructurePreviewForRenderer();
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;
@@ -192,6 +195,11 @@ private:
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
+    /// Structure tool: preview inward struts from face centroids (v1 heuristic).
+    bool structureCenterStrutsEnabled = true;
+    /// Storage for the disabled “inner walls” ImGui row (always false).
+    bool structureInnerShellRowUnchecked = false;
+
     bool settingsOpenAccentPicker = false;
     Select *uiAppearanceThemeSelect = nullptr;
     Select *uiAppearanceAccentSelect = nullptr;
@@ -200,10 +208,12 @@ private:
     RootPanel *uiFiles = nullptr;
     RootPanel *uiAnalysis = nullptr;
     RootPanel *uiCalibrate = nullptr;
+    RootPanel *uiStructure = nullptr;
     RootPanel *uiSettings = nullptr;
     RootPanel *uiToolbar = nullptr;
     SectionLine *toolbarAnalysisLine = nullptr;
     SectionLine *toolbarCalibrateLine = nullptr;
+    SectionLine *toolbarStructureLine = nullptr;
     Paragraph *uiResult = nullptr;
     Paragraph *uiImportPara = nullptr;
     Paragraph *uiVerdict = nullptr;
