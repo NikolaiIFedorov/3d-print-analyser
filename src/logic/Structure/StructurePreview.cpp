@@ -383,13 +383,17 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
     }
 }
 
-void BuildInsetFaceLoops(const Scene &scene, double insetMm, std::vector<std::pair<glm::vec3, glm::vec3>> &out)
+void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepthMm,
+                         std::vector<std::pair<glm::vec3, glm::vec3>> &out)
 {
     out.clear();
     constexpr double kEps = 1.0e-9;
-    constexpr double kUvEps = 1.0e-7;
+    constexpr double kProjSpanEps = 1.0e-7;
     constexpr double kMinEdgeLen = 5.0e-4;
+
+    constexpr glm::dvec3 kWorldUpZ(0.0, 0.0, 1.0);
     const double inset = std::max(0.0, insetMm);
+    const double depthMm = std::max(0.0, extrudeDepthMm);
     if (!(inset > kEps))
         return;
 
@@ -408,20 +412,12 @@ void BuildInsetFaceLoops(const Scene &scene, double insetMm, std::vector<std::pa
 
             const glm::dvec3 nOut = OutwardNormalPlanar(face);
 
-            glm::dvec3 uAxis(1.0, 0.0, 0.0);
-            if (std::abs(glm::dot(uAxis, nOut)) > 0.92)
-                uAxis = glm::dvec3(0.0, 1.0, 0.0);
-
-            glm::dvec3 u = glm::cross(nOut, uAxis);
-            const double lu = glm::length(u);
-            if (!(lu > kEps))
-                continue;
-            u /= lu;
-            glm::dvec3 v = glm::cross(nOut, u);
-            const double lv = glm::length(v);
-            if (!(lv > kEps))
-                continue;
-            v /= lv;
+            // “Vertical inset” axis in the face plane (+Z projected into the plane).
+            glm::dvec3 wVert = kWorldUpZ - nOut * glm::dot(kWorldUpZ, nOut);
+            const double wLen = glm::length(wVert);
+            if (!(wLen > kProjSpanEps))
+                continue; // Cap ~horizontal: no in-plane vertical to shrink along
+            wVert /= wLen;
 
             std::vector<glm::dvec3> ring3d;
             ring3d.reserve(face.loops[0].size());
@@ -440,44 +436,43 @@ void BuildInsetFaceLoops(const Scene &scene, double insetMm, std::vector<std::pa
                 centroid += p;
             centroid /= static_cast<double>(nV);
 
-            std::vector<glm::dvec2> ring2d;
-            ring2d.reserve(nV);
-            double umin = std::numeric_limits<double>::infinity();
-            double umax = -std::numeric_limits<double>::infinity();
-            double vmin = std::numeric_limits<double>::infinity();
-            double vmax = -std::numeric_limits<double>::infinity();
+            double tMin = std::numeric_limits<double>::infinity();
+            double tMax = -std::numeric_limits<double>::infinity();
             for (const glm::dvec3 &p : ring3d)
             {
                 const glm::dvec3 r = p - centroid;
-                const double su = glm::dot(r, u);
-                const double sv = glm::dot(r, v);
-                ring2d.emplace_back(su, sv);
-                umin = std::min(umin, su);
-                umax = std::max(umax, su);
-                vmin = std::min(vmin, sv);
-                vmax = std::max(vmax, sv);
+                const double t = glm::dot(r, wVert);
+                tMin = std::min(tMin, t);
+                tMax = std::max(tMax, t);
             }
-
-            const double spanU = umax - umin;
-            const double spanV = vmax - vmin;
-            const double refSpan = std::max(spanU, spanV);
-            if (!(refSpan > kUvEps))
+            const double projSpan = tMax - tMin;
+            if (!(projSpan > kProjSpanEps))
                 continue;
 
-            const double scale = std::clamp(1.0 - 2.0 * inset / refSpan, 0.05, 0.9995);
-            if (scale <= 1.0e-6)
+            const double scaleAlong =
+                std::clamp(1.0 - 2.0 * inset / projSpan, 0.05, 0.9995);
+            if (!(scaleAlong > 1.0e-6))
                 continue;
+
+            const glm::dvec3 inward = -nOut;
+
+            std::vector<glm::dvec3> innerRing;
+            innerRing.reserve(nV);
+            for (const glm::dvec3 &p : ring3d)
+            {
+                const glm::dvec3 r = p - centroid;
+                const double t = glm::dot(r, wVert);
+                const glm::dvec3 rPerpToVert = r - t * wVert;
+                innerRing.push_back(centroid + rPerpToVert + t * scaleAlong * wVert);
+            }
 
             for (std::size_t i = 0; i < nV; ++i)
             {
-                const glm::dvec2 &p0 = ring2d[i];
-                const glm::dvec2 &p1 = ring2d[(i + 1) % nV];
-                const glm::dvec3 q0 = centroid + u * (p0.x * scale) + v * (p0.y * scale);
-                const glm::dvec3 q1 = centroid + u * (p1.x * scale) + v * (p1.y * scale);
-                const glm::dvec3 d = q1 - q0;
-                if (!(glm::length(d) > kMinEdgeLen))
+                const glm::dvec3 &q0 = innerRing[i];
+                const glm::dvec3 &q1 = innerRing[(i + 1) % nV];
+                if (!(glm::length(q1 - q0) > kMinEdgeLen))
                     continue;
-                out.emplace_back(glm::vec3(q0), glm::vec3(q1));
+                AppendRibRectangle(out, q0, q1, inward, depthMm);
             }
         }
     }

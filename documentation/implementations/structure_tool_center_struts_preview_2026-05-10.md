@@ -74,4 +74,4 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 
 **Chord end inset:** `RibPreviewParams::chordEndInsetMm` trims each clipped chord by that distance from **both** ends along the chord (UI “Chord end inset (mm)”, default 2). Ribs shorter than `2*inset + 0.6mm` are skipped.
 
-**Inset face loop (alternate preview):** `BuildInsetFaceLoops` projects the outer planar loop onto face `(u,v)` about the polygon centroid (same basis as ribs), scales vertices by `clamp(1 - 2*insetMm / max(spanU,spanV), …)` (~uniform shrink like a centered square sketch). Lines use `GetAccent(3)`. All planar caps included (no lid skip). Toggle **Inset face loop (preview)** + **Inset distance (mm)**.
+**Inset face loop:** `BuildInsetFaceLoops` uses **vertical-only inset**: project **+world Z** onto the face plane (`w_vert`), shrink each vertex only along `w_vert` about the polygon centroid (`t * scaleAlong`, `projSpan = t_max - t_min` over the loop); **near-horizontal caps** (~no usable `w_vert`) are skipped. Each inner edge passes through **`AppendRibRectangle`** for **Inset extrude (mm)** into the solid (−outward normal), like ribs (`GetAccent(3)` UI).

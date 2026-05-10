@@ -5140,10 +5140,11 @@ void Display::InitUI()
             if (!f)
                 f = ImGui::GetFont();
             const float pad = ImGui::GetStyle().FramePadding.x;
-            const float tw = f ? std::max(f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset face loop (preview)").x,
-                                          f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset distance (mm)").x)
-                               : 240.0f;
-            return pad * 2.0f + tw + 100.0f;
+            const float tw = f ? std::max({f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset face loop (preview)").x,
+                                           f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset distance (mm)").x,
+                                           f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset extrude (mm)").x})
+                               : 260.0f;
+            return pad * 2.0f + tw + 120.0f;
         };
         pmInsetFace.line.imguiContent = [this](float w, float h, float)
         {
@@ -5152,9 +5153,11 @@ void Display::InitUI()
             bool changed = false;
             changed |= ImGui::Checkbox("Inset face loop (preview)", &structureInsetFaceLoopEnabled);
             changed |= ImGui::SliderFloat("Inset distance (mm)", &structureInsetFaceMm, 0.1f, 80.0f, "%.1f");
+            changed |= ImGui::SliderFloat("Inset extrude (mm)", &structureInsetFaceDepthMm, 0.0f, 25.0f, "%.1f");
             if (changed)
             {
                 structureInsetFaceMm = std::max(0.1f, structureInsetFaceMm);
+                structureInsetFaceDepthMm = std::max(0.0f, structureInsetFaceDepthMm);
                 RefreshStructurePreviewForRenderer();
                 MarkGeometryDirtyAll();
                 renderDirty = true;
@@ -5253,7 +5256,8 @@ void Display::RefreshStructurePreviewForRenderer()
     std::vector<std::pair<glm::vec3, glm::vec3>> insetSegs;
     if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
         structureInsetFaceLoopEnabled && !scene->solids.empty())
-        StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, insetSegs);
+        StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, structureInsetFaceDepthMm,
+                                              insetSegs);
     renderer.SetStructureInsetFaceSegments(std::move(insetSegs));
 }
 

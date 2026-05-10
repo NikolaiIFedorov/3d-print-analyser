@@ -44,8 +44,9 @@ void BuildAdjacentFaceMidpoints(const Scene &scene, std::vector<std::pair<glm::v
 void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                            std::vector<std::pair<glm::vec3, glm::vec3>> &out);
 
-/// One inset loop per planar face: outer-loop vertices scaled about the polygon centroid in the face plane
-/// (similar to shrinking a square uniformly; rectangles get non-uniform edge distance but simple preview).
-void BuildInsetFaceLoops(const Scene &scene, double insetMm, std::vector<std::pair<glm::vec3, glm::vec3>> &out);
+/// One inset loop per planar face: shrink only along the projection of **+world Z** onto the face (vertical-only inset;
+/// near-horizontal caps skipped). Optionally extrude each inner edge inward along −outward normal like rib fins.
+void BuildInsetFaceLoops(const Scene &scene, double insetMm, double extrudeDepthMm,
+                         std::vector<std::pair<glm::vec3, glm::vec3>> &out);
 
 } // namespace StructurePreview
