@@ -74,4 +74,10 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 
 **Chord end inset:** `RibPreviewParams::chordEndInsetMm` trims each clipped chord by that distance from **both** ends along the chord (UI “Chord end inset (mm)”, default 2). Ribs shorter than `2*inset + 0.6mm` are skipped.
 
-**Inset face loop:** `BuildInsetFaceLoops` uses **vertical-only inset**: project **+world Z** onto the face plane (`w_vert`), shrink each vertex only along `w_vert` about the polygon centroid (`t * scaleAlong`, `projSpan = t_max - t_min` over the loop); **near-horizontal caps** (~no usable `w_vert`) are skipped. Each inner edge passes through **`AppendRibRectangle`** for **Inset extrude (mm)** into the solid (−outward normal), like ribs (`GetAccent(3)` UI).
+**Inset face loop:** `BuildInsetFaceLoops` runs only on **horizontal-ish** planar faces (`|outward_normal·+(0,0,1)| ≥ 0.82`); vertical walls / steep normals are skipped. Loop points are shrink-wrapped uniformly in-plane about the centroid (same bounding-box-like scale on both tangent axes); inner edges extrude inward via **`AppendRibRectangle`** and **Inset extrude (mm)** (−outward normal, rib-style, `GetAccent(3)`).
+
+**Correction (2026-05-10):** Replaced earlier **vertical-wall-only** inset (projection of **+Z** in-plane) with the policy above — user intent is **lid/floor** inset square-in-square style, not side-wall strips.
+
+**Outcome (horizontal inset flip):** `cmake --build` clean; committed as `fix(structure): inset face loops on horizontal caps only`. Threshold `kTreatFaceHorizontalMinAbsNormalDotZ = 0.82` is tunable if sloped lids should be excluded or included.
+
+**Mini retro:** Reused the rib `(u,v)` + uniform-scale pattern already familiar from sketch geometry; aligning “horizontal” with world **+Z** matches ribs’ cap skip heuristic but differs slightly (`0.82` vs `0.9`) — optional follow-up: one shared constant or build-axis param.
