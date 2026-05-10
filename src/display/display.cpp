@@ -5005,9 +5005,7 @@ void Display::InitUI()
         ToolPanelDef structDef;
         structDef.id = "Structure";
         structDef.name = "Structure";
-        structDef.description =
-            "Diamond strut preview (adjacent face midpoints) and inset face loops on planar faces. Shell draws "
-            "translucently while this tool is active so lines read inside the solid.";
+        structDef.description = "Save on printed weight with specialized infill";
         structDef.flattenParameters = true;
 
         RootPanel structPanel = BuildToolPanel(structDef);

@@ -17,3 +17,7 @@ Implemented in `src/display/display.cpp` and `src/display/display.hpp`. `cmake -
 ## Mini retro
 
 Centralizing “always on” preview in `RefreshStructurePreviewForRenderer` is clearer than leaving dead toggles in `Display`. If tuning returns, prefer app Settings or a dev-only overlay over resurrecting a large tool panel.
+
+---
+
+**2026-05-11 follow-up:** Default `structureInsetFaceFullDepthThroughSolid` to `true` so inset preview extrudes through the solid via the existing bbox heuristic. Structure panel subtitle set to user-facing copy: “Save on printed weight with specialized infill”.
