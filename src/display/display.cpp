@@ -71,6 +71,7 @@ constexpr float kPanSnapTravelFloor = 3.5e-4f;
 }
 
 /// Two text zones styled like settings theme `Select` pills (text-only segments, hover accent fill).
+/// Draw-list primitives use **screen** coordinates (same convention as `UIRenderer` segmented `Select`).
 static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, const char *left, const char *right,
                                      const std::function<void()> &onLeft, const std::function<void()> &onRight,
                                      int accentDepth)
@@ -83,6 +84,9 @@ static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, co
     const float pillR = std::round(baseH * 0.35f);
     constexpr float zoneInset = 2.0f; // matches `UIRenderer` segmented Select
     ImDrawList *dl = ImGui::GetWindowDrawList();
+
+    ImGui::SetCursorPos(ImVec2(0.0f, 0.0f));
+    const ImVec2 rowOrigin = ImGui::GetCursorScreenPos();
 
     const float lw0 = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, left).x;
     const float lw1 = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, right).x;
@@ -112,13 +116,15 @@ static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, co
         if (hovered)
         {
             glm::vec4 hc = Color::GetAccent(accentDepth, 0.12f, UIStyle::ACCENT_SAT_MULT_HOVER);
-            dl->AddRectFilled(ImVec2(zx0 + 2.f, 2.f), ImVec2(zx1 - 2.f, baseH - 2.f),
+            dl->AddRectFilled(ImVec2(rowOrigin.x + zx0 + 2.f, rowOrigin.y + 2.f),
+                              ImVec2(rowOrigin.x + zx1 - 2.f, rowOrigin.y + baseH - 2.f),
                               ImGui::GetColorU32(ImVec4(hc.r, hc.g, hc.b, hc.a)), pillR);
         }
-        dl->PushClipRect(ImVec2(zx0 + 2.f, 0.f), ImVec2(zx1 - 2.f, baseH), true);
+        dl->PushClipRect(ImVec2(rowOrigin.x + zx0 + 2.f, rowOrigin.y),
+                         ImVec2(rowOrigin.x + zx1 - 2.f, rowOrigin.y + baseH), true);
         const float tw = lblFont->CalcTextSizeA(lblSize, FLT_MAX, 0.0f, txt).x;
-        const float mid = (zx0 + zx1) * 0.5f;
-        const float ty = (baseH - lblSize) * 0.5f;
+        const float mid = rowOrigin.x + (zx0 + zx1) * 0.5f;
+        const float ty = rowOrigin.y + (baseH - lblSize) * 0.5f;
         const int depth = hovered ? 2 : 0;
         glm::vec4 tc = Color::GetUIText(depth);
         dl->AddText(lblFont, lblSize, ImVec2(mid - tw * 0.5f, ty), ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a)), txt);
@@ -5163,6 +5169,10 @@ void Display::SyncStructurePanelDerivedVisibility()
     if (uiStructure == nullptr)
         return;
     const bool importDone = (calibStepImport == Icons::StepState::Done);
+    // Hide the whole Prerequisites section once import is done so we do not leave a zero-height
+    // block (which still drew a splitter) between the subtitle and the scene-edit footer.
+    if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
+        prereq->visible = !importDone;
     if (structPara_Import)
         structPara_Import->visible = !importDone;
     if (structPara_SceneEditFooter)
