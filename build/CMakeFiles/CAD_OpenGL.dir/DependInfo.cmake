@@ -49,6 +49,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLCgalPlanarExperiment.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d"
+  "/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.cpp" "CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/main.cpp" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o.d"
   "/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.cpp" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o" "gcc" "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o.d"

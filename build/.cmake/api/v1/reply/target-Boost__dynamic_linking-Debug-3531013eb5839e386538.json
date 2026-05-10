@@ -1,20 +1,19 @@
 {
 	"abstract" : true,
-	"backtrace" : 7,
+	"backtrace" : 9,
 	"backtraceGraph" : 
 	{
 		"commands" : 
 		[
 			"add_library",
 			"find_package",
-			"CGAL_setup_CGAL_dependencies",
-			"CGAL_setup_target_dependencies"
+			"include"
 		],
 		"files" : 
 		[
-			"/opt/homebrew/share/cmake/Modules/FindThreads.cmake",
+			"/opt/homebrew/lib/cmake/Boost-1.90.0/BoostConfig.cmake",
+			"/opt/homebrew/lib/cmake/CGAL/CGAL_SetupBoost.cmake",
 			"/opt/homebrew/lib/cmake/CGAL/CGAL_SetupCGALDependencies.cmake",
-			"/opt/homebrew/lib/cmake/CGAL/CGAL_setup_target_dependencies.cmake",
 			"/opt/homebrew/lib/cmake/CGAL/CGALConfig.cmake",
 			"CMakeLists.txt"
 		],
@@ -26,7 +25,7 @@
 			{
 				"command" : 1,
 				"file" : 4,
-				"line" : 153,
+				"line" : 154,
 				"parent" : 0
 			},
 			{
@@ -34,32 +33,40 @@
 				"parent" : 1
 			},
 			{
-				"command" : 3,
+				"command" : 2,
 				"file" : 3,
-				"line" : 192,
+				"line" : 169,
 				"parent" : 2
+			},
+			{
+				"file" : 2,
+				"parent" : 3
 			},
 			{
 				"command" : 2,
 				"file" : 2,
-				"line" : 3,
-				"parent" : 3
+				"line" : 48,
+				"parent" : 4
+			},
+			{
+				"file" : 1,
+				"parent" : 5
 			},
 			{
 				"command" : 1,
 				"file" : 1,
-				"line" : 108,
-				"parent" : 4
+				"line" : 17,
+				"parent" : 6
 			},
 			{
 				"file" : 0,
-				"parent" : 5
+				"parent" : 7
 			},
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 292,
-				"parent" : 6
+				"line" : 277,
+				"parent" : 8
 			}
 		]
 	},
@@ -68,10 +75,10 @@
 		"major" : 2,
 		"minor" : 9
 	},
-	"id" : "Threads::Threads::@6890427a1f51a3e7e1df",
+	"id" : "Boost::dynamic_linking::@6890427a1f51a3e7e1df",
 	"imported" : true,
 	"local" : true,
-	"name" : "Threads::Threads",
+	"name" : "Boost::dynamic_linking",
 	"paths" : 
 	{
 		"build" : ".",

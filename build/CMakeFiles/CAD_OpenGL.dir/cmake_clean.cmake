@@ -83,6 +83,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o"
+  "CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o"
   "CMakeFiles/CAD_OpenGL.dir/src/main.cpp.o.d"
   "CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o"

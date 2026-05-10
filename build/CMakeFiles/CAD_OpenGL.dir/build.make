@@ -520,10 +520,24 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.s: cmake_for
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.s"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibCompensation.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.s
 
+CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
+CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.cpp
+CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.cpp
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.i"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.cpp > CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.i
+
+CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.s"
+	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.cpp -o CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.s
+
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.cpp
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLImport.cpp
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.i: cmake_force
@@ -537,7 +551,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.cpp
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/OBJImport.cpp
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.i: cmake_force
@@ -551,7 +565,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/ThreeMFImport.cpp
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.i: cmake_force
@@ -565,7 +579,7 @@ CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c
 CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o"
 	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz.c
 
 CMakeFiles/CAD_OpenGL.dir/include/miniz.c.i: cmake_force
@@ -579,7 +593,7 @@ CMakeFiles/CAD_OpenGL.dir/include/miniz.c.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o"
 	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tdef.c
 
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.i: cmake_force
@@ -593,7 +607,7 @@ CMakeFiles/CAD_OpenGL.dir/include/miniz_tdef.c.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o"
 	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_tinfl.c
 
 CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.i: cmake_force
@@ -607,7 +621,7 @@ CMakeFiles/CAD_OpenGL.dir/include/miniz_tinfl.c.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c
 CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building C object CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o"
 	/usr/bin/clang $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o -MF CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o.d -o CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/miniz_zip.c
 
 CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.i: cmake_force
@@ -621,7 +635,7 @@ CMakeFiles/CAD_OpenGL.dir/include/miniz_zip.c.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp
 CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/tinyxml2.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.i: cmake_force
@@ -635,7 +649,7 @@ CMakeFiles/CAD_OpenGL.dir/include/tinyxml2.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.i: cmake_force
@@ -649,7 +663,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_draw.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.i: cmake_force
@@ -663,7 +677,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_draw.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_tables.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.i: cmake_force
@@ -677,7 +691,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_tables.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_widgets.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.i: cmake_force
@@ -691,7 +705,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_widgets.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/imgui_demo.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.i: cmake_force
@@ -705,7 +719,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/imgui_demo.cpp.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_sdl3.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.i: cmake_force
@@ -719,7 +733,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_sdl3.cpp.s: cmake_fo
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building CXX object CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends/imgui_impl_opengl3.cpp
 
 CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.i: cmake_force
@@ -733,7 +747,7 @@ CMakeFiles/CAD_OpenGL.dir/include/imgui/backends/imgui_impl_opengl3.cpp.s: cmake
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAccent.mm
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o -MF CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o.d -o CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAccent.mm
 
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.i: cmake_force
@@ -747,7 +761,7 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAccent.mm.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAppearance.mm
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o -MF CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o.d -o CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/SystemAppearance.mm
 
 CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.i: cmake_force
@@ -761,7 +775,7 @@ CMakeFiles/CAD_OpenGL.dir/src/utils/SystemAppearance.mm.s: cmake_force
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o: CMakeFiles/CAD_OpenGL.dir/flags.make
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o: /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLCgalPlanarExperiment.cpp
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o: CMakeFiles/CAD_OpenGL.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building CXX object CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o"
 	/usr/bin/clang++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o -MF CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o.d -o CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o -c /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Import/STLCgalPlanarExperiment.cpp
 
 CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.i: cmake_force
@@ -806,6 +820,7 @@ CAD_OpenGL_OBJECTS = \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.o" \
+"CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o" \
 "CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o" \
@@ -860,6 +875,7 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibCompensation.cpp.o
+CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLImport.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.o
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.o
@@ -886,7 +902,7 @@ CAD_OpenGL: /opt/homebrew/lib/libgmpxx.dylib
 CAD_OpenGL: /opt/homebrew/lib/libmpfr.dylib
 CAD_OpenGL: /opt/homebrew/lib/libgmp.dylib
 CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Linking CXX executable CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Linking CXX executable CAD_OpenGL"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/CAD_OpenGL.dir/link.txt --verbose=$(VERBOSE)
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders
 	/opt/homebrew/bin/cmake -E copy_directory /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer/shaders /Users/nikolnotai/Documents/CAD_OpenGl/build/shaders

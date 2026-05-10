@@ -1,0 +1,44 @@
+---
+description: CAD model routing, scope triage, and pause-to-switch prompts
+alwaysApply: true
+---
+
+# Model routing and scope gates
+
+## Goal
+
+Keep model choice aligned with task type, and pause to confirm model switches when scope grows.
+
+## Recommended routing
+
+- `cad-architecture-doc-review` → Gemini 3.1 Pro
+- `cad-architecture-solid-dry`:
+  - review/design tradeoffs → Gemini 3.1 Pro
+  - implementation/refactor/code edits → GPT 5.3 Codex
+- `cad-cpp-performance-opengl` → GPT 5.3 Codex
+- `cad-cross-platform-cmake` → GPT 5.3 Codex
+- `cad-feature-workflow`:
+  - main implementation flow → GPT 5.3 Codex
+  - small follow-up edits/log touch-ups → GPT 5.4 Mini
+- `cad-naming-style` → GPT 5.4 Mini
+
+## Before execution
+
+- If current model does not match recommended routing, ask: `Current model is <X>; recommended is <Y> for this task. Switch now?`
+- If task scope is unclear, do a quick discovery pass first (inspect likely impacted files/modules), then confirm model choice.
+
+## Small vs big edits (scope gate)
+
+- Treat as **small** only if isolated and reversible, usually in 1-2 files.
+- Escalate to **big** when any trigger appears:
+  - touches 3+ files or crosses module boundaries
+  - changes interfaces/contracts or public behavior
+  - needs broad test updates or non-trivial validation
+  - affects CMake/build/resources/shaders/platform concerns
+  - touches render/update hot paths or performance-sensitive code
+  - reveals significant ambiguity or multiple architectural options
+
+## Mandatory pause-and-ask
+
+- If a task starts small but hits any escalation trigger, stop before major edits and ask to switch to the recommended stronger model.
+- If recommended model is unavailable, do not substitute silently; ask the user how to proceed.
