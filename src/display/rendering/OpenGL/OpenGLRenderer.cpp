@@ -608,7 +608,9 @@ void OpenGLRenderer::DrawTriangles()
         return;
 
     const uint32_t solidPrefix = structureSolidTriangleIndexPrefix;
-    const bool splitShell = structureViewTranslucentSolid && solidPrefix > 0 && solidPrefix < triangleIndexCount &&
+    // Solid-only imports (e.g. a single cube) put all triangles in the solid prefix and none in loose —
+    // translucency still must run when solidPrefix == triangleIndexCount.
+    const bool splitShell = structureViewTranslucentSolid && solidPrefix > 0 && solidPrefix <= triangleIndexCount &&
                             !RenderingExperiments::kDepthPrepassOpaquePatches;
 
     if (!splitShell)

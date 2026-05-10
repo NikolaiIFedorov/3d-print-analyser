@@ -28,3 +28,4 @@ Add a third toolbar tool **Structure** (alongside Analysis and Calibrate) for ad
 - **UI:** Checkbox “Translucent solid shell (see inside)” (default on) in Structure panel.
 - **Render:** `UploadAllPacked` records `packedSolidPatchIndexCount` (triangle indices belonging to solid chunks before loose patch). `OpenGLRenderer::DrawTriangles` draws that prefix in two sub-passes: depth-only (write Z), then blended color with `uAlpha` and **no** depth write, so wireframe struts still depth-test against the shell. Remaining indices (loose patch) draw opaque as before.
 - **Note:** Split path is skipped when `kDepthPrepassOpaquePatches` is enabled (experiment flag; default off).
+- **Fix:** Original split gate required `solidPrefix < triangleIndexCount`, so solid-only meshes (empty loose patch) never went translucent — allow `solidPrefix <= triangleIndexCount`.
