@@ -2,6 +2,7 @@
 #include "ProjectionDepthMode.hpp"
 #include "rendering/CalibPickSegments.hpp"
 #include "Geometry/Geometry.hpp"
+#include "rendering/color.hpp"
 #include "utils/log.hpp"
 #include <algorithm>
 #include <chrono>
@@ -22,14 +23,17 @@ inline void LogSlowStage(const char *stage, double ms)
         LOG_SESSION("Render stage", stage, "ms", ms);
 }
 
-static void AppendStructurePreviewLines(std::vector<Vertex> &vertices,
-                                        std::vector<uint32_t> &indices,
-                                        const std::vector<std::pair<glm::vec3, glm::vec3>> &segments)
+static void BuildStructurePreviewLineMesh(const std::vector<std::pair<glm::vec3, glm::vec3>> &segments,
+                                          std::vector<Vertex> &vertices, std::vector<uint32_t> &indices)
 {
+    vertices.clear();
+    indices.clear();
     if (segments.empty())
         return;
     const glm::vec3 col = glm::vec3(Color::GetAccent(1, 1.0f));
     const glm::vec3 nrm(0.0f);
+    vertices.reserve(segments.size() * 2);
+    indices.reserve(segments.size() * 2);
     for (const auto &seg : segments)
     {
         const uint32_t base = static_cast<uint32_t>(vertices.size());
@@ -297,6 +301,7 @@ void SceneRenderer::RebuildSolids(Scene *scene, const std::unordered_set<const S
                 break;
             }
         }
+        CommitStructurePreviewLinesToGpu();
     }
 
     RebuildPickTriangles();
@@ -400,6 +405,7 @@ void SceneRenderer::RecolorOnly(Scene *scene, const AnalysisResults *results)
 
     RebuildPickTriangles();
     RebuildPickSegments(scene);
+    CommitStructurePreviewLinesToGpu();
 }
 
 void SceneRenderer::RebuildLoose(Scene *scene, const AnalysisResults *results)
@@ -407,7 +413,6 @@ void SceneRenderer::RebuildLoose(Scene *scene, const AnalysisResults *results)
     looseWireframe.vertices.clear();
     looseWireframe.indices.clear();
     wireframe.GenerateLoose(scene, looseWireframe.vertices, looseWireframe.indices);
-    AppendStructurePreviewLines(looseWireframe.vertices, looseWireframe.indices, structurePreviewSegments);
 
     GLint viewPort[4];
     glGetIntegerv(GL_VIEWPORT, viewPort);
@@ -534,6 +539,16 @@ void SceneRenderer::UploadAllPacked()
     renderer.UploadLineMesh(lineVertices, lineIndices);
     renderer.UploadTriangleMesh(triVertices, triIndices);
     packedUploaded = true;
+
+    CommitStructurePreviewLinesToGpu();
+}
+
+void SceneRenderer::CommitStructurePreviewLinesToGpu()
+{
+    std::vector<Vertex> verts;
+    std::vector<uint32_t> idx;
+    BuildStructurePreviewLineMesh(structurePreviewSegments, verts, idx);
+    renderer.UploadStructurePreviewLineMesh(verts, idx);
 }
 
 void SceneRenderer::RebuildPickSegments(Scene *scene)
@@ -643,6 +658,12 @@ void SceneRenderer::RenderPatches()
 void SceneRenderer::RenderWireframe()
 {
     renderer.DrawLines();
+}
+
+void SceneRenderer::RenderStructurePreviewLines(float lineWidthPx)
+{
+    renderer.DrawStructurePreviewLines(lineWidthPx, false);
+    renderer.DrawStructurePreviewLines(std::max(1.0f, lineWidthPx - 1.25f), true);
 }
 
 void SceneRenderer::Shutdown()

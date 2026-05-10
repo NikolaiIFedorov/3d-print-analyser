@@ -29,3 +29,11 @@ Add a third toolbar tool **Structure** (alongside Analysis and Calibrate) for ad
 - **Render:** `UploadAllPacked` records `packedSolidPatchIndexCount` (triangle indices belonging to solid chunks before loose patch). `OpenGLRenderer::DrawTriangles` draws that prefix in two sub-passes: depth-only (write Z), then blended color with `uAlpha` and **no** depth write, so wireframe struts still depth-test against the shell. Remaining indices (loose patch) draw opaque as before.
 - **Note:** Split path is skipped when `kDepthPrepassOpaquePatches` is enabled (experiment flag; default off).
 - **Fix:** Original split gate required `solidPrefix < triangleIndexCount`, so solid-only meshes (empty loose patch) never went translucent — allow `solidPrefix <= triangleIndexCount`.
+
+---
+
+## Update: translucency reads dark + no grid/struts behind (2026-05-10)
+
+**Causes:** (1) Blending ran before the grid and against the clear color; stencil still hid the late grid under the shell. (2) Shell depth prepass occluded interior strut segments in the main wire draw.
+
+**Changes:** Draw the reference grid once **before** patches when Structure translucent shell is on (stencil off), and **skip** the second `viewportRenderer.Render()` for that mode. Upload center-strut segments to a **separate** line mesh and draw **twice** (normal depth + `DepthCompareBehind` x-ray) like pick span overlay. Slightly higher shell alpha (0.42) in `Display::Render`.

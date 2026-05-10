@@ -66,6 +66,8 @@ public:
     void RenderPickHighlightLines(float lineWidthPx);
     void RenderPickHighlightLinesXray(float lineWidthPx);
     void RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay = false);
+    /// Dedicated mesh from `structurePreviewSegments`; foreground pass + occluded (“behind”) pass.
+    void RenderStructurePreviewLines(float lineWidthPx);
     void RenderWireframe();
 
     void UploadPickHighlightMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
@@ -115,6 +117,7 @@ private:
     void RepackOffsets();
     bool UploadChunkSubData(const Solid *solid, const SolidChunk &chunk);
     void UploadAllPacked();
+    void CommitStructurePreviewLinesToGpu();
     void RebuildPickSegments(Scene *scene);
     void RebuildPickTriangles();
     void AbortIncrementalFullRebuild();

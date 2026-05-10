@@ -301,6 +301,15 @@ void OpenGLRenderer::Shutdown()
     calibHoverSpanLineVAO = calibHoverSpanLineVBO = calibHoverSpanLineIBO = 0;
     calibHoverSpanLineIndexCount = 0;
 
+    if (structurePreviewLineVBO)
+        glDeleteBuffers(1, &structurePreviewLineVBO);
+    if (structurePreviewLineVAO)
+        glDeleteVertexArrays(1, &structurePreviewLineVAO);
+    if (structurePreviewLineIBO)
+        glDeleteBuffers(1, &structurePreviewLineIBO);
+    structurePreviewLineVAO = structurePreviewLineVBO = structurePreviewLineIBO = 0;
+    structurePreviewLineIndexCount = 0;
+
     if (lineVBO)
         glDeleteBuffers(1, &lineVBO);
     if (lineVAO)
@@ -582,6 +591,44 @@ void OpenGLRenderer::UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &ver
         glGenBuffers(1, &calibHoverSpanLineIBO);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, calibHoverSpanLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadStructurePreviewLineMesh(const std::vector<Vertex> &vertices,
+                                                     const std::vector<uint32_t> &indices)
+{
+    structurePreviewLineIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (structurePreviewLineVAO == 0)
+        glGenVertexArrays(1, &structurePreviewLineVAO);
+
+    glBindVertexArray(structurePreviewLineVAO);
+
+    if (structurePreviewLineVBO == 0)
+        glGenBuffers(1, &structurePreviewLineVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, structurePreviewLineVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (structurePreviewLineIBO == 0)
+        glGenBuffers(1, &structurePreviewLineIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, structurePreviewLineIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
                  indices.empty() ? nullptr : indices.data(),
@@ -1168,6 +1215,77 @@ void OpenGLRenderer::DrawCalibHoverSpanLine(float pixelWidth, bool xrayOverlay)
 
     glBindVertexArray(calibHoverSpanLineVAO);
     glDrawElements(GL_LINES, calibHoverSpanLineIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    if (xrayOverlay)
+    {
+        glDepthMask(depthMaskWas);
+        if (depthTestWas)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        if (!blendWas)
+            glDisable(GL_BLEND);
+    }
+    else
+    {
+        glDepthMask(GL_TRUE);
+    }
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawStructurePreviewLines(float pixelWidth, bool xrayOverlay)
+{
+    if (structurePreviewLineIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
+    // Occluded (through shell) portion reads a touch stronger than hover span x-ray.
+    lineShader.SetFloat("uAlpha", xrayOverlay ? 0.62f : 1.0f);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    if (xrayOverlay)
+    {
+        glGetBooleanv(GL_BLEND, &blendWas);
+        glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    }
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
+
+    glBindVertexArray(structurePreviewLineVAO);
+    glDrawElements(GL_LINES, structurePreviewLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
