@@ -25,6 +25,7 @@
 #include "rendering/ScenePick.hpp"
 #include "Geometry/Geometry.hpp"
 #include "Calibrate/CalibDistanceType.hpp"
+#include "Structure/StructurePreview.hpp"
 
 struct Edge;
 struct Solid;
@@ -195,8 +196,10 @@ private:
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
-    /// Structure tool: preview inward struts from face centroids (v1 heuristic).
-    bool structureCenterStrutsEnabled = true;
+    /// Structure tool: draw preview line segments when Structure panel is visible.
+    bool structurePreviewEnabled = true;
+    /// Which preview graph (`StructurePreview::Build*`).
+    StructurePreview::PreviewPattern structurePreviewPattern = StructurePreview::PreviewPattern::AdjacentFaceMidpoints;
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;
     /// Storage for the disabled “inner walls” ImGui row (always false).

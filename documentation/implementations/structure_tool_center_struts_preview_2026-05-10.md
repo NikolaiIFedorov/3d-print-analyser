@@ -47,3 +47,13 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Solid wireframe back edges:** Track `packedSolidWireframeIndexCount` in `RepackOffsets` (line index prefix before loose wire). `OpenGLRenderer::DrawSolidWireframePrefixBehindDepth` draws only that prefix with `DepthCompareBehind` when Structure translucent shell is on (after main `RenderWireframe`).
 
 **Fix (edges still invisible):** Behind-pass used lit wireframe colours; grazing / back-lit normals yielded near-black fragments at ~0.42 α on a dark viewport. Switched occluded-solid-wire pass to **unlit** vertex colour (`uLightingEnabled = 0`) and aligned α (~0.52) with axes behind-pass.
+
+---
+
+## Update: adjacent-face midpoints preview (3D diamond / octahedron on cube) — 2026-05-10
+
+**Plan:** Prefer the face-adjacency graph (centroid-to-centroid across each manifold edge shared by two planar faces of the same solid) as the default preview; keep bbox center struts as a legacy combo option. Ribs / filleted solids deferred.
+
+**Code:** `StructurePreview::BuildAdjacentFaceMidpoints`, `PreviewPattern` enum. `Display`: “Structure preview lines” checkbox + “Preview pattern” combo; default pattern `AdjacentFaceMidpoints`. Renamed `structureCenterStrutsEnabled` → `structurePreviewEnabled`.
+
+**Behaviour:** Skips edges unless exactly two incident faces, both planar, same `Face::dependency` solid, centroids distinct. **Non-manifold** edges (3+ faces) are skipped.

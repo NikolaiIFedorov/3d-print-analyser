@@ -853,7 +853,7 @@ void Display::Render()
     const bool structureShellTranslucent =
         structureUiActive && structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
     const bool structurePreviewStrutsVisible =
-        structureUiActive && structureCenterStrutsEnabled && scene != nullptr && !scene->solids.empty();
+        structureUiActive && structurePreviewEnabled && scene != nullptr && !scene->solids.empty();
 
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
@@ -5008,32 +5008,64 @@ void Display::InitUI()
         structDef.description =
             "Preview adaptive internal bracing. Changing the solid mesh is planned for a later release.";
         structDef.flattenParameters = true;
-        structDef.parameters.reserve(3);
+        structDef.parameters.reserve(4);
 
-        ParameterDef pmCenter;
-        pmCenter.id = "StructCenter";
-        pmCenter.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        ParameterDef pmPreviewShow;
+        pmPreviewShow.id = "StructPreviewShow";
+        pmPreviewShow.line.getMinContentWidthPx = [settingsBodyFont]() -> float
         {
             ImFont *f = settingsBodyFont;
             if (!f)
                 f = ImGui::GetFont();
             const float pad = ImGui::GetStyle().FramePadding.x;
             const float tw =
-                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Center face supports (preview)").x : 220.0f;
+                f ? f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Structure preview lines").x : 200.0f;
             return pad * 2.0f + tw + 28.0f;
         };
-        pmCenter.line.imguiContent = [this](float w, float h, float)
+        pmPreviewShow.line.imguiContent = [this](float w, float h, float)
         {
             (void)w;
             (void)h;
-            if (ImGui::Checkbox("Center face supports (preview)", &structureCenterStrutsEnabled))
+            if (ImGui::Checkbox("Structure preview lines", &structurePreviewEnabled))
             {
                 RefreshStructurePreviewForRenderer();
                 MarkGeometryDirtyAll();
                 renderDirty = true;
             }
         };
-        structDef.parameters.push_back(std::move(pmCenter));
+        structDef.parameters.push_back(std::move(pmPreviewShow));
+
+        ParameterDef pmPreviewPattern;
+        pmPreviewPattern.id = "StructPreviewPattern";
+        pmPreviewPattern.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw =
+                f ? std::max(f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Adjacent face midpoints (3D diamond)").x,
+                             f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Preview pattern").x)
+                  : 320.0f;
+            return pad * 4.0f + tw + 60.0f;
+        };
+        pmPreviewPattern.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            int pat = static_cast<int>(structurePreviewPattern);
+            const char *items[] = {"Adjacent face midpoints (3D diamond)", "Center -> bbox (heuristic)"};
+            constexpr int itemCount = static_cast<int>(sizeof(items) / sizeof(items[0]));
+            if (ImGui::Combo("Preview pattern", &pat, items, itemCount))
+            {
+                structurePreviewPattern =
+                    static_cast<StructurePreview::PreviewPattern>(std::clamp(pat, 0, itemCount - 1));
+                RefreshStructurePreviewForRenderer();
+                MarkGeometryDirtyAll();
+                renderDirty = true;
+            }
+        };
+        structDef.parameters.push_back(std::move(pmPreviewPattern));
 
         ParameterDef pmTranslucent;
         pmTranslucent.id = "StructTranslucent";
@@ -5096,8 +5128,18 @@ void Display::RefreshStructurePreviewForRenderer()
 {
     std::vector<std::pair<glm::vec3, glm::vec3>> segs;
     if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        structureCenterStrutsEnabled && !scene->solids.empty())
-        StructurePreview::BuildCenterStruts(*scene, segs);
+        structurePreviewEnabled && !scene->solids.empty())
+    {
+        switch (structurePreviewPattern)
+        {
+        case StructurePreview::PreviewPattern::AdjacentFaceMidpoints:
+            StructurePreview::BuildAdjacentFaceMidpoints(*scene, segs);
+            break;
+        case StructurePreview::PreviewPattern::CenterStrutsBBox:
+            StructurePreview::BuildCenterStruts(*scene, segs);
+            break;
+        }
+    }
     renderer.SetStructurePreviewSegments(std::move(segs));
 }
 

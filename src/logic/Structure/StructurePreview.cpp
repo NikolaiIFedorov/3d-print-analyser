@@ -1,6 +1,7 @@
 #include "Structure/StructurePreview.hpp"
 
 #include "scene/scene.hpp"
+#include "Geometry/Edge.hpp"
 #include "Geometry/Face.hpp"
 #include "Geometry/Solid.hpp"
 #include "Geometry/Surface.hpp"
@@ -64,6 +65,47 @@ glm::dvec3 FaceCentroidPlanar(const Face &face)
 }
 
 } // namespace
+
+void BuildAdjacentFaceMidpoints(const Scene &scene, std::vector<std::pair<glm::vec3, glm::vec3>> &out)
+{
+    out.clear();
+    constexpr double kMinSegMm = 1.0e-4;
+    constexpr double kEps2 = 1.0e-18;
+
+    for (const Edge &edge : scene.edges)
+    {
+        if (edge.dependencies.size() != 2)
+            continue;
+
+        Face *fa = nullptr;
+        Face *fb = nullptr;
+        for (Face *fp : edge.dependencies)
+        {
+            if (fa == nullptr)
+                fa = fp;
+            else if (fb == nullptr && fp != fa)
+                fb = fp;
+        }
+        if (fa == nullptr || fb == nullptr)
+            continue;
+
+        if (!fa->dependency || fa->dependency != fb->dependency)
+            continue;
+
+        if (!fa->GetSurface().IsPlanar() || !fb->GetSurface().IsPlanar())
+            continue;
+
+        const glm::dvec3 ca = FaceCentroidPlanar(*fa);
+        const glm::dvec3 cb = FaceCentroidPlanar(*fb);
+        const glm::dvec3 d = cb - ca;
+        if (glm::dot(d, d) < kEps2)
+            continue;
+        if (glm::length(d) < kMinSegMm)
+            continue;
+
+        out.emplace_back(glm::vec3(ca), glm::vec3(cb));
+    }
+}
 
 void BuildCenterStruts(const Scene &scene, std::vector<std::pair<glm::vec3, glm::vec3>> &out)
 {
