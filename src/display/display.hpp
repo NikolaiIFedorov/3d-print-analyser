@@ -234,6 +234,8 @@ private:
     Paragraph *calibPara_Derived = nullptr;         // result row (span / compensation); hidden when unused
     SectionLine *calibLine_Point1Primary = nullptr; // for per-line state (textDepth etc.)
     SectionLine *calibLine_Point2Primary = nullptr;
+    /// Structure prerequisites: import row (hidden after import; uses `calibStepImport` like Calibrate).
+    Paragraph *structPara_Import = nullptr;
 
     std::vector<std::string> openFiles;
 

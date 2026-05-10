@@ -3115,6 +3115,8 @@ void Display::CompleteFileImport(const std::string &path)
 
     calibStepImport = Icons::StepState::Done;
     calibPara_Import->visible = false;
+    if (structPara_Import)
+        structPara_Import->visible = false;
     calibPara_Point1->visible = true;
     calibPara_Point2->visible = true;
     if (calibSec_Parameters)
@@ -3282,6 +3284,8 @@ void Display::ProcessDeferredImportIfAny()
                                        {
                                            calibStepImport = Icons::StepState::Done;
                                            calibPara_Import->visible = false;
+                                           if (structPara_Import)
+                                               structPara_Import->visible = false;
                                            calibPara_Point1->visible = true;
                                            calibPara_Point2->visible = true;
                                            if (calibSec_Parameters)
@@ -5008,11 +5012,24 @@ void Display::InitUI()
         structDef.description = "Save on printed weight with specialized infill";
         structDef.flattenParameters = true;
 
+        structDef.prerequisites.reserve(1);
+        structDef.prerequisites.push_back({"StructImport", "Import a file", "",
+                                           Icons::CheckBox(&calibStepImport), false, true,
+                                           [this]()
+                                           { DoFileImport(); }});
+
         RootPanel structPanel = BuildToolPanel(structDef);
         structPanel.visible = false;
         structPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         structPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiStructure = &uiRenderer.AddPanel(structPanel);
+
+        if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
+            structPrereqs != nullptr && !structPrereqs->children.empty())
+        {
+            structPara_Import = &structPrereqs->children[0];
+            structPara_Import->visible = (calibStepImport != Icons::StepState::Done);
+        }
     }
 
     SyncToolbarToolVisualState();

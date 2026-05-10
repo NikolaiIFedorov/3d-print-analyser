@@ -21,3 +21,5 @@ Centralizing “always on” preview in `RefreshStructurePreviewForRenderer` is 
 ---
 
 **2026-05-11 follow-up:** Default `structureInsetFaceFullDepthThroughSolid` to `true` so inset preview extrudes through the solid via the existing bbox heuristic. Structure panel subtitle set to user-facing copy: “Save on printed weight with specialized infill”.
+
+**2026-05-11 follow-up:** Restored a single **Import a file** prerequisite on the Structure `ToolPanelDef` (same `calibStepImport` + `DoFileImport` pattern as Calibrate). The minimal panel earlier had an empty `prerequisites` vector, so the section rendered with no rows. `structPara_Import` mirrors Calibrate’s hide-on-import behavior.
