@@ -209,6 +209,10 @@ private:
     /// Shorten each rib chord from both ends along the rib (mm); 0 = face-edge to face-edge.
     float structureRibChordEndInsetMm = 2.0f;
 
+    /// In-plane scaled-down boundary loop per planar face (preview lines).
+    bool structureInsetFaceLoopEnabled = false;
+    float structureInsetFaceMm = 3.0f;
+
     /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
     bool structureTranslucentShellEnabled = true;
     /// Storage for the disabled “inner walls” ImGui row (always false).

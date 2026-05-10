@@ -73,3 +73,5 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Update (chord direction):** Lid skip alone leaves **horizontal** ribbons on **vertical** walls (one grid family runs parallel to XY). Each clipped chord is dropped when `|normalize(a1-a0)·ẑ| < 0.22` so surviving ribs lean “more vertical” in world space for **+Z** build-up.
 
 **Chord end inset:** `RibPreviewParams::chordEndInsetMm` trims each clipped chord by that distance from **both** ends along the chord (UI “Chord end inset (mm)”, default 2). Ribs shorter than `2*inset + 0.6mm` are skipped.
+
+**Inset face loop (alternate preview):** `BuildInsetFaceLoops` projects the outer planar loop onto face `(u,v)` about the polygon centroid (same basis as ribs), scales vertices by `clamp(1 - 2*insetMm / max(spanU,spanV), …)` (~uniform shrink like a centered square sketch). Lines use `GetAccent(3)`. All planar caps included (no lid skip). Toggle **Inset face loop (preview)** + **Inset distance (mm)**.

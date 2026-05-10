@@ -854,7 +854,7 @@ void Display::Render()
         structureUiActive && structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
     const bool structurePreviewStrutsVisible =
         structureUiActive && scene != nullptr && !scene->solids.empty() &&
-        (structurePreviewEnabled || structureRibPreviewEnabled);
+        (structurePreviewEnabled || structureRibPreviewEnabled || structureInsetFaceLoopEnabled);
 
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
@@ -5009,7 +5009,7 @@ void Display::InitUI()
         structDef.description =
             "Preview internal bracing (diamond/struts/ribs as lines). Exporting modified solid mesh is planned later.";
         structDef.flattenParameters = true;
-        structDef.parameters.reserve(8);
+        structDef.parameters.reserve(11);
 
         ParameterDef pmPreviewShow;
         pmPreviewShow.id = "StructPreviewShow";
@@ -5132,6 +5132,36 @@ void Display::InitUI()
         };
         structDef.parameters.push_back(std::move(pmRibSliders));
 
+        ParameterDef pmInsetFace;
+        pmInsetFace.id = "StructInsetFace";
+        pmInsetFace.line.getMinContentWidthPx = [settingsBodyFont]() -> float
+        {
+            ImFont *f = settingsBodyFont;
+            if (!f)
+                f = ImGui::GetFont();
+            const float pad = ImGui::GetStyle().FramePadding.x;
+            const float tw = f ? std::max(f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset face loop (preview)").x,
+                                          f->CalcTextSizeA(f->FontSize, FLT_MAX, 0.0f, "Inset distance (mm)").x)
+                               : 240.0f;
+            return pad * 2.0f + tw + 100.0f;
+        };
+        pmInsetFace.line.imguiContent = [this](float w, float h, float)
+        {
+            (void)w;
+            (void)h;
+            bool changed = false;
+            changed |= ImGui::Checkbox("Inset face loop (preview)", &structureInsetFaceLoopEnabled);
+            changed |= ImGui::SliderFloat("Inset distance (mm)", &structureInsetFaceMm, 0.1f, 80.0f, "%.1f");
+            if (changed)
+            {
+                structureInsetFaceMm = std::max(0.1f, structureInsetFaceMm);
+                RefreshStructurePreviewForRenderer();
+                MarkGeometryDirtyAll();
+                renderDirty = true;
+            }
+        };
+        structDef.parameters.push_back(std::move(pmInsetFace));
+
         ParameterDef pmTranslucent;
         pmTranslucent.id = "StructTranslucent";
         pmTranslucent.line.getMinContentWidthPx = [settingsBodyFont]() -> float
@@ -5219,6 +5249,12 @@ void Display::RefreshStructurePreviewForRenderer()
         StructurePreview::BuildInteriorFaceRibs(*scene, ribParams, ribSegs);
     }
     renderer.SetStructureRibSegments(std::move(ribSegs));
+
+    std::vector<std::pair<glm::vec3, glm::vec3>> insetSegs;
+    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
+        structureInsetFaceLoopEnabled && !scene->solids.empty())
+        StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, insetSegs);
+    renderer.SetStructureInsetFaceSegments(std::move(insetSegs));
 }
 
 void Display::RefreshUIMinWindowSize()

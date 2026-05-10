@@ -56,6 +56,9 @@ public:
     /// Optional rib preview rectangles (distinct vertex colour vs `structurePreviewSegments`).
     void SetStructureRibSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
 
+    /// Optional inset face loops (scaled-down boundary in face plane).
+    void SetStructureInsetFaceSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
+
     /// Per frame: translucent solid shell while Structure view is active (depth prepass + alpha in OpenGLRenderer).
     void SetStructureViewTranslucentSolid(bool enable, float alpha01);
 
@@ -141,6 +144,7 @@ private:
 
     std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
     std::vector<std::pair<glm::vec3, glm::vec3>> structureRibSegments;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureInsetFaceSegments;
 
     uint32_t packedSolidPatchIndexCount = 0;
     /// Line indices belonging to solid wireframe chunks only (prefix of packed line IBO); set in `RepackOffsets`.
