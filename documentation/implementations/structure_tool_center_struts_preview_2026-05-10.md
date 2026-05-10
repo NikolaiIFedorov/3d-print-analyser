@@ -67,3 +67,5 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **UI:** Checkbox “Interior ribs (preview)” plus sliders spacing / depth / inset (margin fraction). Rib lines use `Color::GetAccent(2, …)` vs depth 1 for diamond/struts.
 
 **Integration:** `SceneRenderer::SetStructureRibSegments`; `CommitStructurePreviewLinesToGpu` appends accent + rib colours into one Structure preview line mesh. `Display::RefreshStructurePreviewForRenderer` fills both segment lists. Overlay draws when **either** main preview lines or ribs are enabled.
+
+**Update (suppress horizontal caps):** `BuildInteriorFaceRibs` skips planar faces whose outward normal satisfies `|n·(0,0,1)| > 0.9` (assume build-up **+world Z**) so lid/floor-style facets get no ribbons for now—FDM bridging/support + weak interlayer bending along Z—replace later with print-axis UI or alternate stiffening on those faces.

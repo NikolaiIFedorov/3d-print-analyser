@@ -228,6 +228,16 @@ void BuildInteriorFaceRibs(const Scene &scene, const RibPreviewParams &params,
                 continue;
 
             const glm::dvec3 nOut = OutwardNormalPlanar(face);
+
+            // Near-horizontal lids/floors: in-plane ribbons are problematic for FDM without supports;
+            // layer weakness along Z doesn’t motivate them strongly on caps. Assume build-up == world +Z until
+            // a dedicated print-orientation axis exists (`RibPreviewParams` can grow that later).
+            constexpr glm::dvec3 kBuildUpWorldZ(0.0, 0.0, 1.0);
+            constexpr double kSkipRibsIfAbsCosNormalBuildUp =
+                0.90; // |n·buildUp|; skip faces within ~25° of horizontal (top/bottom-ish)
+            if (std::fabs(glm::dot(nOut, kBuildUpWorldZ)) > kSkipRibsIfAbsCosNormalBuildUp)
+                continue;
+
             glm::dvec3 uAxis(1.0, 0.0, 0.0);
             if (std::abs(glm::dot(uAxis, nOut)) > 0.92)
                 uAxis = glm::dvec3(0.0, 1.0, 0.0);
