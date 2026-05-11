@@ -69,7 +69,6 @@ add_executable(CAD_OpenGL
     src/logic/Calibrate/CalibDistanceType.cpp
     src/logic/Calibrate/CalibNominal.cpp
     src/logic/Calibrate/CalibCompensation.cpp
-    src/logic/Structure/StructurePreview.cpp
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp
@@ -142,22 +141,30 @@ if(WIN32)
     target_link_libraries(CAD_OpenGL PRIVATE opengl32)
 endif()
 
-option(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH
-    "Build optional CGAL planar remesh for STL imports (LGPL/GPL CGAL; see docs)"
-    OFF)
-if(CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH)
+# CGAL is used by:
+#   1. The Structure-tool face triangulation (`src/logic/Structure/StructureTriangulation.cpp`).
+#   2. The legacy STL planar remesh experiment (`src/logic/Import/STLCgalPlanarExperiment.cpp`).
+# Default ON because the Structure tool depends on it; can be disabled for distributions that need
+# to avoid the (L)GPL transitive licence. When OFF, the Structure tool falls back to a "CGAL not
+# available" hint and no triangulation runs.
+option(CAD_USE_CGAL
+    "Link against CGAL (required for the Structure tool's face triangulation; LGPL/GPL — see docs)"
+    ON)
+if(CAD_USE_CGAL)
     # CGAL prints a deferred notice when CMAKE_BUILD_TYPE is not Release; Debug is normal here.
     if(NOT DEFINED CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE)
         set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE CACHE BOOL
             "Suppress CGAL non-Release build reminder (unset with cmake -U... to see it again)")
     endif()
     find_package(CGAL REQUIRED CONFIG)
-    target_compile_definitions(CAD_OpenGL PRIVATE CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1)
-    target_sources(CAD_OpenGL PRIVATE src/logic/Import/STLCgalPlanarExperiment.cpp)
+    target_compile_definitions(CAD_OpenGL PRIVATE CAD_USE_CGAL=1)
+    target_sources(CAD_OpenGL PRIVATE
+        src/logic/Import/STLCgalPlanarExperiment.cpp
+        src/logic/Structure/StructureTriangulation.cpp)
     target_link_libraries(CAD_OpenGL PRIVATE CGAL::CGAL)
-    message(STATUS "CGAL planar remesh experiment: ENABLED")
+    message(STATUS "CGAL: ENABLED (Structure triangulation + STL planar remesh experiment)")
 else()
-    message(STATUS "CGAL planar remesh experiment: disabled (default)")
+    message(STATUS "CGAL: disabled — Structure triangulation unavailable")
 endif()
 
 # Mac-specific

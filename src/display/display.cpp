@@ -31,7 +31,7 @@
 #include "CalibNominal.hpp"
 #include "CalibDistanceType.hpp"
 #include "CalibCompensation.hpp"
-#include "Structure/StructurePreview.hpp"
+#include "Structure/StructureTriangulation.hpp"
 #include <cmath>
 #include <limits>
 #include <chrono>
@@ -5353,10 +5353,27 @@ void Display::InitUI()
 
 void Display::RefreshStructurePreviewForRenderer()
 {
-    // Phase A: the retired diamond/inset/rib generators are gone and Phase B's face triangulation has
-    // not landed yet. Clear the preview buffer so nothing renders for Structure while the tool's panel
-    // and translucent shell still come up. Phase B repopulates this from the picked face.
-    renderer.SetStructurePreviewSegments({});
+    // Iterate every cached eligible face (computed inside `RebuildPickHighlightMesh` while the tool
+    // is active) and ask `StructureTriangulation::BuildFaceTriangulationPreview` for its preview
+    // segments. The module owns the per-face bake cache, so this is cheap when neither the inset
+    // slider nor the eligibility set have changed.
+    std::vector<std::pair<glm::vec3, glm::vec3>> all;
+    if (activeTool == ActiveTool::Structure)
+    {
+        StructureTriangulation::BakeParams params;
+        params.insetMm = static_cast<double>(structureInsetMm);
+        params.chordTolMm = 0.1;
+        params.minFeatureMm = 1.5;
+        all.reserve(structureEligibleFacesCache.size() * 8);
+        for (const Face *f : structureEligibleFacesCache)
+        {
+            if (structureExcludedFaces.count(f) > 0)
+                continue;
+            auto segs = StructureTriangulation::BuildFaceTriangulationPreview(f, params);
+            all.insert(all.end(), segs.begin(), segs.end());
+        }
+    }
+    renderer.SetStructurePreviewSegments(std::move(all));
 }
 
 void Display::FinalizeStructureSceneToolSession(bool accepted)

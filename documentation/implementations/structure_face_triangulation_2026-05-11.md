@@ -159,6 +159,25 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Cache caveat for B2.** `structureEligibleFacesCache` is currently rebuilt every time `RebuildPickHighlightMesh` runs (i.e. roughly per hover update). For B1.5 the cost is trivial — set inserts and a planarity check per face. For B2 the bake output **cannot** ride along with this cache: it has to be keyed by face pointer + inset value + fillet value + chord tolerance and invalidated only when those change. Toggling exclusion must never invalidate the per-face geometry; it should only flip the inclusion bit and re-emit preview lines.
 
+### Phase B2a — CGAL scaffold + module rename (2026-05-11)
+
+**Build dependency change.** `CAD_EXPERIMENTAL_CGAL_PLANAR_REMESH` (default OFF) → `CAD_USE_CGAL` (default ON). The preprocessor define follows suit: `CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED` → `CAD_USE_CGAL`. Both consumers (the legacy STL planar-remesh experiment and the new face triangulation) now share the same flag. The option is preserved (not hard-required) so distributions that need to dodge the (L)GPL transitive licence can disable it; with the flag off, the Structure tool will surface a "CGAL not available" hint and the bake returns no segments (the latter is the Phase A behaviour, just gated on the flag instead of the missing algorithm).
+
+**Module rename.** `src/logic/Structure/StructurePreview.{hpp,cpp}` deleted; replaced by `src/logic/Structure/StructureTriangulation.{hpp,cpp}`. The Phase-A `[[maybe_unused]]` helpers retired with the file — none survived the eligibility-gate detour (the gate uses a single file-local helper in `display.cpp` and direct virtual calls on `Surface`/`Face`). Render-side type names (`SetStructurePreviewSegments`, `RenderStructurePreviewLines`, `CommitStructurePreviewLinesToGpu`) stay as-is — they describe the *preview line buffer*, not the retired generator namespace, and remain accurate.
+
+**Module surface.**
+- `BakeParams { insetMm = 2.0, chordTolMm = 0.1, minFeatureMm = 1.5 }` — the cache key. Equal params for the same face returns cached output.
+- `BuildFaceTriangulationPreview(face, params)` — stub returns empty for B2a; B2b–e replace the body. Cache hit/miss path is already in place so future commits don't have to rewire the contract.
+- `ClearBakeCache()` and `InvalidateBakeCacheForParams(params)` — invalidation hooks. Wired by `Display` in B2f when the slider drag lands.
+
+**Display wiring.** Added `Display::structureInsetMm` (`float`, default `2.0`) as the single source of truth for the panel slider value. `Display::RefreshStructurePreviewForRenderer` now iterates `structureEligibleFacesCache \ structureExcludedFaces` and concatenates each face's `BuildFaceTriangulationPreview` output into the segment buffer handed to `SceneRenderer::SetStructurePreviewSegments`. Today every face returns an empty list, so the buffer is still empty — but the data path is live and B2b just needs to fill in the algorithm.
+
+**Slider UI deferred.** The panel knob for `structureInsetMm` waits for B2b — once the first geometry is visible, the slider has something to react to. For B2a the field is set to the spec default and not exposed.
+
+**Build.** `cmake -B build -DCAD_USE_CGAL=ON` (clean reconfigure) + `cmake --build build -- -j8` succeeded with no warnings; the new TU `StructureTriangulation.cpp.o` builds at `[98%]`. `ReadLints` clean across the new files, `display.{hpp,cpp}`, and `CMakeLists.txt`.
+
+**Next.** B2b: walk the selected face's outer loop, polyline NURBS / arc edges adaptively against `chordTolMm`, project to the face's plane (so slanted faces work), build a CGAL `Polygon_2`, and emit the projected outer loop as preview lines. That's the first visible result — a coloured outline tracing each included face. Corner-vertex tagging starts here so B2c's offset can carry the labels through.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

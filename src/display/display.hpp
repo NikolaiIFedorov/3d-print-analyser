@@ -179,6 +179,11 @@ private:
     float minFeatureSize = 0.4f;
     float thinMinWidth = 2.0f;
     float layerHeight = 0.2f;
+    /// Structure tool inset distance in millimetres. Drives the CGAL straight-skeleton offset, the
+    /// strip-band width, and the fillet radius (1:1). Slider lives in the Structure tool panel;
+    /// dragging it invalidates the per-face bake cache via
+    /// `StructureTriangulation::InvalidateBakeCacheForParams` (wired in B2f).
+    float structureInsetMm = 2.0f;
     float settingsAccentHue = 220.0f;
     float settingsAccentSat = 0.35f;
     bool settingsAccentUseSystem = true;

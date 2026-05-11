@@ -2,7 +2,7 @@
 #include "GeometryExperiments.hpp"
 #include "utils/log.hpp"
 
-#if defined(CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED)
+#if defined(CAD_USE_CGAL)
 #include "STLCgalPlanarExperiment.hpp"
 #endif
 
@@ -138,7 +138,7 @@ static void MergeStlCoplanarMaybe(
         return;
     }
 
-#if defined(CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED)
+#if defined(CAD_USE_CGAL)
     if (GeometryExperiments::kUseCgalRemeshPlanarPatchesForStl &&
         STLCgalPlanarExperiment::TryRemeshPlanarPatchesReplacingSolidFaces(scene, solid, diagOut))
     {
