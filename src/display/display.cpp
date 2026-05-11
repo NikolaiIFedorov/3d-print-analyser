@@ -917,8 +917,6 @@ void Display::Render()
 
     const bool structureUiActive =
         activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible;
-    const bool structureShellTranslucent =
-        structureUiActive && structureTranslucentShellEnabled && scene != nullptr && !scene->solids.empty();
     const bool structurePreviewStrutsVisible =
         structureUiActive && scene != nullptr && !scene->solids.empty();
 
@@ -934,21 +932,12 @@ void Display::Render()
         glFrontFace(GL_CCW);
     }
 
-    // With Structure translucent shell, draw the XY grid early so blending sees reference grid under
-    // tilted surfaces; skip the late grid draw to avoid overwriting the shell.
-    if (structureShellTranslucent)
-    {
-        glDisable(GL_STENCIL_TEST);
-        viewportRenderer.Render();
-    }
-
     // Mark only the solid surface pixels in the stencil buffer (value = 1).
     // Lines are excluded — their geometry-shader quads extend beyond silhouettes
     // and would bleed into the stencil, incorrectly clipping axes.
     glEnable(GL_STENCIL_TEST);
     glStencilFunc(GL_ALWAYS, 1, 0xFF);
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-    renderer.SetStructureViewTranslucentSolid(structureShellTranslucent, 0.42f);
     renderer.RenderPatches();
     renderer.RenderPickHighlight();
     if (RenderingExperiments::kCalibrateSecondPickDrawInvalidFacePool)
@@ -960,10 +949,7 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     if (!RenderingExperiments::kDebugSkipSceneWireframe)
         renderer.RenderWireframe();
-    // Solid hull edges occluded by the translucent shell depth (back edges, etc.).
-    if (structureShellTranslucent)
-        renderer.RenderSolidWireframeOccludedOverlay();
-    // Center-strut preview: foreground + occluded pass (same mesh) so limbs behind the hull read through.
+    // Structure preview lines: Phase B fills the buffer (face triangulation overlay); Phase A leaves it empty.
     if (structurePreviewStrutsVisible)
         renderer.RenderStructurePreviewLines(5.25f);
 
@@ -972,12 +958,9 @@ void Display::Render()
 
     // Grid after solid + wireframe: stencil==0 only so lines do not bleed onto filled surfaces;
     // clip Z bias still keeps axes > grid > scene where stencil allows.
-    if (!structureShellTranslucent)
-        viewportRenderer.Render();
+    viewportRenderer.Render();
 
     viewportRenderer.RenderAxes();
-    if (structureShellTranslucent)
-        viewportRenderer.RenderAxesBehindScene();
 
     glDisable(GL_STENCIL_TEST);
     // Occluded selection: translucent face tint behind nearer geometry, then line overlay (stronger).

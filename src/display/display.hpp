@@ -198,8 +198,6 @@ private:
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
-    /// When Structure tool panel is visible, draw imported solid shells translucently so preview lines read inside.
-    bool structureTranslucentShellEnabled = true;
 
     bool settingsOpenAccentPicker = false;
     Select *uiAppearanceThemeSelect = nullptr;
