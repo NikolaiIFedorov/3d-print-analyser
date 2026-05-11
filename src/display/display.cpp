@@ -5343,7 +5343,10 @@ void Display::RefreshStructurePreviewForRenderer()
     {
         StructureTriangulation::BakeParams params;
         params.insetMm = static_cast<double>(structureInsetMm);
-        params.chordTolMm = 0.1;
+        // Defaults from `BakeParams` are tuned for the Structure preview already; explicit set
+        // here keeps the call site honest about which inputs vary per call (only `insetMm`
+        // currently — slider work lands in B2f).
+        params.chordTolMm = 0.02;
         params.minFeatureMm = 1.5;
         all.reserve(structureEligibleFacesCache.size() * 8);
         for (const Face *f : structureEligibleFacesCache)

@@ -17,8 +17,11 @@ struct BakeParams
 {
     /// Inset distance in millimetres. Also drives strip-band width and fillet radius (1:1).
     double insetMm = 2.0;
-    /// Chord tolerance for polylining arc / NURBS edges, in millimetres.
-    double chordTolMm = 0.1;
+    /// Chord tolerance for polylining arc / NURBS edges and fillet arcs, in millimetres. Tighter
+    /// than print-resolution because fillet arcs are small (~2 mm radius) and benefit from the
+    /// extra samples — at 0.02 mm a 2 mm-radius fillet hits ~6 segments per quarter-arc, which
+    /// the fillet helper then floors at ≥ 8 for visual smoothness across radii.
+    double chordTolMm = 0.02;
     /// Minimum feature size: small-hole strip suppression + small-face eligibility.
     double minFeatureMm = 1.5;
 };

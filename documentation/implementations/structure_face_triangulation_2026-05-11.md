@@ -301,6 +301,19 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Next.** B2f: hook a `Slider("Inset (mm)", 0.2 .. 4.0)` into the Structure tool panel that drives `structureInsetMm`, route drag changes through `StructureTriangulation::InvalidateBakeCacheForParams`, and confirm slider drag latency stays interactive on the cube test (8 line segments × 1 face is trivial; will benchmark on a larger model when one shows up).
 
+### Phase B2e refinement — crisper fillet tessellation (2026-05-12)
+
+**Why.** User feedback after eyeballing B2e: *"the tessellation resolution is a bit low though."* At the default `chordTolMm = 0.1` and `r = 2`, the sagitta formula yielded ~36° per segment → 3 segments per 90° corner, which reads as a chamfer more than a curve.
+
+**What changed.**
+- `BakeParams::chordTolMm` default 0.1 → 0.02 mm (header docstring spells out the rationale: tighter than print-resolution because fillet arcs are small and benefit from the extra samples). Same field still drives B-rep curve polylining; the extra samples there are invisible to the eye at typical CAD radii, with no print impact.
+- `Display::RefreshStructurePreviewForRenderer` updates its explicit override to match (0.02) and notes that the only currently-varying field is `insetMm` — keeps the call-site honest about what the slider work in B2f will actually wire.
+- New visual-smoothness floor inside `FilletPolygonCorners`: `nSeg = max(nSeg, ceil(sweep / (π/16)))`, i.e. at most ~11.25° per segment. Floors at 8 segments per 90° fillet regardless of radius. Sagitta-based tolerance alone wasn't enough at small radii — the floor guarantees fillets *look* round across the whole `insetMm` range B2f will expose on the slider.
+
+**Empirical (cube test, `r = 2`).** Pre-change: 3 segments / 90° corner. Post-change (tol = 0.02 → 6 from sagitta, then floored): 8 segments / 90° corner.
+
+**Build / lints.** Clean.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

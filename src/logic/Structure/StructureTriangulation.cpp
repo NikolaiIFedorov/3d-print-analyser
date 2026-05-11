@@ -185,7 +185,14 @@ std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring
         double sweep = endAngle - startAngle;
         if (sweep < 0.0)
             sweep += 2.0 * M_PI;
-        const int nSeg = ArcSegmentCount(sweep, radius, chordTolMm);
+        int nSeg = ArcSegmentCount(sweep, radius, chordTolMm);
+        // Visual-smoothness floor: keep the per-segment angle at most ~11.25° regardless of how
+        // generous the chord tolerance is. Sagitta-based tolerance alone isn't enough at small
+        // radii (a 2 mm fillet at 0.1 mm tolerance would produce only 3 segments per quarter-arc
+        // — readable as a chamfer, not a curve). Floors at 8 segments per quarter-arc; larger
+        // radii that already exceed the floor under their tolerance budget keep the tighter count.
+        const int floorSegs = static_cast<int>(std::ceil(sweep / (M_PI / 16.0)));
+        nSeg = std::max(nSeg, floorSegs);
 
         out.push_back(fStart);
         for (int k = 1; k < nSeg; ++k)
