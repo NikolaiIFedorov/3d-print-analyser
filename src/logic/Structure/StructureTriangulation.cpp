@@ -9,8 +9,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <unordered_map>
 
 #if defined(CAD_USE_CGAL)
@@ -525,6 +528,14 @@ std::unordered_map<CacheKey, SegmentList, CacheKeyHash> &BakeCache()
     return instance;
 }
 
+// Set `CAD_DEBUG_STRUCTURE=1` to print one line per offset island when the strip/carve path runs
+// (stderr). Intended for diagnosing missing strips without enabling global verbose logging.
+bool EnvStructureStripDebugOn()
+{
+    const char *e = std::getenv("CAD_DEBUG_STRUCTURE");
+    return e != nullptr && e[0] != '\0' && e[0] != '0';
+}
+
 } // namespace
 
 std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const Face *face,
@@ -569,6 +580,16 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
         const std::vector<int> cornerPolyIndices =
             MapCornerIndicesToPoly(outline.isCorner, projected->reversed);
         const int polyVertexCount = static_cast<int>(projected->polygon.size());
+        if (EnvStructureStripDebugOn())
+        {
+            const std::size_t nCorners =
+                static_cast<std::size_t>(std::count(outline.isCorner.begin(), outline.isCorner.end(), true));
+            std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(face)
+                      << " outlineVerts=" << outline.points.size() << " brpCorners=" << nCorners
+                      << " polyVerts=" << polyVertexCount << " cornerPolyIdx=" << cornerPolyIndices.size()
+                      << " insetMm=" << params.insetMm << " offsetIslands=" << offsets.size() << '\n';
+        }
+        std::size_t offsetIsland = 0;
         for (const SkeletonPolygon &off : offsets)
         {
             // Step 1: chord selection on the *sharp* offset polygon. The strip anchors at the
@@ -576,9 +597,15 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
             // strip inwards. Strip lookup is gated on the convex-preservation check (matching
             // vertex counts between input polygon and offset polygon); concave faces fall through
             // to "no strip, emit filleted inset only."
+            const int offVertexCount = static_cast<int>(off.size());
+            const bool vertexCountGuard = (offVertexCount == polyVertexCount);
             std::optional<ChordPick> chord;
-            if (static_cast<int>(off.size()) == polyVertexCount)
+            if (vertexCountGuard)
                 chord = SelectFirstValidStripChord(off, cornerPolyIndices);
+
+            const char *stripReject = nullptr;
+            bool differenceThrew = false;
+            std::size_t piecesAfterDifference = 0;
 
             // Step 2: 2D boolean carve. `inset \ strip` produces the actual triangulated sub-
             // regions whose boundaries the user will see. Without a chord (no valid strip) we
@@ -594,15 +621,39 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
                     try
                     {
                         CGAL::difference(off, strip, std::back_inserter(carved));
+                        piecesAfterDifference = carved.size();
                     }
                     catch (...)
                     {
+                        differenceThrew = true;
                         carved.clear();
                     }
                 }
+                else
+                    stripReject = (strip.size() != 4) ? "strip_not_quad" : "strip_not_simple";
             }
-            if (carved.empty())
+            const bool usedInsetFallback = carved.empty();
+            if (usedInsetFallback)
                 carved.emplace_back(off);
+
+            if (EnvStructureStripDebugOn())
+            {
+                std::ostringstream line;
+                line << "[StructureTriangulation] island=" << offsetIsland << " offVerts=" << offVertexCount
+                     << " vertexGuard=" << (vertexCountGuard ? "pass" : "fail")
+                     << " chord=" << (chord.has_value() ? "yes" : "no");
+                if (chord.has_value())
+                    line << " a=" << chord->aIdx << " b=" << chord->bIdx;
+                if (stripReject != nullptr)
+                    line << " strip=" << stripReject;
+                if (differenceThrew)
+                    line << " cgal_difference=threw";
+                else if (chord.has_value() && stripReject == nullptr)
+                    line << " piecesAfterDiff=" << piecesAfterDifference;
+                line << " carvedPieces=" << carved.size() << " insetFallback=" << (usedInsetFallback ? "yes" : "no");
+                std::cerr << line.str() << '\n';
+            }
+            ++offsetIsland;
 
             // Step 3: fillet then emit each carve-result boundary. Outer boundaries are CCW out
             // of CGAL — feed `FilletPolygonCorners` directly. Hole boundaries are CW (CGAL
@@ -625,6 +676,11 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
                 }
             }
         }
+    }
+    else if (EnvStructureStripDebugOn())
+    {
+        std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(face)
+                  << " BuildProjectedPolygon failed (degenerate or not simple in 2D)\n";
     }
 #endif // CAD_USE_CGAL
 

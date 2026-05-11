@@ -30,6 +30,9 @@ struct BakeParams
 /// the triangulation pattern for one face. Returns an empty vector if the face is null, ineligible,
 /// or — at B2a — for any face at all (the algorithm is stubbed until B2b lands).
 ///
+/// Debugging: set environment variable `CAD_DEBUG_STRUCTURE=1` to print strip/carve diagnostics
+/// to stderr when a face is baked (cache miss), including vertex-count guard and chord selection.
+///
 /// Callers (currently `Display::RefreshStructurePreviewForRenderer`) accumulate segments across all
 /// non-excluded eligible faces and hand the union to `SceneRenderer::SetStructurePreviewSegments`.
 std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const Face *face,

@@ -357,6 +357,16 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Next.** B2f: panel slider for `structureInsetMm`, drag-driven `InvalidateBakeCacheForParams`. With the carve in place the slider becomes the natural way to see the relationship between inset distance, strip width, and fillet radius play out at once.
 
+### Debug — strip/carve stderr (2026-05-12)
+
+**Problem.** Need to confirm on real models (e.g. cube) why the strip path skips without spamming global log verbosity.
+
+**Approach.** `CAD_DEBUG_STRUCTURE=1` gates two stderr lines on **cache miss** inside `BuildFaceTriangulationPreview`: (1) outline/corner/poly/offset counts; (2) per offset island — `vertexGuard`, chord indices, strip rejection tag, `CGAL::difference` throw, piece counts, inset-only fallback.
+
+**Files.** `StructureTriangulation.{cpp,hpp}`.
+
+**How to run.** From a shell: `CAD_DEBUG_STRUCTURE=1 ./build/CAD_OpenGL` (path as built). Toggle tool or change inset to force cache miss if needed. Clear bake cache or restart app to re-bake the same face.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
