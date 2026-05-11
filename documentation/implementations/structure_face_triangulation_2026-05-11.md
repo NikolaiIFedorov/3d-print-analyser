@@ -314,6 +314,49 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Build / lints.** Clean.
 
+### Phase B2-carve — boolean (inset − strip) then fillet (2026-05-12)
+
+**Why.** User feedback after B2e fillets: *"shouldn't the rounding step happen after creating the triangles from the strip and removing the inset?"* — and they were right. The previous order (inset → fillet → strip overlay) created three artefacts:
+1. Strip-cap protruded past the inset boundary (visible at every sharp corner of the original inset).
+2. Strip-anchored corners were filleted even though they shouldn't be (the strip continues into them — the carve doesn't have a corner there at all).
+3. Strip-intersect corners (where the strip crosses an inset edge) were *not* filleted even though they should be (they're convex corners of the carved triangle).
+
+Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in one pass.
+
+**What landed.**
+- New headers: `<CGAL/Boolean_set_operations_2.h>`, `<CGAL/Polygon_with_holes_2.h>`, `<list>`. Same kernel and package family as the straight-skeleton call — no CMake / dependency change.
+- New alias `SkeletonPolygonWithHoles = CGAL::Polygon_with_holes_2<SkeletonKernel>`.
+- `BuildStripPolygonCCW(off, aIdx, bIdx, widthMm)`: replaces the old `EmitStripBand`. Returns a CCW `Polygon_2` (SW → SE → NE → NW where "north" is `perp`) ready for boolean ops. Returns `size() == 0` on degenerate input so callers can fall back gracefully.
+- `ExtractRing2D(poly)` + `EmitRing2D(ring2D, frame, out)`: small helpers shared between outer and hole boundaries in the carve loop. Drop the CGAL-iterator / `to_double` boilerplate.
+- `BuildFaceTriangulationPreview`'s inner loop restructured around three numbered steps:
+  1. Chord selection on the **sharp** offset polygon (so the strip anchors at the original CGAL inset corners). Gated on the convex-preservation vertex-count check, as before.
+  2. `CGAL::difference(off, strip, std::back_inserter(carved))`. On any exception or empty result we fall back to `carved.emplace_back(off)` — the worst case is the same picture as B2e (filleted inset, no strip).
+  3. Fillet → emit each carve-result boundary. Outer boundaries are CCW already, holes are CW (CGAL convention); we reverse holes to CCW before filleting so the helper's "positive cross = convex" test sees the actual visible-convex corners of each hole.
+
+**What changed for the cube test (30 mm cube, `insetMm = 2`).**
+- Before: outer 30 mm outline + filleted 26 mm inset outline + 2 mm strip rectangle (with sharp cap protrusion past two inset corners).
+- After: outer 30 mm outline + two filleted triangle outlines. Each triangle has three corners:
+  - One ~90° corner inherited from the original inset (sharp-ish), with a prominent ~2 mm fillet.
+  - Two ~135° corners where the strip cut the inset edge, with gentle ~0.83 mm-deep fillets (`d = r / tan(θ/2)` shrinks for obtuse θ).
+- No more protrusion past the inset boundary; the boolean clipped it.
+
+**Edge cases handled.**
+- Strip entirely interior (hypothetical — our strip currently extends past the inset, so this won't trigger; but if a future cap-shrink lands, the carve will produce a polygon with one hole and the hole-loop emits it).
+- `CGAL::difference` throws on degenerate inputs → caught, `carved` falls back to `off`.
+- Strip polygon degenerate (`size() != 4` or `!is_simple()`) → skip carve, emit filleted inset.
+- Zero offset polygons (inset too large for face) → loop doesn't run, only the outer face outline is emitted.
+
+**Helpers retired.** `EmitStripBand` was the only B2d-era helper that's no longer needed; it lived for one phase. `SelectFirstValidStripChord` and `FilletPolygonCorners` keep doing their jobs unchanged.
+
+**Build.** `cmake --build build -j` clean; only `StructureTriangulation.cpp.o` rebuilt. `ReadLints` clean.
+
+**Known follow-ups carried into B2f / beyond.**
+- The chord tiebreaker on a symmetric 4-corner face still picks the shortest-then-lowest-index diagonal — the user-choice gesture mentioned in B2d's notes is still pending.
+- Multi-chord fan triangulation for ≥ 6-corner faces is still single-chord-per-inset.
+- Concave-face strip handling (via skeleton-vertex traceback or nearest-neighbour fallback) is still deferred.
+
+**Next.** B2f: panel slider for `structureInsetMm`, drag-driven `InvalidateBakeCacheForParams`. With the carve in place the slider becomes the natural way to see the relationship between inset distance, strip width, and fillet radius play out at once.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

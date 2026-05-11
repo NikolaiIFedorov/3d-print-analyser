@@ -14,17 +14,22 @@
 #include <unordered_map>
 
 #if defined(CAD_USE_CGAL)
+#include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
+#include <CGAL/Polygon_with_holes_2.h>
 #include <CGAL/create_offset_polygons_2.h>
+
+#include <list>
 #endif
 
 // See documentation/implementations/structure_face_triangulation_2026-05-11.md for phase notes.
 // B2a: CMake flag rename, module scaffold, cache key. B2b: adaptive polyline of the face's outer
 // loop with corner-vertex tags, orthonormal 2D frame for the face plane. B2c: CGAL straight-
-// skeleton inset on top of the 2D polygon. B2d: corner-pair chord selection + strip-band
-// emission across the inset polygon. B2e (current): fillet inset ring corners at radius
-// `insetMm` (chord-tolerant arc sampling). B2f: panel slider + cache invalidation on drag.
+// skeleton inset on top of the 2D polygon. B2d: corner-pair chord selection + strip rectangle.
+// B2e: fillet helper (arc sampling at radius `insetMm`, chord-tolerant). B2-carve (current):
+// reordered pipeline — `CGAL::difference(inset, strip)` first, fillet the carve result. B2f:
+// panel slider + cache invalidation on drag.
 
 namespace StructureTriangulation
 {
@@ -37,6 +42,7 @@ using SegmentList = std::vector<std::pair<glm::vec3, glm::vec3>>;
 using SkeletonKernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using SkeletonPoint = SkeletonKernel::Point_2;
 using SkeletonPolygon = CGAL::Polygon_2<SkeletonKernel>;
+using SkeletonPolygonWithHoles = CGAL::Polygon_with_holes_2<SkeletonKernel>;
 #endif
 
 // Orthonormal 2D frame anchored on a planar face. `origin` is the projection anchor; `u` and `v`
@@ -360,15 +366,13 @@ std::optional<ChordPick> SelectFirstValidStripChord(const SkeletonPolygon &off,
     return candidates.front();
 }
 
-// Emits the strip band as a closed 4-segment rectangle (two long edges parallel to the chord at
-// offset `±widthMm/2`, two short caps perpendicular to the chord at each endpoint). The endpoint
-// caps live at the inset-polygon corners themselves; for sharp corners they can poke a fraction
-// outside the inset polygon, which the eventual 2D union (a later phase) will fix. For B2d's
-// preview-only output the small protrusion is acceptable — the inset ring is drawn first, so the
-// visible overlap reads as "strip touches the corner" without misrepresenting the carve shape.
-void EmitStripBand(const SkeletonPolygon &off, int aIdx, int bIdx, double widthMm,
-                   const FaceFrame &frame, SegmentList &out)
+// Builds the strip rectangle as a CCW `Polygon_2` ready for boolean operations against the inset.
+// Vertex order is SW → SE → NE → NW where "north" is `perp` (the 90° CCW rotation of the chord
+// direction). Returns an empty polygon (size 0) when the chord is degenerate so callers can fall
+// back to "inset only" instead of feeding CGAL a malformed input.
+SkeletonPolygon BuildStripPolygonCCW(const SkeletonPolygon &off, int aIdx, int bIdx, double widthMm)
 {
+    SkeletonPolygon poly;
     const auto vert = [&](int idx) -> glm::dvec2
     {
         const auto &p = off.vertex(idx);
@@ -379,17 +383,42 @@ void EmitStripBand(const SkeletonPolygon &off, int aIdx, int bIdx, double widthM
     glm::dvec2 dir = b - a;
     const double len = glm::length(dir);
     if (len < 1e-9)
-        return;
+        return poly;
     dir /= len;
     const glm::dvec2 perp(-dir.y, dir.x);
     const double hw = 0.5 * widthMm;
-    const std::vector<glm::dvec3> ring = {
-        Unproject(a + perp * hw, frame),
-        Unproject(b + perp * hw, frame),
-        Unproject(b - perp * hw, frame),
-        Unproject(a - perp * hw, frame),
-    };
-    AppendRingAsSegments(ring, out);
+    const glm::dvec2 sw = a - perp * hw;
+    const glm::dvec2 se = b - perp * hw;
+    const glm::dvec2 ne = b + perp * hw;
+    const glm::dvec2 nw = a + perp * hw;
+    poly.push_back(SkeletonPoint(sw.x, sw.y));
+    poly.push_back(SkeletonPoint(se.x, se.y));
+    poly.push_back(SkeletonPoint(ne.x, ne.y));
+    poly.push_back(SkeletonPoint(nw.x, nw.y));
+    return poly;
+}
+
+// Pulls a 2D ring out of a CGAL `Polygon_2`. Convenience helper so the carve loop doesn't repeat
+// the same `vertices_begin / to_double` boilerplate for outer boundaries and hole boundaries.
+std::vector<glm::dvec2> ExtractRing2D(const SkeletonPolygon &poly)
+{
+    std::vector<glm::dvec2> out;
+    out.reserve(poly.size());
+    for (auto it = poly.vertices_begin(); it != poly.vertices_end(); ++it)
+        out.emplace_back(CGAL::to_double(it->x()), CGAL::to_double(it->y()));
+    return out;
+}
+
+// Unprojects a 2D ring back through `frame` and pushes it onto `out` as consecutive line-segment
+// pairs (closed loop). The fillet result feeds straight through this without rewriting the
+// 2D-vs-3D boundary again.
+void EmitRing2D(const std::vector<glm::dvec2> &ring2D, const FaceFrame &frame, SegmentList &out)
+{
+    std::vector<glm::dvec3> ring3D;
+    ring3D.reserve(ring2D.size());
+    for (const glm::dvec2 &p : ring2D)
+        ring3D.push_back(Unproject(p, frame));
+    AppendRingAsSegments(ring3D, out);
 }
 
 #endif // CAD_USE_CGAL
@@ -542,39 +571,59 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
         const int polyVertexCount = static_cast<int>(projected->polygon.size());
         for (const SkeletonPolygon &off : offsets)
         {
-            // Cache the offset polygon's 2D vertices once: the chord/strip step indexes them by
-            // CCW position (using sharp-corner anchors), and the fillet step folds them into a
-            // rounded-corner polyline. Two passes over the same data, no re-iteration of CGAL.
-            std::vector<glm::dvec2> off2D;
-            off2D.reserve(off.size());
-            for (auto it = off.vertices_begin(); it != off.vertices_end(); ++it)
-                off2D.emplace_back(CGAL::to_double(it->x()), CGAL::to_double(it->y()));
+            // Step 1: chord selection on the *sharp* offset polygon. The strip anchors at the
+            // original CGAL inset corners — anchoring to fillet-shifted positions would walk the
+            // strip inwards. Strip lookup is gated on the convex-preservation check (matching
+            // vertex counts between input polygon and offset polygon); concave faces fall through
+            // to "no strip, emit filleted inset only."
+            std::optional<ChordPick> chord;
+            if (static_cast<int>(off.size()) == polyVertexCount)
+                chord = SelectFirstValidStripChord(off, cornerPolyIndices);
 
-            // B2e: fillet every convex corner of the inset polygon at `insetMm` radius. Reflex
-            // corners and corners where the fillet can't fit pass through unchanged.
-            const std::vector<glm::dvec2> filleted2D =
-                FilletPolygonCorners(off2D, params.insetMm, params.chordTolMm);
-            std::vector<glm::dvec3> ring3D;
-            ring3D.reserve(filleted2D.size());
-            for (const glm::dvec2 &p : filleted2D)
-                ring3D.push_back(Unproject(p, frame));
-            AppendRingAsSegments(ring3D, segments);
+            // Step 2: 2D boolean carve. `inset \ strip` produces the actual triangulated sub-
+            // regions whose boundaries the user will see. Without a chord (no valid strip) we
+            // treat the whole offset polygon as the single carve result. CGAL's difference can
+            // throw on degenerate geometry, so on any exception we fall back to inset-only.
+            std::list<SkeletonPolygonWithHoles> carved;
+            if (chord.has_value())
+            {
+                const SkeletonPolygon strip =
+                    BuildStripPolygonCCW(off, chord->aIdx, chord->bIdx, params.insetMm);
+                if (strip.size() == 4 && strip.is_simple())
+                {
+                    try
+                    {
+                        CGAL::difference(off, strip, std::back_inserter(carved));
+                    }
+                    catch (...)
+                    {
+                        carved.clear();
+                    }
+                }
+            }
+            if (carved.empty())
+                carved.emplace_back(off);
 
-            // B2d strip emission. Vertex-count match implies the straight skeleton preserved every
-            // original polygon vertex (true for convex inputs at the inset distances we expect).
-            // Non-matching count (collapsed reflex vertices on concave faces, or distance-induced
-            // smoothing) leaves the corner labels unaligned with offset vertices, so we skip the
-            // strip rather than emit a mis-anchored chord. Concave handling lives in a later phase.
-            //
-            // Strip endpoints stay anchored to the *original* sharp corners (off, not filleted2D)
-            // because the strip is meant to "connect the corners of the inset face" per spec —
-            // anchoring to the fillet-shifted edge points would move the strip inwards and break
-            // the visual relationship between corner and chord. The eventual 2D union pass cleans
-            // up the overlap between the strip cap and the now-rounded inset corner.
-            if (static_cast<int>(off.size()) != polyVertexCount)
-                continue;
-            if (auto chord = SelectFirstValidStripChord(off, cornerPolyIndices))
-                EmitStripBand(off, chord->aIdx, chord->bIdx, params.insetMm, frame, segments);
+            // Step 3: fillet then emit each carve-result boundary. Outer boundaries are CCW out
+            // of CGAL — feed `FilletPolygonCorners` directly. Hole boundaries are CW (CGAL
+            // convention); reverse to CCW before filleting so the helper's "convex corner" check
+            // (positive cross product) lines up with the hole's visible-convex corners.
+            for (const SkeletonPolygonWithHoles &pwh : carved)
+            {
+                const std::vector<glm::dvec2> outer2D = ExtractRing2D(pwh.outer_boundary());
+                const std::vector<glm::dvec2> filletedOuter =
+                    FilletPolygonCorners(outer2D, params.insetMm, params.chordTolMm);
+                EmitRing2D(filletedOuter, frame, segments);
+
+                for (auto holeIt = pwh.holes_begin(); holeIt != pwh.holes_end(); ++holeIt)
+                {
+                    std::vector<glm::dvec2> hole2D = ExtractRing2D(*holeIt);
+                    std::reverse(hole2D.begin(), hole2D.end());
+                    const std::vector<glm::dvec2> filletedHole =
+                        FilletPolygonCorners(hole2D, params.insetMm, params.chordTolMm);
+                    EmitRing2D(filletedHole, frame, segments);
+                }
+            }
         }
     }
 #endif // CAD_USE_CGAL
