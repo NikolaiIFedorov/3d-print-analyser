@@ -56,16 +56,6 @@ void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3,
     structurePreviewSegments = std::move(segments);
 }
 
-void SceneRenderer::SetStructureRibSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
-{
-    structureRibSegments = std::move(segments);
-}
-
-void SceneRenderer::SetStructureInsetFaceSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
-{
-    structureInsetFaceSegments = std::move(segments);
-}
-
 void SceneRenderer::SetStructureViewTranslucentSolid(bool enable, float alpha01)
 {
     structureViewTranslucentSolidEnabled = enable;
@@ -558,13 +548,7 @@ void SceneRenderer::CommitStructurePreviewLinesToGpu()
     std::vector<uint32_t> idx;
     const glm::vec4 accentRgba = Color::GetAccent(1, 1.0f);
     const glm::vec3 accentRgb(accentRgba.x, accentRgba.y, accentRgba.z);
-    const glm::vec4 ribRgba = Color::GetAccent(2, 1.0f);
-    const glm::vec3 ribRgb(ribRgba.x, ribRgba.y, ribRgba.z);
-    const glm::vec4 insetRgba = Color::GetAccent(3, 1.0f);
-    const glm::vec3 insetRgb(insetRgba.x, insetRgba.y, insetRgba.z);
     AppendPreviewLineSegments(structurePreviewSegments, accentRgb, verts, idx);
-    AppendPreviewLineSegments(structureRibSegments, ribRgb, verts, idx);
-    AppendPreviewLineSegments(structureInsetFaceSegments, insetRgb, verts, idx);
     renderer.UploadStructurePreviewLineMesh(verts, idx);
 }
 

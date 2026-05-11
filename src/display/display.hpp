@@ -198,14 +198,7 @@ private:
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
     Icons::StepState analysisStepImport = Icons::StepState::Active;
 
-    /// Structure tool: inset loop tuning (panel no longer exposes sliders).
-    float structureInsetFaceMm = 3.0f;
-    /// Inset loop extrusion into solid along −face normal; 0 = loop on surface only.
-    float structureInsetFaceDepthMm = 2.5f;
-    /// Bbox penetration along inward normal from each cap; skips opposite horizontal cap to avoid double overlap.
-    bool structureInsetFaceFullDepthThroughSolid = true;
-
-    /// When Structure tool panel is visible, draw imported solid shells translucently so preview struts read inside.
+    /// When Structure tool panel is visible, draw imported solid shells translucently so preview lines read inside.
     bool structureTranslucentShellEnabled = true;
 
     bool settingsOpenAccentPicker = false;

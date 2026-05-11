@@ -95,3 +95,25 @@ RGB axes drew with normal depth only, so segments behind the shell depth failed.
 **Code:** `BuildInsetFaceLoops(..., extrudeFullDepthThroughSolid)`; helpers `RayAabbInterval`; `StructurePreview.hpp` docs.
 
 **Outcome / follow-up:** Bounding box approximate true interior penetration; eventual ray-vs-mesh opposite hit would tighten shape fidelity. Depth uses face centroid ray, not each inner-loop vertex.
+
+---
+
+## 2026-05-11 — Decision: retire diamond / inset / center-strut preview
+
+**Why:** Empirical print comparison on a 30 mm cube showed the custom infill (3D diamond + inset cap, 2 mm features) consumed ~2× the filament/time of standard slicer infill (gyroid). Scaled to 1.2 mm features it matched filament use but lost the ability to support a top surface — struts and inset walls are too sparse near the top for the slicer to bridge between them. The fundamental issue is that *space-filling* slicer patterns (gyroid, cubic, lightning) provide both stiffness and top-surface bridging for free, while a *load-path* pattern like ours has to add separate top supports to be functional, which erases any volume gain.
+
+Custom structure can only win on parts with explicit structural intent: known load direction, large parts (≥ 100 mm extent), exposed / aesthetic structure, or parts that would otherwise be solid. The 30 mm cube hits none of those, and "general parts" land closer to the cube than to the win cases.
+
+**Pivot:** Replace this feature with a face-triangulation tool that carves printable vertical voids out of otherwise-solid parts — framed as a structural-intent tool rather than an infill optimizer. Tracked in `structure_face_triangulation_2026-05-11.md`.
+
+**Code disposition:**
+
+- **Keep:** Structure tool wiring in `Display` (toolbar, panel, import prerequisite, cancel/accept footer, translucent shell + behind-depth wire pass), `SceneRenderer` preview line plumbing, the planar-face / centroid / orthonormal-frame / AABB / `RayAabbInterval` helpers in `StructurePreview.cpp`'s anonymous namespace, the structure split path in `OpenGLRenderer::DrawTriangles`.
+- **Remove:** `BuildAdjacentFaceMidpoints`, `BuildInteriorFaceRibs`, `BuildInsetFaceLoops`, `BuildCenterStruts`, the `PreviewPattern` enum, the rib-segment buffer, and the always-on rib/preview fill in `RefreshStructurePreviewForRenderer`.
+- **Update copy:** Panel subtitle "Save on printed weight with specialized infill" replaced as part of the triangulation work; the old copy made a promise that on average over arbitrary parts is false.
+
+**Mini retro:**
+
+- Building three independent generators (diamond, ribs, inset) without an underlying mechanical model meant each pattern grew its own heuristics and they never composed into a coherent system. The symptom showed up first as visual clutter, then as empirical filament-loss vs. baseline.
+- The right validation was always "compare against the actual slicer output," not "does the preview look structural." Catching this earlier would have shortened the loop — proposed `best_practices.md` addition (Stage 4): *"For features that compete with an existing tool/pipeline, benchmark against it before locking the API."*
+- Reusable infrastructure (Structure tool scaffolding, preview line plumbing, translucent shell pass) survived the pivot cleanly because the tool was always abstracted from its generators — that part of the architecture held up.

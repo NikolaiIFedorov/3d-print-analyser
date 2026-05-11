@@ -5075,7 +5075,7 @@ void Display::InitUI()
         ToolPanelDef structDef;
         structDef.id = "Structure";
         structDef.name = "Structure";
-        structDef.description = "Save on printed weight with specialized infill";
+        structDef.description = "Carve printable patterns into solid faces";
         structDef.flattenParameters = true;
 
         structDef.prerequisites.reserve(1);
@@ -5138,20 +5138,10 @@ void Display::InitUI()
 
 void Display::RefreshStructurePreviewForRenderer()
 {
-    std::vector<std::pair<glm::vec3, glm::vec3>> segs;
-    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        !scene->solids.empty())
-        StructurePreview::BuildAdjacentFaceMidpoints(*scene, segs);
-    renderer.SetStructurePreviewSegments(std::move(segs));
-
-    renderer.SetStructureRibSegments({});
-
-    std::vector<std::pair<glm::vec3, glm::vec3>> insetSegs;
-    if (scene != nullptr && activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible &&
-        !scene->solids.empty())
-        StructurePreview::BuildInsetFaceLoops(*scene, structureInsetFaceMm, structureInsetFaceDepthMm,
-                                              structureInsetFaceFullDepthThroughSolid, insetSegs);
-    renderer.SetStructureInsetFaceSegments(std::move(insetSegs));
+    // Phase A: the retired diamond/inset/rib generators are gone and Phase B's face triangulation has
+    // not landed yet. Clear the preview buffer so nothing renders for Structure while the tool's panel
+    // and translucent shell still come up. Phase B repopulates this from the picked face.
+    renderer.SetStructurePreviewSegments({});
 }
 
 void Display::FinalizeStructureSceneToolSession(bool accepted)
