@@ -1013,6 +1013,7 @@ void Display::Render()
         pendingToolSwitch = false;
         ClearPickHover();
         ClearCalibrateFacePicks();
+        ClearStructureFacePick();
         uiRenderer.MarkDirty();
         const bool showAnalysis = (activeTool == ActiveTool::Analysis);
         const bool showCalibrate = (activeTool == ActiveTool::Calibrate);
@@ -1171,7 +1172,8 @@ void Display::RunPickNode()
     }
 
     if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
-        calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr)
+        calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr ||
+        structureSelectedFace != nullptr)
     {
         RebuildPickHighlightMesh();
         InvalidationExec(InvalidationNode::Pick);
@@ -1465,6 +1467,13 @@ void Display::Frame()
             calibStepPoint2 = Icons::StepState::Active;
             calibPickInvalidated = true;
             pickDirty = true;
+        }
+        if (structureSelectedFace != nullptr && !stillPickable(structureSelectedFace))
+        {
+            structureSelectedFace = nullptr;
+            structureHoverIneligibleReason.clear();
+            pickDirty = true;
+            uiRenderer.MarkDirty();
         }
         if (calibPickInvalidated)
         {
@@ -1958,27 +1967,41 @@ glm::vec3 Display::ScreenToWorld(float pixelX, float pixelY) const
 
 PickFilter Display::GetActivePickFilter() const
 {
-    if (activeTool != ActiveTool::Calibrate)
-        return PickFilter::None;
-    if (!calibPara_Point1 || !calibPara_Point1->visible)
-        return PickFilter::None;
     if (!scene || (scene->solids.empty() && scene->faces.empty()))
         return PickFilter::None;
 
-    const bool awaitingPoint1Pick = calibPara_Point1->selected;
-    const bool awaitingPoint2Pick =
-        calibPara_Point2 && calibPara_Point2->selected;
-    if (!awaitingPoint1Pick && !awaitingPoint2Pick)
-        return PickFilter::None;
+    if (activeTool == ActiveTool::Calibrate)
+    {
+        if (!calibPara_Point1 || !calibPara_Point1->visible)
+            return PickFilter::None;
+        const bool awaitingPoint1Pick = calibPara_Point1->selected;
+        const bool awaitingPoint2Pick = calibPara_Point2 && calibPara_Point2->selected;
+        if (!awaitingPoint1Pick && !awaitingPoint2Pick)
+            return PickFilter::None;
+        return PickFilter::Faces;
+    }
 
-    return PickFilter::Faces;
+    if (activeTool == ActiveTool::Structure)
+    {
+        // Structure tool needs the import prereq satisfied before face picking is offered.
+        if (calibStepImport != Icons::StepState::Done)
+            return PickFilter::None;
+        return PickFilter::Faces;
+    }
+
+    return PickFilter::None;
 }
 
 void Display::ClearPickHover()
 {
     hoverPickFace = nullptr;
     hoverPickEdge = nullptr;
-    hoverCalibPickRejected = false;
+    hoverPickRejected = false;
+    if (!structureHoverIneligibleReason.empty())
+    {
+        structureHoverIneligibleReason.clear();
+        SyncStructurePanelDerivedVisibility();
+    }
     MarkPickDirty();
 }
 
@@ -2000,14 +2023,14 @@ void Display::ClearCalibrateFacePicks()
     MarkPickDirty();
 }
 
-void Display::SetHoverCalibPick(const Face *face, const Edge *edge, bool rejected)
+void Display::SetHoverPick(const Face *face, const Edge *edge, bool rejected)
 {
-    if (hoverPickFace == face && hoverPickEdge == edge && hoverCalibPickRejected == rejected)
+    if (hoverPickFace == face && hoverPickEdge == edge && hoverPickRejected == rejected)
     {
         if (face != nullptr || edge != nullptr)
             return;
         if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
-            calibEdgePoint2 != nullptr)
+            calibEdgePoint2 != nullptr || structureSelectedFace != nullptr)
             return;
         if (pickHighlightIndices.empty() && pickHighlightRejectIndices.empty() &&
             pickHighlightCalibInvalidIndices.empty())
@@ -2015,7 +2038,7 @@ void Display::SetHoverCalibPick(const Face *face, const Edge *edge, bool rejecte
     }
     hoverPickFace = face;
     hoverPickEdge = edge;
-    hoverCalibPickRejected = rejected;
+    hoverPickRejected = rejected;
     MarkPickDirty();
 }
 
@@ -2089,6 +2112,11 @@ void Display::RebuildPickHighlightMesh()
         appendFaceTris(calibFacePoint1, 1.0f, 0.72f);
     if (calibFacePoint2 != nullptr && calibEdgePoint2 == nullptr)
         appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
+
+    // Structure tool: single-slot committed face pick. Same accent tint as Calibrate's face picks so
+    // the user can tell the model accepted the click.
+    if (activeTool == ActiveTool::Structure && structureSelectedFace != nullptr)
+        appendFaceTris(structureSelectedFace, 1.0f, 0.72f);
 
     const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
     const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
@@ -2205,14 +2233,15 @@ void Display::RebuildPickHighlightMesh()
 
     {
         const Face *hoverDraw = hoverPickFace;
-        if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
+        if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2 ||
+            hoverDraw == structureSelectedFace)
             hoverDraw = nullptr;
         // Calibrate edge snap: show edge hover alone — face fill hides whether the hit is edge vs face.
         const bool calibrateEdgeHover =
             activeTool == ActiveTool::Calibrate && hoverPickEdge != nullptr;
         if (hoverDraw != nullptr && !calibrateEdgeHover)
         {
-            if (hoverCalibPickRejected)
+            if (hoverPickRejected)
             {
                 const int grayDepth =
                     Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverGrayUiDepthDark
@@ -2228,7 +2257,7 @@ void Display::RebuildPickHighlightMesh()
     const Edge *hoverEdgeDraw = hoverPickEdge;
     if (hoverEdgeDraw == calibEdgePoint1 || hoverEdgeDraw == calibEdgePoint2)
         hoverEdgeDraw = nullptr;
-    if (hoverEdgeDraw != nullptr && activeTool == ActiveTool::Calibrate && hoverCalibPickRejected)
+    if (hoverEdgeDraw != nullptr && activeTool == ActiveTool::Calibrate && hoverPickRejected)
     {
         const int grayDepth =
             Color::IsDark() ? RenderingExperiments::kCalibrateRejectHoverGrayUiDepthDark
@@ -2426,14 +2455,38 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     const bool viewportNav = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0 ||
                              (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
 
+    auto clearStructureHoverReason = [this]()
+    {
+        if (structureHoverIneligibleReason.empty())
+            return;
+        structureHoverIneligibleReason.clear();
+        SyncStructurePanelDerivedVisibility();
+    };
+
     if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY) || viewportNav)
     {
-        SetHoverCalibPick(nullptr, nullptr);
+        SetHoverPick(nullptr, nullptr);
+        clearStructureHoverReason();
         return;
     }
     if (GetActivePickFilter() == PickFilter::None)
     {
-        SetHoverCalibPick(nullptr, nullptr);
+        SetHoverPick(nullptr, nullptr);
+        clearStructureHoverReason();
+        return;
+    }
+
+    if (activeTool == ActiveTool::Structure)
+    {
+        const StructurePickHit shit = PickStructureAtPixel(pixelX, pixelY);
+        // Structure tool does not use edge hover; pass `nullptr` for edge slot so the existing highlight
+        // path falls through to the face-fill branch (gradient when eligible, gray when rejected).
+        SetHoverPick(shit.face, nullptr, !shit.eligible && shit.face != nullptr);
+        if (structureHoverIneligibleReason != shit.ineligibleReason)
+        {
+            structureHoverIneligibleReason = shit.ineligibleReason;
+            SyncStructurePanelDerivedVisibility();
+        }
         return;
     }
 
@@ -2447,7 +2500,7 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
         if (hit.face != nullptr &&
             !CalibFacePickPassesWallGate(hit.face, hit.edge, scene, layerMm, calibBuildDir))
         {
-            SetHoverCalibPick(hit.face, hit.edge, true);
+            SetHoverPick(hit.face, hit.edge, true);
             return;
         }
     }
@@ -2461,11 +2514,11 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
             !CalibSecondPickAcceptsHit(calibFacePoint1, calibEdgePoint1, firstResolved, hit.face, hit.edge,
                                        scene, layerMm, calibBuildDir, layerHoleInnerEdges))
         {
-            SetHoverCalibPick(hit.face, hit.edge, true);
+            SetHoverPick(hit.face, hit.edge, true);
             return;
         }
     }
-    SetHoverCalibPick(hit.face, hit.edge, false);
+    SetHoverPick(hit.face, hit.edge, false);
 }
 
 void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
@@ -2516,6 +2569,133 @@ void Display::TryCommitCalibrateFacePick(float pixelX, float pixelY)
         return;
 
     RefreshCalibWorkflow();
+    uiRenderer.MarkDirty();
+    MarkPickDirty();
+}
+
+namespace
+{
+
+// Minimum upward-component for a face to be eligible for triangulation. Anything below this is
+// considered side-facing / downward — vertical extrusion would not produce a printable triangle
+// pattern that supports the upper material. See documentation/implementations/
+// structure_face_triangulation_2026-05-11.md.
+constexpr double kStructureMinUpComponent = 0.3;
+
+// Coarse lower bound on the face's world-space span. Faces smaller than this cannot host even a
+// single inset-with-strip, so picking them up just to immediately reject is pointless. Phase B2 will
+// refine this against the actual user-chosen inset distance.
+constexpr double kStructureMinFaceSpanMm = 1.5;
+
+double StructureFaceMaxSpanMm(const Face *face)
+{
+    if (face == nullptr || face->loops.empty())
+        return 0.0;
+    glm::dvec3 mn(std::numeric_limits<double>::max());
+    glm::dvec3 mx(-std::numeric_limits<double>::max());
+    for (const auto &loop : face->loops)
+    {
+        for (const OrientedEdge &oe : loop)
+        {
+            const glm::dvec3 p = oe.GetStartPosition();
+            mn = glm::min(mn, p);
+            mx = glm::max(mx, p);
+        }
+    }
+    const glm::dvec3 ext = mx - mn;
+    return std::max({ext.x, ext.y, ext.z});
+}
+
+} // namespace
+
+bool Display::IsStructureFaceEligible(const Face *face, std::string *outReason) const
+{
+    auto setReason = [outReason](const char *r)
+    {
+        if (outReason != nullptr)
+            *outReason = r;
+    };
+    if (face == nullptr)
+    {
+        setReason("");
+        return false;
+    }
+    if (face->surface == nullptr || !face->surface->IsPlanar())
+    {
+        setReason("Face is not planar — only flat faces can be triangulated.");
+        return false;
+    }
+    if (face->loops.size() != 1)
+    {
+        setReason("Face has internal holes — multi-loop faces are not yet supported.");
+        return false;
+    }
+    const glm::dvec3 n = face->surface->GetNormal();
+    if (n.z < kStructureMinUpComponent)
+    {
+        setReason("Face does not point upward enough — vertical extrusion would not be printable.");
+        return false;
+    }
+    if (StructureFaceMaxSpanMm(face) < kStructureMinFaceSpanMm)
+    {
+        setReason("Face is too small to triangulate.");
+        return false;
+    }
+    setReason("");
+    return true;
+}
+
+Display::StructurePickHit Display::PickStructureAtPixel(float pixelX, float pixelY) const
+{
+    StructurePickHit out;
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    glm::dvec3 ro, rd;
+    ScenePick::OrthoPickRay(camera, w, h, pixelX, pixelY, ro, rd);
+    out.face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces);
+    if (out.face == nullptr)
+        return out;
+    out.eligible = IsStructureFaceEligible(out.face, &out.ineligibleReason);
+    return out;
+}
+
+void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
+{
+    if (activeTool != ActiveTool::Structure)
+        return;
+    ImGuiIO &io = ImGui::GetIO();
+    if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY))
+        return;
+    if (GetActivePickFilter() == PickFilter::None)
+        return;
+    const StructurePickHit hit = PickStructureAtPixel(pixelX, pixelY);
+    if (hit.face == nullptr)
+        return;
+    if (!hit.eligible)
+    {
+        // Refresh the ineligibility reason so the panel reflects the click rather than the previous hover.
+        if (structureHoverIneligibleReason != hit.ineligibleReason)
+        {
+            structureHoverIneligibleReason = hit.ineligibleReason;
+            SyncStructurePanelDerivedVisibility();
+        }
+        return;
+    }
+    if (structureSelectedFace == hit.face)
+        return;
+    structureSelectedFace = hit.face;
+    structureHoverIneligibleReason.clear();
+    uiRenderer.MarkDirty();
+    MarkPickDirty();
+    RefreshStructurePreviewForRenderer();
+}
+
+void Display::ClearStructureFacePick()
+{
+    if (structureSelectedFace == nullptr && structureHoverIneligibleReason.empty())
+        return;
+    structureSelectedFace = nullptr;
+    structureHoverIneligibleReason.clear();
     uiRenderer.MarkDirty();
     MarkPickDirty();
 }
@@ -3679,6 +3859,7 @@ void Display::InitUI()
                     uiStructure->visible = !uiStructure->visible;
                     ClearPickHover();
                     ClearCalibrateFacePicks();
+                    ClearStructureFacePick();
                     RefreshStructurePreviewForRenderer();
                     MarkGeometryDirtyAll();
                     SyncToolbarToolVisualState();
@@ -5112,6 +5293,20 @@ void Display::InitUI()
                 break;
             }
         }
+
+        // Single-line hover hint shown only when an ineligible face is under the cursor or was just
+        // clicked. The text is filled by `SyncStructurePanelDerivedVisibility` from
+        // `structureHoverIneligibleReason`; B1 keeps this row invisible by default.
+        structPara_HoverHint = &uiStructure->AddParagraph("StructHoverHint");
+        structPara_HoverHint->visible = false;
+        structPara_HoverHint->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        structPara_HoverHint->values.reserve(1);
+        {
+            SectionLine &line = structPara_HoverHint->values.emplace_back();
+            line.text = "";
+            line.textDepth = 2;
+        }
+
         SyncStructurePanelDerivedVisibility();
     }
 
@@ -5150,6 +5345,13 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_Import->visible = !importDone;
     if (structPara_SceneEditFooter)
         structPara_SceneEditFooter->visible = importDone;
+    if (structPara_HoverHint)
+    {
+        const bool showHint = importDone && !structureHoverIneligibleReason.empty();
+        structPara_HoverHint->visible = showHint;
+        if (!structPara_HoverHint->values.empty())
+            structPara_HoverHint->values[0].text = structureHoverIneligibleReason;
+    }
     uiRenderer.MarkDirty();
 }
 

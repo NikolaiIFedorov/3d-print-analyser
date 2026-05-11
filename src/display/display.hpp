@@ -73,10 +73,12 @@ public:
     /// Fills `out` with scene counts, analysis params, camera pose, clip planes, window sizes, and tool flags for logging.
     void FillSessionReproState(SessionState &out) const;
 
-    /// Face hover for tools that use `GetActivePickFilter()` (e.g. Calibrate). Respects UI hit-test and ImGui capture.
+    /// Face hover for tools that use `GetActivePickFilter()` (Calibrate, Structure). Respects UI hit-test and ImGui capture.
     void UpdatePickHover(float pixelX, float pixelY);
     /// Left-click in viewport: commits hovered face to the active Calibrate point prerequisite when applicable (face-only).
     void TryCommitCalibrateFacePick(float pixelX, float pixelY);
+    /// Left-click in viewport: commits hovered face as the Structure tool's selected face (single-slot) when eligible.
+    void TryCommitStructureFacePick(float pixelX, float pixelY);
     PickFilter GetActivePickFilter() const;
 
     bool renderDirty = true;
@@ -233,6 +235,9 @@ private:
     Paragraph *structPara_Import = nullptr;
     /// Cancel/Accept row; hidden until import prerequisite is complete.
     Paragraph *structPara_SceneEditFooter = nullptr;
+    /// Single-line hint shown when the cursor is over an ineligible face. Text is sourced from
+    /// `structureHoverIneligibleReason`; hidden whenever the reason string is empty.
+    Paragraph *structPara_HoverHint = nullptr;
 
     std::vector<std::string> openFiles;
 
@@ -349,8 +354,8 @@ private:
 
     const Face *hoverPickFace = nullptr;
     const Edge *hoverPickEdge = nullptr;
-    /// Second Calibrate pick: hovered face fails parallel — same highlight path as valid hover, darker **gray**.
-    bool hoverCalibPickRejected = false;
+    /// Hover hit failed the current tool's eligibility gate; highlight uses darker **gray** instead of accent.
+    bool hoverPickRejected = false;
     std::vector<Vertex> pickHighlightVertices;
     std::vector<uint32_t> pickHighlightIndices;
     std::vector<Vertex> pickHighlightLineVertices;
@@ -367,7 +372,8 @@ private:
 
     void ClearPickHover();
     void ClearCalibrateFacePicks();
-    void SetHoverCalibPick(const Face *face, const Edge *edge, bool rejected = false);
+    void ClearStructureFacePick();
+    void SetHoverPick(const Face *face, const Edge *edge, bool rejected = false);
     void RebuildPickHighlightMesh();
     void ScheduleNode(InvalidationNode node);
     void RunPickNode();
@@ -389,10 +395,29 @@ private:
     };
     CalibPickHit PickCalibrateAtPixel(float pixelX, float pixelY) const;
 
+    /// Structure tool: single-face pick for face-triangulation (Phase B). `ineligibleReason` is set
+    /// when a ray hits a face that fails the eligibility gate (non-planar, multi-loop, downward/vertical
+    /// normal, too small) so callers can surface the reason to the user.
+    struct StructurePickHit
+    {
+        const Face *face = nullptr;
+        bool eligible = false;
+        std::string ineligibleReason;
+    };
+    StructurePickHit PickStructureAtPixel(float pixelX, float pixelY) const;
+    /// Returns true when `face` is a candidate for face triangulation under the Structure tool. The
+    /// reason string is populated for every rejection (used by the panel hint and click logging).
+    bool IsStructureFaceEligible(const Face *face, std::string *outReason = nullptr) const;
+
     const Face *calibFacePoint1 = nullptr;
     const Face *calibFacePoint2 = nullptr;
     const Edge *calibEdgePoint1 = nullptr;
     const Edge *calibEdgePoint2 = nullptr;
+
+    /// Structure tool's committed face pick (cleared on tool exit / scene change / re-import).
+    const Face *structureSelectedFace = nullptr;
+    /// Last hover ineligibility reason (drives panel message in the Structure tool).
+    std::string structureHoverIneligibleReason;
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.
     float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();

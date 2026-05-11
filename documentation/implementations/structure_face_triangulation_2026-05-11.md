@@ -107,6 +107,35 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Namespace.** `StructurePreview` retained for Phase A — renaming to `StructureTriangulation` (or similar) is deferred to Phase B per the bikeshed-during-implementation note in the Plan.
 
+### Phase B1 — face picking + eligibility gate (2026-05-11)
+
+**Scope.** Single sub-phase of Phase B, kept narrow to land in one session: hover-highlight + click-to-select for a single face on the Structure tool, plus a coarse eligibility gate. No CGAL, no inset, no preview geometry beyond the existing face-highlight fill — those land in B2.
+
+**Reused, not duplicated.** Existing pick infrastructure already supported faces: `ScenePick::PickClosestFace` + `PickFilter::Faces` + `SceneRenderer::GetPickTriangles` cover ray hit-tests, and `Display::RebuildPickHighlightMesh` already renders hovered/selected face fills via accent gradient (eligible) or solid gray (rejected). Calibrate was the only consumer; B1 extends the same paths instead of cloning them.
+
+**Renamed.** `Display::SetHoverCalibPick` → `SetHoverPick`, `hoverCalibPickRejected` → `hoverPickRejected`. Both are now tool-agnostic — the rejection-render branch in `RebuildPickHighlightMesh` no longer reads as Calibrate-specific. Calibrate behaviour is unchanged; the only difference is that the field/method now mean "the active tool's hover failed *its* eligibility gate," with the gate itself living in each tool's pick method.
+
+**Added state.** `Display::structureSelectedFace` (single-slot committed pick), `Display::structureHoverIneligibleReason` (panel hint string). The pick-dirty gate (`pickDirty || hoverPickFace != nullptr || …`) now also tracks `structureSelectedFace`, and the stale-face cleanup at the top of the render path (`stillPickable(...)`) clears the structure slot when the scene reload drops the face.
+
+**Added methods.**
+- `Display::PickStructureAtPixel(pixelX, pixelY)` — wraps `OrthoPickRay` + `PickClosestFace`, returns `StructurePickHit { face, eligible, ineligibleReason }`.
+- `Display::IsStructureFaceEligible(face, &reason)` — gate: non-null, planar (`Surface::IsPlanar()`), `loops.size() == 1`, `surface->GetNormal().z >= 0.3` (constant `kStructureMinUpComponent`), and per-face AABB max-extent `>= 1.5 mm` (constant `kStructureMinFaceSpanMm`, computed via a file-local helper that walks the outer loop's oriented-edge start positions). Every failure path writes a human-readable reason into `*outReason`.
+- `Display::TryCommitStructureFacePick(pixelX, pixelY)` — mirror of `TryCommitCalibrateFacePick`; bails on UI/ImGui/`activeTool` mismatch, refreshes the hint on ineligible click, commits the face slot + calls `RefreshStructurePreviewForRenderer` on eligible click. Wired from `Input.cpp` alongside the Calibrate commit (each method checks `activeTool` and returns when the tool doesn't match, so calling both is safe).
+- `Display::ClearStructureFacePick()` — called from the Structure toolbar toggle and from the `pendingToolSwitch` handler in `Display::Render`.
+
+**Extended methods.**
+- `GetActivePickFilter()` returns `Faces` for Calibrate (existing logic) and for Structure (new branch, gated on import-prerequisite `calibStepImport == Done`).
+- `UpdatePickHover()` now branches on `activeTool`: Structure path calls `PickStructureAtPixel` + `SetHoverPick(face, nullptr, !eligible)` + updates the panel hint; Calibrate path is unchanged. Both shared early-outs (ImGui capture, viewport-nav drags, `PickFilter::None`) now also clear the structure hover reason via a small `clearStructureHoverReason` lambda.
+- `ClearPickHover()` resets the structure hover reason in addition to the existing hover face/edge fields.
+- `SetHoverPick()` early-out also tracks `structureSelectedFace` so we don't suppress a dirty mark when the structure slot is set.
+- `RebuildPickHighlightMesh()` appends `structureSelectedFace` triangles with the same accent tint as Calibrate's committed picks, and the hover-suppression line also bails when the hover face equals `structureSelectedFace`.
+
+**Panel hint.** New `structPara_HoverHint` paragraph appended below the scene-edit footer. `SyncStructurePanelDerivedVisibility` toggles its visibility (`importDone && !reason.empty()`) and copies the reason string into `values[0].text`. Hover/click paths call this helper whenever the reason changes, so the hint updates live without an explicit per-frame poll.
+
+**Build.** `cmake --build build -- -j8` succeeded clean; no new warnings; `ReadLints` on the three edited TUs reported zero diagnostics.
+
+**Deferred to B2.** CGAL straight-skeleton offset, corner-vertex tagging, strip + fillet, preview-line buffer fill. The hint copy is intentionally generic (no face id, no normal angle) until B2 has enough context to be more specific.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

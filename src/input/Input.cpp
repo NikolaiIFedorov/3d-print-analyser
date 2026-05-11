@@ -290,6 +290,8 @@ void Input::mouseGestures(const SDL_Event &event)
         {
             display->TryCommitCalibrateFacePick(static_cast<float>(event.button.x),
                                                 static_cast<float>(event.button.y));
+            display->TryCommitStructureFacePick(static_cast<float>(event.button.x),
+                                                static_cast<float>(event.button.y));
         }
         else if (event.button.button == SDL_BUTTON_RIGHT)
         {
