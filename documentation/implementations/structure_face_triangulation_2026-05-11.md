@@ -243,6 +243,38 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Build.** `cmake --build build -j` clean, no warnings. `ReadLints` clean on `display.{cpp,hpp}`.
 
+### Phase B2d — corner-pair chord + strip band (2026-05-12)
+
+**What landed.**
+- `ProjectedPolygon { polygon, reversed }`: `BuildProjectedPolygon` now returns the (potentially CCW-flipped) polygon paired with a `reversed` flag so callers know whether outline-index ↔ polygon-index needs a `(n - 1 - k)` swap. Required for the corner-tag forwarding below — without the flag the chord endpoints would land on midpoint-sampled curve points instead of B-rep vertices on CW-oriented projections.
+- `MapCornerIndicesToPoly(isCorner, reversed)`: maps the corner-flagged outline indices into polygon-vertex indices, applying the reversal when set and re-sorting so the caller can treat the result as ascending polygon order regardless. Convex inputs preserve vertex count through the CGAL straight skeleton, so the same indices index the offset polygon directly.
+- `SelectFirstValidStripChord(off, cornerPolyIndices)`: enumerates every non-adjacent corner-pair chord, keeps the ones whose midpoint passes `Polygon_2::bounded_side == CGAL::ON_BOUNDED_SIDE`, and returns a deterministic winner via *(shortest squared length, lowest start-index, lowest end-index)*. Squared length keeps comparisons branch-free for ties — a 4-corner square has two equally long diagonals, so the index tiebreak is what actually picks the visible chord. (Recorded as the placeholder for a future user-choice gesture.)
+- `EmitStripBand(off, aIdx, bIdx, widthMm, frame, segments)`: emits the strip as a closed 4-segment rectangle with two long edges parallel to the chord at offset `±widthMm/2`, and two perpendicular caps at the inset-polygon corners.
+
+**Bake function shape.**
+1. Polyline outer loop (B2b).
+2. Build face frame (B2b).
+3. Emit outer ring (B2b).
+4. Project to 2D polygon (B2c).
+5. Compute offset polygons (B2c).
+6. Map outline corners → polygon indices (B2d).
+7. **For each offset polygon:**
+   - Emit inset ring (B2c).
+   - **B2d:** if vertex-count matches the input polygon (convex preservation guard), run the chord selector and, on a hit, emit the strip band.
+
+**Vertex-count guard.** The convex-preservation gate (`off.size() == polygon.size()`) is the cheap cross-check that the straight skeleton didn't collapse any reflex vertex. When it fails (concave faces with reflex vertices, or insets that smooth a corner away), corner labels become unaligned with offset vertices, so we skip the strip rather than emit a mis-anchored chord. Concave-face strip placement is deferred to a later phase — it needs either CGAL's skeleton-vertex traceback or a nearest-neighbour fallback.
+
+**Visible result on a 30 mm cube test model.** Top face shows: outer 30 mm outline, 26 mm inset outline, and one 2 mm-wide strip rectangle running along the diagonal between corners 0 and 2 of the inset polygon. The strip splits the inset square into two triangular halves — first time the carved "triangulation" pattern shows up in the preview.
+
+**Known limitations carried forward.**
+- The strip's perpendicular end-caps sit *at* the inset-polygon corners, so for sharp corners (90° on a square) they protrude a hair past the inset boundary — visually overlaps the inset ring outline by a small triangle at each cap. A later 2D union pass cleans this up; for now the inset ring is drawn first and the overlap reads correctly as "strip touches the corner."
+- Single-chord-per-inset for now. For polygons with ≥ 6 corners, multiple non-crossing chords could fan-triangulate the inset; B2d emits just one (the shortest valid). Recursive chord selection is a B2-future addition once the single-chord case is solid.
+- The shortest-length tiebreaker is arbitrary on a 4-corner symmetric inset; both diagonals are equally valid carves. The user-choice gesture (raised in the original spec discussion as "the user decides") slots in here.
+
+**Build.** `cmake --build build -j` clean (only `StructureTriangulation.cpp.o` rebuilt). `ReadLints` clean on the new module.
+
+**Next.** B2e: round the inset polygon's corners by a fillet of radius `params.insetMm`. The standard double-offset trick (offset outward by `r`, then back inward by `r`) gives a `r`-rounded polygon for free from the same straight-skeleton machinery. Apply only to the inset ring's corners; the strip band stays sharp.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
