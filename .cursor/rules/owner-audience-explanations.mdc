@@ -1,0 +1,25 @@
+---
+description: CAD_OpenGL — explain outcomes and causes in plain language; depth in docs unless asked
+alwaysApply: true
+---
+
+# Audience: explanation level (project owner)
+
+The project owner is **not** doing day-to-day implementation. Treat chat explanations accordingly.
+
+## Default (unless they ask to go deeper)
+
+- Prioritize **what happened**, **why** (cause, assumptions, tradeoffs), and **what it means** for the product or workflow — in **plain language**, not a code tour.
+- Skip step-by-step walkthroughs of functions, line numbers, and identifier-heavy narration unless they ask or it is needed to avoid a wrong fix.
+- When they may want detail later, **point to the right place**: e.g. `documentation/`, `practices/best_practices.md`, `Architecture_*.md`, implementation logs under `documentation/implementations/`, or the relevant subsystem path — without pasting large excerpts.
+
+## When to add more technical detail
+
+- They ask (e.g. “show the code”, “which file”, “line level”).
+- A small code pointer is the clearest way to answer “where do I look?” — then prefer **file or subsystem + one sentence**, not a full walkthrough.
+- The task is **implementing or debugging code** in-repo: still do correct engineering work; summarize to the owner in the default style above, and keep deep dives in chat optional.
+
+## What this does not change
+
+- **Commits, implementation logs, and PR-style notes** stay as the repo rules require (those are for history and collaborators, not chat tone).
+- **Code quality and correctness** are unchanged; only default **user-facing explanation depth** shifts.
