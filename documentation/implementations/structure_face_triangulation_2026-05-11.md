@@ -377,6 +377,12 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Files.** `StructureTriangulation.cpp` (includes, typedefs, three conversion helpers, difference call site).
 
+### Preview — filleted outer face boundary (2026-05-12)
+
+**Gap.** Carved inset triangles used `FilletPolygonCorners(..., insetMm, ...)` but the **outer** face loop was still sharp (`AppendRingAsSegments` on 3D outline).
+
+**Change.** When `BuildProjectedPolygon` succeeds, emit the outer boundary from the **CCW** projected ring: `FilletPolygonCorners` with `params.insetMm` and `params.chordTolMm`, then `EmitRing2D` — same 1:1 inset radius as inner geometry. On projection failure or `CAD_USE_CGAL` off, keep sharp `AppendRingAsSegments(outline.points)`.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

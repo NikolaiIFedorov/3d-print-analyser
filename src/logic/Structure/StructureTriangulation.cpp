@@ -593,13 +593,16 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
 
     const FaceFrame frame = BuildFaceFrame(*face, outline.points.front());
 
-    // Always emit the outer ring so the user sees which face is being processed even when the
-    // inset call fails (degenerate polygon, inset >= min in-radius, CGAL disabled).
-    AppendRingAsSegments(outline.points, segments);
-
 #if defined(CAD_USE_CGAL)
     if (auto projected = BuildProjectedPolygon(outline.points, frame); projected.has_value())
     {
+        // Outer face boundary: same fillet radius as inset (spec 1:1). Use the CCW projected ring
+        // so `FilletPolygonCorners` sees the same winding as the carved inset pieces.
+        const std::vector<glm::dvec2> outerFace2D = ExtractRing2D(projected->polygon);
+        const std::vector<glm::dvec2> filletedOuterFace =
+            FilletPolygonCorners(outerFace2D, params.insetMm, params.chordTolMm);
+        EmitRing2D(filletedOuterFace, frame, segments);
+
         std::vector<SkeletonPolygon> offsets;
         // CGAL's offset routine throws on a handful of degenerate-but-`is_simple` inputs (notably
         // polygons with collinear consecutive edges). Swallow the exception, fall back to "outer
@@ -717,11 +720,19 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
             }
         }
     }
-    else if (EnvStructureStripDebugOn())
+    else
     {
-        std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(face)
-                  << " BuildProjectedPolygon failed (degenerate or not simple in 2D)\n";
+        // Degenerate / non-simple projection: keep a sharp outer trace so the face is still visible.
+        AppendRingAsSegments(outline.points, segments);
+        if (EnvStructureStripDebugOn())
+        {
+            std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(face)
+                      << " BuildProjectedPolygon failed (degenerate or not simple in 2D)\n";
+        }
     }
+#else
+    // No CGAL: outer loop only (sharp); inset/strip preview unavailable.
+    AppendRingAsSegments(outline.points, segments);
 #endif // CAD_USE_CGAL
 
     cache.emplace(key, segments);
