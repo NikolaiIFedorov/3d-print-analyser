@@ -18,6 +18,8 @@
 
 #if defined(CAD_USE_CGAL)
 #include <CGAL/Boolean_set_operations_2.h>
+#include <CGAL/Cartesian_converter.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Polygon_2.h>
 #include <CGAL/Polygon_with_holes_2.h>
@@ -46,6 +48,39 @@ using SkeletonKernel = CGAL::Exact_predicates_inexact_constructions_kernel;
 using SkeletonPoint = SkeletonKernel::Point_2;
 using SkeletonPolygon = CGAL::Polygon_2<SkeletonKernel>;
 using SkeletonPolygonWithHoles = CGAL::Polygon_with_holes_2<SkeletonKernel>;
+
+// EPICK is fine for straight-skeleton offset, but `CGAL::difference` builds a 2D arrangement that
+// can hit CGAL assertions on axis-aligned / near-degenerate cases with inexact constructions.
+// Run the boolean on EPECK only, then convert back to EPICK for `to_double` extraction + fillets.
+using BooleanExactKernel = CGAL::Exact_predicates_exact_constructions_kernel;
+using BooleanExactPolygon = CGAL::Polygon_2<BooleanExactKernel>;
+using BooleanExactPolygonWithHoles = CGAL::Polygon_with_holes_2<BooleanExactKernel>;
+
+BooleanExactPolygon EpickPolygonToExact(const SkeletonPolygon &p)
+{
+    CGAL::Cartesian_converter<SkeletonKernel, BooleanExactKernel> toExact;
+    BooleanExactPolygon q;
+    for (auto it = p.vertices_begin(); it != p.vertices_end(); ++it)
+        q.push_back(toExact(*it));
+    return q;
+}
+
+SkeletonPolygon ExactPolygonToEpick(const BooleanExactPolygon &p)
+{
+    CGAL::Cartesian_converter<BooleanExactKernel, SkeletonKernel> toInexact;
+    SkeletonPolygon q;
+    for (auto it = p.vertices_begin(); it != p.vertices_end(); ++it)
+        q.push_back(toInexact(*it));
+    return q;
+}
+
+SkeletonPolygonWithHoles ExactPwhToEpick(const BooleanExactPolygonWithHoles &p)
+{
+    SkeletonPolygonWithHoles out(ExactPolygonToEpick(p.outer_boundary()));
+    for (auto hi = p.holes_begin(); hi != p.holes_end(); ++hi)
+        out.add_hole(ExactPolygonToEpick(*hi));
+    return out;
+}
 #endif
 
 // Orthonormal 2D frame anchored on a planar face. `origin` is the projection anchor; `u` and `v`
@@ -620,7 +655,12 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
                 {
                     try
                     {
-                        CGAL::difference(off, strip, std::back_inserter(carved));
+                        const BooleanExactPolygon offE = EpickPolygonToExact(off);
+                        const BooleanExactPolygon stripE = EpickPolygonToExact(strip);
+                        std::list<BooleanExactPolygonWithHoles> carvedE;
+                        CGAL::difference(offE, stripE, std::back_inserter(carvedE));
+                        for (const BooleanExactPolygonWithHoles &piece : carvedE)
+                            carved.push_back(ExactPwhToEpick(piece));
                         piecesAfterDifference = carved.size();
                     }
                     catch (...)

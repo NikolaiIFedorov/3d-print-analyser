@@ -367,6 +367,16 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **How to run.** From a shell: `CAD_DEBUG_STRUCTURE=1 ./build/CAD_OpenGL` (path as built). Toggle tool or change inset to force cache miss if needed. Clear bake cache or restart app to re-bake the same face.
 
+### Fix — CGAL assertion in `CGAL::difference` (EPICK arrangement) (2026-05-12)
+
+**Symptom.** stderr / terminal: CGAL assertion in `Arr_segment_traits_2.h` (`is_vertical` / `is_in_x_range` branch) while carving `inset \ strip`.
+
+**Cause.** `CGAL::difference` on `Polygon_2<EPICK>` builds a 2D arrangement using inexact constructions; axis-aligned or nearly degenerate segment intersection can violate internal arrangement invariants and trip CGAL assertions (not always mapped to C++ exceptions).
+
+**Fix.** Keep EPICK for straight-skeleton offset (`create_interior_skeleton_and_offset_polygons_2`). For `CGAL::difference` only: convert `off` and `strip` to `Polygon_2<EPECK>` via `CGAL::Cartesian_converter`, run `difference` in exact constructions, convert each `Polygon_with_holes_2<EPECK>` back to EPICK for existing fillet + preview extraction.
+
+**Files.** `StructureTriangulation.cpp` (includes, typedefs, three conversion helpers, difference call site).
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
