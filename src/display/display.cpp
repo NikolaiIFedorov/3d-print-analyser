@@ -1173,8 +1173,10 @@ void Display::RunPickNode()
 
     if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
         calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr ||
-        structureSelectedFace != nullptr)
+        !structureExcludedFaces.empty() || activeTool == ActiveTool::Structure)
     {
+        // Structure tool always rebuilds: included-by-default eligible faces need the faint tint
+        // even when nothing is hovered or excluded, so the user sees the design intent on tool entry.
         RebuildPickHighlightMesh();
         InvalidationExec(InvalidationNode::Pick);
         return;
@@ -1468,12 +1470,21 @@ void Display::Frame()
             calibPickInvalidated = true;
             pickDirty = true;
         }
-        if (structureSelectedFace != nullptr && !stillPickable(structureSelectedFace))
+        if (!structureExcludedFaces.empty())
         {
-            structureSelectedFace = nullptr;
-            structureHoverIneligibleReason.clear();
-            pickDirty = true;
-            uiRenderer.MarkDirty();
+            size_t before = structureExcludedFaces.size();
+            for (auto it = structureExcludedFaces.begin(); it != structureExcludedFaces.end();)
+            {
+                if (!stillPickable(*it))
+                    it = structureExcludedFaces.erase(it);
+                else
+                    ++it;
+            }
+            if (structureExcludedFaces.size() != before)
+            {
+                pickDirty = true;
+                uiRenderer.MarkDirty();
+            }
         }
         if (calibPickInvalidated)
         {
@@ -2030,7 +2041,7 @@ void Display::SetHoverPick(const Face *face, const Edge *edge, bool rejected)
         if (face != nullptr || edge != nullptr)
             return;
         if (calibFacePoint1 != nullptr || calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr ||
-            calibEdgePoint2 != nullptr || structureSelectedFace != nullptr)
+            calibEdgePoint2 != nullptr || !structureExcludedFaces.empty())
             return;
         if (pickHighlightIndices.empty() && pickHighlightRejectIndices.empty() &&
             pickHighlightCalibInvalidIndices.empty())
@@ -2113,10 +2124,31 @@ void Display::RebuildPickHighlightMesh()
     if (calibFacePoint2 != nullptr && calibEdgePoint2 == nullptr)
         appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
 
-    // Structure tool: single-slot committed face pick. Same accent tint as Calibrate's face picks so
-    // the user can tell the model accepted the click.
-    if (activeTool == ActiveTool::Structure && structureSelectedFace != nullptr)
-        appendFaceTris(structureSelectedFace, 1.0f, 0.72f);
+    // Structure tool (opt-out model): every eligible face that is **not** in the exclusion set is
+    // shown with a faint accent tint so the user sees the design intent on tool entry. The hovered
+    // face is skipped here — `appendFaceTris(hoverDraw, 0.5f, 0.5f)` below paints it brighter to
+    // signal interactivity (click toggles exclusion).
+    if (activeTool == ActiveTool::Structure)
+    {
+        // Rebuild the eligibility cache lazily here: this method runs whenever pick geometry or
+        // hover state changes, which dominates the cases where the eligible set could have shifted.
+        structureEligibleFacesCache.clear();
+        for (const PickTriangle &tri : tris)
+        {
+            if (tri.face == nullptr || structureEligibleFacesCache.count(tri.face) > 0)
+                continue;
+            if (IsStructureFaceEligible(tri.face))
+                structureEligibleFacesCache.insert(tri.face);
+        }
+        for (const Face *f : structureEligibleFacesCache)
+        {
+            if (structureExcludedFaces.count(f) > 0)
+                continue;
+            if (f == hoverPickFace)
+                continue;
+            appendFaceTris(f, 0.35f, 0.45f);
+        }
+    }
 
     const std::vector<PickSegment> &segPick = renderer.GetPickSegments();
     const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
@@ -2233,8 +2265,7 @@ void Display::RebuildPickHighlightMesh()
 
     {
         const Face *hoverDraw = hoverPickFace;
-        if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2 ||
-            hoverDraw == structureSelectedFace)
+        if (hoverDraw == calibFacePoint1 || hoverDraw == calibFacePoint2)
             hoverDraw = nullptr;
         // Calibrate edge snap: show edge hover alone — face fill hides whether the hit is edge vs face.
         const bool calibrateEdgeHover =
@@ -2681,9 +2712,14 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         }
         return;
     }
-    if (structureSelectedFace == hit.face)
-        return;
-    structureSelectedFace = hit.face;
+    // Opt-out toggle: clicking an eligible face either adds it to the exclusion set (was included)
+    // or removes it from the set (was excluded). B2 will hook the cache invalidation into the same
+    // path so the bake recomputes only when the *eligible* set changes — toggling exclusion alone
+    // never invalidates per-face geometry.
+    if (structureExcludedFaces.count(hit.face) > 0)
+        structureExcludedFaces.erase(hit.face);
+    else
+        structureExcludedFaces.insert(hit.face);
     structureHoverIneligibleReason.clear();
     uiRenderer.MarkDirty();
     MarkPickDirty();
@@ -2692,9 +2728,10 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
 
 void Display::ClearStructureFacePick()
 {
-    if (structureSelectedFace == nullptr && structureHoverIneligibleReason.empty())
+    if (structureExcludedFaces.empty() && structureHoverIneligibleReason.empty())
         return;
-    structureSelectedFace = nullptr;
+    structureExcludedFaces.clear();
+    structureEligibleFacesCache.clear();
     structureHoverIneligibleReason.clear();
     uiRenderer.MarkDirty();
     MarkPickDirty();
@@ -5345,12 +5382,16 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_Import->visible = !importDone;
     if (structPara_SceneEditFooter)
         structPara_SceneEditFooter->visible = importDone;
-    if (structPara_HoverHint)
+    if (structPara_HoverHint && !structPara_HoverHint->values.empty())
     {
-        const bool showHint = importDone && !structureHoverIneligibleReason.empty();
-        structPara_HoverHint->visible = showHint;
-        if (!structPara_HoverHint->values.empty())
-            structPara_HoverHint->values[0].text = structureHoverIneligibleReason;
+        // Default instructional copy when no rejection reason is set — makes the click-to-exclude
+        // gesture discoverable on tool entry. Rejection reasons take priority when present.
+        constexpr const char *kDefaultHint =
+            "Click an eligible face to exclude it from triangulation.";
+        const bool hasReason = !structureHoverIneligibleReason.empty();
+        structPara_HoverHint->visible = importDone;
+        structPara_HoverHint->values[0].text =
+            hasReason ? structureHoverIneligibleReason : std::string(kDefaultHint);
     }
     uiRenderer.MarkDirty();
 }

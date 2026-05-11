@@ -414,9 +414,16 @@ private:
     const Edge *calibEdgePoint1 = nullptr;
     const Edge *calibEdgePoint2 = nullptr;
 
-    /// Structure tool's committed face pick (cleared on tool exit / scene change / re-import).
-    const Face *structureSelectedFace = nullptr;
-    /// Last hover ineligibility reason (drives panel message in the Structure tool).
+    /// Structure tool: opt-out exclusion set. Every eligible face is triangulated *unless* its
+    /// pointer is in this set. Cleared on tool exit / scene change / re-import.
+    std::unordered_set<const Face *> structureExcludedFaces;
+    /// Cache of eligible-face pointers for the current scene. Rebuilt lazily in
+    /// `RebuildPickHighlightMesh` when the Structure tool is active so the render loop can apply the
+    /// "included by default" tint without re-running the eligibility gate per triangle.
+    std::unordered_set<const Face *> structureEligibleFacesCache;
+    /// Last hover ineligibility reason (drives panel message in the Structure tool). Empty when the
+    /// cursor is over an eligible face or no face — the panel falls back to the default instructional
+    /// hint in that case.
     std::string structureHoverIneligibleReason;
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.

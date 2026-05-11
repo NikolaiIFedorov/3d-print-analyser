@@ -136,6 +136,29 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Deferred to B2.** CGAL straight-skeleton offset, corner-vertex tagging, strip + fillet, preview-line buffer fill. The hint copy is intentionally generic (no face id, no normal angle) until B2 has enough context to be more specific.
 
+### Phase B1.5 — opt-out UX (2026-05-11)
+
+**Why.** Single-face opt-in left the tool invisible on entry — the user had to click before anything happened. Inverted the model: every eligible face is triangulated by default; clicking *excludes* it. The user proposed this; performance scaling with model complexity is accepted (bake cost is expected, toggle cost must not be — that's a B2 cache concern).
+
+**State change.** `Display::structureSelectedFace` (single `const Face *`) → `Display::structureExcludedFaces` (`std::unordered_set<const Face *>`). Added `Display::structureEligibleFacesCache` (also a set) — rebuilt inside `RebuildPickHighlightMesh` when the Structure tool is active, so the render loop can apply the included-by-default tint without re-running the eligibility gate per triangle.
+
+**Click semantics.**
+- Eligible face → toggle membership in `structureExcludedFaces` (add if absent, remove if present).
+- Ineligible face → unchanged: refresh the hint string, no exclusion-set mutation.
+- Empty space / no hit → no-op.
+
+**Render change.** `RebuildPickHighlightMesh` now appends every face in `structureEligibleFacesCache \ structureExcludedFaces` with a faint accent (`appendFaceTris(f, 0.35f, 0.45f)`), skipping the hover face so the existing hover branch can paint it brighter (consistent interactive feedback). Removed the old `hoverDraw == structureSelectedFace` suppression — no longer relevant.
+
+**Dirty-flag gate.** The early-return at the top of `RunPickNode` now treats `activeTool == ActiveTool::Structure` as always dirty (even if no exclusion and no hover), so the included tint shows up on tool entry without waiting for a stray pick event.
+
+**Stale-face cleanup.** Replaced the single-pointer null-check with a loop that erases stale pointers from `structureExcludedFaces`. The set survives scene tab switches by accident only — the per-frame stale cleanup removes old-scene pointers as soon as the new scene's pick triangles come in. Considered explicit clearing on tab switch / post-import; deferred until it causes a visible bug.
+
+**Panel hint.** `SyncStructurePanelDerivedVisibility` now keeps the hint paragraph visible whenever the import prerequisite is satisfied, and falls back to the default instructional copy `"Click an eligible face to exclude it from triangulation."` when no rejection reason is set. Rejection reasons still take priority on ineligible hover.
+
+**Build.** `cmake --build build -- -j8` succeeded clean; `ReadLints` clean on `display.{hpp,cpp}`.
+
+**Cache caveat for B2.** `structureEligibleFacesCache` is currently rebuilt every time `RebuildPickHighlightMesh` runs (i.e. roughly per hover update). For B1.5 the cost is trivial — set inserts and a planarity check per face. For B2 the bake output **cannot** ride along with this cache: it has to be keyed by face pointer + inset value + fillet value + chord tolerance and invalidated only when those change. Toggling exclusion must never invalidate the per-face geometry; it should only flip the inclusion bit and re-emit preview lines.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
