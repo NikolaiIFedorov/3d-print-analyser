@@ -43,19 +43,19 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 135,
+				"line" : 134,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 165,
+				"line" : 172,
 				"parent" : 0
 			},
 			{
 				"command" : 5,
 				"file" : 0,
-				"line" : 154,
+				"line" : 159,
 				"parent" : 0
 			},
 			{
@@ -95,13 +95,13 @@
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 157,
+				"line" : 164,
 				"parent" : 0
 			},
 			{
 				"command" : 6,
 				"file" : 0,
-				"line" : 155,
+				"line" : 160,
 				"parent" : 0
 			},
 			{
@@ -131,19 +131,19 @@
 			{
 				"command" : 8,
 				"file" : 0,
-				"line" : 115,
+				"line" : 114,
 				"parent" : 0
 			},
 			{
 				"command" : 9,
 				"file" : 0,
-				"line" : 92,
+				"line" : 91,
 				"parent" : 0
 			},
 			{
 				"command" : 9,
 				"file" : 0,
-				"line" : 156,
+				"line" : 161,
 				"parent" : 0
 			}
 		]
@@ -185,7 +185,7 @@
 			[
 				{
 					"backtrace" : 12,
-					"define" : "CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1"
+					"define" : "CAD_USE_CGAL=1"
 				},
 				{
 					"backtrace" : 11,
@@ -331,7 +331,7 @@
 				32,
 				33,
 				34,
-				35,
+				39,
 				40,
 				41,
 				42,
@@ -356,7 +356,7 @@
 			[
 				{
 					"backtrace" : 12,
-					"define" : "CAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1"
+					"define" : "CAD_USE_CGAL=1"
 				},
 				{
 					"backtrace" : 11,
@@ -459,10 +459,10 @@
 			"language" : "C",
 			"sourceIndexes" : 
 			[
+				35,
 				36,
 				37,
-				38,
-				39
+				38
 			]
 		}
 	],
@@ -824,12 +824,6 @@
 		{
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
-			"path" : "src/logic/Structure/StructurePreview.cpp",
-			"sourceGroupIndex" : 0
-		},
-		{
-			"backtrace" : 1,
-			"compileGroupIndex" : 0,
 			"path" : "src/logic/Import/STLImport.cpp",
 			"sourceGroupIndex" : 0
 		},
@@ -933,6 +927,12 @@
 			"backtrace" : 19,
 			"compileGroupIndex" : 0,
 			"path" : "src/logic/Import/STLCgalPlanarExperiment.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 19,
+			"compileGroupIndex" : 0,
+			"path" : "src/logic/Structure/StructureTriangulation.cpp",
 			"sourceGroupIndex" : 0
 		}
 	],

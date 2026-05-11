@@ -228,6 +228,21 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Next.** B2d: read the corner-vertex tags from B2b through the inset, find candidate non-adjacent chords inside the inset polygon, choose the shortest that lies entirely inside the inset hole, emit it as a thin band of width `insetMm` unioned with the inset ring.
 
+### Phase B2c fix-up — suppress clickability UI (2026-05-12)
+
+**Why.** User feedback after eyeballing B2c: *"the UI shows if a face is clickable or not. We do not need that yet."* The opt-out model introduced in B1.5 added two clickability cues that read as noise while the algorithm is still in flux — the gray rejection-hover and the panel hint paragraph. Removing both now keeps the picture quieter; re-enabling later is a one-line visibility flip once the algorithm stabilises.
+
+**What changed.**
+- `Display::UpdatePickHover` (Structure branch): always passes `rejected = false` to `SetHoverPick`, regardless of eligibility. The render path's existing `if (hoverPickRejected) gray else gradient` then fires the gradient uniformly for any face under the cursor — no distinction visible between eligible and ineligible hovers.
+- `Display::TryCommitStructureFacePick`: ineligible click is silently ignored (was: write the reason into `structureHoverIneligibleReason` and resync the panel).
+- `Display::ClearPickHover`, `Display::ClearStructureFacePick`: drop the reason-string clear / panel-resync wiring (nothing writes to the reason now, so nothing needs to be cleared either).
+- `SyncStructurePanelDerivedVisibility`: `structPara_HoverHint->visible = false` permanently. The paragraph slot itself is kept so re-enabling is a flag flip plus restoring the body block.
+- The dormant `structureHoverIneligibleReason` field and the `structPara_HoverHint` slot stay declared — the docstrings now spell out their dormant status so a future reader doesn't think they're orphans.
+
+**Calibrate untouched.** The shared `RebuildPickHighlightMesh` path still gates the gray-reject render on Calibrate's own rejection flag; that branch only fires when `activeTool == ActiveTool::Calibrate` already, and Calibrate continues to set `hoverPickRejected` via its own hover handler. No cross-tool regression.
+
+**Build.** `cmake --build build -j` clean, no warnings. `ReadLints` clean on `display.{cpp,hpp}`.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

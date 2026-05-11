@@ -1,18 +1,16 @@
 {
 	"abstract" : true,
-	"backtrace" : 12,
+	"backtrace" : 9,
 	"backtraceGraph" : 
 	{
 		"commands" : 
 		[
 			"add_library",
 			"find_package",
-			"boost_find_component",
 			"include"
 		],
 		"files" : 
 		[
-			"/opt/homebrew/lib/cmake/boost_headers-1.90.0/boost_headers-config.cmake",
 			"/opt/homebrew/lib/cmake/Boost-1.90.0/BoostConfig.cmake",
 			"/opt/homebrew/lib/cmake/CGAL/CGAL_SetupBoost.cmake",
 			"/opt/homebrew/lib/cmake/CGAL/CGAL_SetupCGALDependencies.cmake",
@@ -22,69 +20,53 @@
 		"nodes" : 
 		[
 			{
-				"file" : 5
+				"file" : 4
 			},
 			{
 				"command" : 1,
-				"file" : 5,
-				"line" : 154,
+				"file" : 4,
+				"line" : 159,
 				"parent" : 0
 			},
 			{
-				"file" : 4,
+				"file" : 3,
 				"parent" : 1
 			},
 			{
-				"command" : 3,
-				"file" : 4,
+				"command" : 2,
+				"file" : 3,
 				"line" : 169,
 				"parent" : 2
 			},
 			{
-				"file" : 3,
+				"file" : 2,
 				"parent" : 3
 			},
 			{
-				"command" : 3,
-				"file" : 3,
+				"command" : 2,
+				"file" : 2,
 				"line" : 48,
 				"parent" : 4
 			},
 			{
-				"file" : 2,
+				"file" : 1,
 				"parent" : 5
 			},
 			{
 				"command" : 1,
-				"file" : 2,
+				"file" : 1,
 				"line" : 17,
 				"parent" : 6
 			},
 			{
-				"file" : 1,
-				"parent" : 7
-			},
-			{
-				"command" : 2,
-				"file" : 1,
-				"line" : 215,
-				"parent" : 8
-			},
-			{
-				"command" : 1,
-				"file" : 1,
-				"line" : 141,
-				"parent" : 9
-			},
-			{
 				"file" : 0,
-				"parent" : 10
+				"parent" : 7
 			},
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 28,
-				"parent" : 11
+				"line" : 277,
+				"parent" : 8
 			}
 		]
 	},
@@ -93,10 +75,10 @@
 		"major" : 2,
 		"minor" : 9
 	},
-	"id" : "Boost::headers::@6890427a1f51a3e7e1df",
+	"id" : "Boost::dynamic_linking::@6890427a1f51a3e7e1df",
 	"imported" : true,
 	"local" : true,
-	"name" : "Boost::headers",
+	"name" : "Boost::dynamic_linking",
 	"paths" : 
 	{
 		"build" : ".",

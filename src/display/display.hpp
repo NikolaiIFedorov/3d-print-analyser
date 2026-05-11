@@ -240,8 +240,10 @@ private:
     Paragraph *structPara_Import = nullptr;
     /// Cancel/Accept row; hidden until import prerequisite is complete.
     Paragraph *structPara_SceneEditFooter = nullptr;
-    /// Single-line hint shown when the cursor is over an ineligible face. Text is sourced from
-    /// `structureHoverIneligibleReason`; hidden whenever the reason string is empty.
+    /// Single-line hover hint for ineligible faces. Currently dormant — `SyncStructurePanel-
+    /// DerivedVisibility` keeps the paragraph permanently hidden so the UI no longer leaks
+    /// clickability state. The plumbing (this slot + `structureHoverIneligibleReason`) is retained
+    /// so a future phase can re-enable the hint by toggling visibility back on.
     Paragraph *structPara_HoverHint = nullptr;
 
     std::vector<std::string> openFiles;
@@ -426,9 +428,10 @@ private:
     /// `RebuildPickHighlightMesh` when the Structure tool is active so the render loop can apply the
     /// "included by default" tint without re-running the eligibility gate per triangle.
     std::unordered_set<const Face *> structureEligibleFacesCache;
-    /// Last hover ineligibility reason (drives panel message in the Structure tool). Empty when the
-    /// cursor is over an eligible face or no face — the panel falls back to the default instructional
-    /// hint in that case.
+    /// Last hover ineligibility reason. Dormant at this phase — nothing writes to it because the
+    /// clickability hint paragraph is hidden (see `structPara_HoverHint`). Kept for cheap re-
+    /// enablement later: a future `UpdatePickHover`/`TryCommitStructureFacePick` change can start
+    /// writing to it and `SyncStructurePanelDerivedVisibility` can route the string into the row.
     std::string structureHoverIneligibleReason;
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.

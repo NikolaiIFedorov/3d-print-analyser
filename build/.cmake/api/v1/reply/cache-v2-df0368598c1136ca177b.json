@@ -78,6 +78,18 @@
 			"value" : "/Users/nikolnotai/Documents/CAD_OpenGl"
 		},
 		{
+			"name" : "CAD_USE_CGAL",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Link against CGAL (required for the Structure tool's face triangulation; LGPL/GPL \u2014 see docs)"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "ON"
+		},
+		{
 			"name" : "CGAL_Boost_USE_STATIC_LIBS",
 			"properties" : 
 			[

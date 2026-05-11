@@ -1507,7 +1507,7 @@ CMakeFiles/CAD_OpenGL.dir/src/display/display.cpp.o: \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/input/Input.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibNominal.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate/CalibCompensation.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructurePreview.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Structure/StructureTriangulation.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/ProjectionDepthMode.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/ViewportDepthExperiments.hpp \

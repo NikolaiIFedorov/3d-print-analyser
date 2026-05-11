@@ -33,6 +33,10 @@ CAD_OpenGL_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 CAD_OpenGL_SOURCE_DIR:STATIC=/Users/nikolnotai/Documents/CAD_OpenGl
 
+//Link against CGAL (required for the Structure tool's face triangulation;
+// LGPL/GPL — see docs)
+CAD_USE_CGAL:BOOL=ON
+
 //Link with static Boost libraries
 CGAL_Boost_USE_STATIC_LIBS:BOOL=OFF
 

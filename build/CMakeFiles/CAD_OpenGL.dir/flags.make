@@ -3,7 +3,7 @@
 
 # compile C with /usr/bin/clang
 # compile CXX with /usr/bin/clang++
-C_DEFINES = -DCAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1 -DCGAL_USE_GMPXX=1
+C_DEFINES = -DCAD_USE_CGAL=1 -DCGAL_USE_GMPXX=1
 
 C_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/include -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry -isystem /opt/homebrew/include/freetype2 -isystem /opt/homebrew/include
 
@@ -11,7 +11,7 @@ C_FLAGSarm64 = -g -arch arm64
 
 C_FLAGS = -g -arch arm64
 
-CXX_DEFINES = -DCAD_CGAL_PLANAR_REMESH_EXPERIMENT_ENABLED=1 -DCGAL_USE_GMPXX=1
+CXX_DEFINES = -DCAD_USE_CGAL=1 -DCGAL_USE_GMPXX=1
 
 CXX_INCLUDES = -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2 -I/Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui -I/Users/nikolnotai/Documents/CAD_OpenGl/include/imgui/backends -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include -I/Users/nikolnotai/Documents/CAD_OpenGl/include/earcut.hpp-2.2.4/include/mapbox -I/Users/nikolnotai/Documents/CAD_OpenGl/include -I/Users/nikolnotai/Documents/CAD_OpenGl/src -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic -I/Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Calibrate -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/window -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/Camera -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/OpenGL -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/SceneRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ViewportRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/UIRenderer -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene -I/Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry -isystem /opt/homebrew/include/freetype2 -isystem /opt/homebrew/include
 

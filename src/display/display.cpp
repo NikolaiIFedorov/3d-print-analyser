@@ -2008,11 +2008,6 @@ void Display::ClearPickHover()
     hoverPickFace = nullptr;
     hoverPickEdge = nullptr;
     hoverPickRejected = false;
-    if (!structureHoverIneligibleReason.empty())
-    {
-        structureHoverIneligibleReason.clear();
-        SyncStructurePanelDerivedVisibility();
-    }
     MarkPickDirty();
 }
 
@@ -2492,38 +2487,25 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     const bool viewportNav = (buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT)) != 0 ||
                              (buttons & SDL_BUTTON_MASK(SDL_BUTTON_MIDDLE)) != 0;
 
-    auto clearStructureHoverReason = [this]()
-    {
-        if (structureHoverIneligibleReason.empty())
-            return;
-        structureHoverIneligibleReason.clear();
-        SyncStructurePanelDerivedVisibility();
-    };
-
     if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY) || viewportNav)
     {
         SetHoverPick(nullptr, nullptr);
-        clearStructureHoverReason();
         return;
     }
     if (GetActivePickFilter() == PickFilter::None)
     {
         SetHoverPick(nullptr, nullptr);
-        clearStructureHoverReason();
         return;
     }
 
     if (activeTool == ActiveTool::Structure)
     {
         const StructurePickHit shit = PickStructureAtPixel(pixelX, pixelY);
-        // Structure tool does not use edge hover; pass `nullptr` for edge slot so the existing highlight
-        // path falls through to the face-fill branch (gradient when eligible, gray when rejected).
-        SetHoverPick(shit.face, nullptr, !shit.eligible && shit.face != nullptr);
-        if (structureHoverIneligibleReason != shit.ineligibleReason)
-        {
-            structureHoverIneligibleReason = shit.ineligibleReason;
-            SyncStructurePanelDerivedVisibility();
-        }
+        // Clickability feedback is deliberately suppressed at this stage: every hovered face,
+        // eligible or not, just gets the standard "you're pointing at this" gradient. Click
+        // commits only fire on eligible faces (gate inside `TryCommitStructureFacePick`), so the
+        // distinction lives at click-time, not in the hover render.
+        SetHoverPick(shit.face, nullptr, false);
         return;
     }
 
@@ -2710,12 +2692,7 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         return;
     if (!hit.eligible)
     {
-        // Refresh the ineligibility reason so the panel reflects the click rather than the previous hover.
-        if (structureHoverIneligibleReason != hit.ineligibleReason)
-        {
-            structureHoverIneligibleReason = hit.ineligibleReason;
-            SyncStructurePanelDerivedVisibility();
-        }
+        // Clickability feedback is suppressed at this stage; silently ignore ineligible clicks.
         return;
     }
     // Opt-out toggle: clicking an eligible face either adds it to the exclusion set (was included)
@@ -2726,7 +2703,6 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         structureExcludedFaces.erase(hit.face);
     else
         structureExcludedFaces.insert(hit.face);
-    structureHoverIneligibleReason.clear();
     uiRenderer.MarkDirty();
     MarkPickDirty();
     RefreshStructurePreviewForRenderer();
@@ -2734,11 +2710,10 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
 
 void Display::ClearStructureFacePick()
 {
-    if (structureExcludedFaces.empty() && structureHoverIneligibleReason.empty())
+    if (structureExcludedFaces.empty())
         return;
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
-    structureHoverIneligibleReason.clear();
     uiRenderer.MarkDirty();
     MarkPickDirty();
 }
@@ -5337,9 +5312,9 @@ void Display::InitUI()
             }
         }
 
-        // Single-line hover hint shown only when an ineligible face is under the cursor or was just
-        // clicked. The text is filled by `SyncStructurePanelDerivedVisibility` from
-        // `structureHoverIneligibleReason`; B1 keeps this row invisible by default.
+        // Hover-hint paragraph is allocated but kept permanently hidden by
+        // `SyncStructurePanelDerivedVisibility` at this phase. We keep the slot so re-enabling the
+        // clickability feedback later is a one-line visibility flip rather than an ImGui rebuild.
         structPara_HoverHint = &uiStructure->AddParagraph("StructHoverHint");
         structPara_HoverHint->visible = false;
         structPara_HoverHint->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
@@ -5405,16 +5380,12 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_Import->visible = !importDone;
     if (structPara_SceneEditFooter)
         structPara_SceneEditFooter->visible = importDone;
-    if (structPara_HoverHint && !structPara_HoverHint->values.empty())
+    if (structPara_HoverHint)
     {
-        // Default instructional copy when no rejection reason is set — makes the click-to-exclude
-        // gesture discoverable on tool entry. Rejection reasons take priority when present.
-        constexpr const char *kDefaultHint =
-            "Click an eligible face to exclude it from triangulation.";
-        const bool hasReason = !structureHoverIneligibleReason.empty();
-        structPara_HoverHint->visible = importDone;
-        structPara_HoverHint->values[0].text =
-            hasReason ? structureHoverIneligibleReason : std::string(kDefaultHint);
+        // Clickability hint deliberately suppressed at this stage — the algorithm is still in flux
+        // and the per-face eligibility feedback is more noise than signal. Leaving the paragraph
+        // and its plumbing in place so we can re-enable it later by flipping one line.
+        structPara_HoverHint->visible = false;
     }
     uiRenderer.MarkDirty();
 }

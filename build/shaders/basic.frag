@@ -11,6 +11,8 @@ uniform float uLightingEnabled;
 uniform float uGridPlaneFade;
 uniform float uGridOpacity;
 uniform float uAlpha;
+// Structure tool: translucent shell pass only — back faces fully opaque, front faces use uAlpha.
+uniform float uStructureShellBackFaceOpaque;
 
 void main()
 {
@@ -23,7 +25,10 @@ void main()
             outColor = vec4(c, uGridOpacity);
             return;
         }
-        outColor = vec4(c, uAlpha);
+        float a = uAlpha;
+        if (uStructureShellBackFaceOpaque > 0.5)
+            a = gl_FrontFacing ? uAlpha : 1.0;
+        outColor = vec4(c, a);
         return;
     }
 
@@ -35,5 +40,8 @@ void main()
     float diff = max(0.0, dot(N, L));
     float lighting = 1.0 + uBrightenAmount * diff;
 
-    outColor = vec4(min(fragColor * lighting, vec3(1.0)), uAlpha);
+    float a = uAlpha;
+    if (uStructureShellBackFaceOpaque > 0.5)
+        a = gl_FrontFacing ? uAlpha : 1.0;
+    outColor = vec4(min(fragColor * lighting, vec3(1.0)), a);
 }

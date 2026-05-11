@@ -1150,29 +1150,29 @@ src/logic/Import/ThreeMFImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s
 .PHONY : src/logic/Import/ThreeMFImport.cpp.s
 
-src/logic/Structure/StructurePreview.o: src/logic/Structure/StructurePreview.cpp.o
-.PHONY : src/logic/Structure/StructurePreview.o
+src/logic/Structure/StructureTriangulation.o: src/logic/Structure/StructureTriangulation.cpp.o
+.PHONY : src/logic/Structure/StructureTriangulation.o
 
 # target to build an object file
-src/logic/Structure/StructurePreview.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.o
-.PHONY : src/logic/Structure/StructurePreview.cpp.o
+src/logic/Structure/StructureTriangulation.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.o
+.PHONY : src/logic/Structure/StructureTriangulation.cpp.o
 
-src/logic/Structure/StructurePreview.i: src/logic/Structure/StructurePreview.cpp.i
-.PHONY : src/logic/Structure/StructurePreview.i
+src/logic/Structure/StructureTriangulation.i: src/logic/Structure/StructureTriangulation.cpp.i
+.PHONY : src/logic/Structure/StructureTriangulation.i
 
 # target to preprocess a source file
-src/logic/Structure/StructurePreview.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.i
-.PHONY : src/logic/Structure/StructurePreview.cpp.i
+src/logic/Structure/StructureTriangulation.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.i
+.PHONY : src/logic/Structure/StructureTriangulation.cpp.i
 
-src/logic/Structure/StructurePreview.s: src/logic/Structure/StructurePreview.cpp.s
-.PHONY : src/logic/Structure/StructurePreview.s
+src/logic/Structure/StructureTriangulation.s: src/logic/Structure/StructureTriangulation.cpp.s
+.PHONY : src/logic/Structure/StructureTriangulation.s
 
 # target to generate assembly for a file
-src/logic/Structure/StructurePreview.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructurePreview.cpp.s
-.PHONY : src/logic/Structure/StructurePreview.cpp.s
+src/logic/Structure/StructureTriangulation.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.s
+.PHONY : src/logic/Structure/StructureTriangulation.cpp.s
 
 src/main.o: src/main.cpp.o
 .PHONY : src/main.o
@@ -1526,9 +1526,9 @@ help:
 	@echo "... src/logic/Import/ThreeMFImport.o"
 	@echo "... src/logic/Import/ThreeMFImport.i"
 	@echo "... src/logic/Import/ThreeMFImport.s"
-	@echo "... src/logic/Structure/StructurePreview.o"
-	@echo "... src/logic/Structure/StructurePreview.i"
-	@echo "... src/logic/Structure/StructurePreview.s"
+	@echo "... src/logic/Structure/StructureTriangulation.o"
+	@echo "... src/logic/Structure/StructureTriangulation.i"
+	@echo "... src/logic/Structure/StructureTriangulation.s"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
