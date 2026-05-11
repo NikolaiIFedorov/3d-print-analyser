@@ -275,6 +275,32 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Next.** B2e: round the inset polygon's corners by a fillet of radius `params.insetMm`. The standard double-offset trick (offset outward by `r`, then back inward by `r`) gives a `r`-rounded polygon for free from the same straight-skeleton machinery. Apply only to the inset ring's corners; the strip band stays sharp.
 
+### Phase B2e — inset-ring corner fillets (2026-05-12)
+
+**What landed.**
+- `ArcSegmentCount(sweepRad, radius, chordTolMm)`: chord-tolerant arc segment count. Uses the sagitta identity `deviation = radius * (1 - cos(α/2))` to derive `α_max` from `chordTolMm`, then floors at 2 segments so even tiny arcs don't degenerate to a line. Clamps the `acos` argument so radii barely larger than tolerance don't blow up at the domain boundary.
+- `FilletPolygonCorners(ring, radius, chordTolMm)`: rounds every convex corner of a CCW 2D ring by `radius`, leaves reflex / collinear / can't-fit corners alone, and returns a fresh polyline. At each convex corner:
+  - Interior angle θ from `atan2(cross, dot)` of the unit edge directions.
+  - Tangent distance `d = r / tan(θ/2)` along each edge. Skip when `d ≥ 0.5 * edgeLen` on either side — this is the "no room without overlapping the neighbour's fillet" guard.
+  - Arc center `r / sin(θ/2)` along the inward bisector `normalize(-inDir + outDir)`.
+  - Arc sweep from `fStart` to `fEnd` in CCW direction, sampled via `ArcSegmentCount`.
+- Empirical for B2c's 26 mm inset square + `radius=2`, `chordTol=0.1`: each 90° corner gets 3 segments, ~30° per segment, chord deviation ≈ 0.068 mm — comfortably inside tolerance.
+- The helper lives **outside** the `CAD_USE_CGAL` guard since it's pure 2D geometry. The strip-fillet (eventual cleanup) and any future non-CGAL inset path can call it directly.
+
+**Pipeline shape.** `BuildFaceTriangulationPreview` now caches the offset polygon's 2D vertices once (`off2D`) and uses them twice: once for the fillet → ring emission, once for the chord selector (sharp-corner anchors). The chord stays anchored to the *original* CGAL offset vertices because spec says "strip between the corners of the inset face" — anchoring to the fillet-shifted tangent points would walk the strip inwards and lose the corner relationship. The strip-cap-vs-fillet-arc overlap is the same protrusion artefact carried over from B2d, scheduled to clean up in the eventual 2D union pass.
+
+**Why arc sampling instead of CGAL double-offset.** The double-offset trick (`offset outward by r, then back inward by r`) on a CGAL straight skeleton produces *chamfered* corners — every original sharp corner gets replaced by a single line cut, not an arc. True fillets need either CGAL's `Polygon_offset_2` / Minkowski-sum-with-disc (different package, different kernel) or polyline approximation. Polyline approximation is cheap, dependency-free, gives us control over the chord-vs-segment trade-off, and reuses the same `chordTolMm` already exposed to the panel slider work in B2f — so we went that way for the preview.
+
+**Visible result on a 30 mm cube test model.** Top face: 30 mm outer outline (sharp corners), 26 mm inset outline **with rounded corners**, 2 mm strip rectangle along the (0, 2) diagonal of the inset square. The fillet radius (2 mm) is small relative to the inset's 26 mm edge, so the rounding reads as a subtle inward bump at each corner rather than a dramatic curve. Scaling `insetMm` up via B2f will make the fillet more prominent.
+
+**Build.** `cmake --build build -j` clean, only `StructureTriangulation.cpp.o` rebuilt. `ReadLints` clean on the module.
+
+**Known limits carried into B2f.**
+- Strip-end-cap protrusion past the now-rounded inset corner is the same as B2d's, but slightly more visible because the corner is curved. The 2D union pass is the right fix; not in B2f's scope.
+- The fillet ignores the strip — both strip-anchored corners get rounded just like the others. In the final carve, the corner-strip-fillet interaction needs a small custom shape (strip blends into the fillet rather than poking through). Logged for the 2D union pass.
+
+**Next.** B2f: hook a `Slider("Inset (mm)", 0.2 .. 4.0)` into the Structure tool panel that drives `structureInsetMm`, route drag changes through `StructureTriangulation::InvalidateBakeCacheForParams`, and confirm slider drag latency stays interactive on the cube test (8 line segments × 1 face is trivial; will benchmark on a larger model when one shows up).
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

@@ -22,9 +22,9 @@
 // See documentation/implementations/structure_face_triangulation_2026-05-11.md for phase notes.
 // B2a: CMake flag rename, module scaffold, cache key. B2b: adaptive polyline of the face's outer
 // loop with corner-vertex tags, orthonormal 2D frame for the face plane. B2c: CGAL straight-
-// skeleton inset on top of the 2D polygon. B2d (current): corner-pair chord selection + strip-
-// band emission across the inset polygon. B2e: fillet inset ring corners. B2f: panel slider +
-// cache invalidation on drag.
+// skeleton inset on top of the 2D polygon. B2d: corner-pair chord selection + strip-band
+// emission across the inset polygon. B2e (current): fillet inset ring corners at radius
+// `insetMm` (chord-tolerant arc sampling). B2f: panel slider + cache invalidation on drag.
 
 namespace StructureTriangulation
 {
@@ -92,6 +92,112 @@ void AppendRingAsSegments(const std::vector<glm::dvec3> &ring, SegmentList &out)
     for (std::size_t i = 0; i + 1 < ring.size(); ++i)
         out.emplace_back(glm::vec3(ring[i]), glm::vec3(ring[i + 1]));
     out.emplace_back(glm::vec3(ring.back()), glm::vec3(ring.front()));
+}
+
+// Picks the segment count for an arc of `radius` sweeping `sweepRad`, sized so chord deviation
+// stays at or under `chordTolMm`. Standard sagitta formula: `deviation = radius * (1 - cos(α/2))`
+// where `α` is the per-segment angle. Floors at 2 segments so even tiny arcs don't degenerate to
+// a single straight line; clamps the acos argument so radii barely larger than the tolerance
+// don't blow up at the boundary.
+int ArcSegmentCount(double sweepRad, double radius, double chordTolMm)
+{
+    if (radius <= 0.0)
+        return 2;
+    const double ratio = std::clamp(1.0 - chordTolMm / radius, -1.0, 1.0);
+    const double alphaMax = 2.0 * std::acos(ratio);
+    if (alphaMax <= 1e-9)
+        return 2;
+    return std::max(2, static_cast<int>(std::ceil(std::abs(sweepRad) / alphaMax)));
+}
+
+// Returns a new closed polyline ring with each convex corner of `ring` replaced by an arc-sampled
+// fillet of radius `radius`. Reflex corners (interior angle ≥ 180°) and corners where the fillet
+// would consume more than half of either adjacent edge length are passed through unchanged — the
+// goal is "round corners where it fits, leave them alone where it doesn't" rather than to insist
+// on a fillet everywhere. Operates in 2D so callers can unproject the result through any frame.
+//
+// Assumes `ring` is CCW (matches the post-`reverse_orientation` straight-skeleton output). For a
+// CCW convex corner the inward bisector is `normalize(-inDir + outDir)`, the fillet center is at
+// `radius / sin(θ/2)` along that bisector, and the arc sweeps CCW from the incoming-edge tangent
+// to the outgoing-edge tangent.
+std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring, double radius,
+                                             double chordTolMm)
+{
+    const int n = static_cast<int>(ring.size());
+    if (n < 3 || radius <= 0.0)
+        return ring;
+
+    std::vector<glm::dvec2> out;
+    out.reserve(static_cast<std::size_t>(n) * 6);
+
+    for (int i = 0; i < n; ++i)
+    {
+        const glm::dvec2 &V = ring[i];
+        const glm::dvec2 &prev = ring[(i + n - 1) % n];
+        const glm::dvec2 &next = ring[(i + 1) % n];
+
+        const glm::dvec2 inEdge = V - prev;
+        const glm::dvec2 outEdge = next - V;
+        const double inLen = glm::length(inEdge);
+        const double outLen = glm::length(outEdge);
+        if (inLen < 1e-12 || outLen < 1e-12)
+        {
+            out.push_back(V);
+            continue;
+        }
+        const glm::dvec2 inDir = inEdge / inLen;
+        const glm::dvec2 outDir = outEdge / outLen;
+        const double cross = inDir.x * outDir.y - inDir.y * outDir.x;
+        // CCW polygon: positive cross at a convex corner. Treat near-zero (collinear) as "no
+        // corner to round" so we don't try to evaluate `tan(π/2)`.
+        if (cross <= 1e-9)
+        {
+            out.push_back(V);
+            continue;
+        }
+        const double dot = inDir.x * outDir.x + inDir.y * outDir.y;
+        const double turn = std::atan2(cross, dot);
+        const double theta = M_PI - turn;
+        const double halfTheta = 0.5 * theta;
+        const double tanHalf = std::tan(halfTheta);
+        const double sinHalf = std::sin(halfTheta);
+        if (tanHalf < 1e-9 || sinHalf < 1e-9)
+        {
+            out.push_back(V);
+            continue;
+        }
+        const double d = radius / tanHalf;
+        if (d >= 0.5 * inLen || d >= 0.5 * outLen)
+        {
+            // Fillet doesn't fit without overlapping the adjacent corner's fillet on the same edge.
+            out.push_back(V);
+            continue;
+        }
+        const glm::dvec2 fStart = V - inDir * d;
+        const glm::dvec2 fEnd = V + outDir * d;
+        const glm::dvec2 bisDir = glm::normalize(-inDir + outDir);
+        const glm::dvec2 center = V + bisDir * (radius / sinHalf);
+
+        const glm::dvec2 startVec = fStart - center;
+        const glm::dvec2 endVec = fEnd - center;
+        const double startAngle = std::atan2(startVec.y, startVec.x);
+        const double endAngle = std::atan2(endVec.y, endVec.x);
+        double sweep = endAngle - startAngle;
+        if (sweep < 0.0)
+            sweep += 2.0 * M_PI;
+        const int nSeg = ArcSegmentCount(sweep, radius, chordTolMm);
+
+        out.push_back(fStart);
+        for (int k = 1; k < nSeg; ++k)
+        {
+            const double t = static_cast<double>(k) / static_cast<double>(nSeg);
+            const double a = startAngle + t * sweep;
+            out.emplace_back(center.x + radius * std::cos(a),
+                             center.y + radius * std::sin(a));
+        }
+        out.push_back(fEnd);
+    }
+    return out;
 }
 
 #if defined(CAD_USE_CGAL)
@@ -429,18 +535,35 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
         const int polyVertexCount = static_cast<int>(projected->polygon.size());
         for (const SkeletonPolygon &off : offsets)
         {
-            std::vector<glm::dvec3> ring;
-            ring.reserve(off.size());
+            // Cache the offset polygon's 2D vertices once: the chord/strip step indexes them by
+            // CCW position (using sharp-corner anchors), and the fillet step folds them into a
+            // rounded-corner polyline. Two passes over the same data, no re-iteration of CGAL.
+            std::vector<glm::dvec2> off2D;
+            off2D.reserve(off.size());
             for (auto it = off.vertices_begin(); it != off.vertices_end(); ++it)
-                ring.push_back(Unproject(glm::dvec2(CGAL::to_double(it->x()),
-                                                    CGAL::to_double(it->y())),
-                                          frame));
-            AppendRingAsSegments(ring, segments);
+                off2D.emplace_back(CGAL::to_double(it->x()), CGAL::to_double(it->y()));
+
+            // B2e: fillet every convex corner of the inset polygon at `insetMm` radius. Reflex
+            // corners and corners where the fillet can't fit pass through unchanged.
+            const std::vector<glm::dvec2> filleted2D =
+                FilletPolygonCorners(off2D, params.insetMm, params.chordTolMm);
+            std::vector<glm::dvec3> ring3D;
+            ring3D.reserve(filleted2D.size());
+            for (const glm::dvec2 &p : filleted2D)
+                ring3D.push_back(Unproject(p, frame));
+            AppendRingAsSegments(ring3D, segments);
+
             // B2d strip emission. Vertex-count match implies the straight skeleton preserved every
             // original polygon vertex (true for convex inputs at the inset distances we expect).
             // Non-matching count (collapsed reflex vertices on concave faces, or distance-induced
             // smoothing) leaves the corner labels unaligned with offset vertices, so we skip the
             // strip rather than emit a mis-anchored chord. Concave handling lives in a later phase.
+            //
+            // Strip endpoints stay anchored to the *original* sharp corners (off, not filleted2D)
+            // because the strip is meant to "connect the corners of the inset face" per spec —
+            // anchoring to the fillet-shifted edge points would move the strip inwards and break
+            // the visual relationship between corner and chord. The eventual 2D union pass cleans
+            // up the overlap between the strip cap and the now-rounded inset corner.
             if (static_cast<int>(off.size()) != polyVertexCount)
                 continue;
             if (auto chord = SelectFirstValidStripChord(off, cornerPolyIndices))
