@@ -2132,6 +2132,7 @@ void Display::RebuildPickHighlightMesh()
     {
         // Rebuild the eligibility cache lazily here: this method runs whenever pick geometry or
         // hover state changes, which dominates the cases where the eligible set could have shifted.
+        const std::unordered_set<const Face *> previousEligible = structureEligibleFacesCache;
         structureEligibleFacesCache.clear();
         for (const PickTriangle &tri : tris)
         {
@@ -2148,6 +2149,11 @@ void Display::RebuildPickHighlightMesh()
                 continue;
             appendFaceTris(f, 0.35f, 0.45f);
         }
+        // Only re-emit the triangulation preview lines when the eligible set actually shifted —
+        // hover-only updates don't change which faces feed `BuildFaceTriangulationPreview`, so
+        // skipping in that case avoids per-frame GPU re-uploads of the preview mesh.
+        if (previousEligible != structureEligibleFacesCache)
+            RefreshStructurePreviewForRenderer();
     }
 
     const std::vector<PickSegment> &segPick = renderer.GetPickSegments();

@@ -178,6 +178,28 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Next.** B2b: walk the selected face's outer loop, polyline NURBS / arc edges adaptively against `chordTolMm`, project to the face's plane (so slanted faces work), build a CGAL `Polygon_2`, and emit the projected outer loop as preview lines. That's the first visible result — a coloured outline tracing each included face. Corner-vertex tagging starts here so B2c's offset can carry the labels through.
 
+### Phase B2b — adaptive polyline + orthonormal frame (2026-05-11)
+
+**What landed.**
+- `StructureTriangulation::SubdivideCurve`: recursive adaptive subdivision against `chordTolMm`. Bounded by a hard depth cap (`kMaxSubdivideDepth = 12` → ≤ 4096 samples per edge). Each level evaluates the midpoint and bails when the curve-midpoint deviates from the chord midpoint by ≤ tolerance.
+- `StructureTriangulation::BuildPolylinedOuterLoop`: walks the face's outer loop, polylining each `OrientedEdge`. Returns vertices + a parallel `isCorner` boolean vector. Edge starts are `true`; polyline-introduced midpoints are `false`. **Corner = topological B-rep vertex**, exactly as the spec locks it.
+- **Reversed-edge handling.** `ArcCurve::Evaluate` honours caller-supplied start/end as a swap signal; `NurbsCurve::Evaluate` ignores them (it's parameterised by the underlying nurbs data). The polyliner sidesteps the inconsistency by always sampling in the canonical (underlying-edge) direction and reversing the mid-sample list when `OrientedEdge::reversed`. The walker still pushes `OrientedEdge::GetStartPosition()` for the corner anchor, so the output is start-inclusive / end-exclusive in oriented order.
+- `StructureTriangulation::FaceFrame` + `BuildFaceFrame`: orthonormal 2D frame `(origin, u, v, n)` anchored on a planar face. `n` from `Surface::GetNormal`; `u` from the cross product of `n` with the world axis least aligned with it (so the cross product is stable). `v = n × u`. `Project` / `Unproject` are tagged `[[maybe_unused]]` until B2c calls them — they live in the same TU because the frame's correctness depends on the same vector arithmetic; declared but not used is the right shape until B2c lands.
+
+**Visible output.** `BuildFaceTriangulationPreview` now returns the polylined outer loop as consecutive 3D line segments (start-inclusive, end-exclusive, closed back to the first vertex). For a cube the result overlays the existing wireframe (no visual change — but the data path is alive and the GPU upload is exercised). For a model with arc or NURBS edges, the preview will show extra samples between B-rep vertices. The lines render via the existing `SceneRenderer::SetStructurePreviewSegments` → `CommitStructurePreviewLinesToGpu` pipeline.
+
+**Out-of-band GPU upload.** `SceneRenderer::SetStructurePreviewSegments` now calls `CommitStructurePreviewLinesToGpu` on every set, not only on the scene-rebuild boundaries. Hover toggles, slider drags, and eligibility-set shifts arrive without piggybacking on a full mesh rebuild — important because B2b–f bakes fire on demand, not on scene reload. The other commit sites (`RebuildAll`, `RebuildScope`, `UploadMainMesh`) remain so the legacy scene-driven path still works.
+
+**Preview refresh guard.** `RebuildPickHighlightMesh` now snapshots `structureEligibleFacesCache` before rebuilding it and only calls `RefreshStructurePreviewForRenderer` when the set actually shifted. Hover-only updates don't reshuffle the eligibility membership, so the GPU re-upload is skipped on those — important for the per-frame motion path.
+
+**Build.** `cmake --build build -- -j8` clean; `ReadLints` clean on the three modified TUs.
+
+**Slanted faces (note).** `BuildPolylinedOuterLoop` returns 3D points in world space; emitting consecutive pairs as preview lines naturally sits on the face's actual plane regardless of tilt. The frame's `n` is also taken directly from `Surface::GetNormal`, so slanted top faces inherit the right plane without any axis assumption.
+
+**ArcCurve XY caveat.** `ArcCurve::Evaluate` constructs points as `center + (radius·cos θ, radius·sin θ, 0)`, which only describes arcs lying in a constant-Z plane. Arcs in a slanted plane will produce mis-placed samples. Not fixed here — out of scope for B2b — but logged so a model with a slanted face that has arc edges is a known limitation for the current importer's arc data. NURBS arcs go through `tinynurbs::curvePoint` and are not affected.
+
+**Next.** B2c: project the polylined loop through the `FaceFrame` into 2D, build a CGAL `Polygon_2`, call `CGAL::create_interior_straight_skeleton_2` + offset polygons at `params.insetMm`, unproject the inset ring back to 3D, emit both the outer ring and the inset ring as preview lines. First visible distinct geometry.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

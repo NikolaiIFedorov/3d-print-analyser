@@ -54,6 +54,10 @@ static void AppendPreviewLineSegments(const std::vector<std::pair<glm::vec3, glm
 void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
 {
     structurePreviewSegments = std::move(segments);
+    // Push immediately so out-of-band updates (hover toggle, slider drag, eligibility recalc) make
+    // it to the GPU without waiting for a scene rebuild. The other commit sites (in `RebuildAll`,
+    // `RebuildScope`, `UploadMainMesh`) still cover scene-geometry-driven uploads.
+    CommitStructurePreviewLinesToGpu();
 }
 
 void SceneRenderer::SetStructureViewTranslucentSolid(bool enable, float alpha01)
