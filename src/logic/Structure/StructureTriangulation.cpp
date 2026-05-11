@@ -155,15 +155,15 @@ int ArcSegmentCount(double sweepRad, double radius, double chordTolMm)
 }
 
 // Returns a new closed polyline ring with each convex corner of `ring` replaced by an arc-sampled
-// fillet of radius `radius`. Reflex corners (interior angle ≥ 180°) and corners where the fillet
-// would consume more than half of either adjacent edge length are passed through unchanged — the
-// goal is "round corners where it fits, leave them alone where it doesn't" rather than to insist
-// on a fillet everywhere. Operates in 2D so callers can unproject the result through any frame.
+// fillet. Target radius is `radius` (e.g. inset mm); at each corner the effective radius is
+// **clamped** so the tangent run stays strictly inside both adjacent edges — short edges on
+// carved polygons (strip caps, narrow triangles) still get the largest fillet that fits instead
+// of reverting to a sharp corner.
 //
-// Assumes `ring` is CCW (matches the post-`reverse_orientation` straight-skeleton output). For a
-// CCW convex corner the inward bisector is `normalize(-inDir + outDir)`, the fillet center is at
-// `radius / sin(θ/2)` along that bisector, and the arc sweeps CCW from the incoming-edge tangent
-// to the outgoing-edge tangent.
+// Reflex corners (interior angle ≥ 180°) and near-collinear vertices are left sharp. If the ring
+// is clockwise in 2D, it is reversed first so the CCW convex test matches the geometry.
+//
+// Assumes sensible CCW input for counter-clockwise rings; CW rings are reversed automatically.
 std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring, double radius,
                                              double chordTolMm)
 {
@@ -171,14 +171,24 @@ std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring
     if (n < 3 || radius <= 0.0)
         return ring;
 
+    std::vector<glm::dvec2> poly = ring;
+    double area2 = 0.0;
+    for (int i = 0; i < n; ++i)
+    {
+        const int j = (i + 1) % n;
+        area2 += poly[i].x * poly[j].y - poly[j].x * poly[i].y;
+    }
+    if (area2 < 0.0)
+        std::reverse(poly.begin(), poly.end());
+
     std::vector<glm::dvec2> out;
     out.reserve(static_cast<std::size_t>(n) * 6);
 
     for (int i = 0; i < n; ++i)
     {
-        const glm::dvec2 &V = ring[i];
-        const glm::dvec2 &prev = ring[(i + n - 1) % n];
-        const glm::dvec2 &next = ring[(i + 1) % n];
+        const glm::dvec2 &V = poly[i];
+        const glm::dvec2 &prev = poly[(i + n - 1) % n];
+        const glm::dvec2 &next = poly[(i + 1) % n];
 
         const glm::dvec2 inEdge = V - prev;
         const glm::dvec2 outEdge = next - V;
@@ -210,17 +220,21 @@ std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring
             out.push_back(V);
             continue;
         }
-        const double d = radius / tanHalf;
-        if (d >= 0.5 * inLen || d >= 0.5 * outLen)
+        // Tangent distance along each edge from V to arc tangency: d = r / tan(θ/2). Require
+        // d < ½ edge on both sides. Largest admissible r is ½·min(inLen,outLen)·tan(θ/2).
+        constexpr double kEdgeMargin = 0.499;
+        const double rMax = kEdgeMargin * std::min(inLen, outLen) * tanHalf;
+        const double rCorner = std::min(radius, rMax);
+        if (rCorner < 1e-9)
         {
-            // Fillet doesn't fit without overlapping the adjacent corner's fillet on the same edge.
             out.push_back(V);
             continue;
         }
+        const double d = rCorner / tanHalf;
         const glm::dvec2 fStart = V - inDir * d;
         const glm::dvec2 fEnd = V + outDir * d;
         const glm::dvec2 bisDir = glm::normalize(-inDir + outDir);
-        const glm::dvec2 center = V + bisDir * (radius / sinHalf);
+        const glm::dvec2 center = V + bisDir * (rCorner / sinHalf);
 
         const glm::dvec2 startVec = fStart - center;
         const glm::dvec2 endVec = fEnd - center;
@@ -229,7 +243,7 @@ std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring
         double sweep = endAngle - startAngle;
         if (sweep < 0.0)
             sweep += 2.0 * M_PI;
-        int nSeg = ArcSegmentCount(sweep, radius, chordTolMm);
+        int nSeg = ArcSegmentCount(sweep, rCorner, chordTolMm);
         // Visual-smoothness floor: keep the per-segment angle at most ~11.25° regardless of how
         // generous the chord tolerance is. Sagitta-based tolerance alone isn't enough at small
         // radii (a 2 mm fillet at 0.1 mm tolerance would produce only 3 segments per quarter-arc
@@ -243,8 +257,8 @@ std::vector<glm::dvec2> FilletPolygonCorners(const std::vector<glm::dvec2> &ring
         {
             const double t = static_cast<double>(k) / static_cast<double>(nSeg);
             const double a = startAngle + t * sweep;
-            out.emplace_back(center.x + radius * std::cos(a),
-                             center.y + radius * std::sin(a));
+            out.emplace_back(center.x + rCorner * std::cos(a),
+                             center.y + rCorner * std::sin(a));
         }
         out.push_back(fEnd);
     }

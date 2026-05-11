@@ -383,6 +383,14 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Change.** When `BuildProjectedPolygon` succeeds, emit the outer boundary from the **CCW** projected ring: `FilletPolygonCorners` with `params.insetMm` and `params.chordTolMm`, then `EmitRing2D` — same 1:1 inset radius as inner geometry. On projection failure or `CAD_USE_CGAL` off, keep sharp `AppendRingAsSegments(outline.points)`.
 
+### Fillet — clamp radius on short edges (carved triangles) (2026-05-12)
+
+**Symptom.** Outer face filleted correctly; inner carve boundaries stayed sharp at strip–inset junctions (short edges).
+
+**Cause.** `FilletPolygonCorners` used full `insetMm` with `d = r/tan(θ/2)` and **skipped** the fillet when `d ≥ ½` of either adjacent edge. Carved pieces have short cap edges, so full inset radius never “fit”.
+
+**Fix.** Per convex corner use `rCorner = min(radius, 0.499·min(inLen,outLen)·tan(θ/2))` so the arc is the **largest fillet that fits** on that corner (still capped by requested `insetMm` on long edges). Reverse the ring first if signed area is CW so the convex test is consistent.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
