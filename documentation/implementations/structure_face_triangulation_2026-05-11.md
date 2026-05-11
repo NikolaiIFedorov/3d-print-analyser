@@ -200,6 +200,34 @@ Phased; v1 stops at preview (no boolean), v2 adds the carve.
 
 **Next.** B2c: project the polylined loop through the `FaceFrame` into 2D, build a CGAL `Polygon_2`, call `CGAL::create_interior_straight_skeleton_2` + offset polygons at `params.insetMm`, unproject the inset ring back to 3D, emit both the outer ring and the inset ring as preview lines. First visible distinct geometry.
 
+### Phase B2c — CGAL straight-skeleton inset (2026-05-11)
+
+**What landed.**
+- Includes: `<CGAL/Exact_predicates_inexact_constructions_kernel.h>`, `<CGAL/Polygon_2.h>`, `<CGAL/create_offset_polygons_2.h>`. Same kernel choice as the existing `STLCgalPlanarExperiment` consumer for consistency.
+- Typedefs: `SkeletonKernel`, `SkeletonPoint`, `SkeletonPolygon`. Scoped inside the anonymous namespace and guarded by `CAD_USE_CGAL` so a flag-off build still compiles.
+- `BuildProjectedPolygon(points3d, frame)`: projects each polylined 3D vertex through the orthonormal frame, fills a `CGAL::Polygon_2`, sanity-checks `size >= 3` and `is_simple()`, fixes orientation to CCW via `reverse_orientation` when `is_clockwise_oriented` (CGAL's offset routine requires CCW outer). Returns `std::nullopt` on degenerate input.
+- `ComputeOffsetPolygons(polygon, insetMm)`: wraps `CGAL::create_interior_skeleton_and_offset_polygons_2` and copies each produced polygon out of the `boost::shared_ptr` wrapper so the rest of the module keeps a vanilla `std::vector<SkeletonPolygon>` surface.
+- `AppendRingAsSegments(ring, out)`: utility that fans a closed 3D ring into consecutive line-segment pairs (including the closing segment back to vertex 0). Used for both the outer loop and the inset rings.
+
+**Bake function shape.** `BuildFaceTriangulationPreview` now:
+1. Polylines the outer loop (B2b).
+2. Builds the face frame anchored at the first polyline vertex.
+3. Always emits the outer ring as preview segments — visible even when the inset call fails (degenerate polygon, inset ≥ in-radius, CGAL flag off).
+4. Under `CAD_USE_CGAL`, projects to 2D, builds the polygon, runs the offset routine inside a `try / catch (...)` (CGAL's offset can throw on collinear-edge inputs that still pass `is_simple()`; we swallow into the "outer ring only" branch rather than crash the tool), unprojects every produced offset polygon back to 3D, and emits each as a closed ring.
+
+**Concave faces, multi-island inset.** When the offset distance exceeds an internal pinch in the polygon, CGAL returns multiple disconnected offset polygons. All of them are emitted, so a dumbbell-shaped face shows two inset islands.
+
+**Visible result on a 30 mm cube test model.** Top face (only eligible face) shows: faint accent tint, outer ring tracing the 30 mm boundary, and a 26 mm inset ring sitting 2 mm inside. The two rings give immediate visual confirmation of the inset distance — drag the slider in B2f and the inner ring should breathe in/out.
+
+**Build.** `cmake --build build -- -j8` clean, no warnings. CGAL linked. `ReadLints` clean.
+
+**Caveats / follow-ups.**
+- The corner-vertex labels from B2b are computed but not yet consumed. B2d's strip selector reads them to find non-adjacent inset-corner pairs; only then do they earn their keep.
+- The polygon `is_simple()` check is O(n log n) at best; for our face polylines (typically ≤ hundreds of vertices) it's negligible, but worth a benchmark if a large-vertex importer joins later.
+- The CCW fix-up assumes the projection preserves a consistent winding sense. The current frame derives `u = cross(n, axis)`, which flips winding for some `n` directions — the `is_clockwise_oriented` reversal absorbs that, so the result is correct either way, but if we ever want to skip the reversal as an optimisation we should derive `u` to consistently preserve winding.
+
+**Next.** B2d: read the corner-vertex tags from B2b through the inset, find candidate non-adjacent chords inside the inset polygon, choose the shortest that lies entirely inside the inset hole, emit it as a thin band of width `insetMm` unioned with the inset ring.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

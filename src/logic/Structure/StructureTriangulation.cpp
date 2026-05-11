@@ -9,7 +9,15 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
+#include <optional>
 #include <unordered_map>
+
+#if defined(CAD_USE_CGAL)
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Polygon_2.h>
+#include <CGAL/create_offset_polygons_2.h>
+#endif
 
 // See documentation/implementations/structure_face_triangulation_2026-05-11.md for phase notes.
 // B2a: CMake flag rename, module scaffold, cache key. B2b (current): adaptive polyline of the
@@ -22,11 +30,18 @@ namespace StructureTriangulation
 namespace
 {
 
+using SegmentList = std::vector<std::pair<glm::vec3, glm::vec3>>;
+
+#if defined(CAD_USE_CGAL)
+using SkeletonKernel = CGAL::Exact_predicates_inexact_constructions_kernel;
+using SkeletonPoint = SkeletonKernel::Point_2;
+using SkeletonPolygon = CGAL::Polygon_2<SkeletonKernel>;
+#endif
+
 // Orthonormal 2D frame anchored on a planar face. `origin` is the projection anchor; `u` and `v`
 // span the face's plane; `n` is the face outward normal. Use `Project(p3)` / `Unproject(p2)` to go
-// between world space and the face's local 2D coordinates. B2c will hand the projected polygon to
-// CGAL's straight-skeleton inset; B2b uses this only to tag corner vertices and to roundtrip the
-// preview outline (so we know the frame is sound before any 2D algorithm runs on top of it).
+// between world space and the face's local 2D coordinates. CGAL's straight-skeleton (B2c) reads the
+// `Polygon_2` built from `Project`ed points; `Unproject` lifts the offset back to 3D for preview.
 struct FaceFrame
 {
     glm::dvec3 origin{0.0};
@@ -57,16 +72,70 @@ FaceFrame BuildFaceFrame(const Face &face, const glm::dvec3 &origin)
     return frame;
 }
 
-[[maybe_unused]] glm::dvec2 Project(const glm::dvec3 &p, const FaceFrame &f)
+glm::dvec2 Project(const glm::dvec3 &p, const FaceFrame &f)
 {
     const glm::dvec3 d = p - f.origin;
     return {glm::dot(d, f.u), glm::dot(d, f.v)};
 }
 
-[[maybe_unused]] glm::dvec3 Unproject(const glm::dvec2 &p, const FaceFrame &f)
+glm::dvec3 Unproject(const glm::dvec2 &p, const FaceFrame &f)
 {
     return f.origin + p.x * f.u + p.y * f.v;
 }
+
+void AppendRingAsSegments(const std::vector<glm::dvec3> &ring, SegmentList &out)
+{
+    if (ring.size() < 2)
+        return;
+    out.reserve(out.size() + ring.size());
+    for (std::size_t i = 0; i + 1 < ring.size(); ++i)
+        out.emplace_back(glm::vec3(ring[i]), glm::vec3(ring[i + 1]));
+    out.emplace_back(glm::vec3(ring.back()), glm::vec3(ring.front()));
+}
+
+#if defined(CAD_USE_CGAL)
+
+// Builds a CGAL `Polygon_2` from the polylined outline projected through `frame`. Returns
+// `std::nullopt` if the polygon is degenerate or self-intersecting (CGAL's offset would otherwise
+// throw). Adjusts orientation to CCW because `create_interior_skeleton_and_offset_polygons_2`
+// requires it.
+std::optional<SkeletonPolygon> BuildProjectedPolygon(const std::vector<glm::dvec3> &points3d,
+                                                    const FaceFrame &frame)
+{
+    if (points3d.size() < 3)
+        return std::nullopt;
+    SkeletonPolygon poly;
+    poly.container().reserve(points3d.size());
+    for (const glm::dvec3 &p3 : points3d)
+    {
+        const glm::dvec2 p2 = Project(p3, frame);
+        poly.push_back(SkeletonPoint(p2.x, p2.y));
+    }
+    if (poly.size() < 3 || !poly.is_simple())
+        return std::nullopt;
+    if (poly.is_clockwise_oriented())
+        poly.reverse_orientation();
+    return poly;
+}
+
+// Runs CGAL's interior straight-skeleton + offset on `polygon` at distance `insetMm`, copying each
+// produced offset polygon out so callers don't have to pull `boost::shared_ptr` into their type
+// surface. The output vector holds one offset polygon per disconnected island produced by the
+// inset (most planar faces produce exactly one island; concave faces can split). Returns an empty
+// vector when the inset distance is large enough to consume the polygon entirely — caller treats
+// that as "no inset emitted, only the outer ring."
+std::vector<SkeletonPolygon> ComputeOffsetPolygons(const SkeletonPolygon &polygon, double insetMm)
+{
+    std::vector<SkeletonPolygon> out;
+    const auto offsets = CGAL::create_interior_skeleton_and_offset_polygons_2(insetMm, polygon);
+    out.reserve(offsets.size());
+    for (const auto &p : offsets)
+        if (p)
+            out.push_back(*p);
+    return out;
+}
+
+#endif // CAD_USE_CGAL
 
 // Adaptive curve subdivision: emits midpoint samples whose chord deviation exceeds `chordTolMm`,
 // in the underlying curve's canonical parameter direction (caller reverses the list for reversed
@@ -164,7 +233,6 @@ struct CacheKeyHash
     }
 };
 
-using SegmentList = std::vector<std::pair<glm::vec3, glm::vec3>>;
 std::unordered_map<CacheKey, SegmentList, CacheKeyHash> &BakeCache()
 {
     static std::unordered_map<CacheKey, SegmentList, CacheKeyHash> instance;
@@ -183,26 +251,48 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
     if (auto it = cache.find(key); it != cache.end())
         return it->second;
 
-    // B2b output: the polylined outer loop, emitted as consecutive 3D segments. This is the same
-    // outline the user already sees from the wireframe — the preview value is *visual proof* that
-    // we are tracing the right face and that adaptive sampling tracks the curve within the chord
-    // tolerance. B2c overwrites this body with the offset/inset emission once the polygon flows
-    // into CGAL.
     SegmentList segments;
     const PolylinedOutline outline = BuildPolylinedOuterLoop(*face, params.chordTolMm);
-    if (outline.points.size() >= 2)
+    if (outline.points.size() < 3)
     {
-        // The frame is built (and immediately discarded) here only to assert the math is well-
-        // formed on this face. B2c will keep the frame around and feed `Project`ed points into
-        // CGAL's `Polygon_2`.
-        (void)BuildFaceFrame(*face, outline.points.front());
-
-        segments.reserve(outline.points.size());
-        for (std::size_t i = 0; i + 1 < outline.points.size(); ++i)
-            segments.emplace_back(glm::vec3(outline.points[i]), glm::vec3(outline.points[i + 1]));
-        // Close the loop back to the first vertex.
-        segments.emplace_back(glm::vec3(outline.points.back()), glm::vec3(outline.points.front()));
+        cache.emplace(key, segments);
+        return segments;
     }
+
+    const FaceFrame frame = BuildFaceFrame(*face, outline.points.front());
+
+    // Always emit the outer ring so the user sees which face is being processed even when the
+    // inset call fails (degenerate polygon, inset >= min in-radius, CGAL disabled).
+    AppendRingAsSegments(outline.points, segments);
+
+#if defined(CAD_USE_CGAL)
+    if (auto polygonOpt = BuildProjectedPolygon(outline.points, frame); polygonOpt.has_value())
+    {
+        std::vector<SkeletonPolygon> offsets;
+        // CGAL's offset routine throws on a handful of degenerate-but-`is_simple` inputs (notably
+        // polygons with collinear consecutive edges). Swallow the exception, fall back to "outer
+        // ring only" instead of crashing the tool.
+        try
+        {
+            offsets = ComputeOffsetPolygons(*polygonOpt, params.insetMm);
+        }
+        catch (...)
+        {
+            offsets.clear();
+        }
+        for (const SkeletonPolygon &off : offsets)
+        {
+            std::vector<glm::dvec3> ring;
+            ring.reserve(off.size());
+            for (auto it = off.vertices_begin(); it != off.vertices_end(); ++it)
+                ring.push_back(Unproject(glm::dvec2(CGAL::to_double(it->x()),
+                                                    CGAL::to_double(it->y())),
+                                          frame));
+            AppendRingAsSegments(ring, segments);
+        }
+    }
+#endif // CAD_USE_CGAL
+
     cache.emplace(key, segments);
     return segments;
 }
