@@ -22,9 +22,17 @@ Keep model choice aligned with task type, and pause to confirm model switches wh
   - small follow-up edits/log touch-ups → GPT 5.4 Mini
 - `cad-naming-style` → GPT 5.4 Mini
 
+## Sub-agents (Task tool)
+
+When spawning a sub-agent for work that matches a skill above, **prefer the same model routing** as for the parent (implementation → GPT 5.3 Codex, architecture/review → Gemini 3.1 Pro, small edits → GPT 5.4 Mini). If the user does not specify a model on the sub-agent, pick the route that matches the sub-task type.
+
+## Credit / budget constraints
+
+Ideal routing is **not** mandatory when credits are tight. If the user says they are **low on credits**, **out of credits**, or to use **Auto** (or they have already chosen Auto for the session), **do not nag** to switch models — proceed with the current or Auto-selected model. Only suggest an upgrade when it would clearly reduce rework (e.g. large refactor) and a single short nudge is enough.
+
 ## Before execution
 
-- If current model does not match recommended routing, ask: `Current model is <X>; recommended is <Y> for this task. Switch now?`
+- If current model does not match recommended routing **and** the user has not indicated credit/budget constraints or Auto, ask: `Current model is <X>; recommended is <Y> for this task. Switch now?`
 - If task scope is unclear, do a quick discovery pass first (inspect likely impacted files/modules), then confirm model choice.
 
 ## Small vs big edits (scope gate)
@@ -40,5 +48,6 @@ Keep model choice aligned with task type, and pause to confirm model switches wh
 
 ## Mandatory pause-and-ask
 
-- If a task starts small but hits any escalation trigger, stop before major edits and ask to switch to the recommended stronger model.
-- If recommended model is unavailable, do not substitute silently; ask the user how to proceed.
+- If a task starts small but hits any escalation trigger, stop before major edits and ask to switch to the recommended stronger model **unless** the user is credit-limited or on Auto (then continue with the current model and flag risk briefly).
+- If the recommended model is **unavailable** (not in the picker, policy block, etc.) and the user has **not** said to use Auto or accept budget limits, ask how to proceed.
+- If the user prefers **Auto** or is **credit-limited**, treat Auto or the current model as acceptable and continue without blocking on the ideal map.
