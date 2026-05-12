@@ -5629,6 +5629,7 @@ void Display::PollStructureStagingTaskIfReady()
     structureStagingSceneIndex = activeSceneIndex;
     ownedScenes[activeSceneIndex] = std::move(r.staging);
     scene = ownedScenes[activeSceneIndex].get();
+    analysisUiScene = scene;
 
     if (!r.firstErr.empty())
         SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
@@ -5796,6 +5797,7 @@ void Display::RestoreStructureOriginalScene()
     }
     structureOriginalScene.reset();
     structureStagingSceneIndex = SIZE_MAX;
+    analysisUiScene = scene;
     StructureTriangulation::ClearBakeCache();
     structureEligibleFacesCache.clear();
     UpdateScene();
@@ -5813,6 +5815,27 @@ void Display::CommitStructureStagingScene()
         return;
     structureOriginalScene.reset();
     structureStagingSceneIndex = SIZE_MAX;
+    // Commit destroys the held original; `analysisUiScene` may still point at that scene — fix before any use.
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+        pendingAnalysisScene = nullptr;
+    }
+    pendingAnalysisTint.reset();
+    activeAnalysisTintForRebuild.reset();
+    activeAnalysisTintIdentityForRebuild = 0;
+    lastCommittedAnalysisForRecolor.reset();
+    analysisRequestId++;
+    lastVerdictWasPass = false;
+    flawOverhang = {};
+    flawSharp = {};
+    flawThin = {};
+    flawSmall = {};
+    if (uiVerdict)
+        uiVerdict->values.clear();
+    analysisUiScene = scene;
+
     StructureTriangulation::ClearBakeCache();
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();

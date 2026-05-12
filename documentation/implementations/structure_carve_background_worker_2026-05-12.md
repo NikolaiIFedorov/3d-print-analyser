@@ -23,3 +23,5 @@
 ## Follow-up (2026-05-12)
 
 - **Accept freeze:** After Accept, `Commit` leaves the same carved mesh in `ownedScenes` (only drops `structureOriginalScene`). The pending tool-switch handler still called `MarkGeometryDirtyAll()` whenever `analysisEnabled` already matched Analysis, forcing a redundant full incremental GPU rebuild. **Fix:** `structureFinalizeCommitSkipGpuFullRebuild` — on Accept, next switch uses `MarkPickDirty` + `MarkStyleDirty` instead so analysis can re-queue without replaying mesh rebuild.
+
+- **Analysis / import “dead” after Accept:** `Commit` destroys `structureOriginalScene`; `analysisUiScene` could still reference that freed scene, so `analysisUiScene == scene` failed (Result/Verdict hidden; stale `lastCommittedAnalysisForRecolor` face pointers). **Fix:** On commit, cancel pending analysis, clear tint/verdict/flaw state, bump `analysisRequestId`, set `analysisUiScene = scene`. Same `analysisUiScene = scene` after carve swap in `PollStructureStagingTaskIfReady` and after restore in `RestoreStructureOriginalScene`.
