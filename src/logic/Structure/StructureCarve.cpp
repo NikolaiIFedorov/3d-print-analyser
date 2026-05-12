@@ -20,6 +20,7 @@
 
 #include <cmath>
 #include <exception>
+#include <functional>
 #include <limits>
 #include <map>
 #include <unordered_map>
@@ -267,7 +268,8 @@ bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
                             const std::vector<const Face *> &faces,
                             const StructureTriangulation::BakeParams &params,
-                            std::string *errOut)
+                            std::string *errOut,
+                            const std::function<bool()> *shouldAbort)
 {
     auto fail = [&](const char *msg) -> bool
     {
@@ -276,11 +278,19 @@ bool TryApplyStructureCarve(Scene *scene,
         return false;
     };
 
+    auto aborted = [&]() -> bool
+    {
+        return shouldAbort != nullptr && (*shouldAbort)();
+    };
+
     if (scene == nullptr || solid == nullptr || faces.empty())
         return true;
 
     try
     {
+        if (aborted())
+            return fail("Structure carve cancelled.");
+
         std::vector<K::Point_3> coords;
         std::vector<std::vector<std::size_t>> tris;
         if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
@@ -305,6 +315,8 @@ bool TryApplyStructureCarve(Scene *scene,
         bool anyPrismApplied = false;
         for (const Face *face : faces)
         {
+            if (aborted())
+                return fail("Structure carve cancelled.");
             if (face == nullptr || face->dependency != solid)
                 continue;
             if (face->surface == nullptr || !face->surface->IsPlanar())
@@ -320,10 +332,14 @@ bool TryApplyStructureCarve(Scene *scene,
                 continue;
             }
 
+            if (aborted())
+                return fail("Structure carve cancelled.");
             const std::vector<std::vector<glm::dvec3>> rings =
                 StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
             for (const std::vector<glm::dvec3> &ring : rings)
             {
+                if (aborted())
+                    return fail("Structure carve cancelled.");
                 if (ring.size() < 3)
                     continue;
                 CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);

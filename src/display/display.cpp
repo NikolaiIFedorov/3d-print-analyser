@@ -109,11 +109,22 @@ static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer
 // Dedicated queue for Structure staging carve only. A pathological CGAL call can run without
 // returning; `Display` holds import/analysis work on `taskRunner` (`std::unique_ptr`). `Display::Shutdown`
 // detaches those workers and **releases** the runner (intentional process-exit leak) so quit never
-// blocks on `join()` when CGAL/analysis is stuck — same idea as never destroying this instance.
+// blocks on `join()` when CGAL/analysis is stuck — same policy here via `AbandonStructureCarveTaskRunnerAtShutdown`.
+static TaskRunner *sStructureCarveRunner = nullptr;
+
 [[nodiscard]] static TaskRunner &StructureCarveTaskRunner()
 {
-    static TaskRunner *const instance = new TaskRunner(1);
-    return *instance;
+    if (sStructureCarveRunner == nullptr)
+        sStructureCarveRunner = new TaskRunner(1);
+    return *sStructureCarveRunner;
+}
+
+static void AbandonStructureCarveTaskRunnerAtShutdown()
+{
+    if (sStructureCarveRunner == nullptr)
+        return;
+    sStructureCarveRunner->RequestStopClearQueueAndDetachWorkers();
+    // Intentional leak: do not delete; detached workers may still touch the runner mutex briefly.
 }
 #endif
 
@@ -859,6 +870,8 @@ void Display::Shutdown()
 #if defined(CAD_USE_CGAL)
     SessionLogger::Instance().LogShutdownPhase("display: CancelPendingStructureCarveJob");
     CancelPendingStructureCarveJob();
+    SessionLogger::Instance().LogShutdownPhase("display: AbandonStructureCarveTaskRunnerAtShutdown");
+    AbandonStructureCarveTaskRunnerAtShutdown();
 #endif
 
     // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
@@ -5824,12 +5837,19 @@ void Display::BeginStructureStagingSession()
                     return out;
                 }
                 ++carveAttempts;
+                const std::function<bool()> shouldAbort = [&token]()
+                { return token.IsCancellationRequested(); };
                 std::string err;
                 if (StructureCarve::TryApplyStructureCarve(out.staging.get(), entry.first, entry.second, params,
-                                                           &err))
+                                                           &err, &shouldAbort))
                     ++carvedSolids;
                 else
                 {
+                    if (token.IsCancellationRequested())
+                    {
+                        out.cancelled = true;
+                        return out;
+                    }
                     if (firstErr.empty() && !err.empty())
                         firstErr = err;
                 }

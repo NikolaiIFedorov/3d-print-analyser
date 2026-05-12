@@ -28,3 +28,10 @@ Clean `cmake --build … --target CAD_OpenGL`.
 ## Mini retro
 
 Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a single pipeline needs more bias. Cooperative CGAL cancel remains follow-up.
+
+## Follow-up (2026-05-13) — structure carve cancel + shutdown
+
+- **`TryApplyStructureCarve`**: optional `shouldAbort` callback; checked after soup build, each face, before `BuildCarveFootprintOuterRingsWorld`, and each ring before prism/boolean work. **Does not** interrupt `corefine_and_compute_difference` mid-call.
+- **Worker lambda**: passes token-backed `shouldAbort`; on `TryApply` failure, if cancel requested treats as `out.cancelled` (quit / `CancelPendingStructureCarveJob`).
+- **Shutdown**: `AbandonStructureCarveTaskRunnerAtShutdown()` — lazy `TaskRunner*` for structure queue; after `CancelPendingStructureCarveJob`, calls `RequestStopClearQueueAndDetachWorkers` so the structure worker is never `join()`’d at process exit and queued follow-up jobs are dropped.
+
