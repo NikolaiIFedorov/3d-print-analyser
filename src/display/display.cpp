@@ -841,46 +841,66 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    LOG_SESSION("[shutdown] display: begin");
+    LOG_SESSION("[shutdown] display: ResetStructurePreviewIncrementalState");
     ResetStructurePreviewIncrementalState();
 #if defined(CAD_USE_CGAL)
+    LOG_SESSION("[shutdown] display: CancelPendingStructureCarveJob");
     CancelPendingStructureCarveJob();
 #endif
 
     // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
     // Drop task handles (non-blocking abandon of in-flight futures), drain + detach workers, then
     // leak the runner — same family of policy as `StructureCarveTaskRunner` (never join stuck work).
+    LOG_SESSION("[shutdown] display: mainThreadPipeline.Clear");
     mainThreadPipeline.Clear();
     if (pendingImportTask.has_value())
     {
+        LOG_SESSION("[shutdown] display: cancel pending import task");
         pendingImportTask->RequestCancel();
         pendingImportTask.reset();
     }
     if (pendingAnalysisTask.has_value())
     {
+        LOG_SESSION("[shutdown] display: cancel pending analysis task");
         pendingAnalysisTask->RequestCancel();
         pendingAnalysisTask.reset();
     }
     if (taskRunner)
     {
+        LOG_SESSION("[shutdown] display: RequestStopClearQueueAndDetachWorkers + release taskRunner");
         taskRunner->RequestStopClearQueueAndDetachWorkers();
         (void)taskRunner.release();
     }
 
+    LOG_SESSION("[shutdown] display: SaveSettings");
     SaveSettings();
+    LOG_SESSION("[shutdown] display: SystemAppearance::ClearChangeCallback");
     SystemAppearance::ClearChangeCallback();
+    LOG_SESSION("[shutdown] display: ImGui_ImplOpenGL3_Shutdown");
     ImGui_ImplOpenGL3_Shutdown();
+    LOG_SESSION("[shutdown] display: ImGui_ImplSDL3_Shutdown");
     ImGui_ImplSDL3_Shutdown();
+    LOG_SESSION("[shutdown] display: ImGui::DestroyContext");
     ImGui::DestroyContext();
 
+    LOG_SESSION("[shutdown] display: SDL_RemoveEventWatch");
     SDL_RemoveEventWatch(ResizeEventWatcher, this);
+    LOG_SESSION("[shutdown] display: uiRenderer.Shutdown");
     uiRenderer.Shutdown();
+    LOG_SESSION("[shutdown] display: viewportRenderer.Shutdown");
     viewportRenderer.Shutdown();
+    LOG_SESSION("[shutdown] display: renderer.Shutdown");
     renderer.Shutdown();
+    LOG_SESSION("[shutdown] display: SDL_GL_DestroyContext");
     if (glContext)
         SDL_GL_DestroyContext(glContext);
+    LOG_SESSION("[shutdown] display: SDL_DestroyWindow");
     if (window)
         SDL_DestroyWindow(window);
+    LOG_SESSION("[shutdown] display: SDL_Quit");
     SDL_Quit();
+    LOG_SESSION("[shutdown] display: end");
 }
 
 void Display::LoadSettings()

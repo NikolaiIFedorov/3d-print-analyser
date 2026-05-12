@@ -29,3 +29,7 @@ Quit path no longer **blocks** on `join()` for the default import/analysis runne
 
 - **Worked:** Small surface (`taskRunner` only in `display.cpp`).
 - **Tradeoff:** Leak vs freeze — chosen for product quit path.
+
+## Shutdown breadcrumb logging (2026-05-12)
+
+`LOG_SESSION` lines at `LogVerbosity::NORMAL` in `main::Shutdown` and each phase of `Display::Shutdown` so a stuck quit shows the **last printed line** (console / session log). Look for `[shutdown]` prefix.

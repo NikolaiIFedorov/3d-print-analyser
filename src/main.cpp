@@ -44,12 +44,23 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
 
 void Shutdown()
 {
+    LOG_SESSION("[shutdown] main: begin");
     if (display)
+    {
+        LOG_SESSION("[shutdown] main: FillSessionReproState");
         display->FillSessionReproState(SessionLogger::Instance().state);
+    }
+    LOG_SESSION("[shutdown] main: LogSessionEndSnapshot");
     SessionLogger::Instance().LogSessionEndSnapshot();
+    LOG_SESSION("[shutdown] main: Flush session_log.json");
     SessionLogger::Instance().Flush("session_log.json");
     if (display)
+    {
+        LOG_SESSION("[shutdown] main: calling Display::Shutdown");
         display->Shutdown();
+        LOG_SESSION("[shutdown] main: Display::Shutdown returned");
+    }
+    LOG_SESSION("[shutdown] main: end");
 }
 
 bool Init()
