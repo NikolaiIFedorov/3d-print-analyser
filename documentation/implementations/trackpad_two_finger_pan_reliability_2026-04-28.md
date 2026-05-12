@@ -147,7 +147,7 @@ Intermittent roll/zoom after **file import**: `Display` calls **`SDL_FlushEvents
 
 - **`Input::NotifySdlEventQueueFlushed()`**: `clearTouchState()`, clear drain latches, extend **`suppressCameraWheelUntilMs`** by **`kWheelSuppressAfterMultiTouchLiftMs`** (same family as lift inertia).
 - **`clearTouchState()`** also zeros **`touchPanPrevCentroid`**.
-- **`Display::FlushImportInputEventTail()`**: centralizes the two **`SDL_FlushEvents`** calls + **`NotifySdlEventQueueFlushed()`**; used from **`CompleteFileImport`** and async **`import-finalize-ui`** pipeline step.
+- **`Display::FlushImportInputEventTail()`**: centralizes the two **`SDL_FlushEvents`** calls + **`NotifySdlEventQueueFlushed()`**; used from the async **`import-finalize-ui`** pipeline step (legacy sync `CompleteFileImport` removed 2026-05-12 as unused).
 - **`Display::SetInput(Input*)`** from **`main`** after **`Input`** construction.
 
 ### Files

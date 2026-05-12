@@ -44,7 +44,7 @@
 
 | Area | Location / trigger | Notes |
 |------|-------------------|--------|
-| Legacy sync import | `Display::CompleteFileImport` | Comment: fallback; runs `STLImport`/`OBJImport`/`ThreeMFImport` on **caller** thread — avoid new call sites; consider removal once confident async path only. |
+| Legacy sync import | ~~`Display::CompleteFileImport`~~ **removed 2026-05-12** (no callers; async path only) | Was duplicate of import-finalize behaviour on caller thread. |
 | Structure eligibility + pick prep | `Display::Render` path building `structureEligibleFacesCache` from pick tris | Bounded by pick mesh size; watch very dense pick geometry. |
 | `FrameScene` / `UpdateScene` | Main-thread; invoked from import pipeline and elsewhere | Can be heavy for huge scenes — already partially paired with incremental rebuild after import. |
 
@@ -74,7 +74,8 @@ rg 'AnalyzeScene|STLImport::Import|OBJImport::Import|ThreeMFImport::Import|TryAp
 ## Next (Phase 1–2)
 
 1. ~~Phase 1: unify pattern (docs + analysis worker/poll helpers)~~ — see [async_work_roadmap_phase1_2026-05-12.md](async_work_roadmap_phase1_2026-05-12.md).
-2. Pick **one** item from section **C** (likely **retire or isolate** `CompleteFileImport` callers, or **instrument** `UpdateScene`/`FrameScene` post-import) and track in a new implementation log when work starts.
+2. ~~Phase 2 slice: legacy `CompleteFileImport`~~ — removed; see [async_work_roadmap_phase2_2026-05-12.md](async_work_roadmap_phase2_2026-05-12.md).
+3. Further Phase 2: next item from section **C** (e.g. **instrument** `UpdateScene`/`FrameScene` post-import, or structure eligibility cost), or Phase 3 preview async.
 
 ## Mini retro (Phase 0 only)
 

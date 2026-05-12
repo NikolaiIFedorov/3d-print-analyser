@@ -32,4 +32,4 @@
 
 - **Worked:** Small refactor, no behaviour change intended; duplicate lambda removal lowers drift risk.
 - **Did not:** Import worker lambda still monolithic (Phase 2+ if we want symmetry).
-- **Follow-up:** Phase 2 vertical slice (e.g. `CompleteFileImport` callers) from Phase 0 section C.
+- **Follow-up:** Phase 2 vertical slices — first: removed unused `CompleteFileImport` ([async_work_roadmap_phase2_2026-05-12.md](async_work_roadmap_phase2_2026-05-12.md)).

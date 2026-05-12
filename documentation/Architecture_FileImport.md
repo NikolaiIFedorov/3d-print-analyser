@@ -1,5 +1,7 @@
 # Architecture: File Import Pipeline
 
+**Update (2026-05-12):** The live path is `Display::DoFileImport` → `deferredImportPath` → `ProcessDeferredImportIfAny` → `TaskRunner` worker → `MainThreadPipeline` apply steps (see `Architecture_UIThreadAndWorkers.md`). A legacy synchronous `CompleteFileImport` existed only as unused fallback code and **has been removed**.
+
 ## Executive Summary
 
 The file import pipeline brings 3D mesh data from disk into the scene graph. It has two tiers: a thin OS-level dialog wrapper (`FileImport`) and a set of format-specific parsers (`STLImport`, `OBJImport`, `ThreeMFImport`). `Display::DoFileImport()` is the integration point that wires them together, creates a new `Scene` per file, and triggers framing and UI updates.

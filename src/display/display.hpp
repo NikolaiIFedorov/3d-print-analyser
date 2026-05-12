@@ -402,7 +402,6 @@ private:
     /// Shared worker body for both analysis `Submit` sites in `Frame()`.
     AsyncAnalysisResult ProduceAsyncAnalysisFromScene(const Scene *sceneForAnalysis, uint64_t requestId,
                                                       const TaskRunner::CancellationToken &token);
-    void CompleteFileImport(const std::string &path);
     /// After import, flush SDL's finger/mouse tail and sync `Input` (`activeTouches`) — queue vs model must match.
     void FlushImportInputEventTail();
     void PublishImportProgress(uint64_t generation, const ImportProgress &progress);

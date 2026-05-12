@@ -3,7 +3,8 @@
 **Audience:** contributors extending tools, importers, CGAL-backed features, or anything that can stall the frame.  
 **Companion (normative contract):** [Architecture_UIThreadAndWorkers.md](Architecture_UIThreadAndWorkers.md) — what the UI thread may and must not do, `TaskRunner`, shutdown, job identity.  
 **Living inventory:** [implementations/async_work_roadmap_phase0_2026-05-12.md](implementations/async_work_roadmap_phase0_2026-05-12.md) — Phase 0 audit snapshot (re-run when adding heavy paths).  
-**Phase 1 rollout:** [implementations/async_work_roadmap_phase1_2026-05-12.md](implementations/async_work_roadmap_phase1_2026-05-12.md).
+**Phase 1 rollout:** [implementations/async_work_roadmap_phase1_2026-05-12.md](implementations/async_work_roadmap_phase1_2026-05-12.md).  
+**Phase 2 (slice):** [implementations/async_work_roadmap_phase2_2026-05-12.md](implementations/async_work_roadmap_phase2_2026-05-12.md).
 
 ## Intent
 
@@ -33,10 +34,12 @@ Existing building blocks: `TaskRunner`, `MainThreadPipeline`, async import apply
 - `Display` documents the job stack next to `taskRunner` / `mainThreadPipeline` (pointer to this roadmap + UI-thread contract).
 - Analysis: single **`ProduceAsyncAnalysisFromScene`** implementation for both `Submit` call sites; **`PollPendingAnalysisTaskIfReady`** mirrors the import/structure “poll on frame” pattern (`display.hpp` / `display.cpp`).
 
-### Phase 2 — Vertical slices
+### Phase 2 — Vertical slices (**in progress** — first slice done 2026-05-12)
 
-- Pick **one** remaining hotspot from Phase 0; move it behind the standard job + apply pattern.
+- Pick **one** remaining hotspot from Phase 0; move it behind the standard job + apply pattern (or **delete** dead sync paths that duplicate async behaviour).
 - Ship with **cancel / stale-result** guards (generation or scene pointer + id, matching import/analysis patterns).
+
+**Slice 1 (done):** Removed unused **`Display::CompleteFileImport`** (~85 lines). Static audit showed **no call sites**; the only import path is `deferredImportPath` → `ProcessDeferredImportIfAny` → worker + `MainThreadPipeline`. Eliminates a misleading “fallback” that could be mistaken for supported behaviour and drift from the async finalize steps.
 
 ### Phase 3 — Cooperative chunking (optional, targeted)
 
@@ -58,3 +61,4 @@ Existing building blocks: `TaskRunner`, `MainThreadPipeline`, async import apply
 - [Architecture_Analysis.md](Architecture_Analysis.md)
 - [implementations/async_work_roadmap_phase0_2026-05-12.md](implementations/async_work_roadmap_phase0_2026-05-12.md)
 - [implementations/async_work_roadmap_phase1_2026-05-12.md](implementations/async_work_roadmap_phase1_2026-05-12.md)
+- [implementations/async_work_roadmap_phase2_2026-05-12.md](implementations/async_work_roadmap_phase2_2026-05-12.md)
