@@ -2,6 +2,7 @@
 
 #include <deque>
 #include <functional>
+#include <unordered_map>
 #include <unordered_set>
 #include <cstddef>
 #include "Geometry/AllGeometry.hpp"
@@ -67,11 +68,11 @@ public:
         const SceneProgressCallback *progress = nullptr);
 
     /// Deep-copy the entire B-rep graph: points, curves, edges, faces, solids. The returned scene
-    /// owns its own topology with no pointer aliasing back into `*this`. Caller-side maps used for
-    /// remapping `Face *` / `Solid *` between source and clone are intentionally not exposed here —
-    /// callers that need them should rederive identity from geometry (plane + centroid) or extend
-    /// this helper.
-    std::unique_ptr<Scene> Clone() const;
+    /// owns its own topology with no pointer aliasing back into `*this`.
+    ///
+    /// When `outFaceRemap` is non-null, fills `(*outFaceRemap)[srcFace] = clonedFace` for every
+    /// face that was successfully cloned (omits faces dropped during clone).
+    std::unique_ptr<Scene> Clone(std::unordered_map<const Face *, Face *> *outFaceRemap = nullptr) const;
 
     std::unordered_set<uint32_t> renderBuffer;
     std::unordered_set<uint32_t> lockedBuffer;

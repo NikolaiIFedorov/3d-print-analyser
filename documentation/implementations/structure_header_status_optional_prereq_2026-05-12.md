@@ -26,7 +26,9 @@
 
 - Reused prerequisite paragraph builder for “optional prerequisites” to avoid a parallel card style.
 - Header trailing is generic on `Header` so section headers could use it later without new UI types.
-- Follow-up if needed: map `structureExcludedFaces` across `Scene::Clone` so exclusions affect staging carve, not only pre-staging preview.
+## Follow-up (2026-05-12) — exclusions in staging carve / triangulation
+
+- `Scene::Clone(std::unordered_map<const Face*, Face*>* outFaceRemap)` optional out-parameter copies the internal clone face map. `BeginStructureStagingSession` maps `structureExcludedFaces` into staging pointers and **omits** those faces from the `bySolid` lists passed to `TryApplyStructureCarve`, so CGAL footprint / boolean carve matches preview (no triangulation carve on excluded caps). Preview path unchanged: `RefreshStructurePreviewForRenderer` already skipped excluded faces for `BuildFaceTriangulationPreview`.
 
 ## Follow-up (2026-05-12) — no checkbox / no “optional” copy
 

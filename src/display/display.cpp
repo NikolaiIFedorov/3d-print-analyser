@@ -5487,11 +5487,23 @@ void Display::BeginStructureStagingSession()
     structureOptFaceExcludeStep = Icons::StepState::Active;
     SyncStructureOptionalPrereqRowStyle();
 #if defined(CAD_USE_CGAL)
-    std::unique_ptr<Scene> staging = scene->Clone();
+    std::unordered_map<const Face *, Face *> structureFaceCloneRemap;
+    std::unique_ptr<Scene> staging = scene->Clone(&structureFaceCloneRemap);
     if (!staging)
     {
         LOG_WARN("Structure staging: scene clone failed");
         return;
+    }
+
+    std::unordered_set<const Face *> stagingCarveExcluded;
+    stagingCarveExcluded.reserve(structureExcludedFaces.size());
+    for (const Face *ef : structureExcludedFaces)
+    {
+        if (ef == nullptr)
+            continue;
+        auto it = structureFaceCloneRemap.find(ef);
+        if (it != structureFaceCloneRemap.end())
+            stagingCarveExcluded.insert(it->second);
     }
 
     StructureTriangulation::BakeParams params;
@@ -5506,6 +5518,8 @@ void Display::BeginStructureStagingSession()
         if (f.dependency == nullptr)
             continue;
         if (!IsStructureFaceEligible(&f))
+            continue;
+        if (stagingCarveExcluded.count(&f) > 0)
             continue;
         bySolid[f.dependency].push_back(&f);
         ++eligibleCount;

@@ -35,7 +35,9 @@ struct BakeParams
 /// to stderr when a face is baked (cache miss), including vertex-count guard and chord selection.
 ///
 /// Callers (currently `Display::RefreshStructurePreviewForRenderer`) accumulate segments across all
-/// non-excluded eligible faces and hand the union to `SceneRenderer::SetStructurePreviewSegments`.
+/// eligible faces that are **not** in the user's exclusion set and hand the union to
+/// `SceneRenderer::SetStructurePreviewSegments`. Staging carve uses the same exclusions via
+/// `Scene::Clone` face remapping (`Display::BeginStructureStagingSession`).
 std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const Face *face,
                                                                           const BakeParams &params);
 

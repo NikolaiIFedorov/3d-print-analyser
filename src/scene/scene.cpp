@@ -269,7 +269,7 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     return &solid;
 }
 
-std::unique_ptr<Scene> Scene::Clone() const
+std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *outFaceRemap) const
 {
     auto out = std::make_unique<Scene>();
 
@@ -378,6 +378,14 @@ std::unique_ptr<Scene> Scene::Clone() const
 
     out->renderBuffer = renderBuffer;
     out->lockedBuffer = lockedBuffer;
+
+    if (outFaceRemap != nullptr)
+    {
+        outFaceRemap->clear();
+        outFaceRemap->reserve(faceMap.size());
+        outFaceRemap->insert(faceMap.begin(), faceMap.end());
+    }
+
     return out;
 }
 
