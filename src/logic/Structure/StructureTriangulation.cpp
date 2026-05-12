@@ -610,12 +610,8 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
 #if defined(CAD_USE_CGAL)
     if (auto projected = BuildProjectedPolygon(outline.points, frame); projected.has_value())
     {
-        // Outer face boundary: same fillet radius as inset (spec 1:1). Use the CCW projected ring
-        // so `FilletPolygonCorners` sees the same winding as the carved inset pieces.
-        const std::vector<glm::dvec2> outerFace2D = ExtractRing2D(projected->polygon);
-        const std::vector<glm::dvec2> filletedOuterFace =
-            FilletPolygonCorners(outerFace2D, params.insetMm, params.chordTolMm);
-        EmitRing2D(filletedOuterFace, frame, segments);
+        // Preview is carve geometry only (inset \ strip, filleted). Face extent is shown by the
+        // Structure tool's eligible-face tint in Display, not this line buffer.
 
         std::vector<SkeletonPolygon> offsets;
         // CGAL's offset routine throws on a handful of degenerate-but-`is_simple` inputs (notably

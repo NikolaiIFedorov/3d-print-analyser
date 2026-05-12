@@ -26,9 +26,10 @@ struct BakeParams
     double minFeatureMm = 1.5;
 };
 
-/// Builds preview line segments (in world space, sitting on the face's actual plane) representing
-/// the triangulation pattern for one face. Returns an empty vector if the face is null, ineligible,
-/// or — at B2a — for any face at all (the algorithm is stubbed until B2b lands).
+/// Builds preview line segments (in world space, on the face plane) for the **carved** pattern
+/// only (inset minus strip, with corner fillets). Does not trace the face's outer boundary — the
+/// Structure tool's face tint shows which faces are included. Returns empty if the face is null,
+/// the outline is degenerate, CGAL is disabled, projection fails, or inset yields no geometry.
 ///
 /// Debugging: set environment variable `CAD_DEBUG_STRUCTURE=1` to print strip/carve diagnostics
 /// to stderr when a face is baked (cache miss), including vertex-count guard and chord selection.

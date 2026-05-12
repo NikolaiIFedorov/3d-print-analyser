@@ -344,7 +344,7 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 - Strip entirely interior (hypothetical — our strip currently extends past the inset, so this won't trigger; but if a future cap-shrink lands, the carve will produce a polygon with one hole and the hole-loop emits it).
 - `CGAL::difference` throws on degenerate inputs → caught, `carved` falls back to `off`.
 - Strip polygon degenerate (`size() != 4` or `!is_simple()`) → skip carve, emit filleted inset.
-- Zero offset polygons (inset too large for face) → loop doesn't run, only the outer face outline is emitted.
+- Zero offset polygons (inset too large for face) → no carve preview lines for that island (face tint still shows eligibility).
 
 **Helpers retired.** `EmitStripBand` was the only B2d-era helper that's no longer needed; it lived for one phase. `SelectFirstValidStripChord` and `FilletPolygonCorners` keep doing their jobs unchanged.
 
@@ -377,15 +377,15 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Files.** `StructureTriangulation.cpp` (includes, typedefs, three conversion helpers, difference call site).
 
-### Preview — filleted outer face boundary (2026-05-12)
+### Preview — filleted outer face boundary (2026-05-12) — superseded
 
-**Gap.** Carved inset triangles used `FilletPolygonCorners(..., insetMm, ...)` but the **outer** face loop was still sharp (`AppendRingAsSegments` on 3D outline).
+**Was.** Briefly emitted the face outer loop through `FilletPolygonCorners` so preview matched inner fillet radius.
 
-**Change.** When `BuildProjectedPolygon` succeeds, emit the outer boundary from the **CCW** projected ring: `FilletPolygonCorners` with `params.insetMm` and `params.chordTolMm`, then `EmitRing2D` — same 1:1 inset radius as inner geometry. On projection failure or `CAD_USE_CGAL` off, keep sharp `AppendRingAsSegments(outline.points)`.
+**Now (same day, follow-up).** **Removed** outer loop from the preview buffer again: Phase C carve uses only the **carved** 2D regions (extruded void); the outer boundary is not part of the cut solid. Eligible-face **tint** in `Display` already shows which faces are included, so the line overlay is **carve-only** (filleted `inset \ strip` boundaries). Degenerate paths (projection fail, no CGAL) still emit sharp `outline.points` when there is nothing else to draw.
 
 ### Fillet — clamp radius on short edges (carved triangles) (2026-05-12)
 
-**Symptom.** Outer face filleted correctly; inner carve boundaries stayed sharp at strip–inset junctions (short edges).
+**Symptom.** Inner carve boundaries stayed sharp at strip–inset junctions (short edges) while longer edges rounded.
 
 **Cause.** `FilletPolygonCorners` used full `insetMm` with `d = r/tan(θ/2)` and **skipped** the fillet when `d ≥ ½` of either adjacent edge. Carved pieces have short cap edges, so full inset radius never “fit”.
 
