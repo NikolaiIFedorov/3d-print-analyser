@@ -14,6 +14,8 @@
 #include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
 #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <CGAL/Polygon_mesh_processing/repair.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
+#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
 #include <boost/graph/graph_traits.hpp>
 
 #include <cmath>
@@ -252,8 +254,10 @@ static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &footprintC
     }
 
     PMP::orient_polygon_soup(coords, faces);
+    PMP::merge_duplicate_points_in_polygon_soup(coords, faces);
     PMP::polygon_soup_to_polygon_mesh(coords, faces, mesh);
     PMP::duplicate_non_manifold_vertices(mesh);
+    PMP::stitch_borders(mesh);
     return mesh;
 }
 
@@ -283,11 +287,13 @@ bool TryApplyStructureCarve(Scene *scene,
             return fail("Could not build triangle soup from solid.");
 
         PMP::orient_polygon_soup(coords, tris);
+        PMP::merge_duplicate_points_in_polygon_soup(coords, tris);
         CgalMesh tm;
         PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
         if (tm.number_of_faces() == 0)
             return fail("Empty CGAL mesh from solid.");
         PMP::duplicate_non_manifold_vertices(tm);
+        PMP::stitch_borders(tm);
 
         double zMinWorld = 0.0;
         double zMaxWorld = 0.0;
@@ -346,7 +352,17 @@ bool TryApplyStructureCarve(Scene *scene,
     catch (const std::exception &ex)
     {
         if (errOut != nullptr)
+        {
             *errOut = std::string("CGAL exception: ") + ex.what();
+            const std::string w(ex.what());
+            if (w.find("intersection_nodes") != std::string::npos ||
+                w.find("corefinement") != std::string::npos ||
+                w.find("assertion violation") != std::string::npos)
+            {
+                *errOut += " Try a smaller inset, check the mesh for self-intersections or near-duplicate vertices, "
+                           "or simplify caps on extruded profiles.";
+            }
+        }
         return false;
     }
     catch (...)
