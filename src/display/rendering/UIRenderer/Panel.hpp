@@ -202,6 +202,12 @@ struct Header
 {
     Paragraph para;
 
+    /// When non-empty, drawn right-aligned on the same row as the title (panel/section headers).
+    /// Intended for short status or error hints; keep concise — long strings rely on panel width.
+    std::string trailingCaption;
+    int trailingTextDepth = 1;
+    float trailingFontScale = 0.72f;
+
     // fontScale: 1.0 = body, 1.1 = section header, 1.25 = panel header
     // textDepth: passed to Color::GetUIText — higher = brighter in dark mode
     Header(const std::string &text, float fontScale = 1.0f, int textDepth = 1)

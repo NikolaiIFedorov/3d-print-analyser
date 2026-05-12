@@ -41,7 +41,9 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
 {
     const int parameterChildren = def.flattenParameters ? static_cast<int>(def.parameters.size()) : 1;
     const int footerChildren = def.hasSceneEditFooter ? 1 : 0;
+    const int optionalPrereqChildren = def.optionalPrerequisites.empty() ? 0 : 1;
     const int totalChildren = 1                                      // Prerequisites
+                              + optionalPrereqChildren               // Optional prerequisites (optional)
                               + parameterChildren                    // Parameters
                               + (def.hasCalculator ? 1 : 0)          // Calculator
                               + footerChildren;                      // Scene-edit footer (root Paragraph)
@@ -68,6 +70,15 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
     prereqSec.children.reserve(def.prerequisites.size());
     for (const auto &pd : def.prerequisites)
         prereqSec.AddParagraph(pd.id) = BuildPrerequisiteParagraph(pd);
+
+    if (!def.optionalPrerequisites.empty())
+    {
+        Section &optSec = panel.AddSection("OptionalPrerequisites");
+        optSec.noChildSplitters = true;
+        optSec.children.reserve(def.optionalPrerequisites.size());
+        for (const auto &pd : def.optionalPrerequisites)
+            optSec.AddParagraph(pd.id) = BuildPrerequisiteParagraph(pd);
+    }
 
     // ── Parameters ────────────────────────────────────────────────────────
     if (def.flattenParameters)

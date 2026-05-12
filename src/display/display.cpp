@@ -73,6 +73,34 @@ constexpr float kPanSnapTravelFloor = 3.5e-4f;
     return settingsBodyFont;
 }
 
+static void TruncateUiInlineMessage(std::string &s, std::size_t maxChars = 72)
+{
+    if (s.size() <= maxChars)
+        return;
+    const std::size_t keep = maxChars > 3 ? maxChars - 3 : maxChars;
+    s.resize(keep);
+    if (maxChars > 3)
+        s += "...";
+}
+
+static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer)
+{
+    if (uiStructure && uiStructure->header.has_value())
+    {
+        uiStructure->header->trailingCaption.clear();
+        uiRenderer.MarkDirty();
+    }
+}
+
+static void SetStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer, std::string msg)
+{
+    if (!uiStructure || !uiStructure->header.has_value())
+        return;
+    TruncateUiInlineMessage(msg);
+    uiStructure->header->trailingCaption = std::move(msg);
+    uiRenderer.MarkDirty();
+}
+
 /// Two text zones styled like settings theme `Select` pills (text-only segments, hover accent fill).
 /// Draw-list primitives use **screen** coordinates (same convention as `UIRenderer` segmented `Select`).
 static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, const char *left, const char *right,
@@ -5310,6 +5338,12 @@ void Display::InitUI()
                                            [this]()
                                            { DoFileImport(); }});
 
+        structDef.optionalPrerequisites.reserve(1);
+        structDef.optionalPrerequisites.push_back(
+            PrerequisiteDef{"StructOptFaceExclude", "Face exclusions (optional)",
+                            "Click eligible faces in the view to omit them from preview and carve.",
+                            Icons::LeadingDrawFn{}, false, false, {}});
+
         structDef.hasSceneEditFooter = true;
         structDef.sceneEditFooter.id = "StructSceneEditFooter";
         structDef.sceneEditFooter.line.getMinContentWidthPx = [settingsBodyFont]() -> float
@@ -5425,6 +5459,7 @@ void Display::BeginStructureStagingSession()
         LOG_DESC("Structure staging skipped: active scene is empty");
         return;
     }
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
 #if defined(CAD_USE_CGAL)
     std::unique_ptr<Scene> staging = scene->Clone();
     if (!staging)
@@ -5453,16 +5488,31 @@ void Display::BeginStructureStagingSession()
              "across solids", std::to_string(bySolid.size()));
 
     size_t carvedSolids = 0;
+    size_t carveAttempts = 0;
+    std::string firstErr;
     for (auto &entry : bySolid)
     {
+        ++carveAttempts;
         std::string err;
         if (StructureCarve::TryApplyStructureCarve(staging.get(), entry.first, entry.second, params, &err))
             ++carvedSolids;
         else
+        {
             LOG_WARN("Structure staging carve:", err);
+            if (firstErr.empty() && !err.empty())
+                firstErr = err;
+        }
     }
     LOG_DESC("Structure staging: carved solids", std::to_string(carvedSolids),
              "of", std::to_string(bySolid.size()));
+
+    if (carveAttempts > 0 && carvedSolids < carveAttempts && !firstErr.empty())
+    {
+        if (carvedSolids == 0)
+            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, firstErr);
+        else
+            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, std::string("Partial: ") + firstErr);
+    }
 
     structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
     structureStagingSceneIndex = activeSceneIndex;
@@ -5494,6 +5544,7 @@ void Display::RestoreStructureOriginalScene()
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     UpdateScene();
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
 }
 
 void Display::CommitStructureStagingScene()
@@ -5505,6 +5556,7 @@ void Display::CommitStructureStagingScene()
     StructureTriangulation::ClearBakeCache();
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
 }
 
 void Display::RebuildStructureStagingScene()
@@ -5540,6 +5592,8 @@ void Display::SyncStructurePanelDerivedVisibility()
         !pendingImportTabActive;
     if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
         prereq->visible = !activeHasModel;
+    if (Section *optPre = FindSection(*uiStructure, "OptionalPrerequisites"))
+        optPre->visible = activeHasModel;
     if (structPara_Import)
         structPara_Import->visible = !activeHasModel;
     if (structPara_SceneEditFooter)

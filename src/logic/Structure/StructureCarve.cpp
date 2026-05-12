@@ -17,6 +17,7 @@
 #include <boost/graph/graph_traits.hpp>
 
 #include <cmath>
+#include <exception>
 #include <limits>
 #include <map>
 #include <unordered_map>
@@ -274,71 +275,86 @@ bool TryApplyStructureCarve(Scene *scene,
     if (scene == nullptr || solid == nullptr || faces.empty())
         return true;
 
-    std::vector<K::Point_3> coords;
-    std::vector<std::vector<std::size_t>> tris;
-    if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
-        return fail("Could not build triangle soup from solid.");
-
-    PMP::orient_polygon_soup(coords, tris);
-    CgalMesh tm;
-    PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
-    if (tm.number_of_faces() == 0)
-        return fail("Empty CGAL mesh from solid.");
-    PMP::duplicate_non_manifold_vertices(tm);
-
-    double zMinWorld = 0.0;
-    double zMaxWorld = 0.0;
-    SolidWorldZBounds(*solid, zMinWorld, zMaxWorld);
-    constexpr double kZMarginMm = 0.5;
-    const double zBottom = zMinWorld - kZMarginMm;
-    const double zTop = zMaxWorld + kZMarginMm;
-
-    bool anyPrismApplied = false;
-    for (const Face *face : faces)
+    try
     {
-        if (face == nullptr || face->dependency != solid)
-            continue;
-        if (face->surface == nullptr || !face->surface->IsPlanar())
+        std::vector<K::Point_3> coords;
+        std::vector<std::vector<std::size_t>> tris;
+        if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
+            return fail("Could not build triangle soup from solid.");
+
+        PMP::orient_polygon_soup(coords, tris);
+        CgalMesh tm;
+        PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
+        if (tm.number_of_faces() == 0)
+            return fail("Empty CGAL mesh from solid.");
+        PMP::duplicate_non_manifold_vertices(tm);
+
+        double zMinWorld = 0.0;
+        double zMaxWorld = 0.0;
+        SolidWorldZBounds(*solid, zMinWorld, zMaxWorld);
+        constexpr double kZMarginMm = 0.5;
+        const double zBottom = zMinWorld - kZMarginMm;
+        const double zTop = zMaxWorld + kZMarginMm;
+
+        bool anyPrismApplied = false;
+        for (const Face *face : faces)
         {
-            LOG_WARN("Structure carve: skipping non-planar face");
-            continue;
-        }
-        const glm::dvec3 n = face->surface->GetNormal();
-        const double nz = glm::length(n) > 1e-12 ? std::abs(n.z / glm::length(n)) : 0.0;
-        if (nz < 0.995)
-        {
-            LOG_WARN("Structure carve: skipping face — |n·z| < 0.995 (prism extruder is world Z)");
-            continue;
+            if (face == nullptr || face->dependency != solid)
+                continue;
+            if (face->surface == nullptr || !face->surface->IsPlanar())
+            {
+                LOG_WARN("Structure carve: skipping non-planar face");
+                continue;
+            }
+            const glm::dvec3 n = face->surface->GetNormal();
+            const double nz = glm::length(n) > 1e-12 ? std::abs(n.z / glm::length(n)) : 0.0;
+            if (nz < 0.995)
+            {
+                LOG_WARN("Structure carve: skipping face — |n·z| < 0.995 (prism extruder is world Z)");
+                continue;
+            }
+
+            const std::vector<std::vector<glm::dvec3>> rings =
+                StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
+            for (const std::vector<glm::dvec3> &ring : rings)
+            {
+                if (ring.size() < 3)
+                    continue;
+                CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);
+                if (!prism.is_valid() || prism.number_of_faces() == 0)
+                    continue;
+
+                CgalMesh diffOut;
+                if (!PMP::corefine_and_compute_difference(tm, prism, diffOut))
+                    return fail("CGAL boolean difference failed (try smaller inset or check mesh).");
+                tm = std::move(diffOut);
+                anyPrismApplied = true;
+            }
         }
 
-        const std::vector<std::vector<glm::dvec3>> rings =
-            StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
-        for (const std::vector<glm::dvec3> &ring : rings)
-        {
-            if (ring.size() < 3)
-                continue;
-            CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);
-            if (!prism.is_valid() || prism.number_of_faces() == 0)
-                continue;
+        if (!anyPrismApplied)
+            return fail("No carve prisms were applied (rings empty, faces skipped, or prisms invalid).");
 
-            CgalMesh diffOut;
-            if (!PMP::corefine_and_compute_difference(tm, prism, diffOut))
-                return fail("CGAL boolean difference failed (try smaller inset or check mesh).");
-            tm = std::move(diffOut);
-            anyPrismApplied = true;
-        }
+        DetachFacesFromSolid(*solid);
+        if (!RebuildSolidFromCgalMesh(scene, *solid, tm))
+            return fail("Failed to rebuild solid from carved mesh.");
+
+        scene->MergeCoplanarFaces(solid, nullptr, nullptr);
+        LOG_DESC("Structure carve: applied to solid with", std::to_string(faces.size()), "face pick(s)");
+        return true;
     }
-
-    if (!anyPrismApplied)
-        return fail("No carve prisms were applied (rings empty, faces skipped, or prisms invalid).");
-
-    DetachFacesFromSolid(*solid);
-    if (!RebuildSolidFromCgalMesh(scene, *solid, tm))
-        return fail("Failed to rebuild solid from carved mesh.");
-
-    scene->MergeCoplanarFaces(solid, nullptr, nullptr);
-    LOG_DESC("Structure carve: applied to solid with", std::to_string(faces.size()), "face pick(s)");
-    return true;
+    catch (const std::exception &ex)
+    {
+        if (errOut != nullptr)
+            *errOut = std::string("CGAL exception: ") + ex.what();
+        return false;
+    }
+    catch (...)
+    {
+        if (errOut != nullptr)
+            *errOut = "CGAL exception (unknown type).";
+        return false;
+    }
 }
 
 } // namespace StructureCarve

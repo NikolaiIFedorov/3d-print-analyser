@@ -497,6 +497,39 @@ void UIRenderer::ResolveAnchors()
         item.box.outerHeight = 2.0f * mar + 2.0f * pad + contentH;
     };
 
+    // Expand header paragraph width/height so optional trailing caption fits on the title row.
+    auto inflateHeaderTrailingDims = [&](Header &hdr) -> void
+    {
+        if (hdr.trailingCaption.empty())
+            return;
+        Paragraph &hp = hdr.para;
+        if (!hp.visible)
+            return;
+
+        ImFont *trailFont = bodyImFont ? bodyImFont : cachedTextImFont;
+        if (!trailFont)
+            trailFont = ImGui::GetFont();
+        const float fs = std::max(1.0f, std::floor(trailFont->FontSize * hdr.trailingFontScale + 0.5f));
+        const float tw = trailFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, hdr.trailingCaption.c_str()).x;
+        constexpr float kGapPx = 8.0f;
+        const float titleContentPx = grid.ToPixelsX(hp.box.contentWidth);
+        const float needContentPx = titleContentPx + kGapPx + tw;
+        const float needContentCells = needContentPx / grid.cellSizeX;
+        if (needContentCells > hp.box.contentWidth)
+        {
+            hp.box.contentWidth = needContentCells;
+            hp.box.outerWidth = 2.0f * hp.margin + 2.0f * hp.padding + hp.box.contentWidth;
+        }
+
+        const float trailHpx = fs * 1.2f;
+        const float trailHCells = trailHpx / grid.cellSizeY;
+        if (trailHCells > hp.box.contentHeight)
+        {
+            hp.box.contentHeight = trailHCells;
+            hp.box.outerHeight = 2.0f * hp.margin + 2.0f * hp.padding + hp.box.contentHeight;
+        }
+    };
+
     // Compute box for a Section (label + Paragraph children).
     auto computeSectionBox = [&](Section &item) -> void
     {
@@ -512,6 +545,7 @@ void UIRenderer::ResolveAnchors()
         if (item.header.has_value())
         {
             computeParagraphBox(item.header->para);
+            inflateHeaderTrailingDims(*item.header);
             contentH = item.header->para.box.outerHeight; // always full outerHeight: header margins unaffected
             contentW = item.header->para.box.outerWidth;
         }
@@ -576,6 +610,7 @@ void UIRenderer::ResolveAnchors()
         if (item.header.has_value())
         {
             computeParagraphBox(item.header->para);
+            inflateHeaderTrailingDims(*item.header);
             contentH = item.header->para.box.outerHeight;
             contentW = item.header->para.box.outerWidth;
         }
@@ -1809,6 +1844,27 @@ void UIRenderer::Render()
         }
     };
 
+    // Right-aligned caption on the same typographic row as a Section/RootPanel title.
+    auto drawHeaderTrailingIfAny = [&](const Header &hdr, Paragraph &hpara)
+    {
+        if (hdr.trailingCaption.empty())
+            return;
+        ImFont *trailFont = bodyImFont ? bodyImFont : cachedTextImFont;
+        if (!trailFont)
+            trailFont = ImGui::GetFont();
+        const float fs = std::max(1.0f, std::floor(trailFont->FontSize * hdr.trailingFontScale + 0.5f));
+        const float tw = trailFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, hdr.trailingCaption.c_str()).x;
+        const float pxR = grid.ToPixelsX(hpara.col + hpara.colSpan - hpara.margin - hpara.padding);
+        const float py0 = grid.ToPixelsY(hpara.row + hpara.margin);
+        const float py1 = grid.ToPixelsY(hpara.row + hpara.rowSpan - hpara.margin);
+        const float tx = pxR - tw;
+        const float ty = py0 + (py1 - py0 - fs) * 0.5f;
+        glm::vec4 tc = Color::GetUIText(hdr.trailingTextDepth);
+        ImDrawList *fdl = ImGui::GetForegroundDrawList();
+        fdl->AddText(trailFont, fs, ImVec2(std::floor(tx), std::floor(ty)),
+                     ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a)), hdr.trailingCaption.c_str());
+    };
+
     // Render label for a Section header.
     auto renderSection = [&](Section &sec, const std::string &parentPath) -> void
     {
@@ -1838,6 +1894,7 @@ void UIRenderer::Render()
                 }
             }
             renderParagraph(hpara, secPath + "_header");
+            drawHeaderTrailingIfAny(*sec.header, hpara);
         }
 
         if (sec.collapsed)
@@ -1857,7 +1914,10 @@ void UIRenderer::Render()
 
         // Render RootPanel header (anonymous containers have no header)
         if (panel.header.has_value())
+        {
             renderParagraph(panel.header->para, panelPath + "_header");
+            drawHeaderTrailingIfAny(*panel.header, panel.header->para);
+        }
         if (panel.subtitle.has_value())
             renderParagraph(*panel.subtitle, panelPath + "_subtitle");
         for (auto &child : panel.children)
