@@ -129,19 +129,19 @@ main.cpp Shutdown()
 {
   "session_start": "2026-04-21T14:32:10Z",
   "events": [
-    { "t_ms": 0, "type": "app_start" },
-    { "t_ms": 3201, "type": "file_import", "data": {
+    { "t_ms": 0, "dt_ms": 0, "type": "app_start" },
+    { "t_ms": 3201, "dt_ms": 3201, "type": "file_import", "data": {
         "filename": "part.stl", "format": "stl",
         "points": "1024", "edges": "3072", "faces": "1024", "solids": "1"
     }},
-    { "t_ms": 3250, "type": "analysis_run", "data": {
+    { "t_ms": 3250, "dt_ms": 49, "type": "analysis_run", "data": {
         "overhangs": "3", "sharp_edges": "12",
         "thin_sections": "0", "small_features": "1",
         "overhang_angle": "45.00", "sharp_corner_angle": "100.00",
         "thin_min_width": "2.00", "min_feature_size": "0.40", "layer_height": "0.20"
     }},
-    { "t_ms": 4800, "type": "param_change", "data": { "param": "overhang_angle", "value": "50.00" }},
-    { "t_ms": 9100, "type": "bug_marker", "data": {
+    { "t_ms": 4800, "dt_ms": 1550, "type": "param_change", "data": { "param": "overhang_angle", "value": "50.00" }},
+    { "t_ms": 9100, "dt_ms": 4300, "type": "bug_marker", "data": {
         "points": "1024", "edges": "3072", "faces": "1024", "solids": "1",
         "last_file": "part.stl", "format": "stl",
         "overhang_angle": "50.00", "sharp_corner_angle": "100.00",
@@ -149,14 +149,16 @@ main.cpp Shutdown()
         "overhangs": "2", "sharp_edges": "12", "thin_sections": "0", "small_features": "1",
         "camera_target": "[0.00, 0.00, 10.00]", "camera_ortho_size": "25.00"
     }}
-  ]
+  ],
+  "last_event_t_ms": 9100,
+  "event_count": 5
 }
 ```
 
 ### Key Implementation Details
 
 - **`ElapsedMs()`**: Computes milliseconds since `startTime` using `steady_clock`. Monotonic — not affected by wall-clock adjustments.
-- **`SerializeJson()`**: Hand-written serializer. Produces an indented, human-readable JSON object. Field values are pre-serialized strings stored in `Event::fields` — strings are stored with quotes already escaped, numbers without.
+- **`SerializeJson()`**: Hand-written serializer. Produces an indented, human-readable JSON object. Each event includes **`dt_ms`** (time since the previous event’s `t_ms`, 0 for the first event). Root includes **`last_event_t_ms`** and **`event_count`**. Field values are pre-serialized strings stored in `Event::fields` — strings are stored with quotes already escaped, numbers without.
 - **`EscapeStr()`**: Escapes `"`, `\`, `\n`, `\r`, `\t` in user-provided strings (filenames) before embedding in JSON.
 - **`Fmt(float)`**: Serializes floats to 2 decimal places via `std::fixed << std::setprecision(2)`.
 - **`Log::Session`**: Echoes each event summary to the terminal with `Level::SESSION` formatting. Independent of the JSON buffer.

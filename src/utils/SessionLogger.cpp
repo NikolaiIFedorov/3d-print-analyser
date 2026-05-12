@@ -173,7 +173,8 @@ std::string SessionLogger::SerializeJson() const
     for (size_t i = 0; i < events.size(); ++i)
     {
         const auto &ev = events[i];
-        out << "    { \"t_ms\": " << ev.t_ms
+        const uint64_t dtMs = (i == 0) ? 0u : (ev.t_ms - events[i - 1].t_ms);
+        out << "    { \"t_ms\": " << ev.t_ms << ", \"dt_ms\": " << dtMs
             << ", \"type\": \"" << ev.type << "\"";
 
         if (!ev.fields.empty())
@@ -194,7 +195,10 @@ std::string SessionLogger::SerializeJson() const
         out << "\n";
     }
 
-    out << "  ]\n";
+    out << "  ],\n";
+    if (!events.empty())
+        out << "  \"last_event_t_ms\": " << events.back().t_ms << ",\n";
+    out << "  \"event_count\": " << events.size() << "\n";
     out << "}\n";
     return out.str();
 }

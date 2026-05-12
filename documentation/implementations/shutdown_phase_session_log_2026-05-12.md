@@ -19,7 +19,7 @@ Console is a poor signal when CGAL / repeat logging floods or corrupts the view.
 
 ## How to read
 
-Open `session_log.json` (working directory is usually the app cwd). In `events`, find entries with `"type": "shutdown_phase"`; **`data.phase`** is the label. The **last** such entry in the array is the last step that finished before a hang or kill.
+Open `session_log.json` (working directory is usually the app cwd). In `events`, find entries with `"type": "shutdown_phase"`; **`data.phase`** is the label. The **last** such entry in the array is the last step that finished before a hang or kill. Each row includes **`dt_ms`**: milliseconds since the **previous** event’s `t_ms` (same as `t_ms` deltas; easier to spot stalls than reading adjacent `t_ms` when many share one millisecond). Root fields **`last_event_t_ms`** and **`event_count`** summarize the tail.
 
 ## Outcome
 
