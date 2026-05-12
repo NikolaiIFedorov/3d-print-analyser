@@ -93,6 +93,18 @@ static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer
     }
 }
 
+#if defined(CAD_USE_CGAL)
+// Dedicated queue for Structure staging carve only. A pathological CGAL call can run without
+// returning; `Display::taskRunner` must stay available for import/analysis. This instance is
+// intentionally never destroyed so `~TaskRunner` never joins a stuck worker during app teardown
+// (process exit reclaims the OS thread).
+[[nodiscard]] static TaskRunner &StructureCarveTaskRunner()
+{
+    static TaskRunner *const instance = new TaskRunner(1);
+    return *instance;
+}
+#endif
+
 static void SetStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer, std::string msg)
 {
     if (!uiStructure || !uiStructure->header.has_value())
@@ -5788,7 +5800,7 @@ void Display::BeginStructureStagingSession()
     uiRenderer.MarkDirty();
     renderDirty = true;
 
-    pendingStructureStagingTask = taskRunner.Submit(
+    pendingStructureStagingTask = StructureCarveTaskRunner().Submit(
         [jobId, targetSceneIndex, bySolid = std::move(bySolid), params,
          staging = std::move(staging)](const TaskRunner::CancellationToken &token) mutable -> AsyncStructureStagingResult
         {

@@ -33,6 +33,7 @@ Keep **windowing, input, and OpenGL** responsive. Anything that can **block for 
 **Shared policy:**
 
 - One `TaskRunner` instance on `Display` (see `display.hpp`) serializes jobs on its worker queue; avoid ad-hoc `std::thread` for the same class of work unless there is a strong reason.
+- **Structure staging carve** (`BeginStructureStagingSession`) uses a **separate** `TaskRunner` in `display.cpp` (`StructureCarveTaskRunner`) so a stuck CGAL boolean cannot block import or analysis on `Display::taskRunner`. That runner is **intentionally process-leaked** (never destroyed) so `~TaskRunner` never joins a worker that might not return during teardown; process exit reclaims resources.
 
 ## CGAL
 

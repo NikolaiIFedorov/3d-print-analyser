@@ -124,6 +124,9 @@ public:
         std::shared_ptr<std::atomic<bool>> cancelRequested;
     };
 
+    /// Single worker queue for import/analysis (and other jobs). Structure staging carve uses a
+    /// separate `TaskRunner` in `display.cpp` (`StructureCarveTaskRunner`) so a stuck CGAL solid
+    /// does not starve this queue.
     explicit TaskRunner(std::size_t workerCount = 1)
     {
         workers.reserve(workerCount);
