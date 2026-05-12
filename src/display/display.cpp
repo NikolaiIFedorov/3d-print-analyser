@@ -5344,9 +5344,9 @@ void Display::InitUI()
 
         structDef.optionalPrerequisites.reserve(1);
         structDef.optionalPrerequisites.push_back(
-            PrerequisiteDef{"StructOptFaceExclude", "Face exclusions (optional)",
+            PrerequisiteDef{"StructOptFaceExclude", "Face exclusions",
                             "Click eligible faces in the view to omit them from preview and carve.",
-                            Icons::CheckBox(&structureOptFaceExcludeStep), false, true,
+                            Icons::LeadingDrawFn{}, false, true,
                             [this]()
                             {
                                 structureOptFaceExcludeStep =
@@ -5411,7 +5411,7 @@ void Display::InitUI()
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
             structPara_Import = &structPrereqs->children[0];
-        if (Section *structOpt = FindSection(*uiStructure, "OptionalPrerequisites"); structOpt != nullptr)
+        if (Section *structOpt = FindSection(*uiStructure, "ExtraPrerequisites"); structOpt != nullptr)
         {
             for (Paragraph &p : structOpt->children)
             {
@@ -5624,7 +5624,7 @@ void Display::SyncStructurePanelDerivedVisibility()
         !pendingImportTabActive;
     if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
         prereq->visible = !activeHasModel;
-    if (Section *optPre = FindSection(*uiStructure, "OptionalPrerequisites"))
+    if (Section *optPre = FindSection(*uiStructure, "ExtraPrerequisites"))
         optPre->visible = activeHasModel;
     if (structPara_Import)
         structPara_Import->visible = !activeHasModel;

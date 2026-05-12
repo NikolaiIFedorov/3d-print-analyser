@@ -8,7 +8,7 @@
 ## Plan
 
 1. Extend `Header` with optional `trailingCaption` + typography fields; layout inflation + foreground draw in `UIRenderer`.
-2. Extend `ToolPanelDef` with `optionalPrerequisites` and emit a dedicated `OptionalPrerequisites` section built via `BuildPrerequisiteParagraph` (with or without `leadingDraw` per row).
+2. Extend `ToolPanelDef` with `optionalPrerequisites` and emit a dedicated `ExtraPrerequisites` section built via `BuildPrerequisiteParagraph` (with or without `leadingDraw` per row).
 3. `Display::BeginStructureStagingSession`: aggregate carve failures / exceptions into the Structure header trailing text; clear on restore/commit/finalize and at session start.
 4. Wrap `TryApplyStructureCarve` in `try/catch` for `std::exception` and `...` so thrown CGAL errors become a returned message instead of crashing when exceptions are enabled.
 
@@ -19,7 +19,7 @@
 ## Outcome
 
 - **Header trailing text:** `Header` gained `trailingCaption`, `trailingTextDepth`, `trailingFontScale`. `UIRenderer` inflates the header paragraph box when trailing text is present and draws it right-aligned on the title row (foreground draw list). Structure staging sets this from carve failures (including `std::exception` from CGAL when exceptions are enabled) and clears it on restore/commit/session start.
-- **Optional prerequisite rows:** `ToolPanelDef::optionalPrerequisites` adds an `OptionalPrerequisites` section built with `BuildPrerequisiteParagraph`. Structure uses a **checkbox + row click** row (same pattern as import): `Icons::CheckBox(&structureOptFaceExcludeStep)` toggles Active/Done; `SyncStructureOptionalPrereqRowStyle` mirrors import row card tinting; face picks apply only while **Active**.
+- **Extra prerequisite rows:** `ToolPanelDef::optionalPrerequisites` adds an **`ExtraPrerequisites`** section (same card layout as prerequisites). Structure’s face-exclusion row uses **row click** only (no leading checkbox): `onClick` toggles `structureOptFaceExcludeStep`; `SyncStructureOptionalPrereqRowStyle` keeps card tinting; face picks apply only while **Active**.
 - **CGAL throws:** `TryApplyStructureCarve` wraps the carve body in `try/catch` so thrown errors become a false return with `errOut` instead of unwinding uncaught. **Assertion / abort paths** in CGAL are unchanged.
 
 ## Mini retro
@@ -28,6 +28,6 @@
 - Header trailing is generic on `Header` so section headers could use it later without new UI types.
 - Follow-up if needed: map `structureExcludedFaces` across `Scene::Clone` so exclusions affect staging carve, not only pre-staging preview.
 
-## Follow-up (2026-05-12) — selectable optional row
+## Follow-up (2026-05-12) — no checkbox / no “optional” copy
 
-- Optional row now uses the same **leading checkbox + paragraph onClick** pattern as import prerequisites. `structureOptFaceExcludeStep` (Active/Done) arms/disarms face exclusion picks; reset to Active when switching to Structure from the toolbar and after staging restore/commit/begin/finalize.
+- Face exclusion row: title **Face exclusions** (dropped “(optional)”); **no** `leadingDraw` (no checkbox). Row still toggles `structureOptFaceExcludeStep` via `onClick` + tint sync. Section id renamed **`ExtraPrerequisites`** (was `OptionalPrerequisites`) so the word “optional” is not used for that block. `ToolPanelDef::optionalPrerequisites` name unchanged (API).

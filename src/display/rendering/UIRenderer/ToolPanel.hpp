@@ -53,8 +53,8 @@ struct ParameterDef
 //   RootPanel  (bgParentDepth=0, header = name)
 //     Paragraph "desc"           — single dim subtitle line
 //     Section   "Prerequisites"          — no header; children from `prerequisites`
-//     Section   "OptionalPrerequisites" — only when `optionalPrerequisites` non-empty; same card
-//                                        rows without checkbox (omit `leadingDraw` on each def)
+//     Section   "ExtraPrerequisites" — only when `optionalPrerequisites` non-empty; same card
+//                                        rows; omit `leadingDraw` when no leading column is wanted
 //     Section   "Parameters"     — children from `parameters`; optional titled header
 //                                (`showSectionHeaders`, `parametersSectionTitle`, `sectionHeadersCollapsible`)
 //     Section   "Calculator"     — optional; optional titled header (`calculatorSectionTitle`)
@@ -69,8 +69,9 @@ struct ToolPanelDef
     std::string name;                           // bold panel header, e.g. "Calibrate"
     std::string description;                    // dim subtitle,      e.g. "Scale model to real-world units"
     std::vector<PrerequisiteDef> prerequisites; // built into Prerequisites section automatically
-    /// Same paragraph builder as prerequisites. Use `Icons::CheckBox(&StepState)` + `onClick` for
-    /// the same selectable row behaviour as import; omit `leadingDraw` for a static hint-only card.
+    /// Built into the `ExtraPrerequisites` section when non-empty. Same cards as prerequisites;
+    /// use `Icons::CheckBox` + `onClick` to mirror the import row, or omit `leadingDraw` for a
+    /// leading-column-free row (row `onClick` / tint sync can still use a `StepState` in app code).
     std::vector<PrerequisiteDef> optionalPrerequisites;
     std::vector<ParameterDef> parameters;       // built into Parameters section automatically
     bool flattenParameters = false;             // true = place parameter rows directly under the root panel

@@ -73,7 +73,7 @@ RootPanel BuildToolPanel(const ToolPanelDef &def)
 
     if (!def.optionalPrerequisites.empty())
     {
-        Section &optSec = panel.AddSection("OptionalPrerequisites");
+        Section &optSec = panel.AddSection("ExtraPrerequisites");
         optSec.noChildSplitters = true;
         optSec.children.reserve(def.optionalPrerequisites.size());
         for (const auto &pd : def.optionalPrerequisites)

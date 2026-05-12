@@ -263,7 +263,7 @@ private:
     /// clickability state. The plumbing (this slot + `structureHoverIneligibleReason`) is retained
     /// so a future phase can re-enable the hint by toggling visibility back on.
     Paragraph *structPara_HoverHint = nullptr;
-    /// Optional prerequisite: face exclusion row (`OptionalPrerequisites` section).
+    /// Extra-prerequisite row: face exclusions (`ExtraPrerequisites` section).
     Paragraph *structPara_OptionalFaceExclude = nullptr;
     /// Drives the optional row checkbox and whether face clicks may toggle exclusions (`Active` = yes).
     Icons::StepState structureOptFaceExcludeStep = Icons::StepState::Active;
