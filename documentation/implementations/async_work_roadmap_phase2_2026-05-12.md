@@ -16,7 +16,7 @@
 ## Implementation
 
 - Removed `CompleteFileImport` from `display.hpp` and `display.cpp` (~85 lines).
-- **Docs:** Banner on [Architecture_FileImport.md](../Architecture_FileImport.md) stating live async path and removal; [Architecture_AsyncWorkRoadmap.md](../Architecture_AsyncWorkRoadmap.md) Phase 2 notes slice 1; Phase 0 inventory row updated; [trackpad_two_finger_pan_reliability_2026-04-28.md](trackpad_two_finger_pan_reliability_2026-04-28.md) footnote for `FlushImportInputEventTail`.
+- **Docs:** Banner on [Architecture_FileImport.md](../Architecture_FileImport.md) stating live async path and removal; full doc refresh in follow-up commit; [Architecture_AsyncWorkRoadmap.md](../Architecture_AsyncWorkRoadmap.md) Phase 2 notes slice 1; Phase 0 inventory row updated; [trackpad_two_finger_pan_reliability_2026-04-28.md](trackpad_two_finger_pan_reliability_2026-04-28.md) footnote for `FlushImportInputEventTail`.
 
 ## Outcome
 
@@ -30,4 +30,4 @@
 ## Mini retro
 
 - **Worked:** Dead-code removal is low risk when grep proves zero call sites.
-- **Did not:** `Architecture_FileImport.md` body still describes an older synchronous flow in places — banner flags drift; fuller refresh is a separate doc pass.
+- **Follow-up resolved:** [Architecture_FileImport.md](../Architecture_FileImport.md) fully refreshed (same day) for async pipeline — see commit `docs(Architecture_FileImport): refresh for async import pipeline`.
