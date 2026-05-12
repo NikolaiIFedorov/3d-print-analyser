@@ -51,7 +51,7 @@ void Shutdown()
         display->FillSessionReproState(sl.state);
         sl.LogShutdownPhase("main: after FillSessionReproState");
     }
-    sl.LogSessionEndSnapshot();
+    sl.LogSessionEndSnapshot(false);
     sl.LogShutdownPhase("main: after LogSessionEndSnapshot");
     if (display)
     {

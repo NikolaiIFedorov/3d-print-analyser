@@ -70,10 +70,11 @@ void SessionLogger::LogBugMarker()
     Log::Session("BUG MARKER — full state snapshot recorded");
 }
 
-void SessionLogger::LogSessionEndSnapshot()
+void SessionLogger::LogSessionEndSnapshot(bool echoToConsole)
 {
     PushEvent("session_end", BuildFullSessionSnapshotFields(state));
-    Log::Session("Session end snapshot recorded");
+    if (echoToConsole)
+        Log::Session("Session end snapshot recorded");
 }
 
 namespace

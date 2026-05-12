@@ -83,7 +83,8 @@ public:
     void LogBugMarker();
 
     /// Last-frame viewport + camera repro (call after `Display::FillSessionReproState`).
-    void LogSessionEndSnapshot();
+    /// When `echoToConsole` is false, only the JSON event is recorded (quit path: avoid blocking on a flooded terminal).
+    void LogSessionEndSnapshot(bool echoToConsole = true);
 
     /// STL importer + coplanar merge diagnostics (written to session_log.json for offline analysis).
     void LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl);

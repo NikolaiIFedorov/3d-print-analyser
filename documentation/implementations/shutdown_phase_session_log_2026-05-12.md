@@ -28,3 +28,9 @@ Open `session_log.json` (working directory is usually the app cwd). In `events`,
 ## Mini retro
 
 - **Tradeoff:** one full JSON rewrite per phase at quit — acceptable for debugging; events list stays small.
+
+## Follow-up — freeze with log stopping at `main: after FillSessionReproState`
+
+Repro: `session_log.json` had **no** `session_end` and **no** later `shutdown_phase` — stall was inside **`LogSessionEndSnapshot()`**, almost certainly **`Log::Session("Session end snapshot recorded")`** blocking on a flooded/slow terminal or contending on the log mutex.
+
+**Change:** `LogSessionEndSnapshot(bool echoToConsole = true)`; **`main::Shutdown`** uses **`LogSessionEndSnapshot(false)`** so quit still records `session_end` in the buffer without writing that line to the console.
