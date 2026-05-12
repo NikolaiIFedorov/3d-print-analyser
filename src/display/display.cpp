@@ -1025,6 +1025,14 @@ void Display::Render()
         uiCalibrate->visible = showCalibrate;
         if (uiStructure)
             uiStructure->visible = showStructure;
+        // Leaving the Structure tool without an explicit Cancel/Accept reverts as if Cancelled.
+        // Finalize already cleared staging in those paths, so this is a no-op for them.
+        if (!showStructure && IsStructureStagingActive())
+            RestoreStructureOriginalScene();
+        // Entering Structure with a real model: build the carved staging up-front so the user sees the
+        // live carve right away.
+        if (showStructure)
+            BeginStructureStagingSession();
         RefreshStructurePreviewForRenderer();
         if (analysisEnabled != showAnalysis)
         {
@@ -2126,7 +2134,10 @@ void Display::RebuildPickHighlightMesh()
     // shown with a faint accent tint so the user sees the design intent on tool entry. The hovered
     // face is skipped here — `appendFaceTris(hoverDraw, 0.5f, 0.5f)` below paints it brighter to
     // signal interactivity (click toggles exclusion).
-    if (activeTool == ActiveTool::Structure)
+    //
+    // Suppressed while a staging session is active: the carved staging-scene faces no longer
+    // correspond 1:1 to the original eligible faces, so highlighting them would be misleading.
+    if (activeTool == ActiveTool::Structure && !IsStructureStagingActive())
     {
         // Rebuild the eligibility cache lazily here: this method runs whenever pick geometry or
         // hover state changes, which dominates the cases where the eligible set could have shifted.
@@ -2684,6 +2695,12 @@ Display::StructurePickHit Display::PickStructureAtPixel(float pixelX, float pixe
 void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
 {
     if (activeTool != ActiveTool::Structure)
+        return;
+    // Per-face exclusion is dormant during a staging session: the staging-scene face pointers do
+    // not map back to original-scene exclusion identities, so a toggle here would either be a
+    // visual no-op or invalidate everything else on the next bake. Re-enable when stable cross-
+    // scene face identity tracking lands.
+    if (IsStructureStagingActive())
         return;
     ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY))
@@ -3682,6 +3699,11 @@ void Display::RebuildFileTabs()
             ClearPickHover();
             ClearCalibrateFacePicks();
 
+            // Switching away from a Structure staging session is treated as Cancel, so the old tab
+            // is restored to its pre-carve state before we move focus.
+            if (IsStructureStagingActive())
+                RestoreStructureOriginalScene();
+
             Scene *selectedScene = ownedScenes[i].get();
             const bool sceneChanged = (scene != selectedScene || activeSceneIndex != i);
             scene = selectedScene;
@@ -3692,6 +3714,10 @@ void Display::RebuildFileTabs()
                 UpdateScene();
                 FrameScene();
             }
+            // Live-carve continues on the newly focused tab if Structure stays active.
+            if (activeTool == ActiveTool::Structure)
+                BeginStructureStagingSession();
+            SyncStructurePanelDerivedVisibility();
             pendingFileTabsRebuild = true;
             uiRenderer.MarkDirty();
         };
@@ -5341,8 +5367,11 @@ void Display::RefreshStructurePreviewForRenderer()
     // is active) and ask `StructureTriangulation::BuildFaceTriangulationPreview` for its preview
     // segments. The module owns the per-face bake cache, so this is cheap when neither the inset
     // slider nor the eligibility set have changed.
+    //
+    // While a staging session is active the carved geometry is already on screen, so the line
+    // overlay would just clutter (and re-trace) carve outlines on top of holes that are now real.
     std::vector<std::pair<glm::vec3, glm::vec3>> all;
-    if (activeTool == ActiveTool::Structure)
+    if (activeTool == ActiveTool::Structure && !IsStructureStagingActive())
     {
         StructureTriangulation::BakeParams params;
         params.insetMm = static_cast<double>(structureInsetMm);
@@ -5363,43 +5392,98 @@ void Display::RefreshStructurePreviewForRenderer()
     renderer.SetStructurePreviewSegments(std::move(all));
 }
 
+void Display::BeginStructureStagingSession()
+{
+    if (IsStructureStagingActive())
+        return;
+    if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
+        return;
+    if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
+        return;
+#if defined(CAD_USE_CGAL)
+    std::unique_ptr<Scene> staging = scene->Clone();
+    if (!staging)
+        return;
+
+    StructureTriangulation::BakeParams params;
+    params.insetMm = static_cast<double>(structureInsetMm);
+    params.chordTolMm = 0.02;
+    params.minFeatureMm = 1.5;
+
+    std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
+    for (Face &f : staging->faces)
+    {
+        if (f.dependency == nullptr)
+            continue;
+        if (!IsStructureFaceEligible(&f))
+            continue;
+        bySolid[f.dependency].push_back(&f);
+    }
+
+    for (auto &entry : bySolid)
+    {
+        std::string err;
+        if (!StructureCarve::TryApplyStructureCarve(staging.get(), entry.first, entry.second, params, &err))
+            LOG_WARN("Structure staging carve:", err);
+    }
+
+    structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
+    structureStagingSceneIndex = activeSceneIndex;
+    ownedScenes[activeSceneIndex] = std::move(staging);
+    scene = ownedScenes[activeSceneIndex].get();
+
+    StructureTriangulation::ClearBakeCache();
+    structureExcludedFaces.clear();
+    structureEligibleFacesCache.clear();
+    UpdateScene();
+#endif
+}
+
+void Display::RestoreStructureOriginalScene()
+{
+    if (!IsStructureStagingActive())
+        return;
+    if (structureStagingSceneIndex < ownedScenes.size())
+    {
+        ownedScenes[structureStagingSceneIndex] = std::move(structureOriginalScene);
+        if (activeSceneIndex == structureStagingSceneIndex)
+            scene = ownedScenes[structureStagingSceneIndex].get();
+    }
+    structureOriginalScene.reset();
+    structureStagingSceneIndex = SIZE_MAX;
+    StructureTriangulation::ClearBakeCache();
+    structureExcludedFaces.clear();
+    structureEligibleFacesCache.clear();
+    UpdateScene();
+}
+
+void Display::CommitStructureStagingScene()
+{
+    if (!IsStructureStagingActive())
+        return;
+    structureOriginalScene.reset();
+    structureStagingSceneIndex = SIZE_MAX;
+    StructureTriangulation::ClearBakeCache();
+    structureExcludedFaces.clear();
+    structureEligibleFacesCache.clear();
+}
+
+void Display::RebuildStructureStagingScene()
+{
+    if (!IsStructureStagingActive())
+        return;
+    RestoreStructureOriginalScene();
+    BeginStructureStagingSession();
+}
+
 void Display::FinalizeStructureSceneToolSession(bool accepted)
 {
     if (activeTool != ActiveTool::Structure)
         return;
-#if defined(CAD_USE_CGAL)
-    if (accepted && scene != nullptr && calibStepImport == Icons::StepState::Done)
-    {
-        StructureTriangulation::BakeParams params;
-        params.insetMm = static_cast<double>(structureInsetMm);
-        params.chordTolMm = 0.02;
-        params.minFeatureMm = 1.5;
-
-        std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
-        bool anyCarveApplied = false;
-        for (const Face *f : structureEligibleFacesCache)
-        {
-            if (structureExcludedFaces.count(f) != 0)
-                continue;
-            if (f == nullptr || f->dependency == nullptr)
-                continue;
-            bySolid[f->dependency].push_back(f);
-        }
-
-        for (auto &entry : bySolid)
-        {
-            std::string err;
-            if (StructureCarve::TryApplyStructureCarve(scene, entry.first, entry.second, params, &err))
-                anyCarveApplied = true;
-            else
-                LOG_WARN("Structure carve:", err);
-        }
-        StructureTriangulation::ClearBakeCache();
-        structureExcludedFaces.clear();
-        if (anyCarveApplied)
-            UpdateScene();
-    }
-#endif
+    if (accepted)
+        CommitStructureStagingScene();
+    else
+        RestoreStructureOriginalScene();
     activeTool = ActiveTool::Analysis;
     pendingToolSwitch = true;
     renderDirty = true;
@@ -5409,15 +5493,18 @@ void Display::SyncStructurePanelDerivedVisibility()
 {
     if (uiStructure == nullptr)
         return;
-    const bool importDone = (calibStepImport == Icons::StepState::Done);
-    // Hide the whole Prerequisites section once import is done so we do not leave a zero-height
-    // block (which still drew a splitter) between the subtitle and the scene-edit footer.
+    // Footer (Cancel/Accept) only makes sense while the *active tab* actually has an imported
+    // model. `calibStepImport` is a session-level "ever imported anything" flag and stays Done
+    // forever, so reusing it here would leak Cancel/Accept onto an empty base scene tab.
+    const bool activeHasModel =
+        scene != nullptr && (!scene->solids.empty() || !scene->faces.empty()) &&
+        !pendingImportTabActive;
     if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
-        prereq->visible = !importDone;
+        prereq->visible = !activeHasModel;
     if (structPara_Import)
-        structPara_Import->visible = !importDone;
+        structPara_Import->visible = !activeHasModel;
     if (structPara_SceneEditFooter)
-        structPara_SceneEditFooter->visible = importDone;
+        structPara_SceneEditFooter->visible = activeHasModel;
     if (structPara_HoverHint)
     {
         // Clickability hint deliberately suppressed at this stage — the algorithm is still in flux

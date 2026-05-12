@@ -66,6 +66,13 @@ public:
         MergeCoplanarDiagnostics *diagnosticsOut = nullptr,
         const SceneProgressCallback *progress = nullptr);
 
+    /// Deep-copy the entire B-rep graph: points, curves, edges, faces, solids. The returned scene
+    /// owns its own topology with no pointer aliasing back into `*this`. Caller-side maps used for
+    /// remapping `Face *` / `Solid *` between source and clone are intentionally not exposed here —
+    /// callers that need them should rederive identity from geometry (plane + centroid) or extend
+    /// this helper.
+    std::unique_ptr<Scene> Clone() const;
+
     std::unordered_set<uint32_t> renderBuffer;
     std::unordered_set<uint32_t> lockedBuffer;
 };

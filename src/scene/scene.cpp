@@ -269,6 +269,118 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     return &solid;
 }
 
+std::unique_ptr<Scene> Scene::Clone() const
+{
+    auto out = std::make_unique<Scene>();
+
+    std::unordered_map<const Point *, Point *> pointMap;
+    pointMap.reserve(points.size());
+    for (const Point &p : points)
+        pointMap.emplace(&p, out->CreatePoint(p.position));
+
+    std::unordered_map<const Curve *, Curve *> curveMap;
+    curveMap.reserve(curves.size());
+    for (const std::unique_ptr<Curve> &cu : curves)
+    {
+        Curve *nc = nullptr;
+        if (const auto *arc = dynamic_cast<const ArcCurve *>(cu.get()))
+            nc = out->CreateCurve(arc->arc.center, arc->arc.radius);
+        else if (const auto *nurbs = dynamic_cast<const NurbsCurve *>(cu.get()))
+            nc = out->CreateCurve(*nurbs->nurbs);
+        if (nc != nullptr)
+            curveMap.emplace(cu.get(), nc);
+    }
+
+    std::unordered_map<const Edge *, Edge *> edgeMap;
+    edgeMap.reserve(edges.size());
+    for (const Edge &e : edges)
+    {
+        auto itStart = pointMap.find(e.startPoint);
+        auto itEnd = pointMap.find(e.endPoint);
+        if (itStart == pointMap.end() || itEnd == pointMap.end())
+            continue;
+        Edge *ne = nullptr;
+        if (e.curve != nullptr)
+        {
+            auto itCurve = curveMap.find(e.curve);
+            Curve *nc = (itCurve != curveMap.end()) ? itCurve->second : nullptr;
+            ne = nc ? out->CreateEdge(itStart->second, itEnd->second, nc)
+                    : out->CreateEdge(itStart->second, itEnd->second);
+        }
+        else if (!e.bridgePoints.empty())
+        {
+            std::vector<Point *> bridge;
+            bridge.reserve(e.bridgePoints.size());
+            for (Point *bp : e.bridgePoints)
+            {
+                auto it = pointMap.find(bp);
+                if (it != pointMap.end())
+                    bridge.push_back(it->second);
+            }
+            ne = out->CreateEdge(itStart->second, itEnd->second, bridge);
+        }
+        else
+        {
+            ne = out->CreateEdge(itStart->second, itEnd->second);
+        }
+        if (ne != nullptr)
+            edgeMap.emplace(&e, ne);
+    }
+
+    std::unordered_map<const Face *, Face *> faceMap;
+    faceMap.reserve(faces.size());
+    for (const Face &f : faces)
+    {
+        std::vector<std::vector<Edge *>> newLoops;
+        newLoops.reserve(f.loops.size());
+        bool loopsValid = true;
+        for (const auto &loop : f.loops)
+        {
+            std::vector<Edge *> nl;
+            nl.reserve(loop.size());
+            for (const OrientedEdge &oe : loop)
+            {
+                auto it = edgeMap.find(oe.edge);
+                if (it == edgeMap.end())
+                {
+                    loopsValid = false;
+                    break;
+                }
+                nl.push_back(it->second);
+            }
+            if (!loopsValid)
+                break;
+            newLoops.push_back(std::move(nl));
+        }
+        if (!loopsValid || newLoops.empty())
+            continue;
+        Face *nf = nullptr;
+        if (const auto *ns = dynamic_cast<const NurbsSurface *>(f.surface.get()))
+            nf = out->CreateFace(newLoops, *ns->nurbs);
+        else
+            nf = out->CreateFace(newLoops);
+        if (nf != nullptr)
+            faceMap.emplace(&f, nf);
+    }
+
+    for (const Solid &s : solids)
+    {
+        std::vector<Face *> newFaces;
+        newFaces.reserve(s.faces.size());
+        for (Face *of : s.faces)
+        {
+            auto it = faceMap.find(of);
+            if (it != faceMap.end())
+                newFaces.push_back(it->second);
+        }
+        out->CreateSolid(newFaces);
+    }
+
+    out->renderBuffer = renderBuffer;
+    out->lockedBuffer = lockedBuffer;
+    return out;
+}
+
 void Scene::CompleteCoplanarMergeDiagnostics(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut)
 {
     if (!solid || !diagnosticsOut)

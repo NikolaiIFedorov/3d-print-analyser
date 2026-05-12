@@ -407,6 +407,31 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Fix.** Per convex corner use `rCorner = min(radius, 0.499·min(inLen,outLen)·tan(θ/2))` so the arc is the **largest fillet that fits** on that corner (still capped by requested `insetMm` on long edges). Reverse the ring first if signed area is CW so the convex test is consistent.
 
+### Staging session — live carve preview with Cancel/Accept (2026-05-12)
+
+**Why.** The Structure footer's Cancel/Accept appeared even on the empty base scene (`calibStepImport` is a session-level "ever imported" flag, never reset), and the carve only happened on Accept so users could not actually preview the result they were about to commit.
+
+**Behaviour now.**
+- Footer is hidden whenever the active tab has no model (`scene->solids` and `scene->faces` both empty, or an import is still pending). Reusing `calibStepImport` was the bug; the new gate reads only the active tab.
+- Entering Structure with an imported active tab clones the scene, carves every eligible face into the clone, swaps the clone into `ownedScenes[activeSceneIndex]`, and holds the original aside in `Display::structureOriginalScene`. The user immediately sees the carved geometry (no more line-only preview while the staging is up).
+- **Cancel**: moves the held original back into `ownedScenes[idx]`, drops the staging, runs `UpdateScene()`. Visually identical to before entry.
+- **Accept**: drops the held original, leaves the staging in place. Subsequent tools see the carved scene as the canonical model.
+- Leaving Structure by switching to another tool (toolbar Analysis/Calibrate click) is treated as Cancel — the `pendingToolSwitch` block calls `RestoreStructureOriginalScene()` whenever it leaves Structure with a session still active.
+- Switching tabs while a session is active is also treated as Cancel for the old tab; if Structure is still selected, a fresh staging session starts on the newly focused tab.
+
+**New API.**
+- `Scene::Clone()` — deep copy that walks `points → curves → edges → faces → solids` and rebuilds topology with no pointer aliasing back into the source. Uses `Scene::Create*` helpers to keep dependency wiring identical to a freshly imported scene; surface kinds (planar, NURBS) and curve kinds (arc, NURBS) are dispatched via `dynamic_cast`. `renderBuffer` / `lockedBuffer` are copied for completeness but are still dead state in the rest of the codebase.
+- `Display::BeginStructureStagingSession`, `RestoreStructureOriginalScene`, `CommitStructureStagingScene`, `RebuildStructureStagingScene`, `IsStructureStagingActive` — staging lifecycle. `Finalize…SceneToolSession` is now a thin dispatcher between Restore (cancel) and Commit (accept).
+
+**Click-to-exclude is dormant during a staging session.** The opt-out exclusion set keys on `Face *`. Once we swap to the carved staging, those pointers no longer match (the carve rebuilds topology). Toggling on staging-scene faces would either be a visual no-op or invalidate every other exclusion on the next bake. `TryCommitStructureFacePick` and the eligibility-tint pass in `RebuildPickHighlightMesh` both early-out while `IsStructureStagingActive()`. `RefreshStructurePreviewForRenderer` skips the line overlay too — the carved geometry already shows where the cuts are, so re-tracing them on top would just clutter. Re-enabling per-face exclusion needs a stable cross-scene face identity (e.g. plane + XY centroid hash); deferred.
+
+**Known limitations / follow-ups.**
+- Async re-import while a Structure session is open does not auto-restore the staging on the old tab. The staging slot stays consistent (deque indices are stable), so the user can still Cancel via the tab once they switch back, but the "live carve" semantics break for the freshly imported tab until they re-enter Structure.
+- One full deep-clone per Structure entry. The clone walk is O(points + edges + faces + solids); not noticeable next to the CGAL boolean cost it sets up. If the clone ever shows on a profile the obvious shrink is to reuse a pool and only diff what changed (currently nothing changes during a session, so the clone is built once per entry).
+- Clone preserves topology and surface kinds but recomputes `PlanarSurface::data` via `Face::CalculatePlanarData()` — same algorithm, same vertex positions, so it should match bit-for-bit on planar STL imports. NURBS surface data is deep-copied via `tinynurbs::RationalSurface3d` value semantics.
+
+**Build.** `cmake --build build --target CAD_OpenGL -- -j8` clean. `ReadLints` clean across `display.{hpp,cpp}` and `scene.{hpp,cpp}`. The previous app session did surface a CGAL `Arr_segment_traits_2.h` assertion on a real model — that is the same arrangement-invariant edge case logged in the earlier "Fix — CGAL assertion in `CGAL::difference`" entry, not introduced by this change.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.

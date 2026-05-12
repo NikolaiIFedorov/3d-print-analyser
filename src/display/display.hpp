@@ -143,8 +143,25 @@ private:
     void RefreshUIMinWindowSize();
     /// Upload Structure preview polylines to the renderer before wireframe rebuild.
     void RefreshStructurePreviewForRenderer();
-    /// Structure scene-edit footer: `accepted` will choose commit vs discard once staging exists; both leave the tool for now.
+    /// Structure scene-edit footer: `accepted` commits the staging carve into the active scene; otherwise the
+    /// pre-Structure original is restored. Both paths leave the tool.
     void FinalizeStructureSceneToolSession(bool accepted);
+    /// Build the temporary carved staging scene from the current imported scene and swap it into
+    /// `ownedScenes[activeSceneIndex]` so the user sees the carve live. The original is held aside in
+    /// `structureOriginalScene` for cancel/restore. No-op when no model is loaded or staging is already active.
+    void BeginStructureStagingSession();
+    /// Restore the pre-staging original scene if a staging session is active; cleared otherwise. Re-runs
+    /// `UpdateScene()` so the renderer/pick state rebuild from the original.
+    void RestoreStructureOriginalScene();
+    /// Drop the held original (commit). Caller must have verified staging is active. Leaves the staging
+    /// in place inside `ownedScenes[activeSceneIndex]`.
+    void CommitStructureStagingScene();
+    /// Convenience for "params changed, re-bake the staging from the untouched original": cancel and
+    /// re-enter staging in one step. No-op when no staging session is active. Hook for future inset /
+    /// per-face exclusion changes; currently nothing in the UI calls it.
+    void RebuildStructureStagingScene();
+    /// True while `structureOriginalScene` is held (i.e. the active scene is the carved staging copy).
+    bool IsStructureStagingActive() const { return structureOriginalScene != nullptr; }
     /// Import row vs scene-edit footer visibility (footer only when prerequisites are satisfied).
     void SyncStructurePanelDerivedVisibility();
     SDL_Window *window = nullptr;
@@ -421,8 +438,16 @@ private:
     const Edge *calibEdgePoint1 = nullptr;
     const Edge *calibEdgePoint2 = nullptr;
 
+    /// Held while a Structure staging session is active: the pre-carve imported scene moved out of
+    /// `ownedScenes[activeSceneIndex]`. On Cancel we move it back and the staging is discarded; on
+    /// Accept we drop it and the staging stays in place. `nullptr` outside the session.
+    std::unique_ptr<Scene> structureOriginalScene;
+    /// Tab slot the staging is occupying; only meaningful while `structureOriginalScene != nullptr`.
+    size_t structureStagingSceneIndex = SIZE_MAX;
     /// Structure tool: opt-out exclusion set. Every eligible face is triangulated *unless* its
-    /// pointer is in this set. Cleared on tool exit / scene change / re-import.
+    /// pointer is in this set. Cleared on tool exit / scene change / re-import. **Currently dormant
+    /// during a staging session**: clicks are no-op while the live carve is shown because the
+    /// staging-scene face pointers do not map back to the original-scene exclusion identities.
     std::unordered_set<const Face *> structureExcludedFaces;
     /// Cache of eligible-face pointers for the current scene. Rebuilt lazily in
     /// `RebuildPickHighlightMesh` when the Structure tool is active so the render loop can apply the
