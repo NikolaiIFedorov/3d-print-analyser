@@ -204,11 +204,12 @@ static void SolidWorldZBounds(const Solid &solid, double &zMin, double &zMax)
     }
 }
 
-static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &bottomCCW, double zTop)
+static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &footprintCCW, double zBottom,
+                                       double zTop)
 {
     CgalMesh mesh;
-    const std::size_t n = bottomCCW.size();
-    if (n < 3)
+    const std::size_t n = footprintCCW.size();
+    if (n < 3 || !(zBottom < zTop))
         return mesh;
 
     std::vector<K::Point_3> coords;
@@ -227,10 +228,13 @@ static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &bottomCCW,
     bi.reserve(n);
     ti.reserve(n);
     for (std::size_t i = 0; i < n; ++i)
-        bi.push_back(addPoint(bottomCCW[i]));
+    {
+        const glm::dvec3 &p = footprintCCW[i];
+        bi.push_back(addPoint(glm::dvec3(p.x, p.y, zBottom)));
+    }
     for (std::size_t i = 0; i < n; ++i)
     {
-        const glm::dvec3 &p = bottomCCW[i];
+        const glm::dvec3 &p = footprintCCW[i];
         ti.push_back(addPoint(glm::dvec3(p.x, p.y, zTop)));
     }
 
@@ -273,7 +277,7 @@ bool TryApplyStructureCarve(Scene *scene,
     std::vector<K::Point_3> coords;
     std::vector<std::vector<std::size_t>> tris;
     if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
-        return fail("Could not build triangle soup from solid (need STL-style triangles).");
+        return fail("Could not build triangle soup from solid.");
 
     PMP::orient_polygon_soup(coords, tris);
     CgalMesh tm;
@@ -285,9 +289,11 @@ bool TryApplyStructureCarve(Scene *scene,
     double zMinWorld = 0.0;
     double zMaxWorld = 0.0;
     SolidWorldZBounds(*solid, zMinWorld, zMaxWorld);
-    constexpr double kZCapMarginMm = 0.05;
-    const double zTop = zMaxWorld + kZCapMarginMm;
+    constexpr double kZMarginMm = 0.5;
+    const double zBottom = zMinWorld - kZMarginMm;
+    const double zTop = zMaxWorld + kZMarginMm;
 
+    bool anyPrismApplied = false;
     for (const Face *face : faces)
     {
         if (face == nullptr || face->dependency != solid)
@@ -311,7 +317,7 @@ bool TryApplyStructureCarve(Scene *scene,
         {
             if (ring.size() < 3)
                 continue;
-            CgalMesh prism = BuildVerticalPrismMesh(ring, zTop);
+            CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);
             if (!prism.is_valid() || prism.number_of_faces() == 0)
                 continue;
 
@@ -319,8 +325,12 @@ bool TryApplyStructureCarve(Scene *scene,
             if (!PMP::corefine_and_compute_difference(tm, prism, diffOut))
                 return fail("CGAL boolean difference failed (try smaller inset or check mesh).");
             tm = std::move(diffOut);
+            anyPrismApplied = true;
         }
     }
+
+    if (!anyPrismApplied)
+        return fail("No carve prisms were applied (rings empty, faces skipped, or prisms invalid).");
 
     DetachFacesFromSolid(*solid);
     if (!RebuildSolidFromCgalMesh(scene, *solid, tm))

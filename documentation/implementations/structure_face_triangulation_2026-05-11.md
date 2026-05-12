@@ -395,6 +395,10 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Follow-up (same day).** STL import merges coplanar triangles → **quad** (or larger) faces; strict 3-edge check caused carve to fail then `UpdateScene()` still ran → apparent freeze. **Fan-triangulate** each single-loop face when building the CGAL soup; gate `UpdateScene()` on `anyCarveApplied`.
 
+**Follow-up 2 (prism height).** Prisms used the face ring as the bottom and `z = zMax+ε` as the top, so for a horizontal top face both caps sat near the same Z → **~0 mm** effective cut inside the part. Prisms now use footprint `(x,y)` with `z` from `zMin(solid)−margin` to `zMax(solid)+margin` so the void runs through the full part height.
+
+**Outcome — retest cue.** If Accept no longer freezes but the solid looks unchanged, confirm you are running a binary **built after** Follow-up 2: otherwise the old prism still produces an invisible boolean. On failure, the carve path now returns `"No carve prisms were applied…"` or a CGAL message instead of detaching geometry.
+
 ### Fillet — clamp radius on short edges (carved triangles) (2026-05-12)
 
 **Symptom.** Inner carve boundaries stayed sharp at strip–inset junctions (short edges) while longer edges rounded.
