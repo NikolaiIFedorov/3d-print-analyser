@@ -1514,7 +1514,20 @@ void Display::Frame()
             size_t before = structureExcludedFaces.size();
             for (auto it = structureExcludedFaces.begin(); it != structureExcludedFaces.end();)
             {
-                if (!stillPickable(*it))
+                const Face *f = *it;
+                bool keep = stillPickable(f);
+                if (!keep && IsStructureStagingActive() && structureOriginalScene != nullptr)
+                {
+                    for (const Face &rf : structureOriginalScene->faces)
+                    {
+                        if (&rf == f)
+                        {
+                            keep = true;
+                            break;
+                        }
+                    }
+                }
+                if (!keep)
                     it = structureExcludedFaces.erase(it);
                 else
                     ++it;
@@ -2159,13 +2172,11 @@ void Display::RebuildPickHighlightMesh()
         appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
 
     // Structure tool (opt-out model): every eligible face that is **not** in the exclusion set is
-    // shown with a faint accent tint so the user sees the design intent on tool entry. The hovered
-    // face is skipped here — `appendFaceTris(hoverDraw, 0.5f, 0.5f)` below paints it brighter to
-    // signal interactivity (click toggles exclusion).
+    // shown with a faint accent tint. While staging shows the carved mesh, exclusions are keyed on
+    // original-scene faces — map each pick hit back through `MatchStructureOriginalFaceForStructurePick`.
     //
-    // Suppressed while a staging session is active: the carved staging-scene faces no longer
-    // correspond 1:1 to the original eligible faces, so highlighting them would be misleading.
-    if (activeTool == ActiveTool::Structure && !IsStructureStagingActive())
+    // The hovered face is skipped here — `appendFaceTris(hoverDraw, …)` below paints it brighter.
+    if (activeTool == ActiveTool::Structure)
     {
         // Rebuild the eligibility cache lazily here: this method runs whenever pick geometry or
         // hover state changes, which dominates the cases where the eligible set could have shifted.
@@ -2180,7 +2191,10 @@ void Display::RebuildPickHighlightMesh()
         }
         for (const Face *f : structureEligibleFacesCache)
         {
-            if (structureExcludedFaces.count(f) > 0)
+            const Face *canonical = f;
+            if (IsStructureStagingActive() && structureOriginalScene != nullptr)
+                canonical = MatchStructureOriginalFaceForStructurePick(f);
+            if (canonical != nullptr && structureExcludedFaces.count(canonical) > 0)
                 continue;
             if (f == hoverPickFace)
                 continue;
@@ -2542,12 +2556,12 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
 
     if (activeTool == ActiveTool::Structure)
     {
-        const StructurePickHit shit = PickStructureAtPixel(pixelX, pixelY);
+        const StructurePickHit structHit = PickStructureAtPixel(pixelX, pixelY);
         // Clickability feedback is deliberately suppressed at this stage: every hovered face,
         // eligible or not, just gets the standard "you're pointing at this" gradient. Click
         // commits only fire on eligible faces (gate inside `TryCommitStructureFacePick`), so the
         // distinction lives at click-time, not in the hover render.
-        SetHoverPick(shit.face, nullptr, false);
+        SetHoverPick(structHit.face, nullptr, false);
         return;
     }
 
@@ -2667,6 +2681,20 @@ double StructureFaceMaxSpanMm(const Face *face)
     return std::max({ext.x, ext.y, ext.z});
 }
 
+glm::dvec3 StructureFaceCentroidWorld(const Face *face)
+{
+    if (face == nullptr || face->loops.empty())
+        return glm::dvec3(0.0);
+    glm::dvec3 sum(0.0);
+    int count = 0;
+    for (const OrientedEdge &oe : face->loops[0])
+    {
+        sum += oe.GetStartPosition();
+        ++count;
+    }
+    return count > 0 ? sum / static_cast<double>(count) : glm::dvec3(0.0);
+}
+
 } // namespace
 
 bool Display::IsStructureFaceEligible(const Face *face, std::string *outReason) const
@@ -2706,6 +2734,55 @@ bool Display::IsStructureFaceEligible(const Face *face, std::string *outReason) 
     return true;
 }
 
+const Face *Display::MatchStructureOriginalFaceForStructurePick(const Face *pickedFace) const
+{
+    const Scene *ref = structureOriginalScene.get();
+    if (pickedFace == nullptr || ref == nullptr || pickedFace->surface == nullptr)
+        return nullptr;
+
+    const glm::dvec3 pPick = StructureFaceCentroidWorld(pickedFace);
+    glm::dvec3 nPick = pickedFace->surface->GetNormal();
+    const double nPickLen = glm::length(nPick);
+    if (nPickLen < 1e-12)
+        return nullptr;
+    nPick /= nPickLen;
+
+    constexpr double kNormDotMin = 0.992;
+    const Face *best = nullptr;
+    double bestD2 = std::numeric_limits<double>::infinity();
+
+    for (const Face &cand : ref->faces)
+    {
+        const Face *cf = &cand;
+        if (!IsStructureFaceEligible(cf))
+            continue;
+        if (cf->surface == nullptr)
+            continue;
+        glm::dvec3 nC = cf->surface->GetNormal();
+        const double nCLen = glm::length(nC);
+        if (nCLen < 1e-12)
+            continue;
+        nC /= nCLen;
+        if (glm::dot(nPick, nC) < kNormDotMin)
+            continue;
+
+        const glm::dvec3 pC = StructureFaceCentroidWorld(cf);
+        const glm::dvec3 d = pPick - pC;
+        const double d2 = glm::dot(d, d);
+        const double spanMm = std::max(StructureFaceMaxSpanMm(cf), StructureFaceMaxSpanMm(pickedFace));
+        const double tolMm = std::max(2.0, spanMm * 0.08);
+        const double tolM = tolMm / 1000.0;
+        if (d2 > tolM * tolM)
+            continue;
+        if (d2 < bestD2)
+        {
+            bestD2 = d2;
+            best = cf;
+        }
+    }
+    return best;
+}
+
 Display::StructurePickHit Display::PickStructureAtPixel(float pixelX, float pixelY) const
 {
     StructurePickHit out;
@@ -2726,12 +2803,6 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         return;
     if (structureOptFaceExcludeStep != Icons::StepState::Active)
         return;
-    // Per-face exclusion is dormant during a staging session: the staging-scene face pointers do
-    // not map back to original-scene exclusion identities, so a toggle here would either be a
-    // visual no-op or invalidate everything else on the next bake. Re-enable when stable cross-
-    // scene face identity tracking lands.
-    if (IsStructureStagingActive())
-        return;
     ImGuiIO &io = ImGui::GetIO();
     if (io.WantCaptureMouse || HitTestUI(pixelX, pixelY) || HitTestImGui(pixelX, pixelY))
         return;
@@ -2745,17 +2816,26 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         // Clickability feedback is suppressed at this stage; silently ignore ineligible clicks.
         return;
     }
-    // Opt-out toggle: clicking an eligible face either adds it to the exclusion set (was included)
-    // or removes it from the set (was excluded). B2 will hook the cache invalidation into the same
-    // path so the bake recomputes only when the *eligible* set changes — toggling exclusion alone
-    // never invalidates per-face geometry.
-    if (structureExcludedFaces.count(hit.face) > 0)
-        structureExcludedFaces.erase(hit.face);
+
+    const Face *toggleFace = hit.face;
+    if (IsStructureStagingActive())
+    {
+        toggleFace = MatchStructureOriginalFaceForStructurePick(hit.face);
+        if (toggleFace == nullptr)
+            return;
+    }
+
+    if (structureExcludedFaces.count(toggleFace) > 0)
+        structureExcludedFaces.erase(toggleFace);
     else
-        structureExcludedFaces.insert(hit.face);
+        structureExcludedFaces.insert(toggleFace);
+
     uiRenderer.MarkDirty();
     MarkPickDirty();
-    RefreshStructurePreviewForRenderer();
+    if (IsStructureStagingActive())
+        RebuildStructureStagingScene();
+    else
+        RefreshStructurePreviewForRenderer();
 }
 
 void Display::ClearStructureFacePick()
@@ -5560,7 +5640,6 @@ void Display::BeginStructureStagingSession()
     scene = ownedScenes[activeSceneIndex].get();
 
     StructureTriangulation::ClearBakeCache();
-    structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     UpdateScene();
 #else
@@ -5581,7 +5660,6 @@ void Display::RestoreStructureOriginalScene()
     structureOriginalScene.reset();
     structureStagingSceneIndex = SIZE_MAX;
     StructureTriangulation::ClearBakeCache();
-    structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     UpdateScene();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
@@ -5609,6 +5687,7 @@ void Display::RebuildStructureStagingScene()
         return;
     RestoreStructureOriginalScene();
     BeginStructureStagingSession();
+    MarkPickDirty();
 }
 
 void Display::FinalizeStructureSceneToolSession(bool accepted)

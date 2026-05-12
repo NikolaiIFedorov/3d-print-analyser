@@ -26,10 +26,12 @@
 
 - Reused prerequisite paragraph builder for “optional prerequisites” to avoid a parallel card style.
 - Header trailing is generic on `Header` so section headers could use it later without new UI types.
+
 ## Follow-up (2026-05-12) — exclusions in staging carve / triangulation
 
 - `Scene::Clone(std::unordered_map<const Face*, Face*>* outFaceRemap)` optional out-parameter copies the internal clone face map. `BeginStructureStagingSession` maps `structureExcludedFaces` into staging pointers and **omits** those faces from the `bySolid` lists passed to `TryApplyStructureCarve`, so CGAL footprint / boolean carve matches preview (no triangulation carve on excluded caps). Preview path unchanged: `RefreshStructurePreviewForRenderer` already skipped excluded faces for `BuildFaceTriangulationPreview`.
 
-## Follow-up (2026-05-12) — no checkbox / no “optional” copy
+## Follow-up (2026-05-12) — face picks work during live carve
 
-- Face exclusion row: title **Face exclusions** (dropped “(optional)”); **no** `leadingDraw` (no checkbox). Row still toggles `structureOptFaceExcludeStep` via `onClick` + tint sync. Section id renamed **`ExtraPrerequisites`** (was `OptionalPrerequisites`) so the word “optional” is not used for that block. `ToolPanelDef::optionalPrerequisites` name unchanged (API).
+- **Cause:** `BeginStructureStagingSession` runs as soon as the Structure tool is selected, so `TryCommitStructureFacePick` always hit the `IsStructureStagingActive()` early-return and clicks did nothing. Carve also replaces topology, so a naive clone pointer map would not survive.
+- **Fix:** Exclusions stay keyed on **original** scene faces. `MatchStructureOriginalFaceForStructurePick` matches a picked staging face to `structureOriginalScene` by **plane normal + centroid** (tolerance scales with face span). Clicks toggle the canonical original face, then `RebuildStructureStagingScene()` re-clones and re-carves. Tint pass runs during staging using the same mapping. `structureExcludedFaces` is no longer cleared at the end of `BeginStructureStagingSession` or in `RestoreStructureOriginalScene` (still cleared on Commit / tool switch via existing paths). Stale-exclusion cleanup keeps original pointers while staging if they still exist on the held original scene.

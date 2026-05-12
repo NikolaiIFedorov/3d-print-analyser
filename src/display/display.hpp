@@ -437,6 +437,9 @@ private:
     /// Returns true when `face` is a candidate for face triangulation under the Structure tool. The
     /// reason string is populated for every rejection (used by the panel hint and click logging).
     bool IsStructureFaceEligible(const Face *face, std::string *outReason = nullptr) const;
+    /// While staging shows the carved mesh, pick hits reference staging `Face*`. Map to the held
+    /// `structureOriginalScene` by plane + centroid so exclusions stay stable across carve topology.
+    const Face *MatchStructureOriginalFaceForStructurePick(const Face *pickedFace) const;
 
     const Face *calibFacePoint1 = nullptr;
     const Face *calibFacePoint2 = nullptr;
@@ -449,10 +452,8 @@ private:
     std::unique_ptr<Scene> structureOriginalScene;
     /// Tab slot the staging is occupying; only meaningful while `structureOriginalScene != nullptr`.
     size_t structureStagingSceneIndex = SIZE_MAX;
-    /// Structure tool: opt-out exclusion set. Every eligible face is triangulated *unless* its
-    /// pointer is in this set. Cleared on tool exit / scene change / re-import. **Currently dormant
-    /// during a staging session**: clicks are no-op while the live carve is shown because the
-    /// staging-scene face pointers do not map back to the original-scene exclusion identities.
+    /// Structure tool: opt-out exclusion set keyed on **original** scene faces (held in
+    /// `structureOriginalScene` while staging). Toggle picks map staging hits back to originals.
     std::unordered_set<const Face *> structureExcludedFaces;
     /// Cache of eligible-face pointers for the current scene. Rebuilt lazily in
     /// `RebuildPickHighlightMesh` when the Structure tool is active so the render loop can apply the
