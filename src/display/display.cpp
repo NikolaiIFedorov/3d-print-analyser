@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <mutex>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <queue>
 #include <cstdio>
@@ -1055,6 +1056,10 @@ void Display::Render()
             uiStructure->visible = showStructure;
         // Leaving the Structure tool without an explicit Cancel/Accept reverts as if Cancelled.
         // Finalize already cleared staging in those paths, so this is a no-op for them.
+#if defined(CAD_USE_CGAL)
+        if (!showStructure)
+            CancelPendingStructureCarveJob();
+#endif
         if (!showStructure && IsStructureStagingActive())
             RestoreStructureOriginalScene();
         // Entering Structure with a real model: build the carved staging up-front so the user sees the
@@ -1135,6 +1140,10 @@ void Display::MarkGeometryDirtyAll()
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
+#if defined(CAD_USE_CGAL)
+    CancelPendingStructureCarveJob();
+#endif
+
     geometryDirtyAll = true;
     geometryDirtySolids.clear();
     ScheduleNode(InvalidationNode::Geometry);
@@ -1162,6 +1171,10 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
     activeAnalysisTintIdentityForRebuild = 0;
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
+
+#if defined(CAD_USE_CGAL)
+    CancelPendingStructureCarveJob();
+#endif
 
     if (!geometryDirtyAll)
         geometryDirtySolids.insert(solid);
@@ -1231,6 +1244,9 @@ void Display::RunUiNode()
 void Display::Frame()
 {
     ProcessDeferredImportIfAny();
+#if defined(CAD_USE_CGAL)
+    PollStructureStagingTaskIfReady();
+#endif
     ApplyImportProgressSnapshot();
     const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
 
@@ -2835,7 +2851,13 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
     if (IsStructureStagingActive())
         RebuildStructureStagingScene();
     else
+    {
         RefreshStructurePreviewForRenderer();
+#if defined(CAD_USE_CGAL)
+        if (pendingStructureStagingTask.has_value())
+            BeginStructureStagingSession();
+#endif
+    }
 }
 
 void Display::ClearStructureFacePick()
@@ -3826,6 +3848,9 @@ void Display::RebuildFileTabs()
 
             // Switching away from a Structure staging session is treated as Cancel, so the old tab
             // is restored to its pre-carve state before we move focus.
+#if defined(CAD_USE_CGAL)
+            CancelPendingStructureCarveJob();
+#endif
             if (IsStructureStagingActive())
                 RestoreStructureOriginalScene();
 
@@ -5549,6 +5574,66 @@ void Display::RefreshStructurePreviewForRenderer()
     renderer.SetStructurePreviewSegments(std::move(all));
 }
 
+#if defined(CAD_USE_CGAL)
+void Display::CancelPendingStructureCarveJob()
+{
+    if (!pendingStructureStagingTask.has_value())
+        return;
+    pendingStructureStagingTask->RequestCancel();
+    pendingStructureStagingTask.reset();
+    ++structureStagingIssuedJobId;
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+}
+
+void Display::PollStructureStagingTaskIfReady()
+{
+    if (!pendingStructureStagingTask.has_value())
+        return;
+    std::optional<AsyncStructureStagingResult> ready = pendingStructureStagingTask->TryTake();
+    if (!ready.has_value())
+        return;
+    pendingStructureStagingTask.reset();
+
+    AsyncStructureStagingResult r = std::move(*ready);
+    if (r.jobId != structureStagingIssuedJobId)
+        return;
+    if (r.cancelled)
+        return;
+    if (r.targetSceneIndex == SIZE_MAX || r.targetSceneIndex >= ownedScenes.size())
+        return;
+    if (r.targetSceneIndex != activeSceneIndex || activeTool != ActiveTool::Structure)
+        return;
+    if (!r.staging)
+    {
+        LOG_WARN("Structure staging: worker returned empty scene");
+        return;
+    }
+
+    LOG_DESC("Structure staging: carved solids", std::to_string(r.carvedSolids), "of",
+             std::to_string(r.carveAttempts));
+
+    structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
+    structureStagingSceneIndex = activeSceneIndex;
+    ownedScenes[activeSceneIndex] = std::move(r.staging);
+    scene = ownedScenes[activeSceneIndex].get();
+
+    if (!r.firstErr.empty())
+        SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
+    else
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+
+    StructureTriangulation::ClearBakeCache();
+    structureEligibleFacesCache.clear();
+    UpdateScene();
+    SyncStructurePanelDerivedVisibility();
+    MarkPickDirty();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+}
+
 void Display::BeginStructureStagingSession()
 {
     if (IsStructureStagingActive())
@@ -5566,7 +5651,9 @@ void Display::BeginStructureStagingSession()
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
     structureOptFaceExcludeStep = Icons::StepState::Active;
     SyncStructureOptionalPrereqRowStyle();
-#if defined(CAD_USE_CGAL)
+
+    CancelPendingStructureCarveJob();
+
     std::unordered_map<const Face *, Face *> structureFaceCloneRemap;
     std::unique_ptr<Scene> staging = scene->Clone(&structureFaceCloneRemap);
     if (!staging)
@@ -5607,48 +5694,88 @@ void Display::BeginStructureStagingSession()
     LOG_DESC("Structure staging: eligible faces", std::to_string(eligibleCount),
              "across solids", std::to_string(bySolid.size()));
 
-    size_t carvedSolids = 0;
-    size_t carveAttempts = 0;
-    std::string firstErr;
-    for (auto &entry : bySolid)
-    {
-        ++carveAttempts;
-        std::string err;
-        if (StructureCarve::TryApplyStructureCarve(staging.get(), entry.first, entry.second, params, &err))
-            ++carvedSolids;
-        else
+    const uint64_t jobId = ++structureStagingIssuedJobId;
+    const size_t targetSceneIndex = activeSceneIndex;
+
+    SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Carving…");
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+
+    pendingStructureStagingTask = taskRunner.Submit(
+        [jobId, targetSceneIndex, bySolid = std::move(bySolid), params,
+         staging = std::move(staging)](const TaskRunner::CancellationToken &token) mutable -> AsyncStructureStagingResult
         {
-            LOG_WARN("Structure staging carve:", err);
-            if (firstErr.empty() && !err.empty())
-                firstErr = err;
-        }
-    }
-    LOG_DESC("Structure staging: carved solids", std::to_string(carvedSolids),
-             "of", std::to_string(bySolid.size()));
+            AsyncStructureStagingResult out;
+            out.jobId = jobId;
+            out.targetSceneIndex = targetSceneIndex;
+            out.staging = std::move(staging);
+            if (!out.staging)
+                return out;
 
-    if (carveAttempts > 0 && carvedSolids < carveAttempts && !firstErr.empty())
-    {
-        if (carvedSolids == 0)
-            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, firstErr);
-        else
-            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, std::string("Partial: ") + firstErr);
-    }
+            size_t carvedSolids = 0;
+            size_t carveAttempts = 0;
+            std::string firstErr;
+            for (auto &entry : bySolid)
+            {
+                if (token.IsCancellationRequested())
+                {
+                    out.cancelled = true;
+                    return out;
+                }
+                ++carveAttempts;
+                std::string err;
+                if (StructureCarve::TryApplyStructureCarve(out.staging.get(), entry.first, entry.second, params,
+                                                           &err))
+                    ++carvedSolids;
+                else
+                {
+                    LOG_WARN("Structure staging carve:", err);
+                    if (firstErr.empty() && !err.empty())
+                        firstErr = err;
+                }
+            }
 
-    structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
-    structureStagingSceneIndex = activeSceneIndex;
-    ownedScenes[activeSceneIndex] = std::move(staging);
-    scene = ownedScenes[activeSceneIndex].get();
+            out.carvedSolids = carvedSolids;
+            out.carveAttempts = carveAttempts;
 
-    StructureTriangulation::ClearBakeCache();
-    structureEligibleFacesCache.clear();
-    UpdateScene();
-#else
-    LOG_DESC("Structure staging skipped: build is missing CAD_USE_CGAL");
-#endif
+            if (carveAttempts > 0 && carvedSolids < carveAttempts && !firstErr.empty())
+            {
+                if (carvedSolids == 0)
+                    out.firstErr = std::move(firstErr);
+                else
+                    out.firstErr = std::string("Partial: ") + firstErr;
+            }
+            return out;
+        });
 }
+#else
+void Display::BeginStructureStagingSession()
+{
+    if (IsStructureStagingActive())
+        return;
+    if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
+    {
+        LOG_DESC("Structure staging skipped: no active imported tab");
+        return;
+    }
+    if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
+    {
+        LOG_DESC("Structure staging skipped: active scene is empty");
+        return;
+    }
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
+    LOG_DESC("Structure staging skipped: build is missing CAD_USE_CGAL");
+}
+#endif
 
 void Display::RestoreStructureOriginalScene()
 {
+#if defined(CAD_USE_CGAL)
+    CancelPendingStructureCarveJob();
+#endif
     if (!IsStructureStagingActive())
         return;
     if (structureStagingSceneIndex < ownedScenes.size())
@@ -5669,6 +5796,9 @@ void Display::RestoreStructureOriginalScene()
 
 void Display::CommitStructureStagingScene()
 {
+#if defined(CAD_USE_CGAL)
+    CancelPendingStructureCarveJob();
+#endif
     if (!IsStructureStagingActive())
         return;
     structureOriginalScene.reset();
@@ -5715,6 +5845,11 @@ void Display::SyncStructurePanelDerivedVisibility()
     const bool activeHasModel =
         scene != nullptr && (!scene->solids.empty() || !scene->faces.empty()) &&
         !pendingImportTabActive;
+#if defined(CAD_USE_CGAL)
+    const bool structureCarveBusy = pendingStructureStagingTask.has_value();
+#else
+    const bool structureCarveBusy = false;
+#endif
     if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
         prereq->visible = !activeHasModel;
     if (Section *optPre = FindSection(*uiStructure, "ExtraPrerequisites"))
@@ -5722,7 +5857,7 @@ void Display::SyncStructurePanelDerivedVisibility()
     if (structPara_Import)
         structPara_Import->visible = !activeHasModel;
     if (structPara_SceneEditFooter)
-        structPara_SceneEditFooter->visible = activeHasModel;
+        structPara_SceneEditFooter->visible = activeHasModel && !structureCarveBusy;
     if (structPara_HoverHint)
     {
         // Clickability hint deliberately suppressed at this stage — the algorithm is still in flux

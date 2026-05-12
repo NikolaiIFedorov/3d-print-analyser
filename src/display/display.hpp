@@ -148,7 +148,9 @@ private:
     void FinalizeStructureSceneToolSession(bool accepted);
     /// Build the temporary carved staging scene from the current imported scene and swap it into
     /// `ownedScenes[activeSceneIndex]` so the user sees the carve live. The original is held aside in
-    /// `structureOriginalScene` for cancel/restore. No-op when no model is loaded or staging is already active.
+    /// `structureOriginalScene` for cancel/restore. With `CAD_USE_CGAL`, the CGAL carve runs on a worker thread;
+    /// the swap happens on the main thread when the job completes. No-op when no model is loaded or staging
+    /// is already active.
     void BeginStructureStagingSession();
     /// Restore the pre-staging original scene if a staging session is active; cleared otherwise. Re-runs
     /// `UpdateScene()` so the renderer/pick state rebuild from the original.
@@ -332,6 +334,22 @@ private:
     MainThreadPipeline mainThreadPipeline;
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
+#if defined(CAD_USE_CGAL)
+    /// Worker output for `BeginStructureStagingSession`: carved staging scene and optional carve error text.
+    struct AsyncStructureStagingResult
+    {
+        bool cancelled = false;
+        uint64_t jobId = 0;
+        size_t targetSceneIndex = SIZE_MAX;
+        std::unique_ptr<Scene> staging;
+        std::string firstErr;
+        size_t carvedSolids = 0;
+        size_t carveAttempts = 0;
+    };
+    std::optional<TaskRunner::TaskHandle<AsyncStructureStagingResult>> pendingStructureStagingTask;
+    /// Incremented when a new carve job is issued or when pending work is invalidated; results must match to apply.
+    uint64_t structureStagingIssuedJobId = 0;
+#endif
     const Scene *pendingAnalysisScene = nullptr;
     /// Latest async analysis result awaiting render application (tints / flaw overlay).
     std::optional<AsyncAnalysisResult> pendingAnalysisTint;
@@ -471,4 +489,10 @@ private:
     float SyncViewportAxisForDepthClip();
     /// Grid cell size (`Color::GRID_CELL_SIZE`) from default length unit; half-extent from `settings.gridCellsAlongAxis`.
     void SyncGridLayoutFromSettings();
+
+#if defined(CAD_USE_CGAL)
+    void PollStructureStagingTaskIfReady();
+    /// Cancels an in-flight carve job (if any), bumps `structureStagingIssuedJobId`, clears the header busy hint.
+    void CancelPendingStructureCarveJob();
+#endif
 };
