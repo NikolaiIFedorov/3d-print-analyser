@@ -75,24 +75,38 @@ static bool BuildTriangleSoupFromSolid(Solid &solid,
     {
         if (f == nullptr || f->dependency != &solid || f->loops.empty())
             continue;
-        if (f->loops.size() != 1 || f->loops[0].size() != 3)
+        if (f->loops.size() != 1)
         {
-            LOG_WARN("Structure carve: solid must be triangulated (one triangle loop per face)");
+            LOG_WARN("Structure carve: multi-loop faces not supported");
             return false;
         }
+        const auto &loop = f->loops[0];
+        const std::size_t n = loop.size();
+        if (n < 3)
+            continue;
 
-        std::vector<std::size_t> tri(3);
-        for (std::size_t i = 0; i < 3; ++i)
+        std::vector<std::size_t> idx(n);
+        for (std::size_t i = 0; i < n; ++i)
         {
-            Point *pq = f->loops[0][i].GetStart();
+            Point *pq = loop[i].GetStart();
             if (pq == nullptr)
             {
-                LOG_WARN("Structure carve: triangle corner point null");
+                LOG_WARN("Structure carve: face loop vertex null");
                 return false;
             }
-            tri[i] = indexOfPoint(pq);
+            idx[i] = indexOfPoint(pq);
         }
-        trianglesOut.push_back(std::move(tri));
+
+        if (n == 3)
+        {
+            trianglesOut.push_back({idx[0], idx[1], idx[2]});
+        }
+        else
+        {
+            // Fan from vertex 0 — correct for convex planar facets (typical merged STL quads).
+            for (std::size_t i = 1; i + 1 < n; ++i)
+                trianglesOut.push_back({idx[0], idx[i], idx[i + 1]});
+        }
     }
 
     return !trianglesOut.empty() && coords.size() >= 3;

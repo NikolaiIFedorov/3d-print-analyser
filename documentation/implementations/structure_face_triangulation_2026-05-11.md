@@ -387,11 +387,13 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Behaviour.** `Display::FinalizeStructureSceneToolSession(true)` (Structure panel **Accept**, import prerequisite done) groups included faces by `Face::dependency` solid and calls `StructureCarve::TryApplyStructureCarve` per solid. Each face contributes `BuildCarveFootprintOuterRingsWorld` (same geometry as preview); each ring is meshed as a **vertical** prism (constant `z` on top cap = solid max Z + margin; bottom follows the filleted footprint on the face). `PMP::corefine_and_compute_difference` subtracts prisms from a CGAL `Surface_mesh` built from the solid’s triangle soup, then the solid is rebuilt via the same pattern as `STLCgalPlanarExperiment` and `MergeCoplanarFaces` runs. **Cancel** does not carve.
 
-**Limits (v1).** Solid must be **STL-style triangle soup** (one 3-edge loop per face). Only faces with **|n·ẑ| ≥ 0.995** are carved (world-Z prism). Slanted faces and non-tri meshes are skipped with `LOG_WARN`. Carve failure logs a warning and leaves the solid unchanged.
+**Limits (v1).** Each face must be a **single** outer loop; n-gons are **fan-triangulated** for the CGAL soup (convex planar facets — typical after STL `MergeCoplanarFaces`). Multi-loop faces are rejected. Only faces with **|n·ẑ| ≥ 0.995** are carved (world-Z prism). Carve failure logs a warning and leaves the solid unchanged. **Accept** calls `UpdateScene()` only when at least one carve succeeded (avoids a multi-second full geometry rebuild when the soup build or boolean fails).
 
 **Refactor.** `CollectCarvedFilletedRings3D` shares inset/strip/boolean/fillet logic between preview (`BuildFaceTriangulationPreview`) and `BuildCarveFootprintOuterRingsWorld`.
 
 **Files.** `StructureCarve.{hpp,cpp}`, `StructureTriangulation.{hpp,cpp}`, `CMakeLists.txt`, `display.cpp`.
+
+**Follow-up (same day).** STL import merges coplanar triangles → **quad** (or larger) faces; strict 3-edge check caused carve to fail then `UpdateScene()` still ran → apparent freeze. **Fan-triangulate** each single-loop face when building the CGAL soup; gate `UpdateScene()` on `anyCarveApplied`.
 
 ### Fillet — clamp radius on short edges (carved triangles) (2026-05-12)
 

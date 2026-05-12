@@ -5376,6 +5376,7 @@ void Display::FinalizeStructureSceneToolSession(bool accepted)
         params.minFeatureMm = 1.5;
 
         std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
+        bool anyCarveApplied = false;
         for (const Face *f : structureEligibleFacesCache)
         {
             if (structureExcludedFaces.count(f) != 0)
@@ -5388,12 +5389,15 @@ void Display::FinalizeStructureSceneToolSession(bool accepted)
         for (auto &entry : bySolid)
         {
             std::string err;
-            if (!StructureCarve::TryApplyStructureCarve(scene, entry.first, entry.second, params, &err))
+            if (StructureCarve::TryApplyStructureCarve(scene, entry.first, entry.second, params, &err))
+                anyCarveApplied = true;
+            else
                 LOG_WARN("Structure carve:", err);
         }
         StructureTriangulation::ClearBakeCache();
         structureExcludedFaces.clear();
-        UpdateScene();
+        if (anyCarveApplied)
+            UpdateScene();
     }
 #endif
     activeTool = ActiveTool::Analysis;

@@ -20,7 +20,8 @@ namespace StructureCarve
 /// `MergeCoplanarFaces`. Faces must belong to `solid` and be near-horizontal (|n·ẑ| ≥ 0.995) for
 /// the current prism extruder. On failure returns `false` and leaves `solid` unchanged.
 ///
-/// Requires `CAD_USE_CGAL` and a triangulated solid (STL-style triangle soup).
+/// Requires `CAD_USE_CGAL`. Each face must be a single **simple** outer loop (3+ edges); n-gons
+/// are fan-triangulated for the CGAL soup (convex facets typical after STL coplanar merge).
 #if defined(CAD_USE_CGAL)
 bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
