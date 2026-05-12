@@ -23,6 +23,7 @@ Last updated: 2026-04-27
 ### Written (this session)
 - [x] Architecture_FileImport.md       — STL / 3MF / OBJ import pipeline
 - [x] Architecture_Camera.md           — Orthographic camera: orbit, pan, zoom, roll, framing
+- [x] Architecture_UIThreadAndWorkers.md — Main thread vs TaskRunner; CGAL; shutdown notes
 
 ---
 

@@ -180,7 +180,7 @@ Before implementing, check `documentation/implementations/` for an existing log 
 Apply the following checklist when writing or changing code:
 
 1. **Critique the approach first** — identify edge cases, silent behaviour changes, and at least one alternative.
-2. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)?
+2. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)? For **async jobs, `TaskRunner`, or CGAL** touched from display/input paths, align with `documentation/Architecture_UIThreadAndWorkers.md` (main thread polls; workers own heavy work).
 3. **Check performance** — are there unnecessary allocations, copies, or per-frame heap allocations? Are OpenGL calls batched?
 4. **Check portability** — are paths handled with `std::filesystem`? Are there platform-specific assumptions?
 5. **Check naming** — camelCase/PascalCase conventions, concise and unambiguous.
