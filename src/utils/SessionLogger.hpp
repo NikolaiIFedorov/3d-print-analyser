@@ -69,7 +69,7 @@ public:
     void Start();
 
     // Write buffered events to a JSON file at the given path.
-    void Flush(const std::string &path);
+    void Flush(const std::string &path, bool logToConsole = true);
 
     // Mutable state — updated by Display at key points; read by LogBugMarker.
     SessionState state;
@@ -87,6 +87,10 @@ public:
 
     /// STL importer + coplanar merge diagnostics (written to session_log.json for offline analysis).
     void LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl);
+
+    /// Quit/teardown breadcrumb: appends a `shutdown_phase` event and **rewrites** `session_log.json`
+    /// immediately so the last phase survives a hang (terminal alone is unreliable when CGAL/logging floods).
+    void LogShutdownPhase(const std::string &phase);
 
 private:
     SessionLogger() = default;

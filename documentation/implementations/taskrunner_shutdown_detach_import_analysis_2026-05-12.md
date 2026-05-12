@@ -32,7 +32,7 @@ Quit path no longer **blocks** on `join()` for the default import/analysis runne
 
 ## Shutdown breadcrumb logging (2026-05-12)
 
-`LOG_SESSION` lines at `LogVerbosity::NORMAL` in `main::Shutdown` and each phase of `Display::Shutdown` so a stuck quit shows the **last printed line** (console / session log). Look for `[shutdown]` prefix.
+`LOG_SESSION` breadcrumbs were replaced by **`SessionLogger::LogShutdownPhase`**: each step appends a `shutdown_phase` event and **rewrites `session_log.json` immediately** (quiet flush — no per-step console line) so the last phase survives a hang even when the terminal is unusable. Inspect the JSON: events where `"type": "shutdown_phase"` and `data.phase`.
 
 ## Structure staging carve: one WARN instead of terminal “blank line flood” (2026-05-12)
 

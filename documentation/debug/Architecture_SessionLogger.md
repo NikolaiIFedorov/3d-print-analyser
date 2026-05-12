@@ -115,9 +115,12 @@ main.cpp Init()
                        → Log::Session("BUG MARKER — ...")
 
 main.cpp Shutdown()
-└── SessionLogger::Instance().Flush("session_log.json")
-    ├── SerializeJson() → build JSON string
-    └── std::ofstream("session_log.json") << json
+├── LogShutdownPhase("main: …") → PushEvent("shutdown_phase", { phase }) + Flush("session_log.json", quiet)
+│   (repeated after FillSessionReproState, after LogSessionEndSnapshot, around Display::Shutdown, at end)
+├── FillSessionReproState(sl.state) (when display exists)
+├── LogSessionEndSnapshot() → PushEvent("session_end", { … }) + Log::Session (one console line)
+├── Display::Shutdown() → each major step calls LogShutdownPhase("display: …") + quiet Flush
+└── Last event in the file is the last phase that completed; if the app hangs mid-teardown, open JSON on disk.
 ```
 
 ### JSON Output Format

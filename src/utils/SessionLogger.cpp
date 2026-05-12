@@ -76,6 +76,17 @@ void SessionLogger::LogSessionEndSnapshot()
     Log::Session("Session end snapshot recorded");
 }
 
+namespace
+{
+constexpr const char *kSessionLogPath = "session_log.json";
+}
+
+void SessionLogger::LogShutdownPhase(const std::string &phase)
+{
+    PushEvent("shutdown_phase", {{"phase", "\"" + EscapeStr(phase) + "\""}});
+    Flush(kSessionLogPath, false);
+}
+
 void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)
 {
     if (!stl.hasMergeDiagnostics)
@@ -117,7 +128,7 @@ void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const ST
     Log::Session("STL merge diagnostics recorded for " + filename);
 }
 
-void SessionLogger::Flush(const std::string &path)
+void SessionLogger::Flush(const std::string &path, bool logToConsole)
 {
     std::ofstream file(path);
     if (!file.is_open())
@@ -126,7 +137,8 @@ void SessionLogger::Flush(const std::string &path)
         return;
     }
     file << SerializeJson();
-    Log::Session("Session log written to: " + path);
+    if (logToConsole)
+        Log::Session("Session log written to: " + path);
 }
 
 uint64_t SessionLogger::ElapsedMs() const
