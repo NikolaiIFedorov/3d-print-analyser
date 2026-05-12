@@ -60,6 +60,7 @@ void Shutdown()
         sl.LogShutdownPhase("main: after Display::Shutdown");
     }
     sl.LogShutdownPhase("main: end");
+    sl.Flush("session_log.json", false);
 }
 
 bool Init()

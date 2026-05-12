@@ -2,6 +2,7 @@
 #include "log.hpp"
 #include "scene/scene.hpp"
 
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -85,7 +86,13 @@ constexpr const char *kSessionLogPath = "session_log.json";
 void SessionLogger::LogShutdownPhase(const std::string &phase)
 {
     PushEvent("shutdown_phase", {{"phase", "\"" + EscapeStr(phase) + "\""}});
-    Flush(kSessionLogPath, false);
+    // Default: buffer only — `main::Shutdown` flushes once at the end so quitting does not rewrite
+    // `session_log.json` dozens of times (IDE file watchers + disk churn looked like an instant hitch).
+    // Set CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1 to restore per-phase flush for hang forensics.
+    const char *e = std::getenv("CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH");
+    const bool perPhaseFlush = e != nullptr && e[0] != '\0' && e[0] != '0';
+    if (perPhaseFlush)
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)

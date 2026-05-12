@@ -89,8 +89,9 @@ public:
     /// STL importer + coplanar merge diagnostics (written to session_log.json for offline analysis).
     void LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl);
 
-    /// Quit/teardown breadcrumb: appends a `shutdown_phase` event and **rewrites** `session_log.json`
-    /// immediately so the last phase survives a hang (terminal alone is unreliable when CGAL/logging floods).
+    /// Quit/teardown breadcrumb: appends a `shutdown_phase` event. By default the session log is **not**
+    /// flushed here (see `main::Shutdown` for a single end flush); set `CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1`
+    /// to flush `session_log.json` after every phase for mid-teardown hang forensics.
     void LogShutdownPhase(const std::string &phase);
 
 private:
