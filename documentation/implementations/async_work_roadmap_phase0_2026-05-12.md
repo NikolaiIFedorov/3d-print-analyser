@@ -73,7 +73,7 @@ rg 'AnalyzeScene|STLImport::Import|OBJImport::Import|ThreeMFImport::Import|TryAp
 
 ## Next (Phase 1–2)
 
-1. Treat **no new** long-running CGAL/import paths on main without `Submit` + apply pattern.
+1. ~~Phase 1: unify pattern (docs + analysis worker/poll helpers)~~ — see [async_work_roadmap_phase1_2026-05-12.md](async_work_roadmap_phase1_2026-05-12.md).
 2. Pick **one** item from section **C** (likely **retire or isolate** `CompleteFileImport` callers, or **instrument** `UpdateScene`/`FrameScene` post-import) and track in a new implementation log when work starts.
 
 ## Mini retro (Phase 0 only)

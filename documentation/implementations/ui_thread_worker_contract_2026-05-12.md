@@ -19,7 +19,7 @@ Structure / CGAL work exposed **main-thread freezes** and fragile **async handle
 | `TaskRunner::~TaskRunner` | `join()` on worker threads | Acceptable for clean shutdown; can still **block** if worker is inside one long CGAL call — document, optional future: stop + timeout / detach policy |
 | `src/input` | No `TryTake` / `future` / `join` hits | OK |
 | `src/main.cpp` | No direct future/join hits in quick scan | OK |
-| `Display` async | Import, analysis, structure staging use `Submit` + `TryTake` in `Frame()` / poll helpers | OK — pattern to copy |
+| `Display` async | Import, analysis, structure staging use `Submit` + `TryTake` in `Frame()` / poll helpers | OK — pattern to copy; analysis worker body centralized in `ProduceAsyncAnalysisFromScene` |
 | `Display::RefreshStructurePreviewForRenderer` | Was: all eligible faces baked in one call. | **Done (2026-05-12):** incremental bake via `TickStructurePreviewBuildIfNeeded` (max 8 faces/frame); optional later: async preview job. |
 
 **Search used:** `rg` on `src/display`, `src/input`, `src/main.cpp` for `TryTake`, `TaskRunner`, `Submit`, `future`, `join`, `wait` (filtered for relevance).

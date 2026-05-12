@@ -13,7 +13,7 @@ Keep **windowing, input, and OpenGL** responsive. Anything that can **block for 
 
 - Read input, drive ImGui, issue GL draws.
 - **Start** async work: `taskRunner.Submit(...)`, bump generation / job ids, set “busy” UI.
-- **Poll** completion: `pending*Task->TryTake()` (non-blocking); if ready, **apply** results (swap scenes, update tints, clear flags).
+- **Poll** completion: `pending*Task->TryTake()` (non-blocking); if ready, **apply** results (swap scenes, update tints, clear flags). Import polling lives in `ProcessDeferredImportIfAny`; analysis uses `PollPendingAnalysisTaskIfReady`; Structure uses `PollStructureStagingTaskIfReady` (`CAD_USE_CGAL`).
 - Run **cheap** logic: pick filters, mode switches, small B-rep queries, **cached** previews that stay within a tight budget.
 
 **Must not:**

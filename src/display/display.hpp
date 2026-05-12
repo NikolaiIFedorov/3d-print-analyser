@@ -333,6 +333,11 @@ private:
         const Scene *scene = nullptr;
         AnalysisResults results;
     };
+
+    /// Async job stack (see `documentation/Architecture_AsyncWorkRoadmap.md` and
+    /// `Architecture_UIThreadAndWorkers.md`): workers run heavy work; `Frame()` polls `TryTake` and
+    /// applies on the main thread. Import uses `mainThreadPipeline` for multi-step attach/update.
+    /// Structure CGAL carve uses a separate `TaskRunner` in `display.cpp` so it cannot starve this queue.
     TaskRunner taskRunner;
     MainThreadPipeline mainThreadPipeline;
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
@@ -392,6 +397,11 @@ private:
     bool pendingImportTabActive = false;
 
     void ProcessDeferredImportIfAny();
+    /// Non-blocking: if `pendingAnalysisTask` finished, apply tint when ids/scene match.
+    void PollPendingAnalysisTaskIfReady();
+    /// Shared worker body for both analysis `Submit` sites in `Frame()`.
+    AsyncAnalysisResult ProduceAsyncAnalysisFromScene(const Scene *sceneForAnalysis, uint64_t requestId,
+                                                      const TaskRunner::CancellationToken &token);
     void CompleteFileImport(const std::string &path);
     /// After import, flush SDL's finger/mouse tail and sync `Input` (`activeTouches`) — queue vs model must match.
     void FlushImportInputEventTail();

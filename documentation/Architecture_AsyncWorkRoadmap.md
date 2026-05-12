@@ -2,7 +2,8 @@
 
 **Audience:** contributors extending tools, importers, CGAL-backed features, or anything that can stall the frame.  
 **Companion (normative contract):** [Architecture_UIThreadAndWorkers.md](Architecture_UIThreadAndWorkers.md) — what the UI thread may and must not do, `TaskRunner`, shutdown, job identity.  
-**Living inventory:** [implementations/async_work_roadmap_phase0_2026-05-12.md](implementations/async_work_roadmap_phase0_2026-05-12.md) — Phase 0 audit snapshot (re-run when adding heavy paths).
+**Living inventory:** [implementations/async_work_roadmap_phase0_2026-05-12.md](implementations/async_work_roadmap_phase0_2026-05-12.md) — Phase 0 audit snapshot (re-run when adding heavy paths).  
+**Phase 1 rollout:** [implementations/async_work_roadmap_phase1_2026-05-12.md](implementations/async_work_roadmap_phase1_2026-05-12.md).
 
 ## Intent
 
@@ -22,10 +23,15 @@ Existing building blocks: `TaskRunner`, `MainThreadPipeline`, async import apply
 - Record **concurrency policies**: default `Display::taskRunner` vs `StructureCarveTaskRunner`, cancel-on-dirty behaviour, generation / request ids.
 - **Re-run** Phase 0 after major features (grep patterns in companion doc).
 
-### Phase 1 — Unify the pattern
+### Phase 1 — Unify the pattern (**done 2026-05-12**)
 
 - New heavy features use **`Submit` + `TryTake` in `Display::Frame()`** (or the same lifecycle) and **`MainThreadPipeline`** for multi-step main-thread apply when needed.
 - Prefer **one bounded pool** per concern; separate runner only when a job class can **starve** others (already the case for Structure carve).
+
+**Shipped in this pass:**
+
+- `Display` documents the job stack next to `taskRunner` / `mainThreadPipeline` (pointer to this roadmap + UI-thread contract).
+- Analysis: single **`ProduceAsyncAnalysisFromScene`** implementation for both `Submit` call sites; **`PollPendingAnalysisTaskIfReady`** mirrors the import/structure “poll on frame” pattern (`display.hpp` / `display.cpp`).
 
 ### Phase 2 — Vertical slices
 
@@ -50,4 +56,5 @@ Existing building blocks: `TaskRunner`, `MainThreadPipeline`, async import apply
 
 - [Architecture_FileImport.md](Architecture_FileImport.md)
 - [Architecture_Analysis.md](Architecture_Analysis.md)
-- [implementations/ui_thread_worker_contract_2026-05-12.md](implementations/ui_thread_worker_contract_2026-05-12.md)
+- [implementations/async_work_roadmap_phase0_2026-05-12.md](implementations/async_work_roadmap_phase0_2026-05-12.md)
+- [implementations/async_work_roadmap_phase1_2026-05-12.md](implementations/async_work_roadmap_phase1_2026-05-12.md)

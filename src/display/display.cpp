@@ -1267,6 +1267,54 @@ void Display::RunUiNode()
     InvalidationExec(InvalidationNode::UI);
 }
 
+Display::AsyncAnalysisResult Display::ProduceAsyncAnalysisFromScene(const Scene *sceneForAnalysis, uint64_t requestId,
+                                                                    const TaskRunner::CancellationToken &token)
+{
+    AsyncAnalysisResult out;
+    out.scene = sceneForAnalysis;
+    out.requestId = requestId;
+    if (token.IsCancellationRequested())
+    {
+        out.cancelled = true;
+        return out;
+    }
+    PrimeAnalysisWorkerQueueStepDone();
+    Analysis::AnalyzeSceneReporter reporter = [this](uint32_t phaseId, uint64_t stepIndex)
+    { OnAnalysisWorkerSceneStep(phaseId, stepIndex); };
+    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis, &reporter);
+    if (token.IsCancellationRequested())
+    {
+        out.cancelled = true;
+        return out;
+    }
+    out.ok = true;
+    return out;
+}
+
+void Display::PollPendingAnalysisTaskIfReady()
+{
+    if (!pendingAnalysisTask.has_value())
+        return;
+    std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
+    if (!analysisReady.has_value())
+        return;
+    const uint64_t readyRequestId = analysisReady->requestId;
+    pendingAnalysisTask.reset();
+    pendingAnalysisScene = nullptr;
+    if (analysisReady->ok && !analysisReady->cancelled && analysisReady->scene == scene &&
+        analysisReady->requestId == analysisRequestId)
+    {
+        pendingAnalysisTint = std::move(*analysisReady);
+        TryMarkAnalysisTintStepOnce(readyRequestId);
+        styleDirty = true;
+        ScheduleNode(InvalidationNode::Style);
+        ScheduleNode(InvalidationNode::Analysis);
+        ScheduleNode(InvalidationNode::Pick);
+        ScheduleNode(InvalidationNode::UI);
+        renderDirty = true;
+    }
+}
+
 void Display::Frame()
 {
     ProcessDeferredImportIfAny();
@@ -1289,28 +1337,7 @@ void Display::Frame()
     if (cameraDirty)
         cameraDirty = false;
 
-    if (pendingAnalysisTask.has_value())
-    {
-        std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
-        if (analysisReady.has_value())
-        {
-            const uint64_t readyRequestId = analysisReady->requestId;
-            pendingAnalysisTask.reset();
-            pendingAnalysisScene = nullptr;
-            if (analysisReady->ok && !analysisReady->cancelled &&
-                analysisReady->scene == scene && analysisReady->requestId == analysisRequestId)
-            {
-                pendingAnalysisTint = std::move(*analysisReady);
-                TryMarkAnalysisTintStepOnce(readyRequestId);
-                styleDirty = true;
-                ScheduleNode(InvalidationNode::Style);
-                ScheduleNode(InvalidationNode::Analysis);
-                ScheduleNode(InvalidationNode::Pick);
-                ScheduleNode(InvalidationNode::UI);
-                renderDirty = true;
-            }
-        }
-    }
+    PollPendingAnalysisTaskIfReady();
 
     if (analysisEnabled && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
         !styleDirty && !pendingAnalysisTask.has_value() && !activeAnalysisTintForRebuild.has_value())
@@ -1318,29 +1345,9 @@ void Display::Frame()
         pendingAnalysisAfterGeometryRebuild = false;
         const uint64_t requestId = ++analysisRequestId;
         const Scene *sceneForAnalysis = scene;
-        pendingAnalysisTask = taskRunner.Submit([this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
-                                                {
-                                                    AsyncAnalysisResult out;
-                                                    out.scene = sceneForAnalysis;
-                                                    out.requestId = requestId;
-                                                    if (token.IsCancellationRequested())
-                                                    {
-                                                        out.cancelled = true;
-                                                        return out;
-                                                    }
-                                                    PrimeAnalysisWorkerQueueStepDone();
-                                                    Analysis::AnalyzeSceneReporter reporter =
-                                                        [this](uint32_t phaseId, uint64_t stepIndex)
-                                                    { OnAnalysisWorkerSceneStep(phaseId, stepIndex); };
-                                                    out.results = Analysis::Instance().AnalyzeScene(sceneForAnalysis, &reporter);
-                                                    if (token.IsCancellationRequested())
-                                                    {
-                                                        out.cancelled = true;
-                                                        return out;
-                                                    }
-                                                    out.ok = true;
-                                                    return out;
-                                                });
+        pendingAnalysisTask = taskRunner.Submit(
+            [this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+            { return ProduceAsyncAnalysisFromScene(sceneForAnalysis, requestId, token); });
         pendingAnalysisScene = sceneForAnalysis;
     }
 
@@ -1403,30 +1410,9 @@ void Display::Frame()
                 pendingAnalysisAfterGeometryRebuild = false;
                 const uint64_t requestId = analysisRequestId;
                 const Scene *sceneForAnalysis = scene;
-                pendingAnalysisTask = taskRunner.Submit([this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
-                                                        {
-                                                            AsyncAnalysisResult out;
-                                                            out.scene = sceneForAnalysis;
-                                                            out.requestId = requestId;
-                                                            if (token.IsCancellationRequested())
-                                                            {
-                                                                out.cancelled = true;
-                                                                return out;
-                                                            }
-                                                            PrimeAnalysisWorkerQueueStepDone();
-                                                            Analysis::AnalyzeSceneReporter reporter =
-                                                                [this](uint32_t phaseId, uint64_t stepIndex)
-                                                            { OnAnalysisWorkerSceneStep(phaseId, stepIndex); };
-                                                            out.results =
-                                                                Analysis::Instance().AnalyzeScene(sceneForAnalysis, &reporter);
-                                                            if (token.IsCancellationRequested())
-                                                            {
-                                                                out.cancelled = true;
-                                                                return out;
-                                                            }
-                                                            out.ok = true;
-                                                            return out;
-                                                        });
+                pendingAnalysisTask = taskRunner.Submit(
+                    [this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
+                    { return ProduceAsyncAnalysisFromScene(sceneForAnalysis, requestId, token); });
                 pendingAnalysisScene = sceneForAnalysis;
             }
             else if (shouldLaunchAsyncAnalysis)
