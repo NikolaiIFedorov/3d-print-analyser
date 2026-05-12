@@ -387,28 +387,33 @@ bool Log::Msg(const std::string &msg, const std::source_location &loc, const Lev
 
 void Log::Write(const std::string &msg, const std::source_location &loc, Level level, bool returnLog)
 {
-    std::lock_guard<std::mutex> lock(gLogWriteMutex);
+    // Never hold `gLogWriteMutex` across `cout`/`cerr` — a flooded TTY can block indefinitely. A
+    // background thread (e.g. Structure CGAL worker) that logged while holding the lock would then
+    // deadlock the main thread on the next `Log::*` call.
+    std::string output;
+    {
+        std::lock_guard<std::mutex> lock(gLogWriteMutex);
 
-    if (allFilter)
-        return;
-    if (!ShouldEmit(level))
-        return;
-    if (debugFilter == true && level != Level::DEBUG && level != Level::SESSION)
-        return;
+        if (allFilter)
+            return;
+        if (!ShouldEmit(level))
+            return;
+        if (debugFilter == true && level != Level::DEBUG && level != Level::SESSION)
+            return;
 
-    double duration = GetDuration();
-    std::string output = GetOutput(msg, level, loc, duration, returnLog);
+        const double duration = GetDuration();
+        output = GetOutput(msg, level, loc, duration, returnLog);
+    }
 
     if (level == Level::ERROR)
-    {
         std::cerr << output;
-    }
     else
-    {
         std::cout << output;
-    }
 
-    UpdateGlobals(msg, level);
+    {
+        std::lock_guard<std::mutex> lock(gLogWriteMutex);
+        UpdateGlobals(msg, level);
+    }
 }
 
 void Log::Error(const std::string &msg, const std::source_location &loc, bool returnLog)
