@@ -141,7 +141,10 @@ private:
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
     /// Recompute UI-derived minimum window size (after tool/panel visibility changes).
     void RefreshUIMinWindowSize();
-    /// Upload Structure preview polylines to the renderer before wireframe rebuild.
+    /// Upload Structure preview polylines to the renderer. Recomputes the **work order** (eligible
+    /// faces minus exclusions) and resets incremental bake state when it changes; heavy per-face
+    /// `BuildFaceTriangulationPreview` runs in `TickStructurePreviewBuildIfNeeded` (after pick rebuild)
+    /// capped per frame.
     void RefreshStructurePreviewForRenderer();
     /// Structure scene-edit footer: `accepted` commits the staging carve into the active scene; otherwise the
     /// pre-Structure original is restored. Both paths leave the tool.
@@ -485,6 +488,19 @@ private:
     /// Set when Structure **Accept** finalizes: the carved mesh is already on screen; the next tool-switch
     /// pass should not call `MarkGeometryDirtyAll` (that would replay a full incremental GPU rebuild).
     bool structureFinalizeCommitSkipGpuFullRebuild = false;
+
+    /// Spreads `StructureTriangulation::BuildFaceTriangulationPreview` across frames so CGAL-heavy
+    /// models do not block the UI thread on a single eligibility refresh. See `TickStructurePreviewBuildIfNeeded`.
+    void ResetStructurePreviewIncrementalState();
+    void TickStructurePreviewBuildIfNeeded();
+    void CollectStructurePreviewWorkOrder(std::vector<const Face *> &out) const;
+    bool StructurePreviewBakeSnapshotMatches(const std::vector<const Face *> &sortedFaces, double insetMm) const;
+    void AdvanceStructurePreviewBuild(double insetMm);
+    static constexpr std::size_t kStructurePreviewMaxFacesPerFrame = 8;
+    std::vector<const Face *> structurePreviewBakeQueue;
+    std::size_t structurePreviewBakeCursor = 0;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewBakedSegments;
+    double structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.
     float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();

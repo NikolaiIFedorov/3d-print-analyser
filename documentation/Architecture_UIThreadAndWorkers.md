@@ -37,7 +37,7 @@ Keep **windowing, input, and OpenGL** responsive. Anything that can **block for 
 ## CGAL
 
 - **Carve / boolean mesh work:** run inside a `Submit` job (e.g. Structure staging carve loop). Inputs are staging clones built on the main thread before submit.
-- **2D structure preview** (`StructureTriangulation::BuildFaceTriangulationPreview`): may still run on the UI thread when the bake cache misses or many faces invalidate at once — **known residual risk**; mitigate with debouncing, fewer faces per frame, or a dedicated preview job (see implementation log follow-ups).
+- **2D structure preview** (`StructureTriangulation::BuildFaceTriangulationPreview`): runs on the UI thread, but `Display` **chunks** work across frames (`kStructurePreviewMaxFacesPerFrame`, `TickStructurePreviewBuildIfNeeded` after `RunPickNode`) so eligibility changes do not run unbounded CGAL in one frame. Further hardening: async preview job or time budget per frame.
 
 ## Job identity and stale results
 

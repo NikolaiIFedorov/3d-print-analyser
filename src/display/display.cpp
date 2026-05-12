@@ -2,6 +2,7 @@
 #include "imgui_internal.h"
 #include "rendering/color.hpp"
 #include <algorithm>
+#include <cmath>
 #include "rendering/UIRenderer/UIStyle.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
 #include "rendering/UIRenderer/ToolPanel.hpp"
@@ -36,7 +37,6 @@
 #if defined(CAD_USE_CGAL)
 #include "Structure/StructureCarve.hpp"
 #endif
-#include <cmath>
 #include <limits>
 #include <chrono>
 #include <functional>
@@ -827,6 +827,10 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    ResetStructurePreviewIncrementalState();
+#if defined(CAD_USE_CGAL)
+    CancelPendingStructureCarveJob();
+#endif
     SaveSettings();
     SystemAppearance::ClearChangeCallback();
     ImGui_ImplOpenGL3_Shutdown();
@@ -1577,6 +1581,7 @@ void Display::Frame()
         }
 
         RunPickNode();
+        TickStructurePreviewBuildIfNeeded();
 
         if (hasAnalysisThisFrame)
         {
@@ -5553,35 +5558,105 @@ void Display::InitUI()
     RefreshUIMinWindowSize();
 }
 
+void Display::ResetStructurePreviewIncrementalState()
+{
+    structurePreviewBakeQueue.clear();
+    structurePreviewBakeCursor = 0;
+    structurePreviewBakedSegments.clear();
+    structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
+}
+
+void Display::CollectStructurePreviewWorkOrder(std::vector<const Face *> &out) const
+{
+    out.clear();
+    out.reserve(structureEligibleFacesCache.size());
+    for (const Face *f : structureEligibleFacesCache)
+    {
+        if (structureExcludedFaces.count(f) > 0)
+            continue;
+        out.push_back(f);
+    }
+    std::sort(out.begin(), out.end());
+}
+
+bool Display::StructurePreviewBakeSnapshotMatches(const std::vector<const Face *> &sortedFaces,
+                                                  double insetMm) const
+{
+    if (std::isnan(structurePreviewBakeInsetMm) || structurePreviewBakeInsetMm != insetMm)
+        return false;
+    if (sortedFaces.size() != structurePreviewBakeQueue.size())
+        return false;
+    for (std::size_t i = 0; i < sortedFaces.size(); ++i)
+    {
+        if (sortedFaces[i] != structurePreviewBakeQueue[i])
+            return false;
+    }
+    return true;
+}
+
+void Display::AdvanceStructurePreviewBuild(double insetMm)
+{
+    const std::size_t n = structurePreviewBakeQueue.size();
+    if (structurePreviewBakeCursor >= n)
+        return;
+    StructureTriangulation::BakeParams params;
+    params.insetMm = insetMm;
+    params.chordTolMm = 0.02;
+    params.minFeatureMm = 1.5;
+    const std::size_t end =
+        std::min(n, structurePreviewBakeCursor + kStructurePreviewMaxFacesPerFrame);
+    structurePreviewBakedSegments.reserve(structurePreviewBakedSegments.size() + (end - structurePreviewBakeCursor) * 8);
+    for (std::size_t i = structurePreviewBakeCursor; i < end; ++i)
+    {
+        const Face *f = structurePreviewBakeQueue[i];
+        auto segs = StructureTriangulation::BuildFaceTriangulationPreview(f, params);
+        structurePreviewBakedSegments.insert(structurePreviewBakedSegments.end(), segs.begin(), segs.end());
+    }
+    structurePreviewBakeCursor = end;
+}
+
+void Display::TickStructurePreviewBuildIfNeeded()
+{
+    if (activeTool != ActiveTool::Structure || IsStructureStagingActive())
+        return;
+    std::vector<const Face *> workOrder;
+    CollectStructurePreviewWorkOrder(workOrder);
+    const double inset = static_cast<double>(structureInsetMm);
+    if (!StructurePreviewBakeSnapshotMatches(workOrder, inset))
+    {
+        structurePreviewBakeQueue = std::move(workOrder);
+        structurePreviewBakeInsetMm = inset;
+        structurePreviewBakeCursor = 0;
+        structurePreviewBakedSegments.clear();
+    }
+    if (structurePreviewBakeCursor >= structurePreviewBakeQueue.size())
+        return;
+    AdvanceStructurePreviewBuild(inset);
+    renderer.SetStructurePreviewSegments(structurePreviewBakedSegments);
+    renderDirty = true;
+}
+
 void Display::RefreshStructurePreviewForRenderer()
 {
-    // Iterate every cached eligible face (computed inside `RebuildPickHighlightMesh` while the tool
-    // is active) and ask `StructureTriangulation::BuildFaceTriangulationPreview` for its preview
-    // segments. The module owns the per-face bake cache, so this is cheap when neither the inset
-    // slider nor the eligibility set have changed.
-    //
-    // While a staging session is active the carved geometry is already on screen, so the line
-    // overlay would just clutter (and re-trace) carve outlines on top of holes that are now real.
-    std::vector<std::pair<glm::vec3, glm::vec3>> all;
-    if (activeTool == ActiveTool::Structure && !IsStructureStagingActive())
+    if (activeTool != ActiveTool::Structure || IsStructureStagingActive())
     {
-        StructureTriangulation::BakeParams params;
-        params.insetMm = static_cast<double>(structureInsetMm);
-        // Defaults from `BakeParams` are tuned for the Structure preview already; explicit set
-        // here keeps the call site honest about which inputs vary per call (only `insetMm`
-        // currently — slider work lands in B2f).
-        params.chordTolMm = 0.02;
-        params.minFeatureMm = 1.5;
-        all.reserve(structureEligibleFacesCache.size() * 8);
-        for (const Face *f : structureEligibleFacesCache)
-        {
-            if (structureExcludedFaces.count(f) > 0)
-                continue;
-            auto segs = StructureTriangulation::BuildFaceTriangulationPreview(f, params);
-            all.insert(all.end(), segs.begin(), segs.end());
-        }
+        ResetStructurePreviewIncrementalState();
+        renderer.SetStructurePreviewSegments({});
+        return;
     }
-    renderer.SetStructurePreviewSegments(std::move(all));
+
+    std::vector<const Face *> workOrder;
+    CollectStructurePreviewWorkOrder(workOrder);
+    const double inset = static_cast<double>(structureInsetMm);
+    if (!StructurePreviewBakeSnapshotMatches(workOrder, inset))
+    {
+        structurePreviewBakeQueue = std::move(workOrder);
+        structurePreviewBakeInsetMm = inset;
+        structurePreviewBakeCursor = 0;
+        structurePreviewBakedSegments.clear();
+    }
+
+    renderer.SetStructurePreviewSegments(structurePreviewBakedSegments);
 }
 
 #if defined(CAD_USE_CGAL)
