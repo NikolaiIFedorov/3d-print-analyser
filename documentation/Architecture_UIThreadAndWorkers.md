@@ -61,6 +61,8 @@ Interpretation: smart-pointer `.get()` is fine; `future`-style blocking on the U
 
 ## Related docs
 
+- `documentation/Architecture_AsyncWorkRoadmap.md` — phased plan (Phase 0 inventory, slices, chunking).
 - `documentation/Architecture_FileImport.md` — import pipeline and progress.
 - `documentation/Architecture_Analysis.md` — analysis stages vs worker.
 - `documentation/implementations/ui_thread_worker_contract_2026-05-12.md` — audit snapshot and follow-ups.
+- `documentation/implementations/async_work_roadmap_phase0_2026-05-12.md` — Phase 0 hotspot table and policies.

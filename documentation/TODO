@@ -1,5 +1,5 @@
 # Documentation TODO
-Last updated: 2026-04-27
+Last updated: 2026-05-12
 
 ---
 
@@ -24,6 +24,7 @@ Last updated: 2026-04-27
 - [x] Architecture_FileImport.md       — STL / 3MF / OBJ import pipeline
 - [x] Architecture_Camera.md           — Orthographic camera: orbit, pan, zoom, roll, framing
 - [x] Architecture_UIThreadAndWorkers.md — Main thread vs TaskRunner; CGAL; shutdown notes
+- [x] Architecture_AsyncWorkRoadmap.md — Phased async plan; links Phase 0 inventory
 
 ---
 
