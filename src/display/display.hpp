@@ -7,6 +7,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <chrono>
 #include <cstdint>
 #include <atomic>
 #include <unordered_set>
@@ -394,6 +395,9 @@ private:
     float latestImportProgress01 = -1.0f;
     bool latestImportProgressDirty = false;
     std::atomic<uint64_t> importProgressGeneration{0};
+    /// Set at the start of `Frame()`: shared end time for bounded `TryTake` on worker futures
+    /// (import / analysis / structure) so the UI thread waits at most ~one frame per frame total.
+    std::optional<std::chrono::steady_clock::time_point> workerFuturePollDeadline;
     /// File-bar tab stem while async import is active (empty when idle).
     std::string pendingImportTabStem;
     bool pendingImportTabActive = false;
@@ -409,6 +413,7 @@ private:
     void PublishImportProgress(uint64_t generation, const ImportProgress &progress);
     void ApplyImportProgressSnapshot();
     void ClearPendingImportProgressSnapshot();
+    [[nodiscard]] std::chrono::milliseconds WorkerFuturePollRemainingMs() const;
     void SetImportProgress(std::string phase, float progress01);
     void SyncToolbarToolVisualState();
     void RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask);

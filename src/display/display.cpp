@@ -1357,7 +1357,7 @@ void Display::PollPendingAnalysisTaskIfReady()
 {
     if (!pendingAnalysisTask.has_value())
         return;
-    std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake();
+    std::optional<AsyncAnalysisResult> analysisReady = pendingAnalysisTask->TryTake(WorkerFuturePollRemainingMs());
     if (!analysisReady.has_value())
         return;
     const uint64_t readyRequestId = analysisReady->requestId;
@@ -1379,6 +1379,7 @@ void Display::PollPendingAnalysisTaskIfReady()
 
 void Display::Frame()
 {
+    workerFuturePollDeadline.emplace(std::chrono::steady_clock::now() + TaskRunner::kUiAsyncFutureCompletionBudget);
     ProcessDeferredImportIfAny();
 #if defined(CAD_USE_CGAL)
     PollStructureStagingTaskIfReady();
@@ -3252,7 +3253,9 @@ void Display::ApplyImportProgressSnapshot()
     std::string phase;
     float progress01 = -1.0f;
     {
-        std::lock_guard<std::mutex> lock(importProgressMutex);
+        std::unique_lock<std::mutex> lock(importProgressMutex, std::try_to_lock);
+        if (!lock.owns_lock())
+            return;
         if (!latestImportProgressDirty)
             return;
 
@@ -3266,7 +3269,9 @@ void Display::ApplyImportProgressSnapshot()
 
 void Display::ClearPendingImportProgressSnapshot()
 {
-    std::lock_guard<std::mutex> lock(importProgressMutex);
+    std::unique_lock<std::mutex> lock(importProgressMutex, std::try_to_lock);
+    if (!lock.owns_lock())
+        return;
     latestImportProgressPhase.clear();
     latestImportProgress01 = -1.0f;
     latestImportProgressDirty = false;
@@ -3538,6 +3543,16 @@ void Display::FlushImportInputEventTail()
         inputForGestureSync->NotifySdlEventQueueFlushed();
 }
 
+std::chrono::milliseconds Display::WorkerFuturePollRemainingMs() const
+{
+    if (!workerFuturePollDeadline.has_value())
+        return std::chrono::milliseconds(0);
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= *workerFuturePollDeadline)
+        return std::chrono::milliseconds(0);
+    return std::chrono::duration_cast<std::chrono::milliseconds>(*workerFuturePollDeadline - now);
+}
+
 void Display::ProcessDeferredImportIfAny()
 {
     using namespace std::chrono_literals;
@@ -3547,7 +3562,7 @@ void Display::ProcessDeferredImportIfAny()
 
     if (pendingImportTask.has_value())
     {
-        std::optional<AsyncImportResult> readyResult = pendingImportTask->TryTake();
+        std::optional<AsyncImportResult> readyResult = pendingImportTask->TryTake(WorkerFuturePollRemainingMs());
         if (!readyResult.has_value())
             return;
         AsyncImportResult result = std::move(*readyResult);
@@ -5654,7 +5669,7 @@ void Display::PollStructureStagingTaskIfReady()
 {
     if (!pendingStructureStagingTask.has_value())
         return;
-    std::optional<AsyncStructureStagingResult> ready = pendingStructureStagingTask->TryTake();
+    std::optional<AsyncStructureStagingResult> ready = pendingStructureStagingTask->TryTake(WorkerFuturePollRemainingMs());
     if (!ready.has_value())
         return;
     pendingStructureStagingTask.reset();

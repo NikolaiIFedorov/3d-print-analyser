@@ -58,6 +58,9 @@ public:
     /// Progress `reporter(phaseId, stepIndex)` emits monotonic `stepIndex` starting at 1 per worker session
     /// (caller adds queue offset externally). Omit or pass `nullptr` to skip.
     using AnalyzeSceneReporter = std::function<void(uint32_t phaseId, uint64_t stepIndex)>;
+    /// Runs read-only passes over `scene`. The analyzer list is **copied under `pipelineMutex`** and
+    /// released before any per-face/solid work so workers do not hold that lock across heavy geometry
+    /// (avoids deadlocks vs UI calling `RebuildDefaultAnalyzers` / `Clear`).
     AnalysisResults AnalyzeScene(const Scene *scene, const AnalyzeSceneReporter *reporter = nullptr) const;
     [[nodiscard]] uint64_t CountAnalyzeSteps(const Scene *scene) const;
 

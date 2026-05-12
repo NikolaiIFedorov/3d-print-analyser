@@ -18,6 +18,11 @@
 class TaskRunner
 {
 public:
+    /// UI thread: max wall time spent waiting on one `TryTake(maxWait)` call, and the first bounded
+    /// wait inside `TaskHandle::~TaskHandle` / `ReleaseFutureNonBlocking` before deferring to a
+    /// detached waiter. Matches a single ~60fps frame slice.
+    static constexpr std::chrono::milliseconds kUiAsyncFutureCompletionBudget{16};
+
     class CancellationToken
     {
     public:
@@ -68,11 +73,12 @@ public:
             ReleaseFutureNonBlocking();
         }
 
-        std::optional<T> TryTake()
+        /// Returns the result when ready within `maxWait` (zero = do not block; poll-only).
+        std::optional<T> TryTake(std::chrono::milliseconds maxWait = std::chrono::milliseconds(0))
         {
             if (!future.valid())
                 return std::nullopt;
-            if (future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready)
+            if (future.wait_for(maxWait) != std::future_status::ready)
                 return std::nullopt;
             return future.get();
         }
@@ -96,7 +102,18 @@ public:
             // inside a long CGAL call. Defer `get()` to a detached thread when not yet ready.
             if (!future.valid())
                 return;
-            if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            if (future.wait_for(std::chrono::milliseconds(0)) == std::future_status::ready)
+            {
+                try
+                {
+                    (void)future.get();
+                }
+                catch (...)
+                {
+                }
+                return;
+            }
+            if (future.wait_for(TaskRunner::kUiAsyncFutureCompletionBudget) == std::future_status::ready)
             {
                 try
                 {
