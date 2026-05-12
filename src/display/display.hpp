@@ -164,6 +164,7 @@ private:
     bool IsStructureStagingActive() const { return structureOriginalScene != nullptr; }
     /// Import row vs scene-edit footer visibility (footer only when prerequisites are satisfied).
     void SyncStructurePanelDerivedVisibility();
+    void SyncStructureOptionalPrereqRowStyle();
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;
@@ -262,6 +263,10 @@ private:
     /// clickability state. The plumbing (this slot + `structureHoverIneligibleReason`) is retained
     /// so a future phase can re-enable the hint by toggling visibility back on.
     Paragraph *structPara_HoverHint = nullptr;
+    /// Optional prerequisite: face exclusion row (`OptionalPrerequisites` section).
+    Paragraph *structPara_OptionalFaceExclude = nullptr;
+    /// Drives the optional row checkbox and whether face clicks may toggle exclusions (`Active` = yes).
+    Icons::StepState structureOptFaceExcludeStep = Icons::StepState::Active;
 
     std::vector<std::string> openFiles;
 

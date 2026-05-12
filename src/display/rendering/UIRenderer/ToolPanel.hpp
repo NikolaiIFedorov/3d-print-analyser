@@ -23,8 +23,7 @@ struct PrerequisiteDef
     std::string id;                      // paragraph id (must be unique within its section)
     std::string title;                   // primary line,   e.g. "Plot measurement point"
     std::string subtitle;                // secondary line, e.g. "to calibrate against"
-    /// Checkbox column; leave default-constructed for optional prerequisite rows (no checkbox).
-    Icons::LeadingDrawFn leadingDraw;    // full-height leading checkbox (CheckBox factory)
+    Icons::LeadingDrawFn leadingDraw;    // optional: checkbox column (`Icons::CheckBox`)
     bool completed = false;              // true → dimFill (takes priority over active)
     bool active = false;                 // true → p.selected
     std::function<void()> onClick;       // optional: makes the title line clickable
@@ -70,7 +69,8 @@ struct ToolPanelDef
     std::string name;                           // bold panel header, e.g. "Calibrate"
     std::string description;                    // dim subtitle,      e.g. "Scale model to real-world units"
     std::vector<PrerequisiteDef> prerequisites; // built into Prerequisites section automatically
-    /// Same paragraph builder as prerequisites; leave `leadingDraw` unset for no checkbox column.
+    /// Same paragraph builder as prerequisites. Use `Icons::CheckBox(&StepState)` + `onClick` for
+    /// the same selectable row behaviour as import; omit `leadingDraw` for a static hint-only card.
     std::vector<PrerequisiteDef> optionalPrerequisites;
     std::vector<ParameterDef> parameters;       // built into Parameters section automatically
     bool flattenParameters = false;             // true = place parameter rows directly under the root panel

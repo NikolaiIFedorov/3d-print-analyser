@@ -2724,6 +2724,8 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
 {
     if (activeTool != ActiveTool::Structure)
         return;
+    if (structureOptFaceExcludeStep != Icons::StepState::Active)
+        return;
     // Per-face exclusion is dormant during a staging session: the staging-scene face pointers do
     // not map back to original-scene exclusion identities, so a toggle here would either be a
     // visual no-op or invalidate everything else on the next bake. Re-enable when stable cross-
@@ -3958,6 +3960,8 @@ void Display::InitUI()
                     return;
                 }
                 activeTool = ActiveTool::Structure;
+                structureOptFaceExcludeStep = Icons::StepState::Active;
+                SyncStructureOptionalPrereqRowStyle();
                 pendingToolSwitch = true;
                 renderDirty = true;
             };
@@ -5342,7 +5346,16 @@ void Display::InitUI()
         structDef.optionalPrerequisites.push_back(
             PrerequisiteDef{"StructOptFaceExclude", "Face exclusions (optional)",
                             "Click eligible faces in the view to omit them from preview and carve.",
-                            Icons::LeadingDrawFn{}, false, false, {}});
+                            Icons::CheckBox(&structureOptFaceExcludeStep), false, true,
+                            [this]()
+                            {
+                                structureOptFaceExcludeStep =
+                                    (structureOptFaceExcludeStep == Icons::StepState::Active)
+                                        ? Icons::StepState::Done
+                                        : Icons::StepState::Active;
+                                SyncStructureOptionalPrereqRowStyle();
+                                uiRenderer.MarkDirty();
+                            }});
 
         structDef.hasSceneEditFooter = true;
         structDef.sceneEditFooter.id = "StructSceneEditFooter";
@@ -5398,6 +5411,17 @@ void Display::InitUI()
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
             structPara_Import = &structPrereqs->children[0];
+        if (Section *structOpt = FindSection(*uiStructure, "OptionalPrerequisites"); structOpt != nullptr)
+        {
+            for (Paragraph &p : structOpt->children)
+            {
+                if (p.id == "StructOptFaceExclude")
+                {
+                    structPara_OptionalFaceExclude = &p;
+                    break;
+                }
+            }
+        }
         for (auto &ch : uiStructure->children)
         {
             if (Paragraph *pp = std::get_if<Paragraph>(&ch); pp != nullptr && pp->id == "StructSceneEditFooter")
@@ -5460,6 +5484,8 @@ void Display::BeginStructureStagingSession()
         return;
     }
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
 #if defined(CAD_USE_CGAL)
     std::unique_ptr<Scene> staging = scene->Clone();
     if (!staging)
@@ -5545,6 +5571,8 @@ void Display::RestoreStructureOriginalScene()
     structureEligibleFacesCache.clear();
     UpdateScene();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
 }
 
 void Display::CommitStructureStagingScene()
@@ -5557,6 +5585,8 @@ void Display::CommitStructureStagingScene()
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
 }
 
 void Display::RebuildStructureStagingScene()
@@ -5575,6 +5605,8 @@ void Display::FinalizeStructureSceneToolSession(bool accepted)
         CommitStructureStagingScene();
     else
         RestoreStructureOriginalScene();
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
     activeTool = ActiveTool::Analysis;
     pendingToolSwitch = true;
     renderDirty = true;
@@ -5605,7 +5637,21 @@ void Display::SyncStructurePanelDerivedVisibility()
         // and its plumbing in place so we can re-enable it later by flipping one line.
         structPara_HoverHint->visible = false;
     }
+    SyncStructureOptionalPrereqRowStyle();
     uiRenderer.MarkDirty();
+}
+
+void Display::SyncStructureOptionalPrereqRowStyle()
+{
+    if (structPara_OptionalFaceExclude == nullptr)
+        return;
+    const bool arm = structureOptFaceExcludeStep == Icons::StepState::Active;
+    structPara_OptionalFaceExclude->selected = arm;
+    structPara_OptionalFaceExclude->dimFill = !arm;
+    if (!structPara_OptionalFaceExclude->values.empty())
+        structPara_OptionalFaceExclude->values[0].textDepth = arm ? 2 : 1;
+    if (structPara_OptionalFaceExclude->values.size() > 1)
+        structPara_OptionalFaceExclude->values[1].textDepth = arm ? 1 : 0;
 }
 
 void Display::RefreshUIMinWindowSize()
