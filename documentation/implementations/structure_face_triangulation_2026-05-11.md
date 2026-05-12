@@ -383,6 +383,16 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Now (same day, follow-up).** **Removed** outer loop from the preview buffer again: Phase C carve uses only the **carved** 2D regions (extruded void); the outer boundary is not part of the cut solid. Eligible-face **tint** in `Display` already shows which faces are included, so the line overlay is **carve-only** (filleted `inset \ strip` boundaries). Degenerate paths (projection fail, no CGAL) still emit sharp `outline.points` when there is nothing else to draw.
 
+### Phase C — boolean carve on Accept (2026-05-12)
+
+**Behaviour.** `Display::FinalizeStructureSceneToolSession(true)` (Structure panel **Accept**, import prerequisite done) groups included faces by `Face::dependency` solid and calls `StructureCarve::TryApplyStructureCarve` per solid. Each face contributes `BuildCarveFootprintOuterRingsWorld` (same geometry as preview); each ring is meshed as a **vertical** prism (constant `z` on top cap = solid max Z + margin; bottom follows the filleted footprint on the face). `PMP::corefine_and_compute_difference` subtracts prisms from a CGAL `Surface_mesh` built from the solid’s triangle soup, then the solid is rebuilt via the same pattern as `STLCgalPlanarExperiment` and `MergeCoplanarFaces` runs. **Cancel** does not carve.
+
+**Limits (v1).** Solid must be **STL-style triangle soup** (one 3-edge loop per face). Only faces with **|n·ẑ| ≥ 0.995** are carved (world-Z prism). Slanted faces and non-tri meshes are skipped with `LOG_WARN`. Carve failure logs a warning and leaves the solid unchanged.
+
+**Refactor.** `CollectCarvedFilletedRings3D` shares inset/strip/boolean/fillet logic between preview (`BuildFaceTriangulationPreview`) and `BuildCarveFootprintOuterRingsWorld`.
+
+**Files.** `StructureCarve.{hpp,cpp}`, `StructureTriangulation.{hpp,cpp}`, `CMakeLists.txt`, `display.cpp`.
+
 ### Fillet — clamp radius on short edges (carved triangles) (2026-05-12)
 
 **Symptom.** Inner carve boundaries stayed sharp at strip–inset junctions (short edges) while longer edges rounded.

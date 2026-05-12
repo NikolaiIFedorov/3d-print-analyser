@@ -142,8 +142,8 @@ if(WIN32)
 endif()
 
 # CGAL is used by:
-#   1. The Structure-tool face triangulation (`src/logic/Structure/StructureTriangulation.cpp`).
-#   2. The legacy STL planar remesh experiment (`src/logic/Import/STLCgalPlanarExperiment.cpp`).
+#   1. The Structure tool's face triangulation and carve (`StructureTriangulation.cpp`, `StructureCarve.cpp`).
+#   2. The legacy STL planar remesh experiment (`STLCgalPlanarExperiment.cpp`).
 # Default ON because the Structure tool depends on it; can be disabled for distributions that need
 # to avoid the (L)GPL transitive licence. When OFF, the Structure tool falls back to a "CGAL not
 # available" hint and no triangulation runs.
@@ -160,7 +160,8 @@ if(CAD_USE_CGAL)
     target_compile_definitions(CAD_OpenGL PRIVATE CAD_USE_CGAL=1)
     target_sources(CAD_OpenGL PRIVATE
         src/logic/Import/STLCgalPlanarExperiment.cpp
-        src/logic/Structure/StructureTriangulation.cpp)
+        src/logic/Structure/StructureTriangulation.cpp
+        src/logic/Structure/StructureCarve.cpp)
     target_link_libraries(CAD_OpenGL PRIVATE CGAL::CGAL)
     message(STATUS "CGAL: ENABLED (Structure triangulation + STL planar remesh experiment)")
 else()

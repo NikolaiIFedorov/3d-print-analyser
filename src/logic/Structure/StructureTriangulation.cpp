@@ -587,6 +587,151 @@ bool EnvStructureStripDebugOn()
 
 } // namespace
 
+#if defined(CAD_USE_CGAL)
+struct CarvedRings3DLists
+{
+    std::vector<std::vector<glm::dvec3>> outers;
+    std::vector<std::vector<glm::dvec3>> holes;
+};
+
+static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &projected,
+                                                     const PolylinedOutline &outline,
+                                                     const FaceFrame &frame,
+                                                     const BakeParams &params,
+                                                     const Face *debugFace)
+{
+    CarvedRings3DLists out;
+    std::vector<SkeletonPolygon> offsets;
+    try
+    {
+        offsets = ComputeOffsetPolygons(projected.polygon, params.insetMm);
+    }
+    catch (...)
+    {
+        offsets.clear();
+    }
+    const std::vector<int> cornerPolyIndices =
+        MapCornerIndicesToPoly(outline.isCorner, projected.reversed);
+    const int polyVertexCount = static_cast<int>(projected.polygon.size());
+    if (EnvStructureStripDebugOn())
+    {
+        const std::size_t nCorners =
+            static_cast<std::size_t>(std::count(outline.isCorner.begin(), outline.isCorner.end(), true));
+        std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(debugFace)
+                  << " outlineVerts=" << outline.points.size()
+                  << " brpCorners=" << nCorners << " polyVerts=" << polyVertexCount
+                  << " cornerPolyIdx=" << cornerPolyIndices.size() << " insetMm=" << params.insetMm
+                  << " offsetIslands=" << offsets.size() << '\n';
+    }
+    std::size_t offsetIsland = 0;
+    for (const SkeletonPolygon &off : offsets)
+    {
+        const int offVertexCount = static_cast<int>(off.size());
+        const bool vertexCountGuard = (offVertexCount == polyVertexCount);
+        std::optional<ChordPick> chord;
+        if (vertexCountGuard)
+            chord = SelectFirstValidStripChord(off, cornerPolyIndices);
+
+        const char *stripReject = nullptr;
+        bool differenceThrew = false;
+        std::size_t piecesAfterDifference = 0;
+
+        std::list<SkeletonPolygonWithHoles> carved;
+        if (chord.has_value())
+        {
+            const SkeletonPolygon strip =
+                BuildStripPolygonCCW(off, chord->aIdx, chord->bIdx, params.insetMm);
+            if (strip.size() == 4 && strip.is_simple())
+            {
+                try
+                {
+                    const BooleanExactPolygon offE = EpickPolygonToExact(off);
+                    const BooleanExactPolygon stripE = EpickPolygonToExact(strip);
+                    std::list<BooleanExactPolygonWithHoles> carvedE;
+                    CGAL::difference(offE, stripE, std::back_inserter(carvedE));
+                    for (const BooleanExactPolygonWithHoles &piece : carvedE)
+                        carved.push_back(ExactPwhToEpick(piece));
+                    piecesAfterDifference = carved.size();
+                }
+                catch (...)
+                {
+                    differenceThrew = true;
+                    carved.clear();
+                }
+            }
+            else
+                stripReject = (strip.size() != 4) ? "strip_not_quad" : "strip_not_simple";
+        }
+        const bool usedInsetFallback = carved.empty();
+        if (usedInsetFallback)
+            carved.emplace_back(off);
+
+        if (EnvStructureStripDebugOn())
+        {
+            std::ostringstream line;
+            line << "[StructureTriangulation] island=" << offsetIsland << " offVerts=" << offVertexCount
+                 << " vertexGuard=" << (vertexCountGuard ? "pass" : "fail")
+                 << " chord=" << (chord.has_value() ? "yes" : "no");
+            if (chord.has_value())
+                line << " a=" << chord->aIdx << " b=" << chord->bIdx;
+            if (stripReject != nullptr)
+                line << " strip=" << stripReject;
+            if (differenceThrew)
+                line << " cgal_difference=threw";
+            else if (chord.has_value() && stripReject == nullptr)
+                line << " piecesAfterDiff=" << piecesAfterDifference;
+            line << " carvedPieces=" << carved.size() << " insetFallback=" << (usedInsetFallback ? "yes" : "no");
+            std::cerr << line.str() << '\n';
+        }
+        ++offsetIsland;
+
+        for (const SkeletonPolygonWithHoles &pwh : carved)
+        {
+            const std::vector<glm::dvec2> outer2D = ExtractRing2D(pwh.outer_boundary());
+            const std::vector<glm::dvec2> filletedOuter =
+                FilletPolygonCorners(outer2D, params.insetMm, params.chordTolMm);
+            std::vector<glm::dvec3> ring3D;
+            ring3D.reserve(filletedOuter.size());
+            for (const glm::dvec2 &p : filletedOuter)
+                ring3D.push_back(Unproject(p, frame));
+            if (ring3D.size() >= 3)
+                out.outers.push_back(std::move(ring3D));
+
+            for (auto holeIt = pwh.holes_begin(); holeIt != pwh.holes_end(); ++holeIt)
+            {
+                std::vector<glm::dvec2> hole2D = ExtractRing2D(*holeIt);
+                std::reverse(hole2D.begin(), hole2D.end());
+                const std::vector<glm::dvec2> filletedHole =
+                    FilletPolygonCorners(hole2D, params.insetMm, params.chordTolMm);
+                std::vector<glm::dvec3> hole3D;
+                hole3D.reserve(filletedHole.size());
+                for (const glm::dvec2 &p : filletedHole)
+                    hole3D.push_back(Unproject(p, frame));
+                if (hole3D.size() >= 3)
+                    out.holes.push_back(std::move(hole3D));
+            }
+        }
+    }
+    return out;
+}
+
+std::vector<std::vector<glm::dvec3>> BuildCarveFootprintOuterRingsWorld(const Face *face,
+                                                                        const BakeParams &params)
+{
+    std::vector<std::vector<glm::dvec3>> rings;
+    if (face == nullptr)
+        return rings;
+    const PolylinedOutline outline = BuildPolylinedOuterLoop(*face, params.chordTolMm);
+    if (outline.points.size() < 3)
+        return rings;
+    const FaceFrame frame = BuildFaceFrame(*face, outline.points.front());
+    const auto projected = BuildProjectedPolygon(outline.points, frame);
+    if (!projected.has_value())
+        return rings;
+    return CollectCarvedFilletedRings3D(*projected, outline, frame, params, face).outers;
+}
+#endif // CAD_USE_CGAL
+
 std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const Face *face,
                                                                           const BakeParams &params)
 {
@@ -610,125 +755,12 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
 #if defined(CAD_USE_CGAL)
     if (auto projected = BuildProjectedPolygon(outline.points, frame); projected.has_value())
     {
-        // Preview is carve geometry only (inset \ strip, filleted). Face extent is shown by the
-        // Structure tool's eligible-face tint in Display, not this line buffer.
-
-        std::vector<SkeletonPolygon> offsets;
-        // CGAL's offset routine throws on a handful of degenerate-but-`is_simple` inputs (notably
-        // polygons with collinear consecutive edges). Swallow the exception, fall back to "outer
-        // ring only" instead of crashing the tool.
-        try
-        {
-            offsets = ComputeOffsetPolygons(projected->polygon, params.insetMm);
-        }
-        catch (...)
-        {
-            offsets.clear();
-        }
-        const std::vector<int> cornerPolyIndices =
-            MapCornerIndicesToPoly(outline.isCorner, projected->reversed);
-        const int polyVertexCount = static_cast<int>(projected->polygon.size());
-        if (EnvStructureStripDebugOn())
-        {
-            const std::size_t nCorners =
-                static_cast<std::size_t>(std::count(outline.isCorner.begin(), outline.isCorner.end(), true));
-            std::cerr << "[StructureTriangulation] bake face=" << static_cast<const void *>(face)
-                      << " outlineVerts=" << outline.points.size() << " brpCorners=" << nCorners
-                      << " polyVerts=" << polyVertexCount << " cornerPolyIdx=" << cornerPolyIndices.size()
-                      << " insetMm=" << params.insetMm << " offsetIslands=" << offsets.size() << '\n';
-        }
-        std::size_t offsetIsland = 0;
-        for (const SkeletonPolygon &off : offsets)
-        {
-            // Step 1: chord selection on the *sharp* offset polygon. The strip anchors at the
-            // original CGAL inset corners — anchoring to fillet-shifted positions would walk the
-            // strip inwards. Strip lookup is gated on the convex-preservation check (matching
-            // vertex counts between input polygon and offset polygon); concave faces fall through
-            // to "no strip, emit filleted inset only."
-            const int offVertexCount = static_cast<int>(off.size());
-            const bool vertexCountGuard = (offVertexCount == polyVertexCount);
-            std::optional<ChordPick> chord;
-            if (vertexCountGuard)
-                chord = SelectFirstValidStripChord(off, cornerPolyIndices);
-
-            const char *stripReject = nullptr;
-            bool differenceThrew = false;
-            std::size_t piecesAfterDifference = 0;
-
-            // Step 2: 2D boolean carve. `inset \ strip` produces the actual triangulated sub-
-            // regions whose boundaries the user will see. Without a chord (no valid strip) we
-            // treat the whole offset polygon as the single carve result. CGAL's difference can
-            // throw on degenerate geometry, so on any exception we fall back to inset-only.
-            std::list<SkeletonPolygonWithHoles> carved;
-            if (chord.has_value())
-            {
-                const SkeletonPolygon strip =
-                    BuildStripPolygonCCW(off, chord->aIdx, chord->bIdx, params.insetMm);
-                if (strip.size() == 4 && strip.is_simple())
-                {
-                    try
-                    {
-                        const BooleanExactPolygon offE = EpickPolygonToExact(off);
-                        const BooleanExactPolygon stripE = EpickPolygonToExact(strip);
-                        std::list<BooleanExactPolygonWithHoles> carvedE;
-                        CGAL::difference(offE, stripE, std::back_inserter(carvedE));
-                        for (const BooleanExactPolygonWithHoles &piece : carvedE)
-                            carved.push_back(ExactPwhToEpick(piece));
-                        piecesAfterDifference = carved.size();
-                    }
-                    catch (...)
-                    {
-                        differenceThrew = true;
-                        carved.clear();
-                    }
-                }
-                else
-                    stripReject = (strip.size() != 4) ? "strip_not_quad" : "strip_not_simple";
-            }
-            const bool usedInsetFallback = carved.empty();
-            if (usedInsetFallback)
-                carved.emplace_back(off);
-
-            if (EnvStructureStripDebugOn())
-            {
-                std::ostringstream line;
-                line << "[StructureTriangulation] island=" << offsetIsland << " offVerts=" << offVertexCount
-                     << " vertexGuard=" << (vertexCountGuard ? "pass" : "fail")
-                     << " chord=" << (chord.has_value() ? "yes" : "no");
-                if (chord.has_value())
-                    line << " a=" << chord->aIdx << " b=" << chord->bIdx;
-                if (stripReject != nullptr)
-                    line << " strip=" << stripReject;
-                if (differenceThrew)
-                    line << " cgal_difference=threw";
-                else if (chord.has_value() && stripReject == nullptr)
-                    line << " piecesAfterDiff=" << piecesAfterDifference;
-                line << " carvedPieces=" << carved.size() << " insetFallback=" << (usedInsetFallback ? "yes" : "no");
-                std::cerr << line.str() << '\n';
-            }
-            ++offsetIsland;
-
-            // Step 3: fillet then emit each carve-result boundary. Outer boundaries are CCW out
-            // of CGAL — feed `FilletPolygonCorners` directly. Hole boundaries are CW (CGAL
-            // convention); reverse to CCW before filleting so the helper's "convex corner" check
-            // (positive cross product) lines up with the hole's visible-convex corners.
-            for (const SkeletonPolygonWithHoles &pwh : carved)
-            {
-                const std::vector<glm::dvec2> outer2D = ExtractRing2D(pwh.outer_boundary());
-                const std::vector<glm::dvec2> filletedOuter =
-                    FilletPolygonCorners(outer2D, params.insetMm, params.chordTolMm);
-                EmitRing2D(filletedOuter, frame, segments);
-
-                for (auto holeIt = pwh.holes_begin(); holeIt != pwh.holes_end(); ++holeIt)
-                {
-                    std::vector<glm::dvec2> hole2D = ExtractRing2D(*holeIt);
-                    std::reverse(hole2D.begin(), hole2D.end());
-                    const std::vector<glm::dvec2> filletedHole =
-                        FilletPolygonCorners(hole2D, params.insetMm, params.chordTolMm);
-                    EmitRing2D(filletedHole, frame, segments);
-                }
-            }
-        }
+        const CarvedRings3DLists carved =
+            CollectCarvedFilletedRings3D(*projected, outline, frame, params, face);
+        for (const std::vector<glm::dvec3> &ring : carved.outers)
+            AppendRingAsSegments(ring, segments);
+        for (const std::vector<glm::dvec3> &ring : carved.holes)
+            AppendRingAsSegments(ring, segments);
     }
     else
     {

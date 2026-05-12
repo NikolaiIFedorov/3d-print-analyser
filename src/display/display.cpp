@@ -32,6 +32,9 @@
 #include "CalibDistanceType.hpp"
 #include "CalibCompensation.hpp"
 #include "Structure/StructureTriangulation.hpp"
+#if defined(CAD_USE_CGAL)
+#include "Structure/StructureCarve.hpp"
+#endif
 #include <cmath>
 #include <limits>
 #include <chrono>
@@ -5362,9 +5365,37 @@ void Display::RefreshStructurePreviewForRenderer()
 
 void Display::FinalizeStructureSceneToolSession(bool accepted)
 {
-    (void)accepted; // Future: `true` commits staged solid edits; `false` restores pre-tool snapshot.
     if (activeTool != ActiveTool::Structure)
         return;
+#if defined(CAD_USE_CGAL)
+    if (accepted && scene != nullptr && calibStepImport == Icons::StepState::Done)
+    {
+        StructureTriangulation::BakeParams params;
+        params.insetMm = static_cast<double>(structureInsetMm);
+        params.chordTolMm = 0.02;
+        params.minFeatureMm = 1.5;
+
+        std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
+        for (const Face *f : structureEligibleFacesCache)
+        {
+            if (structureExcludedFaces.count(f) != 0)
+                continue;
+            if (f == nullptr || f->dependency == nullptr)
+                continue;
+            bySolid[f->dependency].push_back(f);
+        }
+
+        for (auto &entry : bySolid)
+        {
+            std::string err;
+            if (!StructureCarve::TryApplyStructureCarve(scene, entry.first, entry.second, params, &err))
+                LOG_WARN("Structure carve:", err);
+        }
+        StructureTriangulation::ClearBakeCache();
+        structureExcludedFaces.clear();
+        UpdateScene();
+    }
+#endif
     activeTool = ActiveTool::Analysis;
     pendingToolSwitch = true;
     renderDirty = true;
