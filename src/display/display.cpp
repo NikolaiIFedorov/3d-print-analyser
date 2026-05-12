@@ -906,10 +906,16 @@ void Display::Shutdown()
     renderer.Shutdown();
     LOG_SESSION("[shutdown] display: SDL_GL_DestroyContext");
     if (glContext)
+    {
         SDL_GL_DestroyContext(glContext);
+        glContext = nullptr;
+    }
     LOG_SESSION("[shutdown] display: SDL_DestroyWindow");
     if (window)
+    {
         SDL_DestroyWindow(window);
+        window = nullptr;
+    }
     LOG_SESSION("[shutdown] display: SDL_Quit");
     SDL_Quit();
     LOG_SESSION("[shutdown] display: end");

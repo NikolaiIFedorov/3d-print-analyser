@@ -253,6 +253,8 @@ void OpenGLRenderer::Shutdown()
         glDeleteVertexArrays(1, &triangleVAO);
     if (triangleIBO)
         glDeleteBuffers(1, &triangleIBO);
+    triangleVAO = triangleVBO = triangleIBO = 0;
+    triangleIndexCount = triangleVertexCount = 0;
 
     if (pickHighlightVBO)
         glDeleteBuffers(1, &pickHighlightVBO);
@@ -316,6 +318,8 @@ void OpenGLRenderer::Shutdown()
         glDeleteVertexArrays(1, &lineVAO);
     if (lineIBO)
         glDeleteBuffers(1, &lineIBO);
+    lineVAO = lineVBO = lineIBO = 0;
+    lineIndexCount = lineVertexCount = 0;
 
     triangleVertexCapacity = triangleIndexCapacity = 0;
     lineVertexCapacity = lineIndexCapacity = 0;
