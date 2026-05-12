@@ -482,6 +482,9 @@ private:
     /// enablement later: a future `UpdatePickHover`/`TryCommitStructureFacePick` change can start
     /// writing to it and `SyncStructurePanelDerivedVisibility` can route the string into the row.
     std::string structureHoverIneligibleReason;
+    /// Set when Structure **Accept** finalizes: the carved mesh is already on screen; the next tool-switch
+    /// pass should not call `MarkGeometryDirtyAll` (that would replay a full incremental GPU rebuild).
+    bool structureFinalizeCommitSkipGpuFullRebuild = false;
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.
     float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();

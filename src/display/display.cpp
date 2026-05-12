@@ -1067,13 +1067,23 @@ void Display::Render()
         if (showStructure)
             BeginStructureStagingSession();
         RefreshStructurePreviewForRenderer();
+        const bool skipHeavyGeomForStructureCommit = structureFinalizeCommitSkipGpuFullRebuild;
+        if (structureFinalizeCommitSkipGpuFullRebuild)
+            structureFinalizeCommitSkipGpuFullRebuild = false;
+
         if (analysisEnabled != showAnalysis)
         {
             analysisEnabled = showAnalysis;
             UpdateScene();
         }
-        else
+        else if (!skipHeavyGeomForStructureCommit)
             MarkGeometryDirtyAll();
+        else
+        {
+            // Accept dropped only `structureOriginalScene`; GPU buffers already match the carved scene.
+            MarkPickDirty();
+            MarkStyleDirty();
+        }
         uiRenderer.MarkDirty();
         SyncToolbarToolVisualState();
         RefreshUIMinWindowSize();
@@ -5828,6 +5838,7 @@ void Display::FinalizeStructureSceneToolSession(bool accepted)
         CommitStructureStagingScene();
     else
         RestoreStructureOriginalScene();
+    structureFinalizeCommitSkipGpuFullRebuild = accepted;
     structureOptFaceExcludeStep = Icons::StepState::Active;
     SyncStructureOptionalPrereqRowStyle();
     activeTool = ActiveTool::Analysis;

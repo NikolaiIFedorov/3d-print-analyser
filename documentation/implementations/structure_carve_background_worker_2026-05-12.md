@@ -19,3 +19,7 @@
 - **Invalidation:** `CancelPendingStructureCarveJob` (cancel + reset handle + bump job id + clear “Carving…” trailing) is used from `RestoreStructureOriginalScene`, `CommitStructureStagingScene`, tab switch, `MarkGeometryDirtyAll`, `MarkGeometryDirtySolid`, and leaving Structure via `pendingToolSwitch` so late results never apply to the wrong scene.
 - **UI:** Header trailing shows `Carving…` while the worker runs; Cancel/Accept footer is hidden until the swap (`structureCarveBusy`). Exclusion toggles while a job is pending call `BeginStructureStagingSession` again to cancel and restart with the new exclusion set.
 - **Mini retro:** Reused existing `TaskRunner` single-queue pattern (same as import/analysis) instead of a new thread type; cooperative cancel only between solids (CGAL may still run long inside one solid).
+
+## Follow-up (2026-05-12)
+
+- **Accept freeze:** After Accept, `Commit` leaves the same carved mesh in `ownedScenes` (only drops `structureOriginalScene`). The pending tool-switch handler still called `MarkGeometryDirtyAll()` whenever `analysisEnabled` already matched Analysis, forcing a redundant full incremental GPU rebuild. **Fix:** `structureFinalizeCommitSkipGpuFullRebuild` — on Accept, next switch uses `MarkPickDirty` + `MarkStyleDirty` instead so analysis can re-queue without replaying mesh rebuild.
