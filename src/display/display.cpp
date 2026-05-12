@@ -5674,6 +5674,28 @@ void Display::PollStructureStagingTaskIfReady()
         return;
     }
 
+    // All carve attempts failed: `TryApplyStructureCarve` left each solid unchanged, so `r.staging` is
+    // equivalent to the pre-carve clone. Do not swap into staging mode — that would set
+    // `structureOriginalScene` and block `BeginStructureStagingSession` / analysis until Accept or
+    // Cancel even though nothing changed.
+    if (r.carveAttempts > 0 && r.carvedSolids == 0)
+    {
+        if (!r.firstErr.empty())
+            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
+        else
+            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed.");
+        LOG_WARN("Structure staging: all carve attempts failed; staying on original scene.",
+                 r.firstErr.empty() ? std::string()
+                                    : SanitizeMessageForSingleLineLog(r.firstErr));
+        StructureTriangulation::ClearBakeCache();
+        structureEligibleFacesCache.clear();
+        SyncStructurePanelDerivedVisibility();
+        MarkPickDirty();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
+
     LOG_DESC("Structure staging: carved solids", std::to_string(r.carvedSolids), "of",
              std::to_string(r.carveAttempts));
 
