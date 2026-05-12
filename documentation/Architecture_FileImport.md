@@ -1,42 +1,51 @@
 # Architecture: File Import Pipeline
 
-**Update (2026-05-12):** The live path is `Display::DoFileImport` → `deferredImportPath` → `ProcessDeferredImportIfAny` → `TaskRunner` worker → `MainThreadPipeline` apply steps (see `Architecture_UIThreadAndWorkers.md`). A legacy synchronous `CompleteFileImport` existed only as unused fallback code and **has been removed**.
+**Cross-links:** [Architecture_UIThreadAndWorkers.md](Architecture_UIThreadAndWorkers.md) (main thread vs `TaskRunner`, cancel, progress), [Architecture_AsyncWorkRoadmap.md](Architecture_AsyncWorkRoadmap.md), [implementations/import_progress_phases_2026-05-04.md](implementations/import_progress_phases_2026-05-04.md).
 
 ## Executive Summary
 
-The file import pipeline brings 3D mesh data from disk into the scene graph. It has two tiers: a thin OS-level dialog wrapper (`FileImport`) and a set of format-specific parsers (`STLImport`, `OBJImport`, `ThreeMFImport`). `Display::DoFileImport()` is the integration point that wires them together, creates a new `Scene` per file, and triggers framing and UI updates.
+The file import pipeline brings 3D mesh data from disk into the B-rep `Scene` graph. It combines:
 
-**Verdict: Approve with changes**
+1. **OS dialog** — `FileImport` / `SDL_ShowOpenFileDialog` delivers a path on a callback thread.
+2. **Deferred handoff** — `Display::DoFileImport` only stores the path in `deferredImportPath` and marks the display dirty; **no parsing** runs in the dialog callback.
+3. **Worker parse** — At the start of each `Display::Frame()`, `ProcessDeferredImportIfAny()` submits a `TaskRunner` job that runs `STLImport` / `OBJImport` / `ThreeMFImport` on a **background worker**, with optional progress reporting.
+4. **Main-thread apply** — When the worker finishes, the main thread applies results through **`MainThreadPipeline`** named steps (`import-attach-scene`, `import-frame-scene`, `import-update-scene`, `import-finalize-ui`), each bounded by `MainThreadPipeline::Process` so large `UpdateScene` work can spread across frames.
 
-**Top 3 strengths:**
-1. Each format parser is a single static method with no shared mutable state — straightforward to add, test, or replace formats independently.
-2. Binary/ASCII STL auto-detection based on file-size heuristic is correct and resilient to malformed ASCII headers.
-3. `ThreeMFImport` correctly handles multi-`.model` archives and component reference chains.
+**Strengths**
 
-**Top 3 concerns:**
-1. STEP, PLY are advertised in the OS file filter but have no importer — selecting those formats silently creates an empty scene with no error feedback to the user.
-2. An owned `Scene` is pushed onto `ownedScenes` and `activeSceneIndex` is updated *before* the format importer is called; if the importer returns `false`, the empty scene remains active with no rollback.
-3. The SDL3 async callback allocates `FileCallback` on the heap via `new`; if the OS dialog is cancelled the `else` branch runs `delete callback` correctly, but the heap allocation pattern is non-RAII and deviates from the project's `unique_ptr` convention.
+1. Format parsers remain **stateless static** entry points — easy to test and extend per format.
+2. **STL** binary/ASCII detection and merge behaviour are mature; **3MF** handles multi-model archives and references.
+3. **Parse work does not block** the SDL/ImGui/OpenGL frame loop; progress can surface during long imports.
+
+**Gaps / risks**
+
+1. **File filter vs importers:** The dialog still lists extensions (e.g. STEP, PLY) that the worker treats as **unsupported** (`result.ok == false`, progress message *"Unsupported import format."*). This avoids attaching an empty scene, but **UX is still weak** until filters match code or importers exist.
+2. **SDL callback lifetime:** `FileImport` still uses heap-allocated `FileCallback` for SDL3 `userdata` (non-RAII pattern).
+3. **Heavy main-thread steps:** `FrameScene`, `UpdateScene`, and GPU rebuild triggered from the apply pipeline can still be **large** for huge meshes — mitigated by `MainThreadPipeline` time budget, not eliminated.
 
 ---
 
 ## 1. Requirements & Motivation
 
-### Functional Requirements
-- Present a native OS file picker filtered to supported 3D formats.
-- Parse the selected file into the project's B-Rep `Scene` (Points, Edges, Faces, Solids).
-- Support binary and ASCII STL, OBJ (triangles and N-gons), 3MF (zip + XML, component references).
-- Assign a fresh `Scene` per imported file so multiple files can be open concurrently.
-- Frame the viewport to the newly loaded model and trigger a scene analysis update.
-- Record the import event in the session log and append a file tab to the UI.
+### Functional
 
-### Non-Functional Requirements
-- Parsing must complete synchronously within the file-selection callback thread (no async parse pipeline).
-- Memory: each format parser uses stack-local containers; the final scene graph is heap-allocated and owned by `Display::ownedScenes`.
+- Native file picker filtered to 3D formats the product may accept.
+- Parse **STL** (binary + ASCII), **OBJ**, **3MF** into `Scene` (points, edges, faces, solids).
+- One **owned `Scene` per imported file** (tab model); optional activation of the new tab when import was started as the “pending” tab.
+- Frame camera to new bounds and refresh renderer / analysis when the imported tab is activated.
+- Session logging (`LogFileImport`, STL merge diagnostics when present).
+- **Progress** feedback during parse (phases / 0–1 progress where importers support callbacks).
+
+### Non-functional
+
+- **Responsiveness:** Parsing and disk I/O run on **`Display::taskRunner`** worker(s), not on the main UI thread.
+- **Thread safety:** The worker mutates only a **`std::unique_ptr<Scene>`** inside `AsyncImportResult` until handoff; live `Display::scene` / `ownedScenes` are updated only from **`MainThreadPipeline`** steps on the main thread.
+- **Stale UI:** `importProgressGeneration` gates published progress so superseded imports do not overwrite the UI.
 
 ### Constraints
-- Technology: C++23, SDL3 for the dialog API, miniz + tinyxml2 for 3MF, STL C++ streams for STL/OBJ.
-- No STEP parser is in scope currently; the filter entry is aspirational.
+
+- C++23, SDL3 dialog, miniz + tinyxml2 (3MF), streams for STL/OBJ.
+- **No STEP / PLY parser** in-tree today — worker fails fast for unknown extensions.
 
 ---
 
@@ -44,145 +53,144 @@ The file import pipeline brings 3D mesh data from disk into the scene graph. It 
 
 ### Components
 
-| Component | Files | Responsibility |
-|-----------|-------|----------------|
-| `FileImport` | `src/input/FileImport.hpp/.cpp` | Wraps `SDL_ShowOpenFileDialog`; delivers selected path via a `std::function` callback |
-| `STLImport` | `src/logic/Import/STLImport.hpp/.cpp` | Detects binary vs ASCII STL; parses triangles into Points, Edges, Faces; merges coplanar faces |
-| `OBJImport` | `src/logic/Import/OBJImport.hpp/.cpp` | Parses `v` and `f` directives; handles N-gons and negative indices; creates a single Solid |
-| `ThreeMFImport` | `src/logic/Import/ThreeMFImport.hpp/.cpp` | Extracts `.model` XML from ZIP; resolves component references recursively; creates a single Solid |
-| `Display::DoFileImport()` | `src/display/display.cpp` | Orchestrates dialog → parser → scene lifecycle → UI update |
+| Piece | Location | Role |
+|-------|----------|------|
+| `FileImport` | `src/input/FileImport.cpp` | `SDL_ShowOpenFileDialog` + filters; invokes callback with path |
+| `Display::DoFileImport` | `display.cpp` | Opens dialog; callback sets `deferredImportPath`, `renderDirty` |
+| `Display::ProcessDeferredImportIfAny` | `display.cpp` | Starts `pendingImportTask` or polls `TryTake`; enqueues apply steps |
+| `TaskRunner` / `TaskHandle` | `src/utils/TaskRunner.hpp` | Queue worker job; **non-blocking** `TryTake` on main thread |
+| `MainThreadPipeline` | `src/utils/MainThreadPipeline.hpp` | Ordered main-thread steps with per-frame time budget |
+| `STLImport` / `OBJImport` / `ThreeMFImport` | `src/logic/Import/` | Parse path → temporary `Scene` (worker thread only for this pipeline) |
 
-### Data Flow
+### End-to-end data flow
 
 ```
-User clicks "Import"
-        │
-        ▼
-FileImport::OpenFileDialog(window, callback)
-        │  (SDL3 async dialog; callback fires on file selection)
-        ▼
-callback(path)
-  ├─ Create new Scene (push to ownedScenes, activate)
-  ├─ Dispatch by extension:
-  │     "stl"  → STLImport::Import(path, scene)
-  │     "obj"  → OBJImport::Import(path, scene)
-  │     "3mf"  → ThreeMFImport::Import(path, scene)
-  │     other  → (no-op, silent empty scene)
-  ├─ FrameScene()         — camera frames new model bounds
-  ├─ UpdateScene()        — triggers analysis + renderer rebuild
-  ├─ SessionLogger::LogFileImport()
-  ├─ openFiles.push_back(filename)
-  └─ RebuildFileTabs()    — refreshes file tab bar
+User: Import
+    │
+    ▼
+DoFileImport() → FileImport::OpenFileDialog(window, lambda)
+    │
+    │   (SDL async: callback may run on arbitrary thread)
+    ▼
+lambda(path): deferredImportPath = path; renderDirty = true
+    │
+    │   (next frames: main thread)
+    ▼
+Frame() → ProcessDeferredImportIfAny()
+    │
+    ├─ If no pending worker job:
+    │      move deferredImportPath → path; importBusy = true; pendingImportTabStem; …
+    │      mainThreadPipeline.Clear(); cancel prior import task if any
+    │      pendingImportTask = taskRunner.Submit([path, importGeneration](token) {
+    │          build AsyncImportResult:
+    │            unique_ptr<Scene> on worker
+    │            if stl/obj/3mf → Import(..., scene, progressCallback)
+    │            else → progress "Unsupported…"; ok = false
+    │            honour CancellationToken
+    │            return result
+    │      })
+    │
+    └─ If pendingImportTask && TryTake() ready:
+           if !ok → clear busy / tab state; LOG_WARN; return
+           enqueue MainThreadPipeline steps:
+             import-attach-scene   → push_back(importedScene); maybe set activeSceneIndex
+             import-frame-scene  → FrameScene() if activated tab
+             import-update-scene → UpdateScene() if activated tab
+             import-finalize-ui   → SessionLogger, RebuildFileTabs, Calibrate UI,
+                                    Structure Begin if needed, FlushImportInputEventTail, clear busy
 ```
 
-### Key Abstractions
+**Progress path:** Importers accept `ImportProgressCallback`; worker calls `PublishImportProgress(importGeneration, …)` → main thread `ApplyImportProgressSnapshot()` during `Frame()` so UI text stays coherent with the active import generation.
 
-- **`FileImport::FileCallback`** — `std::function<void(const std::string&)>` alias; decouples the dialog from the import orchestration logic.
-- **`STLImport` / `OBJImport` / `ThreeMFImport`** — stateless utility classes with a single `static bool Import(path, Scene*)` entry point; consistent interface enables easy addition of new formats.
-- **`GetOrCreatePoint`** (STLImport, local) — point-deduplication helper using a `std::map<dvec3, Point*, Vec3Compare>`; ensures shared vertices produce shared `Point` objects in the B-Rep.
+### Key abstractions
+
+- **`AsyncImportResult`** (`display.hpp`) — path, extension lower-case, `ok` / `cancelled`, `unique_ptr<Scene>` populated only on success, optional STL timing / diagnostics for logging.
+- **`ImportProgress` / `ImportProgressCallback`** — threaded parse reports phases without touching `Scene` on the main thread until apply.
+- **Importers** — `static bool Import(path, Scene*, stats?, progress?)`; same contracts whether called from worker (live path) or tests.
 
 ---
 
 ## 3. Design Principles
 
-- **SRP**: Each importer handles exactly one format; `FileImport` handles only dialog presentation; `DoFileImport` handles only orchestration.
-- **OCP**: Adding a new format requires one new class and one `else if` branch in `DoFileImport` — existing importers are not modified.
-- **DIP** (partial): Importers receive a `Scene*` rather than constructing their own; they depend on the `Scene` abstraction, not on rendering or display concerns.
-- **YAGNI**: No import abstraction base class exists — the current three formats share no common state, so a base class would add indirection without benefit.
+- **SRP:** Importers know formats only; `Display` owns orchestration, tab state, and GL-facing apply.
+- **OCP:** Adding a format extends the **worker branch** in `ProcessDeferredImportIfAny`’s submit lambda (and filters in `FileImport.cpp`), not the dialog API.
+- **DIP:** Importers depend on `Scene*`, not on rendering.
+- **Safety:** No `std::future::wait` on UI paths; `TaskHandle` avoids blocking `reset` when discarding incomplete work (see `TaskRunner` implementation notes in UI-thread architecture doc).
 
 ---
 
 ## 4. Alternatives Considered
 
-| Option | Pros | Cons | Verdict |
-|--------|------|------|---------|
-| **Current: static method per format** | Zero overhead, simple to read and test | `DoFileImport` extension point requires code edits | Chosen — format count is small |
-| **Registry / map of factory functions** | `DoFileImport` becomes open to extension without modification | Adds indirection; formats are compile-time known | Deferred — worth reconsidering if format count grows |
-| **Async parse on a worker thread** | Non-blocking UI during large file parse | Requires synchronization into scene graph; significant complexity | Deferred — files are typically small |
-| **Single generic importer interface / base class** | Enables polymorphic dispatch | Formats have different I/O needs; interface would be artificial | Not recommended |
+| Option | Notes | Verdict |
+|--------|------|---------|
+| Parse in SDL callback | Blocks OS callback thread; freezes UI | Rejected for production path |
+| **Worker + main apply (current)** | Progress possible; scene handoff explicit | **Chosen** |
+| Registry of importers | Cleaner open/closed | Deferred — three `else if` branches today |
 
 ---
 
 ## 5. Technology & Dependencies
 
-### Existing Dependencies Used
+| Library | Role |
+|---------|------|
+| SDL3 | File dialog |
+| miniz + tinyxml2 | 3MF ZIP + XML |
+| GLM | Vertex / spatial types in STL dedup |
 
-| Library | Version | License | Role |
-|---------|---------|---------|------|
-| SDL3 | (project-pinned) | zlib | Native OS file dialog (`SDL_ShowOpenFileDialog`) |
-| miniz | bundled in `include/` | MIT | ZIP decompression for 3MF archives |
-| tinyxml2 | bundled in `include/` | zlib | XML parsing of 3MF `.model` files |
-| GLM | 1.0.2 | MIT | `dvec3` for vertex positions in STL point-deduplication |
-
-All dependencies are already present in the project; no new build targets are required.
-
-### Integration Impact
-- `Display` includes `STLImport.hpp`, `OBJImport.hpp`, `ThreeMFImport.hpp`, `FileImport.hpp` — compile-time coupling to all importers.
-- `ownedScenes` (vector of `unique_ptr<Scene>`) and `openFiles` (vector of filenames) live in `Display` — the scene lifetime is tied to the display object.
+`Display` includes all importer headers — compile-time coupling unchanged.
 
 ---
 
 ## 6. Tradeoffs
 
-| Decision | Alternative Considered | Chosen Approach | Rationale |
-|----------|----------------------|-----------------|-----------|
-| One `Scene` per file | Single shared scene | Independent scenes per file | Enables multi-file tabs without scene merging complexity |
-| Synchronous parse in SDL callback | Async worker thread | Synchronous | Simplicity; files are small enough in practice |
-| `new FileCallback` for SDL async | `unique_ptr` + raw pointer cast | Raw `new`/`delete` | SDL3 `userdata` is `void*`; `unique_ptr::release/get` is the correct pattern but wasn't applied |
-| Binary STL detection via file size | Header magic bytes | File-size formula (`84 + n*50`) | Robust — some ASCII STL files begin with "solid" which conflicts with binary headers |
-| `std::map` for point deduplication | `std::unordered_map` | `std::map` with `Vec3Compare` | `glm::dvec3` has no `std::hash` specialisation; avoids a custom hash at the cost of O(log n) lookup |
+| Topic | Choice | Rationale |
+|-------|--------|-----------|
+| Scene ownership | Worker builds `unique_ptr<Scene>`; main pushes to `ownedScenes` only after `ok` | Failed imports do **not** leave an empty active scene |
+| Default `TaskRunner` worker count | 1 (see `display.hpp`) | Simple ordering; import rarely parallelized with other jobs on same runner |
+| Apply step granularity | Four named `MainThreadPipeline` steps | Progress UX + avoids one giant synchronous block on success path |
+| Filter breadth | Many extensions listed | Marketing / future formats vs confusing unsupported picks — **still a product tradeoff** |
 
 ---
 
 ## 7. Best Practices Compliance
 
 ### Conforming
-- Each importer is stateless, side-effect-free (beyond mutating the `Scene*` argument), and short.
-- Files are opened via `std::ifstream`; RAII ensures handles are closed on scope exit.
-- `faces.reserve(triangleCount)` in binary STL avoids repeated reallocations.
-- Degenerate triangles (duplicate vertices) are skipped before scene mutation.
-- STL normal alignment is validated after face creation — outward normal is enforced for both binary (stored normal) and ASCII (CCW winding) variants.
-- `ThreeMFImport` correctly releases the miniz archive handle (`mz_zip_reader_end`) before returning, even on the error path.
 
-### Non-Conforming
+- Importers remain stateless aside from mutating the passed `Scene*`.
+- RAII file streams in parsers; 3MF releases miniz archive on all paths.
+- STL coplanar merge and normal checks as before.
+
+### Gaps (tracked)
 
 | Issue | Severity | Remediation |
 |-------|----------|-------------|
-| **STEP and PLY listed in file filter but unimplemented** | Major | Either implement importers or remove those filter entries; current behaviour creates a silent empty scene |
-| **Scene created before import success is known** | Major | Move `ownedScenes.push_back` / `activeSceneIndex` update to *after* a successful `Import()` call; roll back on failure |
-| **`new FileCallback` / `delete callback`** | Minor | Use `unique_ptr<FileCallback>::release()` to produce the `void*` and re-wrap with `unique_ptr` inside the lambda for exception-safe cleanup |
-| **OBJ: no `Solid` → `MergeCoplanarFaces` call** | Minor | OBJ creates a Solid but never calls `MergeCoplanarFaces`, unlike STL; coplanar face merging may be desirable for OBJ imports too |
-| **`std::map` for point dedup in STLImport** | Minor | Consider a custom `std::unordered_map` with a spatial hash for O(1) average lookup on large meshes |
+| STEP / PLY / etc. in filter without importer | Major (UX) | Narrow filters **or** add parsers **or** prominent in-app error when `ok == false` |
+| `new FileCallback` in `FileImport` | Minor | `unique_ptr::release` + re-wrap pattern |
+| OBJ / 3MF omit `MergeCoplanarFaces` where STL uses it | Minor | Align merge policy across formats if desired |
+| Very large mesh: worker CPU + main `UpdateScene` | Medium | Profiling; mesh LOD; further chunking of apply steps |
 
 ---
 
-## 8. Risks & Future-Proofing
+## 8. Risks & Future Work
 
-### Risks
-- **Format coverage gap**: STEP is the dominant exchange format for CAD data; its absence means most mechanical CAD files cannot be imported without conversion. A STEP parser (e.g., via OpenCASCADE or a lightweight STEP reader) would significantly expand utility.
-- **Large file performance**: The `std::map`-based point deduplication in STLImport is O(n log n). For meshes with millions of triangles, a spatial hash or sort-based deduplication would be meaningfully faster.
-- **Single-mesh per file**: `ThreeMFImport` and `OBJImport` each create a single `Solid`; multi-object 3MF files with separate build items are flattened into one solid, losing object identity.
-
-### Future Considerations
-- A format-registry pattern (`std::unordered_map<string, ImportFn>`) would make `DoFileImport` open to extension without modification.
-- Async import with a progress indicator becomes relevant once STEP or large mesh support is added.
-- PLY support could be added with a relatively small parser; the filter entry already advertises it.
-- Consider reporting import errors to the user via the UI (a status line in the Files panel) rather than only logging to the session log.
+- **STEP** remains the largest format gap for mechanical CAD exchange.
+- **Point dedup** in STL is `O(n log n)` with `std::map` — may matter for multi-million-triangle files on the worker (does not freeze UI, but extends wall time).
+- **PLY** — filter advertises; worker returns unsupported until implemented.
 
 ---
 
 ## 9. Recommendations
 
-### Must-Have
-- Remove STEP and PLY from the `SDL_DialogFileFilter` until their importers exist, or implement minimal parsers; the current state misleads users into selecting unsupported formats.
-- Move scene creation to after a successful `Import()` return; roll back (pop `ownedScenes`, restore previous `scene` and `activeSceneIndex`) on failure or unsupported format.
+### Must-have (product)
 
-### Should-Have
-- Replace `new FileCallback` with `unique_ptr<FileCallback>::release()` + re-wrap inside the lambda.
-- Call `scene->MergeCoplanarFaces(solid)` in `OBJImport::Import` (and `ThreeMFImport::Import`) for consistency with STLImport.
-- Surface import errors to the user in the Files panel (e.g., a brief error line under the tab bar).
+- Align **file filter entries** with **actually supported** extensions, **or** keep broad filter but add a clear **non-modal error** when import fails (unsupported / IO / parse).
 
-### Nice-to-Have
-- Replace `std::map<dvec3, Point*, Vec3Compare>` with a spatial-hash deduplicator for large STL meshes.
-- Add a basic PLY importer (binary and ASCII variants are straightforward).
-- Investigate a format-registry architecture for `DoFileImport` to support Open/Closed extension.
+### Should-have (engineering)
+
+- Replace raw `new`/`delete` of `FileCallback` with a safer ownership handoff into the SDL callback.
+- Consider `MergeCoplanarFaces` for OBJ/3MF for parity with STL.
+
+### Nice-to-have
+
+- Spatial-hash STL dedup on worker for huge meshes.
+- Format registry to shrink the submit-lambda `if` chain when formats multiply.
