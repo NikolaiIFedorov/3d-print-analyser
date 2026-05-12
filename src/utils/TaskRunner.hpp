@@ -1,10 +1,12 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstddef>
 #include <functional>
 #include <future>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -46,6 +48,26 @@ public:
         {
         }
 
+        TaskHandle(const TaskHandle &) = delete;
+        TaskHandle &operator=(const TaskHandle &) = delete;
+        TaskHandle(TaskHandle &&) noexcept = default;
+        TaskHandle &operator=(TaskHandle &&other)
+        {
+            if (this == &other)
+                return *this;
+            // Defaulted move-assignment would assign into `std::future`, whose destructor on the
+            // replaced state can block — same failure mode as `~future` on a running task.
+            ReleaseFutureNonBlocking();
+            future = std::move(other.future);
+            cancelRequested = std::move(other.cancelRequested);
+            return *this;
+        }
+
+        ~TaskHandle()
+        {
+            ReleaseFutureNonBlocking();
+        }
+
         std::optional<T> TryTake()
         {
             if (!future.valid())
@@ -67,6 +89,37 @@ public:
         }
 
     private:
+        void ReleaseFutureNonBlocking() noexcept
+        {
+            // `std::future::~future` waits if the task is still running — that blocked the UI thread
+            // whenever a pending import/analysis/structure handle was reset while the worker was
+            // inside a long CGAL call. Defer `get()` to a detached thread when not yet ready.
+            if (!future.valid())
+                return;
+            if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+            {
+                try
+                {
+                    (void)future.get();
+                }
+                catch (...)
+                {
+                }
+                return;
+            }
+            auto holder = std::shared_ptr<std::future<T>>(new std::future<T>(std::move(future)));
+            std::thread([holder]() {
+                try
+                {
+                    if (holder->valid())
+                        (void)holder->get();
+                }
+                catch (...)
+                {
+                }
+            }).detach();
+        }
+
         std::future<T> future;
         std::shared_ptr<std::atomic<bool>> cancelRequested;
     };

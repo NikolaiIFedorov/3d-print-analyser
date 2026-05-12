@@ -588,6 +588,52 @@ bool EnvStructureStripDebugOn()
 } // namespace
 
 #if defined(CAD_USE_CGAL)
+
+// Fillet sampling can self-cross at sharp reflex corners on carve results (e.g. L-shaped caps).
+// That yields a self-intersecting prism footprint and stresses CGAL corefinement; use the sharp
+// inset outline when the filleted ring crosses itself.
+static bool SegmentsIntersectProper2D(const glm::dvec2 &a, const glm::dvec2 &b, const glm::dvec2 &c,
+                                      const glm::dvec2 &d)
+{
+    auto cross = [](const glm::dvec2 &p, const glm::dvec2 &q) { return p.x * q.y - p.y * q.x; };
+    const glm::dvec2 ab = b - a;
+    const glm::dvec2 cd = d - c;
+    constexpr double kEps = 1e-12;
+    const double t1 = cross(ab, c - a);
+    const double t2 = cross(ab, d - a);
+    const double t3 = cross(cd, a - c);
+    const double t4 = cross(cd, b - c);
+    auto sgn = [kEps](double x) -> int
+    {
+        if (x > kEps)
+            return 1;
+        if (x < -kEps)
+            return -1;
+        return 0;
+    };
+    return sgn(t1) * sgn(t2) < 0 && sgn(t3) * sgn(t4) < 0;
+}
+
+static bool Ring2DHasSelfIntersection(const std::vector<glm::dvec2> &ring)
+{
+    const std::size_t n = ring.size();
+    if (n < 4)
+        return false;
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        const std::size_t i1 = (i + 1) % n;
+        for (std::size_t j = i + 1; j < n; ++j)
+        {
+            const std::size_t j1 = (j + 1) % n;
+            if (i == j || i == j1 || i1 == j || i1 == j1)
+                continue;
+            if (SegmentsIntersectProper2D(ring[i], ring[i1], ring[j], ring[j1]))
+                return true;
+        }
+    }
+    return false;
+}
+
 struct CarvedRings3DLists
 {
     std::vector<std::vector<glm::dvec3>> outers;
@@ -688,8 +734,10 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
         for (const SkeletonPolygonWithHoles &pwh : carved)
         {
             const std::vector<glm::dvec2> outer2D = ExtractRing2D(pwh.outer_boundary());
-            const std::vector<glm::dvec2> filletedOuter =
+            std::vector<glm::dvec2> filletedOuter =
                 FilletPolygonCorners(outer2D, params.insetMm, params.chordTolMm);
+            if (Ring2DHasSelfIntersection(filletedOuter))
+                filletedOuter = outer2D;
             std::vector<glm::dvec3> ring3D;
             ring3D.reserve(filletedOuter.size());
             for (const glm::dvec2 &p : filletedOuter)
@@ -701,8 +749,10 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
             {
                 std::vector<glm::dvec2> hole2D = ExtractRing2D(*holeIt);
                 std::reverse(hole2D.begin(), hole2D.end());
-                const std::vector<glm::dvec2> filletedHole =
+                std::vector<glm::dvec2> filletedHole =
                     FilletPolygonCorners(hole2D, params.insetMm, params.chordTolMm);
+                if (Ring2DHasSelfIntersection(filletedHole))
+                    filletedHole = hole2D;
                 std::vector<glm::dvec3> hole3D;
                 hole3D.reserve(filletedHole.size());
                 for (const glm::dvec2 &p : filletedHole)
