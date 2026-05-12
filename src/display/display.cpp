@@ -84,6 +84,18 @@ static void TruncateUiInlineMessage(std::string &s, std::size_t maxChars = 72)
         s += "...";
 }
 
+/// CGAL `what()` often embeds newlines; our logger also uses cursor-up when the **same** message
+/// repeats — per-solid identical warns looked like a flood of blank lines in some terminals.
+[[nodiscard]] static std::string SanitizeMessageForSingleLineLog(std::string s)
+{
+    for (char &c : s)
+    {
+        if (c == '\n' || c == '\r' || c == '\t')
+            c = ' ';
+    }
+    return s;
+}
+
 static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer)
 {
     if (uiStructure && uiStructure->header.has_value())
@@ -5774,7 +5786,6 @@ void Display::BeginStructureStagingSession()
                     ++carvedSolids;
                 else
                 {
-                    LOG_WARN("Structure staging carve:", err);
                     if (firstErr.empty() && !err.empty())
                         firstErr = err;
                 }
@@ -5789,6 +5800,10 @@ void Display::BeginStructureStagingSession()
                     out.firstErr = std::move(firstErr);
                 else
                     out.firstErr = std::string("Partial: ") + firstErr;
+
+                const std::size_t failedSolids = carveAttempts - carvedSolids;
+                LOG_WARN("Structure staging carve:", SanitizeMessageForSingleLineLog(out.firstErr),
+                         "solidsFailed", std::to_string(failedSolids), "of", std::to_string(carveAttempts));
             }
             return out;
         });

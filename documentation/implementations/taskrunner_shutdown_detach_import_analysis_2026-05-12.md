@@ -33,3 +33,11 @@ Quit path no longer **blocks** on `join()` for the default import/analysis runne
 ## Shutdown breadcrumb logging (2026-05-12)
 
 `LOG_SESSION` lines at `LogVerbosity::NORMAL` in `main::Shutdown` and each phase of `Display::Shutdown` so a stuck quit shows the **last printed line** (console / session log). Look for `[shutdown]` prefix.
+
+## Structure staging carve: one WARN instead of terminal “blank line flood” (2026-05-12)
+
+**Symptom:** After CGAL precondition text, some terminals filled with **apparent empty lines**.
+
+**Cause:** Per-solid `LOG_WARN` with **identical** CGAL `what()` text → logger repeat suppression used **ANSI cursor-up**; newline-heavy messages made repeats look like blank spam.
+
+**Fix:** `display.cpp` — one aggregated `LOG_WARN` after the carve loop, with `\n`/`\r`/`\t` replaced by spaces (`SanitizeMessageForSingleLineLog`).
