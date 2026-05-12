@@ -338,7 +338,9 @@ private:
     /// `Architecture_UIThreadAndWorkers.md`): workers run heavy work; `Frame()` polls `TryTake` and
     /// applies on the main thread. Import uses `mainThreadPipeline` for multi-step attach/update.
     /// Structure CGAL carve uses a separate `TaskRunner` in `display.cpp` so it cannot starve this queue.
-    TaskRunner taskRunner;
+    /// `Shutdown()` detaches workers and **releases** the runner (intentional process-exit leak) so quit
+    /// never blocks on `join()` when CGAL is stuck.
+    std::unique_ptr<TaskRunner> taskRunner;
     MainThreadPipeline mainThreadPipeline;
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;

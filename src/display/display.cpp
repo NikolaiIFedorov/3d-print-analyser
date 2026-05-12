@@ -95,9 +95,9 @@ static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer
 
 #if defined(CAD_USE_CGAL)
 // Dedicated queue for Structure staging carve only. A pathological CGAL call can run without
-// returning; `Display::taskRunner` must stay available for import/analysis. This instance is
-// intentionally never destroyed so `~TaskRunner` never joins a stuck worker during app teardown
-// (process exit reclaims the OS thread).
+// returning; `Display` holds import/analysis work on `taskRunner` (`std::unique_ptr`). `Display::Shutdown`
+// detaches those workers and **releases** the runner (intentional process-exit leak) so quit never
+// blocks on `join()` when CGAL/analysis is stuck — same idea as never destroying this instance.
 [[nodiscard]] static TaskRunner &StructureCarveTaskRunner()
 {
     static TaskRunner *const instance = new TaskRunner(1);
@@ -759,6 +759,8 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
     uiRenderer.SetBodyImFont(bodyFont);
     uiRenderer.SetHeavyImFont(heavyFont);
 
+    taskRunner = std::make_unique<TaskRunner>();
+
     InitUI();
     LoadSettings();
     SDL_AddEventWatch(ResizeEventWatcher, this);
@@ -843,6 +845,27 @@ void Display::Shutdown()
 #if defined(CAD_USE_CGAL)
     CancelPendingStructureCarveJob();
 #endif
+
+    // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
+    // Drop task handles (non-blocking abandon of in-flight futures), drain + detach workers, then
+    // leak the runner — same family of policy as `StructureCarveTaskRunner` (never join stuck work).
+    mainThreadPipeline.Clear();
+    if (pendingImportTask.has_value())
+    {
+        pendingImportTask->RequestCancel();
+        pendingImportTask.reset();
+    }
+    if (pendingAnalysisTask.has_value())
+    {
+        pendingAnalysisTask->RequestCancel();
+        pendingAnalysisTask.reset();
+    }
+    if (taskRunner)
+    {
+        taskRunner->RequestStopClearQueueAndDetachWorkers();
+        (void)taskRunner.release();
+    }
+
     SaveSettings();
     SystemAppearance::ClearChangeCallback();
     ImGui_ImplOpenGL3_Shutdown();
@@ -1339,13 +1362,13 @@ void Display::Frame()
 
     PollPendingAnalysisTaskIfReady();
 
-    if (analysisEnabled && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
+    if (analysisEnabled && taskRunner && pendingAnalysisAfterGeometryRebuild && !geometryDirtyAll && geometryDirtySolids.empty() &&
         !styleDirty && !pendingAnalysisTask.has_value() && !activeAnalysisTintForRebuild.has_value())
     {
         pendingAnalysisAfterGeometryRebuild = false;
         const uint64_t requestId = ++analysisRequestId;
         const Scene *sceneForAnalysis = scene;
-        pendingAnalysisTask = taskRunner.Submit(
+        pendingAnalysisTask = taskRunner->Submit(
             [this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
             { return ProduceAsyncAnalysisFromScene(sceneForAnalysis, requestId, token); });
         pendingAnalysisScene = sceneForAnalysis;
@@ -1402,7 +1425,7 @@ void Display::Frame()
             // (activeAnalysisTintForRebuild); otherwise the next frame can submit AnalyzeScene again,
             // pendingAnalysisTask flips on, and Result/Verdict hide right after they were shown.
             const bool shouldLaunchAsyncAnalysis =
-                geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
+                taskRunner && geometryOrStyleWork && analysisEnabled && !skipAnalysisForNextGeometryRebuild &&
                 !pendingAnalysisTask.has_value() && !pendingAnalysisTint.has_value() &&
                 !activeAnalysisTintForRebuild.has_value();
             if (shouldLaunchAsyncAnalysis && !renderer.FullRebuildInProgress())
@@ -1410,7 +1433,7 @@ void Display::Frame()
                 pendingAnalysisAfterGeometryRebuild = false;
                 const uint64_t requestId = analysisRequestId;
                 const Scene *sceneForAnalysis = scene;
-                pendingAnalysisTask = taskRunner.Submit(
+                pendingAnalysisTask = taskRunner->Submit(
                     [this, sceneForAnalysis, requestId](const TaskRunner::CancellationToken &token) -> AsyncAnalysisResult
                     { return ProduceAsyncAnalysisFromScene(sceneForAnalysis, requestId, token); });
                 pendingAnalysisScene = sceneForAnalysis;
@@ -3480,6 +3503,9 @@ void Display::ProcessDeferredImportIfAny()
 {
     using namespace std::chrono_literals;
 
+    if (!taskRunner)
+        return;
+
     if (pendingImportTask.has_value())
     {
         std::optional<AsyncImportResult> readyResult = pendingImportTask->TryTake();
@@ -3672,7 +3698,7 @@ void Display::ProcessDeferredImportIfAny()
         pendingImportTask.reset();
     }
 
-    pendingImportTask = taskRunner.Submit([this, path, importGeneration](const TaskRunner::CancellationToken &token) -> AsyncImportResult
+    pendingImportTask = taskRunner->Submit([this, path, importGeneration](const TaskRunner::CancellationToken &token) -> AsyncImportResult
                                           {
                                               using Clock = std::chrono::steady_clock;
                                               AsyncImportResult result;

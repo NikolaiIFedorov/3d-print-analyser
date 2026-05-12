@@ -46,8 +46,9 @@ Use monotonic **generation** or **job id** fields; in `TryTake` handlers, **disc
 
 ## Shutdown and `TaskRunner` destruction
 
-- `TaskRunner::~TaskRunner` **joins** worker threads after setting `stopRequested`. If a worker is inside a long CGAL call, **process exit** can still block until that job finishes (queue drains).
-- `TaskHandle` defers `future::get()` when discarding a **non-ready** handle so **assignment / reset** on the UI thread does not wait; detached threads may still complete after `Display` is torn down — acceptable for process exit; avoid if you need strict lifetime guarantees for tests.
+- **`Display::Shutdown()` (normal quit):** After cancelling pending import/analysis handles, calls **`TaskRunner::RequestStopClearQueueAndDetachWorkers()`** on the default import/analysis runner, then **`unique_ptr::release()`** — **intentional leak** of that `TaskRunner` so **no `join()`** runs while a worker is stuck in CGAL/analysis. Process exit reclaims OS threads; same family of policy as **`StructureCarveTaskRunner`** (never destroyed).
+- **`TaskRunner::~TaskRunner`** (still used for any `TaskRunner` that is destroyed normally): **joins** workers after `stopRequested` unless **`RequestStopClearQueueAndDetachWorkers()`** already ran (`workersDetachedForExit`), in which case the destructor is a no-op.
+- `TaskHandle` defers `future::get()` when discarding a **non-ready** handle so **assignment / reset** on the UI thread does not wait; detached helper threads may still complete — acceptable for process exit; avoid if you need strict lifetime guarantees for tests.
 
 ## Audit (how to re-check)
 
@@ -65,4 +66,4 @@ Interpretation: smart-pointer `.get()` is fine; `future`-style blocking on the U
 - `documentation/Architecture_FileImport.md` — import pipeline and progress.
 - `documentation/Architecture_Analysis.md` — analysis stages vs worker.
 - `documentation/implementations/ui_thread_worker_contract_2026-05-12.md` — audit snapshot and follow-ups.
-- `documentation/implementations/async_work_roadmap_phase0_2026-05-12.md` — Phase 0 hotspot table and policies.
+- `documentation/implementations/taskrunner_shutdown_detach_import_analysis_2026-05-12.md` — quit path: detach + leak default `TaskRunner`.

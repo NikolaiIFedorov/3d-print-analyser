@@ -135,8 +135,32 @@ public:
                                  { WorkerLoop(); });
     }
 
+    /// Process-exit / emergency shutdown: stop accepting jobs, discard queued work, **detach** workers
+    /// so the caller never blocks on `join()`. After this, **do not destroy** this `TaskRunner` — detached
+    /// threads may still touch `queueMutex` until they observe `stopRequested` and exit `WorkerLoop`
+    /// (same contract as the leaked Structure carve runner). Typical use: `unique_ptr::release()`.
+    void RequestStopClearQueueAndDetachWorkers()
+    {
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            stopRequested = true;
+            while (!jobQueue.empty())
+                jobQueue.pop();
+        }
+        queueCv.notify_all();
+        for (std::thread &worker : workers)
+        {
+            if (worker.joinable())
+                worker.detach();
+        }
+        workers.clear();
+        workersDetachedForExit = true;
+    }
+
     ~TaskRunner()
     {
+        if (workersDetachedForExit)
+            return;
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             stopRequested = true;
@@ -194,4 +218,5 @@ private:
     std::queue<std::function<void()>> jobQueue;
     std::vector<std::thread> workers;
     bool stopRequested = false;
+    bool workersDetachedForExit = false;
 };
