@@ -3392,6 +3392,15 @@ void Display::CompleteFileImport(const std::string &path)
     if (calibPara_Measure)
         calibPara_Measure->visible = true;
     ClearCalibrateFacePicks();
+    // If Structure is the active tool when the import finishes, the staging session was either
+    // never started (Begin early-returned because there was no model yet) or was bound to a stale
+    // tab. Restore-then-Begin guarantees the new active scene is the one being staged.
+    if (activeTool == ActiveTool::Structure)
+    {
+        if (IsStructureStagingActive())
+            RestoreStructureOriginalScene();
+        BeginStructureStagingSession();
+    }
     uiRenderer.MarkDirty();
     renderDirty = true;
 
@@ -3560,6 +3569,12 @@ void Display::ProcessDeferredImportIfAny()
                                            if (calibPara_Measure)
                                                calibPara_Measure->visible = true;
                                            ClearCalibrateFacePicks();
+                                           if (activeTool == ActiveTool::Structure)
+                                           {
+                                               if (IsStructureStagingActive())
+                                                   RestoreStructureOriginalScene();
+                                               BeginStructureStagingSession();
+                                           }
                                        }
                                        uiRenderer.MarkDirty();
                                        renderDirty = true;
@@ -5329,6 +5344,23 @@ void Display::InitUI()
         structPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiStructure = &uiRenderer.AddPanel(structPanel);
 
+        // Allocate the hover-hint paragraph FIRST so subsequent bindings into `uiStructure->children`
+        // are stable. `BuildToolPanel` reserves capacity for exactly the structural children it knows
+        // about, so adding HoverHint later forces a vector reallocation that silently invalidates
+        // every previously-cached child pointer (`structPara_SceneEditFooter`, the `Prerequisites`
+        // section, etc.). Symptom of the bug: `SyncStructurePanelDerivedVisibility` writes its
+        // visibility flags into freed heap memory, so the Cancel/Accept footer never actually hides
+        // before import.
+        structPara_HoverHint = &uiStructure->AddParagraph("StructHoverHint");
+        structPara_HoverHint->visible = false;
+        structPara_HoverHint->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        structPara_HoverHint->values.reserve(1);
+        {
+            SectionLine &line = structPara_HoverHint->values.emplace_back();
+            line.text = "";
+            line.textDepth = 2;
+        }
+
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
             structPara_Import = &structPrereqs->children[0];
@@ -5339,19 +5371,6 @@ void Display::InitUI()
                 structPara_SceneEditFooter = pp;
                 break;
             }
-        }
-
-        // Hover-hint paragraph is allocated but kept permanently hidden by
-        // `SyncStructurePanelDerivedVisibility` at this phase. We keep the slot so re-enabling the
-        // clickability feedback later is a one-line visibility flip rather than an ImGui rebuild.
-        structPara_HoverHint = &uiStructure->AddParagraph("StructHoverHint");
-        structPara_HoverHint->visible = false;
-        structPara_HoverHint->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
-        structPara_HoverHint->values.reserve(1);
-        {
-            SectionLine &line = structPara_HoverHint->values.emplace_back();
-            line.text = "";
-            line.textDepth = 2;
         }
 
         SyncStructurePanelDerivedVisibility();
@@ -5397,13 +5416,22 @@ void Display::BeginStructureStagingSession()
     if (IsStructureStagingActive())
         return;
     if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
+    {
+        LOG_DESC("Structure staging skipped: no active imported tab");
         return;
+    }
     if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
+    {
+        LOG_DESC("Structure staging skipped: active scene is empty");
         return;
+    }
 #if defined(CAD_USE_CGAL)
     std::unique_ptr<Scene> staging = scene->Clone();
     if (!staging)
+    {
+        LOG_WARN("Structure staging: scene clone failed");
         return;
+    }
 
     StructureTriangulation::BakeParams params;
     params.insetMm = static_cast<double>(structureInsetMm);
@@ -5411,6 +5439,7 @@ void Display::BeginStructureStagingSession()
     params.minFeatureMm = 1.5;
 
     std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
+    size_t eligibleCount = 0;
     for (Face &f : staging->faces)
     {
         if (f.dependency == nullptr)
@@ -5418,14 +5447,22 @@ void Display::BeginStructureStagingSession()
         if (!IsStructureFaceEligible(&f))
             continue;
         bySolid[f.dependency].push_back(&f);
+        ++eligibleCount;
     }
+    LOG_DESC("Structure staging: eligible faces", std::to_string(eligibleCount),
+             "across solids", std::to_string(bySolid.size()));
 
+    size_t carvedSolids = 0;
     for (auto &entry : bySolid)
     {
         std::string err;
-        if (!StructureCarve::TryApplyStructureCarve(staging.get(), entry.first, entry.second, params, &err))
+        if (StructureCarve::TryApplyStructureCarve(staging.get(), entry.first, entry.second, params, &err))
+            ++carvedSolids;
+        else
             LOG_WARN("Structure staging carve:", err);
     }
+    LOG_DESC("Structure staging: carved solids", std::to_string(carvedSolids),
+             "of", std::to_string(bySolid.size()));
 
     structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
     structureStagingSceneIndex = activeSceneIndex;
@@ -5436,6 +5473,8 @@ void Display::BeginStructureStagingSession()
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     UpdateScene();
+#else
+    LOG_DESC("Structure staging skipped: build is missing CAD_USE_CGAL");
 #endif
 }
 

@@ -432,6 +432,31 @@ Re-ordering to `inset \ strip → fillet each result polygon` fixes all three in
 
 **Build.** `cmake --build build --target CAD_OpenGL -- -j8` clean. `ReadLints` clean across `display.{hpp,cpp}` and `scene.{hpp,cpp}`. The previous app session did surface a CGAL `Arr_segment_traits_2.h` assertion on a real model — that is the same arrangement-invariant edge case logged in the earlier "Fix — CGAL assertion in `CGAL::difference`" entry, not introduced by this change.
 
+### Staging session — fix: footer still showed pre-import; carve never started post-import (2026-05-12)
+
+**Symptoms (user report).**
+1. Cancel/Accept were still drawn while the "Import a file" prerequisite was active.
+2. With a model already loaded and the Structure tool selected, no live carve appeared, and clicking Accept did nothing.
+
+**Causes.**
+1. *Dangling pointer into the panel children vector.* `BuildToolPanel(structDef)` reserves `panel.children` for **exactly** the structural children it knows about (Prerequisites + footer = 2 slots). `InitUI` then bound `structPara_SceneEditFooter` (and the Prerequisites `Section *` from `FindSection`) and *afterwards* called `uiStructure->AddParagraph("StructHoverHint")`. That third push triggers a `std::vector` reallocation, silently invalidating the bound pointers. From that point on, `SyncStructurePanelDerivedVisibility` was writing the visibility flags into freed heap memory; the actual footer Paragraph kept its default `visible = true`.
+2. *Staging not re-armed after a late import.* If the user picked Structure **before** importing, `BeginStructureStagingSession` early-returned at `activeSceneIndex == SIZE_MAX` (no model). The import-completion handlers updated the active scene but did not re-trigger the staging session, so on entry the user kept seeing the original mesh + the line preview overlay (no actual carve), and Accept's `CommitStructureStagingScene` was a no-op because there was nothing to commit.
+
+**Fix.**
+1. Reordered `InitUI` for the Structure panel so `StructHoverHint` is added **first** (right after `AddPanel`), and only **then** are `structPara_Import`, `structPara_SceneEditFooter`, and the Prerequisites `Section *` bound. After that, no further `AddParagraph` calls happen on the panel, so the cached pointers stay valid for the lifetime of the UI.
+2. Both import-completion paths (sync `CompleteFileImport` and the async background-import lambda) now run, when `activeTool == ActiveTool::Structure` after the import:
+   ```cpp
+   if (IsStructureStagingActive())
+       RestoreStructureOriginalScene();
+   BeginStructureStagingSession();
+   ```
+   Restore-then-Begin handles both the common "no staging yet" case and the rare "old tab had a staging" case (e.g. async import landing under an open Structure session).
+3. Added `LOG_DESC` instrumentation inside `BeginStructureStagingSession` covering each early-return branch, the eligible-face count, and the per-solid carve outcome. These stay in: they are cheap, they show up in the session log alongside the existing carve `LOG_DESC`, and they make this exact failure obvious next time (instead of "no carve, no message").
+
+**Files.** `src/display/display.cpp` (init order, both import paths, staging logging).
+
+**Build.** `cmake --build build --target CAD_OpenGL` clean. Lints clean.
+
 ## Mini retro — Phase A
 
 - The pivot deletion was small because the prior architecture already separated "Structure tool scaffolding in `Display` / `SceneRenderer`" from "infill generators in `StructurePreview`." Only one file (`StructurePreview.cpp`) lost real logic; the rest was field/method housekeeping in three other TUs. Worth remembering as evidence that the Structure-tool layering held up under a feature swap.
