@@ -18,7 +18,7 @@
 
 ## Outcome
 
-Quit path no longer **blocks** on `join()` for the default import/analysis runner when a worker is stuck.
+Quit path no longer **blocks** on `join()` for the default import/analysis runner when a worker is stuck. **Build:** `CAD_OpenGL` OK (2026-05-12).
 
 ## Risks / follow-up
 
