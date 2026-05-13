@@ -104,9 +104,14 @@ public:
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});
 
-    /// If `CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE` is non-empty and not `0`, writes `session_log.json`
-    /// after a Structure carve poll finishes applying/discarding (survives force-quit if freeze happens later).
+    /// If `CAD_SESSION_LOG_EAGER_FLUSH` or `CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE` is set (non-empty,
+    /// first character not ASCII `0`), writes `path` (default `session_log.json` relative to **process cwd**).
+    /// Used after Structure poll completes and **again immediately before `UpdateScene()`** on apply so a
+    /// hang inside geometry rebuild still leaves a flushed log.
     void MaybeFlushAfterStructurePoll(const std::string &path = "session_log.json");
+    /// Same env gate as `MaybeFlushAfterStructurePoll` — call after `LogFileImport` so import-only sessions
+    /// create/update the log without waiting for Structure or quit.
+    void MaybeFlushAfterImport(const std::string &path = "session_log.json");
 
 private:
     SessionLogger() = default;

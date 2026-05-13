@@ -5830,6 +5830,7 @@ void Display::PollStructureStagingTaskIfReady()
     structureEligibleFacesCache.clear();
     SessionLogger::Instance().LogStructureStagingApplyPhase(
         "applied_scene_swap", "job=" + std::to_string(r.jobId) + " scene=" + std::to_string(activeSceneIndex));
+    SessionLogger::Instance().MaybeFlushAfterStructurePoll();
     UpdateScene();
     SessionLogger::Instance().LogStructureStagingApplyPhase(
         "applied_after_update_scene", "job=" + std::to_string(r.jobId));

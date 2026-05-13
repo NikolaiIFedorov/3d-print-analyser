@@ -73,5 +73,12 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 `session_log.json` is normally written once in `main::Shutdown` (`SessionLogger::Flush`). **Force quit / kill** skips `Shutdown`, so the file on disk can still be from the **previous clean exit** — identical `session_run_id` and events usually means you are not looking at the frozen run.
 
-**Mitigation:** Set environment variable `CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE=1` before launching the app. After each Structure carve poll that consumes a worker result, the session log is flushed to disk (same path as quit flush), so a later freeze or force quit can still leave an up-to-date file through the last successful poll.
+**Path:** `Flush` uses the path string as given to `std::ofstream` — **`session_log.json` is relative to the process current working directory** (often the `build/` folder when you run `./CAD_OpenGL` there, not the repo root). If you do not see a new file, check the cwd you launched from.
+
+**Env (eager disk sync):** Set **`CAD_SESSION_LOG_EAGER_FLUSH=1`** or **`CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE=1`** (either name; non-empty value whose first character is not ASCII `0`) **in the environment of the running app** (export in the same shell you use to launch, or your IDE’s launch env). Then:
+
+- **`MaybeFlushAfterImport`** runs after each **`LogFileImport`** — import alone creates/updates the log.
+- **`MaybeFlushAfterStructurePoll`** runs when a Structure poll **returns** after consuming a result (RAII), **and** once **immediately before `UpdateScene()`** after `applied_scene_swap` so a hang **inside** `UpdateScene()` still leaves a log with `applied_scene_swap` but without `applied_after_update_scene`.
+
+If the variable is only set in a terminal but the app is started from the Dock / another tool, it will not see it.
 

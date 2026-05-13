@@ -9,6 +9,27 @@
 #include <ctime>
 #include <random>
 
+namespace
+{
+bool SessionLogEagerFlushEnabled()
+{
+    static constexpr const char *kNames[] = {
+        "CAD_SESSION_LOG_EAGER_FLUSH",
+        "CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE",
+    };
+    for (const char *name : kNames)
+    {
+        const char *e = std::getenv(name);
+        if (e == nullptr || e[0] == '\0')
+            continue;
+        if (e[0] == '0' && e[1] == '\0')
+            continue;
+        return true;
+    }
+    return false;
+}
+}  // namespace
+
 SessionLogger &SessionLogger::Instance()
 {
     static SessionLogger instance;
@@ -45,6 +66,7 @@ void SessionLogger::LogFileImport(const std::string &filename, const std::string
     Log::Session("File imported: " + filename +
                  " (" + std::to_string(state.faces) + " faces, " +
                  std::to_string(state.solids) + " solids)");
+    MaybeFlushAfterImport();
 }
 
 void SessionLogger::LogAnalysisRun()
@@ -150,8 +172,14 @@ void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, cons
 
 void SessionLogger::MaybeFlushAfterStructurePoll(const std::string &path)
 {
-    const char *e = std::getenv("CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE");
-    if (e == nullptr || e[0] == '\0' || e[0] == '0')
+    if (!SessionLogEagerFlushEnabled())
+        return;
+    Flush(path, false);
+}
+
+void SessionLogger::MaybeFlushAfterImport(const std::string &path)
+{
+    if (!SessionLogEagerFlushEnabled())
         return;
     Flush(path, false);
 }
