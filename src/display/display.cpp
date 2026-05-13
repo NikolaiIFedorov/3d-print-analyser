@@ -5766,7 +5766,11 @@ void Display::PollStructureStagingTaskIfReady()
     analysisUiScene = scene;
 
     if (!r.firstErr.empty())
+    {
         SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
+        if (r.carvedSolids < r.carveAttempts)
+            LOG_WARN("Structure staging: partial carve;", SanitizeMessageForSingleLineLog(r.firstErr));
+    }
     else
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
 
@@ -5902,9 +5906,9 @@ void Display::BeginStructureStagingSession()
                 else
                     out.firstErr = std::string("Partial: ") + firstErr;
 
-                const std::size_t failedSolids = carveAttempts - carvedSolids;
-                LOG_WARN("Structure staging carve:", SanitizeMessageForSingleLineLog(out.firstErr),
-                         "solidsFailed", std::to_string(failedSolids), "of", std::to_string(carveAttempts));
+                // Do not LOG_WARN from the worker: `future` is not ready until this lambda returns, so a
+                // blocked `cout` keeps the UI on "Carving…" long after CGAL has already printed to stderr.
+                // Main thread logs when applying the result (`PollStructureStagingTaskIfReady`).
             }
             ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;

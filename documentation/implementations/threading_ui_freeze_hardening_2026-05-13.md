@@ -41,3 +41,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Fix:** Clear structure panel trailing + mark dirty on every discard path; `try/catch` around `TryTake` so worker exceptions replace Carving with a short failure caption.
 
+## Follow-up (2026-05-13) — “Carving…” long after CGAL stderr
+
+**Cause:** `std::future` is not ready until the worker lambda returns. The worker logged `LOG_WARN` *after* the carve loop (before `return out`), so **`cout` could block** while CGAL had already printed to stderr — UI still showed **Carving…**.
+
+**Fix:** Remove that worker-thread `LOG_WARN`; main thread already logs on the all-failed path in `PollStructureStagingTaskIfReady`. For partial success, log `LOG_WARN` from the **main** thread when `firstErr` is set (same sanitized message), so session/terminal still get a line without blocking the future.
+
