@@ -61,7 +61,7 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 ## Follow-up (2026-05-13) — Session log: `structure_staging_worker_result`
 
-**Change:** On the **main thread** when `PollStructureStagingTaskIfReady` consumes a finished carve future, call `SessionLogger::LogStructureStagingWorkerResult` (wraps `PushEvent`) with `job_id`, `issued_job_id`, `job_id_matches`, `cancelled`, `carved_solids`, `carve_attempts`, `has_staging`, `has_first_err`, `first_err_snippet` (truncated), `target_scene`. Packaged-task exceptions call `LogStructureStagingWorkerException`. Compare `session_log.json` between a freezing and a non-freezing model after quit (or `CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1` for mid-run flush experiments).
+**Change:** On the **main thread** when `PollStructureStagingTaskIfReady` consumes a finished carve future, call `SessionLogger::LogStructureStagingWorkerResult` (wraps `PushEvent`) with `job_id`, `issued_job_id`, `job_id_matches`, `cancelled`, `carved_solids`, `carve_attempts`, `has_staging`, `has_first_err`, `first_err_snippet` (truncated), `target_scene`. Packaged-task exceptions call `LogStructureStagingWorkerException`. When the carve job is **queued** (`LaunchStructureStagingCarveJob` immediately after `Submit`), `LogStructureStagingJobSubmitted` records `job_id`, `target_scene`, `solid_carve_groups`, `eligible_face_count` (worker has not returned yet). Compare `session_log.json` between models after quit or with eager flush.
 
 ## Follow-up (2026-05-13) — Identical `structure_staging_worker_result` on good vs bad model
 
@@ -79,6 +79,7 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 - **`MaybeFlushAfterImport`** runs after each **`LogFileImport`** — import alone creates/updates the log.
 - **`MaybeFlushAfterStructurePoll`** runs when a Structure poll **returns** after consuming a result (RAII), **and** once **immediately before `UpdateScene()`** after `applied_scene_swap` so a hang **inside** `UpdateScene()` still leaves a log with `applied_scene_swap` but without `applied_after_update_scene`.
+- After **`LogStructureStagingJobSubmitted`** (carve queued), another eager flush runs so you see **`structure_staging_job_submitted`** on disk even if the app never reaches **`structure_staging_worker_result`** (worker stuck or killed).
 
 If the variable is only set in a terminal but the app is started from the Dock / another tool, it will not see it.
 

@@ -160,6 +160,18 @@ void SessionLogger::LogStructureStagingWorkerException()
     PushEvent("structure_staging_worker_exception", {});
 }
 
+void SessionLogger::LogStructureStagingJobSubmitted(uint64_t jobId, size_t targetSceneIndex,
+                                                    size_t solidCarveGroups, size_t eligibleFaceCount)
+{
+    PushEvent("structure_staging_job_submitted",
+              {
+                  {"job_id", std::to_string(jobId)},
+                  {"target_scene", std::to_string(targetSceneIndex)},
+                  {"solid_carve_groups", std::to_string(solidCarveGroups)},
+                  {"eligible_face_count", std::to_string(eligibleFaceCount)},
+              });
+}
+
 void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
 {
     std::vector<std::pair<std::string, std::string>> fields = {

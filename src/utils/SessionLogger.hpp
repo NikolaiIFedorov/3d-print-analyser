@@ -100,6 +100,10 @@ public:
                                          size_t carveAttempts, bool hasStaging, const std::string &firstErr,
                                          size_t targetSceneIndex);
     void LogStructureStagingWorkerException();
+    /// Carve job queued on `StructureCarveTaskRunner` (main thread, immediately after `Submit`; worker
+    /// has not finished yet — use `structure_staging_worker_result` when the future is consumed).
+    void LogStructureStagingJobSubmitted(uint64_t jobId, size_t targetSceneIndex, size_t solidCarveGroups,
+                                          size_t eligibleFaceCount);
     /// Main-thread breadcrumbs after the worker future is consumed (`PollStructureStagingTaskIfReady`).
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});

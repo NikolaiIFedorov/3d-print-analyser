@@ -5922,6 +5922,7 @@ void Display::LaunchStructureStagingCarveJob()
 
     const uint64_t jobId = ++structureStagingIssuedJobId;
     const size_t targetSceneIndex = activeSceneIndex;
+    const size_t solidCarveGroups = bySolid.size();
 
     SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Carving…");
     SyncStructurePanelDerivedVisibility();
@@ -5990,6 +5991,9 @@ void Display::LaunchStructureStagingCarveJob()
             ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });
+    SessionLogger::Instance().LogStructureStagingJobSubmitted(jobId, targetSceneIndex, solidCarveGroups,
+                                                               eligibleCount);
+    SessionLogger::Instance().MaybeFlushAfterStructurePoll();
 }
 
 void Display::BeginStructureStagingSession()
