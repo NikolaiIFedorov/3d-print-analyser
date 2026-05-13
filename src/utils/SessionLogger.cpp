@@ -95,6 +95,38 @@ void SessionLogger::LogShutdownPhase(const std::string &phase)
         Flush(kSessionLogPath, false);
 }
 
+void SessionLogger::LogStructureStagingWorkerResult(uint64_t jobId, uint64_t issuedJobId, bool cancelled,
+                                                    size_t carvedSolids, size_t carveAttempts, bool hasStaging,
+                                                    const std::string &firstErr, size_t targetSceneIndex)
+{
+    std::string errSnippet = "null";
+    if (!firstErr.empty())
+    {
+        std::string u = firstErr;
+        if (u.size() > 240)
+            u.resize(240);
+        errSnippet = std::string("\"") + EscapeStr(u) + "\"";
+    }
+    PushEvent("structure_staging_worker_result",
+              {
+                  {"job_id", std::to_string(jobId)},
+                  {"issued_job_id", std::to_string(issuedJobId)},
+                  {"job_id_matches", (jobId == issuedJobId) ? "true" : "false"},
+                  {"cancelled", cancelled ? "true" : "false"},
+                  {"carved_solids", std::to_string(carvedSolids)},
+                  {"carve_attempts", std::to_string(carveAttempts)},
+                  {"has_staging", hasStaging ? "true" : "false"},
+                  {"has_first_err", firstErr.empty() ? "false" : "true"},
+                  {"first_err_snippet", std::move(errSnippet)},
+                  {"target_scene", std::to_string(targetSceneIndex)},
+              });
+}
+
+void SessionLogger::LogStructureStagingWorkerException()
+{
+    PushEvent("structure_staging_worker_exception", {});
+}
+
 void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)
 {
     if (!stl.hasMergeDiagnostics)

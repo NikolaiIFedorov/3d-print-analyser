@@ -59,3 +59,7 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Fix:** Skip Structure preview bake / refresh paths while `pendingStructureStagingTask` or `pendingStructureStagingCarveLaunch` is set (CAD_USE_CGAL); clear preview segments so the overlay does not fight the worker.
 
+## Follow-up (2026-05-13) — Session log: `structure_staging_worker_result`
+
+**Change:** On the **main thread** when `PollStructureStagingTaskIfReady` consumes a finished carve future, call `SessionLogger::LogStructureStagingWorkerResult` (wraps `PushEvent`) with `job_id`, `issued_job_id`, `job_id_matches`, `cancelled`, `carved_solids`, `carve_attempts`, `has_staging`, `has_first_err`, `first_err_snippet` (truncated), `target_scene`. Packaged-task exceptions call `LogStructureStagingWorkerException`. Compare `session_log.json` between a freezing and a non-freezing model after quit (or `CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1` for mid-run flush experiments).
+

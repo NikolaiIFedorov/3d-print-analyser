@@ -94,6 +94,13 @@ public:
     /// to flush `session_log.json` after every phase for mid-teardown hang forensics.
     void LogShutdownPhase(const std::string &phase);
 
+    /// Structure CGAL carve worker finished (main thread, when the future is consumed). Compare
+    /// `session_log.json` between models that freeze vs those that do not.
+    void LogStructureStagingWorkerResult(uint64_t jobId, uint64_t issuedJobId, bool cancelled, size_t carvedSolids,
+                                         size_t carveAttempts, bool hasStaging, const std::string &firstErr,
+                                         size_t targetSceneIndex);
+    void LogStructureStagingWorkerException();
+
 private:
     SessionLogger() = default;
 

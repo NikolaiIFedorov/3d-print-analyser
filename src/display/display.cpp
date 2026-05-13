@@ -5714,6 +5714,7 @@ void Display::PollStructureStagingTaskIfReady()
     {
         // Worker packaged_task threw; do not leave the panel stuck on "Carving…".
         pendingStructureStagingTask.reset();
+        SessionLogger::Instance().LogStructureStagingWorkerException();
         SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed (worker exception).");
         LOG_WARN("Structure staging: worker future threw; see session / terminal for details");
         SyncStructurePanelDerivedVisibility();
@@ -5727,6 +5728,10 @@ void Display::PollStructureStagingTaskIfReady()
 
     AsyncStructureStagingResult r = std::move(*ready);
     pendingStructureStagingTask.reset();
+
+    SessionLogger::Instance().LogStructureStagingWorkerResult(r.jobId, structureStagingIssuedJobId, r.cancelled,
+                                                              r.carvedSolids, r.carveAttempts, static_cast<bool>(r.staging),
+                                                              r.firstErr, r.targetSceneIndex);
 
     // As soon as the future is consumed, drop "Carving…" and refresh footer visibility (`structureCarveBusy`
     // is derived from `pendingStructureStagingTask`). CGAL may still be printing to stderr while the worker
