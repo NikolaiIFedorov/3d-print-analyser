@@ -5689,14 +5689,6 @@ void Display::PollStructureStagingTaskIfReady()
     if (!pendingStructureStagingTask.has_value())
         return;
 
-    const auto clearCarvingUi = [this]()
-    {
-        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
-        SyncStructurePanelDerivedVisibility();
-        uiRenderer.MarkDirty();
-        renderDirty = true;
-    };
-
     std::optional<AsyncStructureStagingResult> ready;
     try
     {
@@ -5716,33 +5708,29 @@ void Display::PollStructureStagingTaskIfReady()
 
     if (!ready.has_value())
         return;
-    pendingStructureStagingTask.reset();
 
     AsyncStructureStagingResult r = std::move(*ready);
+    pendingStructureStagingTask.reset();
+
+    // As soon as the future is consumed, drop "Carving…" and refresh footer visibility (`structureCarveBusy`
+    // is derived from `pendingStructureStagingTask`). CGAL may still be printing to stderr while the worker
+    // unwinds — without this, the header can lie behind stderr for a long time.
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
+
     if (r.jobId != structureStagingIssuedJobId)
-    {
-        clearCarvingUi();
         return;
-    }
     if (r.cancelled)
-    {
-        clearCarvingUi();
         return;
-    }
     if (r.targetSceneIndex == SIZE_MAX || r.targetSceneIndex >= ownedScenes.size())
-    {
-        clearCarvingUi();
         return;
-    }
     if (r.targetSceneIndex != activeSceneIndex || activeTool != ActiveTool::Structure)
-    {
-        clearCarvingUi();
         return;
-    }
     if (!r.staging)
     {
         LOG_WARN("Structure staging: worker returned empty scene");
-        clearCarvingUi();
         return;
     }
 
