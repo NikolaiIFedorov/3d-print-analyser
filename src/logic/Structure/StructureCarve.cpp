@@ -323,10 +323,14 @@ bool TryApplyStructureCarve(Scene *scene,
         invokeTrace("pmp_merge_dup_done");
         CgalMesh tm;
         invokeTrace("pmp_soup_to_mesh_begin");
-        if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+        const bool soupOk = PMP::is_polygon_soup_a_polygon_mesh(tris);
+        invokeTrace(soupOk ? "pmp_soup_check_ok" : "pmp_soup_check_fail");
+        if (!soupOk)
         {
             PMP::repair_polygon_soup(coords, tris);
-            if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+            const bool soupOkAfterRepair = PMP::is_polygon_soup_a_polygon_mesh(tris);
+            invokeTrace(soupOkAfterRepair ? "pmp_soup_repair_ok" : "pmp_soup_repair_fail");
+            if (!soupOkAfterRepair)
                 return fail("Invalid triangle soup: CGAL precondition failed for polygon_soup_to_polygon_mesh.");
         }
         PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
