@@ -14,6 +14,7 @@
 #include <memory>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <unordered_map>
 
 #if defined(CAD_USE_CGAL)
@@ -26,6 +27,7 @@
 #include <CGAL/create_offset_polygons_2.h>
 
 #include <list>
+#include <functional>
 #endif
 
 // See documentation/implementations/structure_face_triangulation_2026-05-11.md for phase notes.
@@ -640,21 +642,32 @@ struct CarvedRings3DLists
     std::vector<std::vector<glm::dvec3>> holes;
 };
 
+static void InvokeFootprintTrace(const std::function<void(const std::string &)> *trace, const std::string &msg)
+{
+    if (trace != nullptr && *trace)
+        (*trace)(msg);
+}
+
 static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &projected,
                                                      const PolylinedOutline &outline,
                                                      const FaceFrame &frame,
                                                      const BakeParams &params,
-                                                     const Face *debugFace)
+                                                     const Face *debugFace,
+                                                     const std::function<void(const std::string &)> *workerTrace)
 {
     CarvedRings3DLists out;
+    InvokeFootprintTrace(workerTrace, "fp_collect_enter");
     std::vector<SkeletonPolygon> offsets;
     try
     {
+        InvokeFootprintTrace(workerTrace, "fp_offset_begin");
         offsets = ComputeOffsetPolygons(projected.polygon, params.insetMm);
+        InvokeFootprintTrace(workerTrace, std::string("fp_offset_done_islands_") + std::to_string(offsets.size()));
     }
     catch (...)
     {
         offsets.clear();
+        InvokeFootprintTrace(workerTrace, "fp_offset_caught");
     }
     const std::vector<int> cornerPolyIndices =
         MapCornerIndicesToPoly(outline.isCorner, projected.reversed);
@@ -672,11 +685,13 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
     std::size_t offsetIsland = 0;
     for (const SkeletonPolygon &off : offsets)
     {
+        InvokeFootprintTrace(workerTrace, std::string("fp_island_") + std::to_string(offsetIsland));
         const int offVertexCount = static_cast<int>(off.size());
         const bool vertexCountGuard = (offVertexCount == polyVertexCount);
         std::optional<ChordPick> chord;
         if (vertexCountGuard)
             chord = SelectFirstValidStripChord(off, cornerPolyIndices);
+        InvokeFootprintTrace(workerTrace, chord.has_value() ? "fp_chord_ok" : "fp_chord_none");
 
         const char *stripReject = nullptr;
         bool differenceThrew = false;
@@ -687,22 +702,30 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
         {
             const SkeletonPolygon strip =
                 BuildStripPolygonCCW(off, chord->aIdx, chord->bIdx, params.insetMm);
+            InvokeFootprintTrace(workerTrace, "fp_strip_built");
             if (strip.size() == 4 && strip.is_simple())
             {
                 try
                 {
+                    InvokeFootprintTrace(workerTrace, "fp_2d_boolean_enter");
                     const BooleanExactPolygon offE = EpickPolygonToExact(off);
+                    InvokeFootprintTrace(workerTrace, "fp_2d_exact_off");
                     const BooleanExactPolygon stripE = EpickPolygonToExact(strip);
+                    InvokeFootprintTrace(workerTrace, "fp_2d_exact_strip");
                     std::list<BooleanExactPolygonWithHoles> carvedE;
                     CGAL::difference(offE, stripE, std::back_inserter(carvedE));
+                    InvokeFootprintTrace(workerTrace, "fp_2d_difference_returned");
                     for (const BooleanExactPolygonWithHoles &piece : carvedE)
                         carved.push_back(ExactPwhToEpick(piece));
+                    InvokeFootprintTrace(workerTrace, "fp_2d_epick_convert_done");
                     piecesAfterDifference = carved.size();
+                    InvokeFootprintTrace(workerTrace, "fp_2d_boolean_exit");
                 }
                 catch (...)
                 {
                     differenceThrew = true;
                     carved.clear();
+                    InvokeFootprintTrace(workerTrace, "fp_2d_boolean_caught");
                 }
             }
             else
@@ -734,10 +757,12 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
         for (const SkeletonPolygonWithHoles &pwh : carved)
         {
             const std::vector<glm::dvec2> outer2D = ExtractRing2D(pwh.outer_boundary());
+            InvokeFootprintTrace(workerTrace, "fp_fillet_outer_begin");
             std::vector<glm::dvec2> filletedOuter =
                 FilletPolygonCorners(outer2D, params.insetMm, params.chordTolMm);
             if (Ring2DHasSelfIntersection(filletedOuter))
                 filletedOuter = outer2D;
+            InvokeFootprintTrace(workerTrace, "fp_fillet_outer_done");
             std::vector<glm::dvec3> ring3D;
             ring3D.reserve(filletedOuter.size());
             for (const glm::dvec2 &p : filletedOuter)
@@ -762,23 +787,37 @@ static CarvedRings3DLists CollectCarvedFilletedRings3D(const ProjectedPolygon &p
             }
         }
     }
+    InvokeFootprintTrace(workerTrace, "fp_collect_exit");
     return out;
 }
 
-std::vector<std::vector<glm::dvec3>> BuildCarveFootprintOuterRingsWorld(const Face *face,
-                                                                        const BakeParams &params)
+std::vector<std::vector<glm::dvec3>> BuildCarveFootprintOuterRingsWorld(
+    const Face *face,
+    const BakeParams &params,
+    const std::function<void(const std::string &)> *workerTrace)
 {
+    auto t = [&](const std::string &msg)
+    {
+        if (workerTrace != nullptr && *workerTrace)
+            (*workerTrace)(msg);
+    };
     std::vector<std::vector<glm::dvec3>> rings;
     if (face == nullptr)
         return rings;
+    t("fp_outline_begin");
     const PolylinedOutline outline = BuildPolylinedOuterLoop(*face, params.chordTolMm);
+    t("fp_outline_done");
     if (outline.points.size() < 3)
         return rings;
+    t("fp_face_frame_begin");
     const FaceFrame frame = BuildFaceFrame(*face, outline.points.front());
+    t("fp_face_frame_done");
+    t("fp_project_begin");
     const auto projected = BuildProjectedPolygon(outline.points, frame);
+    t(projected.has_value() ? "fp_project_ok" : "fp_project_fail");
     if (!projected.has_value())
         return rings;
-    return CollectCarvedFilletedRings3D(*projected, outline, frame, params, face).outers;
+    return CollectCarvedFilletedRings3D(*projected, outline, frame, params, face, workerTrace).outers;
 }
 #endif // CAD_USE_CGAL
 
@@ -806,7 +845,7 @@ std::vector<std::pair<glm::vec3, glm::vec3>> BuildFaceTriangulationPreview(const
     if (auto projected = BuildProjectedPolygon(outline.points, frame); projected.has_value())
     {
         const CarvedRings3DLists carved =
-            CollectCarvedFilletedRings3D(*projected, outline, frame, params, face);
+            CollectCarvedFilletedRings3D(*projected, outline, frame, params, face, nullptr);
         for (const std::vector<glm::dvec3> &ring : carved.outers)
             AppendRingAsSegments(ring, segments);
         for (const std::vector<glm::dvec3> &ring : carved.holes)

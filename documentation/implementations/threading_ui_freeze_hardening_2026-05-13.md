@@ -99,3 +99,7 @@ Replaced the ad-hoc `pendingStructureStagingCarveLaunch` boolean with `Display::
 
 **Change:** `TryApplyStructureCarve` accepts an optional **`workerTrace`** callback; the Structure worker wires **`structure_staging_worker_carve_phase`** (`enter`, `tm_ready`, `after_z_bounds`, `before_footprint`, `footprint_done_rings_N`, `before_prism`, `after_prism`, `before_boolean`, `after_boolean`, `before_detach`, `after_rebuild`, plus `ring_skip_*`). **`shouldAbort` is checked immediately before each boolean** so cancel can bail between rings. Worker-thread **`LOG_WARN` / `LOG_DESC`** on this path use **`Log::Background`**. **CGAL / libcgal diagnostics on stderr are not coupled to session events** — a line in the terminal does not imply the enclosing C++ call has returned or that the next `carve_phase` was already pushed.
 
+## Follow-up (2026-05-13) — Last phase `before_footprint`
+
+That token is logged in `TryApplyStructureCarve` **immediately before** `BuildCarveFootprintOuterRingsWorld`. The stall is therefore in the **2D footprint pipeline** (outline → frame → projection → offset polygons → strip chord → **CGAL 2D `difference`** → fillet → lift), not the 3D mesh boolean yet. Additional **`fp_*`** phases (`fp_outline_begin`, `fp_offset_begin`, `fp_2d_boolean_enter`, `fp_fillet_outer_begin`, …) are emitted from `StructureTriangulation.cpp` when the same worker trace callback is passed through from the Structure carve worker.
+

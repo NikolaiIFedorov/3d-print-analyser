@@ -52,10 +52,15 @@ void ClearBakeCache();
 void InvalidateBakeCacheForParams(const BakeParams &params);
 
 #if defined(CAD_USE_CGAL)
+#include <functional>
 /// Filleted outer boundaries of each carved `inset \ strip` region in **world** coordinates (3D
 /// points on the face plane). Empty when geometry fails. Used by Structure carve commit (Phase C).
-std::vector<std::vector<glm::dvec3>> BuildCarveFootprintOuterRingsWorld(const Face *face,
-                                                                        const BakeParams &params);
+/// Optional `workerTrace`: forwarded from `TryApplyStructureCarve` for `structure_staging_worker_carve_phase`
+/// tokens inside the footprint pipeline (`fp_outline_*`, `fp_collect_*`, `fp_2d_boolean_*`, …).
+std::vector<std::vector<glm::dvec3>> BuildCarveFootprintOuterRingsWorld(
+    const Face *face,
+    const BakeParams &params,
+    const std::function<void(const std::string &)> *workerTrace = nullptr);
 #endif
 
 } // namespace StructureTriangulation

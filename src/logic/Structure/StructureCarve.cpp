@@ -351,7 +351,7 @@ bool TryApplyStructureCarve(Scene *scene,
                 return fail("Structure carve cancelled.");
             invokeTrace("before_footprint");
             const std::vector<std::vector<glm::dvec3>> rings =
-                StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
+                StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params, workerTrace);
             invokeTrace(std::string("footprint_done_rings_") + std::to_string(rings.size()));
             if (aborted())
                 return fail("Structure carve cancelled.");

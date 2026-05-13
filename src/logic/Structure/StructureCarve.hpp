@@ -35,8 +35,8 @@ namespace StructureCarve
 /// when `errOut` is non-null.
 ///
 /// Optional `workerTrace`: when non-null and the function is non-empty, invoked with short phase
-/// tokens (`enter`, `tm_ready`, `after_z_bounds`, `before_footprint`, `footprint_done_rings_N`,
-/// `before_prism`, `after_prism`, `before_boolean`, …). CGAL may print to **stderr** independently of
+/// tokens (`enter`, `tm_ready`, …, `before_footprint`, then **`fp_*`** from `BuildCarveFootprintOuterRingsWorld` /
+/// `CollectCarvedFilletedRings3D`, then `footprint_done_rings_N`, `before_prism`, …). CGAL may print to **stderr** independently of
 /// these events — stderr lines are not proof the call has returned to C++ yet.
 bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
