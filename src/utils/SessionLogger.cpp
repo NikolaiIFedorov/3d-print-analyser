@@ -237,6 +237,8 @@ void SessionLogger::LogStructureStagingPollSlice(uint64_t maxWaitMs, uint64_t wa
                   {"waited_ms", std::to_string(waitedMs)},
                   {"ready", ready ? "true" : "false"},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingWorkerPackagingResult(uint64_t jobId, size_t carvedSolids,
