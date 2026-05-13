@@ -148,6 +148,14 @@ void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, cons
     PushEvent("structure_staging_apply_phase", std::move(fields));
 }
 
+void SessionLogger::MaybeFlushAfterStructurePoll(const std::string &path)
+{
+    const char *e = std::getenv("CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE");
+    if (e == nullptr || e[0] == '\0' || e[0] == '0')
+        return;
+    Flush(path, false);
+}
+
 void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)
 {
     if (!stl.hasMergeDiagnostics)

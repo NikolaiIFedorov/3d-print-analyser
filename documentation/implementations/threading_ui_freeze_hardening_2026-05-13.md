@@ -69,3 +69,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Fix:** `LogStructureStagingApplyPhase` breadcrumbs: `discarded_*`, `apply_all_carves_failed_on_scene`, `applied_scene_swap`, `applied_after_update_scene`. If the log shows `applied_scene_swap` but not `applied_after_update_scene`, the hang is inside **`UpdateScene()`** (geometry path).
 
+## Session log vs force quit
+
+`session_log.json` is normally written once in `main::Shutdown` (`SessionLogger::Flush`). **Force quit / kill** skips `Shutdown`, so the file on disk can still be from the **previous clean exit** — identical `session_run_id` and events usually means you are not looking at the frozen run.
+
+**Mitigation:** Set environment variable `CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE=1` before launching the app. After each Structure carve poll that consumes a worker result, the session log is flushed to disk (same path as quit flush), so a later freeze or force quit can still leave an up-to-date file through the last successful poll.
+

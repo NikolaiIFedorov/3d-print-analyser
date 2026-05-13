@@ -5726,6 +5726,14 @@ void Display::PollStructureStagingTaskIfReady()
     if (!ready.has_value())
         return;
 
+    struct FlushSessionAfterStructurePollScope
+    {
+        ~FlushSessionAfterStructurePollScope()
+        {
+            SessionLogger::Instance().MaybeFlushAfterStructurePoll();
+        }
+    } flushSessionAfterStructurePollScope;
+
     AsyncStructureStagingResult r = std::move(*ready);
     pendingStructureStagingTask.reset();
 

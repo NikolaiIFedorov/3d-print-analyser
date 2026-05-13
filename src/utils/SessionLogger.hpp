@@ -104,6 +104,10 @@ public:
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});
 
+    /// If `CAD_SESSION_LOG_FLUSH_AFTER_STRUCTURE` is non-empty and not `0`, writes `session_log.json`
+    /// after a Structure carve poll finishes applying/discarding (survives force-quit if freeze happens later).
+    void MaybeFlushAfterStructurePoll(const std::string &path = "session_log.json");
+
 private:
     SessionLogger() = default;
 
