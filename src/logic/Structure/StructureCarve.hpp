@@ -28,14 +28,20 @@ namespace StructureCarve
 /// are fan-triangulated for the CGAL soup (convex facets typical after STL coplanar merge).
 #if defined(CAD_USE_CGAL)
 /// Optional `shouldAbort`: when non-null and returns true, aborts cooperatively between faces/rings
-/// (CGAL `corefine` is not interruptible once started). On abort returns `false` and sets `*errOut`
+/// and **immediately before each** `corefine_and_compute_difference` call (not inside it).
+/// CGAL `corefine` is not interruptible once started. On abort returns `false` and sets `*errOut`
 /// when `errOut` is non-null.
+///
+/// Optional `workerTrace`: when non-null and the function is non-empty, invoked with short phase
+/// tokens (`tm_ready`, `footprint_done`, `before_boolean`, …) for session forensics — keep callbacks
+/// cheap (no logging to `cout` from here).
 bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
                             const std::vector<const Face *> &faces,
                             const StructureTriangulation::BakeParams &params,
                             std::string *errOut,
-                            const std::function<bool()> *shouldAbort = nullptr);
+                            const std::function<bool()> *shouldAbort = nullptr,
+                            const std::function<void(const std::string &)> *workerTrace = nullptr);
 #endif
 
 } // namespace StructureCarve

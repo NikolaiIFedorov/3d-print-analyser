@@ -269,7 +269,8 @@ bool TryApplyStructureCarve(Scene *scene,
                             const std::vector<const Face *> &faces,
                             const StructureTriangulation::BakeParams &params,
                             std::string *errOut,
-                            const std::function<bool()> *shouldAbort)
+                            const std::function<bool()> *shouldAbort,
+                            const std::function<void(const std::string &)> *workerTrace)
 {
     auto fail = [&](const char *msg) -> bool
     {
@@ -283,11 +284,18 @@ bool TryApplyStructureCarve(Scene *scene,
         return shouldAbort != nullptr && (*shouldAbort)();
     };
 
+    auto invokeTrace = [&](const char *phase)
+    {
+        if (workerTrace != nullptr && *workerTrace)
+            (*workerTrace)(phase);
+    };
+
     if (scene == nullptr || solid == nullptr || faces.empty())
         return true;
 
     try
     {
+        invokeTrace("enter");
         if (aborted())
             return fail("Structure carve cancelled.");
 
@@ -305,6 +313,10 @@ bool TryApplyStructureCarve(Scene *scene,
         PMP::duplicate_non_manifold_vertices(tm);
         PMP::stitch_borders(tm);
 
+        invokeTrace("tm_ready");
+        if (aborted())
+            return fail("Structure carve cancelled.");
+
         double zMinWorld = 0.0;
         double zMaxWorld = 0.0;
         SolidWorldZBounds(*solid, zMinWorld, zMaxWorld);
@@ -321,14 +333,14 @@ bool TryApplyStructureCarve(Scene *scene,
                 continue;
             if (face->surface == nullptr || !face->surface->IsPlanar())
             {
-                LOG_WARN("Structure carve: skipping non-planar face");
+                Log::Background("Structure carve: skipping non-planar face");
                 continue;
             }
             const glm::dvec3 n = face->surface->GetNormal();
             const double nz = glm::length(n) > 1e-12 ? std::abs(n.z / glm::length(n)) : 0.0;
             if (nz < 0.995)
             {
-                LOG_WARN("Structure carve: skipping face — |n·z| < 0.995 (prism extruder is world Z)");
+                Log::Background("Structure carve: skipping face — |n·z| < 0.995 (prism extruder is world Z)");
                 continue;
             }
 
@@ -336,6 +348,9 @@ bool TryApplyStructureCarve(Scene *scene,
                 return fail("Structure carve cancelled.");
             const std::vector<std::vector<glm::dvec3>> rings =
                 StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
+            invokeTrace("footprint_done");
+            if (aborted())
+                return fail("Structure carve cancelled.");
             for (const std::vector<glm::dvec3> &ring : rings)
             {
                 if (aborted())
@@ -346,9 +361,13 @@ bool TryApplyStructureCarve(Scene *scene,
                 if (!prism.is_valid() || prism.number_of_faces() == 0)
                     continue;
 
+                if (aborted())
+                    return fail("Structure carve cancelled.");
+                invokeTrace("before_boolean");
                 CgalMesh diffOut;
                 if (!PMP::corefine_and_compute_difference(tm, prism, diffOut))
                     return fail("CGAL boolean difference failed (try smaller inset or check mesh).");
+                invokeTrace("after_boolean");
                 tm = std::move(diffOut);
                 anyPrismApplied = true;
             }
@@ -357,12 +376,16 @@ bool TryApplyStructureCarve(Scene *scene,
         if (!anyPrismApplied)
             return fail("No carve prisms were applied (rings empty, faces skipped, or prisms invalid).");
 
+        if (aborted())
+            return fail("Structure carve cancelled.");
+        invokeTrace("before_detach");
         DetachFacesFromSolid(*solid);
         if (!RebuildSolidFromCgalMesh(scene, *solid, tm))
             return fail("Failed to rebuild solid from carved mesh.");
 
+        invokeTrace("after_rebuild");
         scene->MergeCoplanarFaces(solid, nullptr, nullptr);
-        LOG_DESC("Structure carve: applied to solid with", std::to_string(faces.size()), "face pick(s)");
+        Log::Background("Structure carve: applied to solid with " + std::to_string(faces.size()) + " face pick(s)");
         return true;
     }
     catch (const std::exception &ex)

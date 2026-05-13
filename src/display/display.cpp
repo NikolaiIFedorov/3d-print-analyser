@@ -5967,8 +5967,13 @@ void Display::LaunchStructureStagingCarveJob()
                 const std::function<bool()> shouldAbort = [&token]()
                 { return token.IsCancellationRequested(); };
                 std::string err;
+                const std::function<void(const std::string &)> carvePhaseTrace =
+                    [jobId](const std::string &phase)
+                {
+                    SessionLogger::Instance().LogStructureStagingWorkerCarvePhase(jobId, phase);
+                };
                 const bool tryOk = StructureCarve::TryApplyStructureCarve(
-                    out.staging.get(), entry.first, entry.second, params, &err, &shouldAbort);
+                    out.staging.get(), entry.first, entry.second, params, &err, &shouldAbort, &carvePhaseTrace);
                 SessionLogger::Instance().LogStructureStagingWorkerSolidEnd(jobId, solidLaneIndex, tryOk);
                 if (tryOk)
                     ++carvedSolids;
