@@ -29,6 +29,16 @@ bool SessionLogEagerFlushEnabled()
     }
     return false;
 }
+
+bool StructureWorkerTraceSyncEnabled()
+{
+    const char *e = std::getenv("CAD_STRUCTURE_WORKER_TRACE_SYNC");
+    if (e == nullptr || e[0] == '\0')
+        return false;
+    if (e[0] == '0' && e[1] == '\0')
+        return false;
+    return true;
+}
 }  // namespace
 
 SessionLogger &SessionLogger::Instance()
@@ -176,6 +186,8 @@ void SessionLogger::LogStructureStagingJobSubmitted(uint64_t jobId, size_t targe
 void SessionLogger::LogStructureStagingWorkerStarted(uint64_t jobId)
 {
     PushEvent("structure_staging_worker_started", {{"job_id", std::to_string(jobId)}});
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingWorkerSolidBegin(uint64_t jobId, size_t solidLaneIndex,
@@ -190,6 +202,8 @@ void SessionLogger::LogStructureStagingWorkerSolidBegin(uint64_t jobId, size_t s
                   {"solid_key", "\"" + sk.str() + "\""},
                   {"face_count", std::to_string(faceCount)},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t solidLaneIndex, bool tryApplyOk)
@@ -200,6 +214,8 @@ void SessionLogger::LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t sol
                   {"solid_lane_index", std::to_string(solidLaneIndex)},
                   {"try_apply_ok", tryApplyOk ? "true" : "false"},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingWorkerCarvePhase(uint64_t jobId, const std::string &phase)
@@ -209,6 +225,8 @@ void SessionLogger::LogStructureStagingWorkerCarvePhase(uint64_t jobId, const st
                   {"job_id", std::to_string(jobId)},
                   {"phase", "\"" + EscapeStr(phase) + "\""},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingPollSlice(uint64_t maxWaitMs, uint64_t waitedMs, bool ready)
@@ -231,6 +249,8 @@ void SessionLogger::LogStructureStagingWorkerPackagingResult(uint64_t jobId, siz
                   {"carve_attempts", std::to_string(carveAttempts)},
                   {"has_first_err", hasFirstErr ? "true" : "false"},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
