@@ -107,6 +107,11 @@ public:
                                           size_t eligibleFaceCount);
     /// Structure carve worker entered the job body (callable from the worker thread; pair with eager flush).
     void LogStructureStagingWorkerStarted(uint64_t jobId);
+    /// Worker is about to call `TryApplyStructureCarve` for one solid lane (map iteration order).
+    void LogStructureStagingWorkerSolidBegin(uint64_t jobId, size_t solidLaneIndex, uint64_t solidKeyBits,
+                                             size_t faceCount);
+    /// Worker returned from `TryApplyStructureCarve` for that lane (`try_apply_ok` = function return value).
+    void LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t solidLaneIndex, bool tryApplyOk);
     /// Main-thread breadcrumbs after the worker future is consumed (`PollStructureStagingTaskIfReady`).
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});

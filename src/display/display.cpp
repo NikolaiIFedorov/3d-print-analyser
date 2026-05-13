@@ -5947,6 +5947,7 @@ void Display::LaunchStructureStagingCarveJob()
             size_t carvedSolids = 0;
             size_t carveAttempts = 0;
             std::string firstErr;
+            size_t solidLaneIndex = 0;
             for (auto &entry : bySolid)
             {
                 if (token.IsCancellationRequested())
@@ -5956,11 +5957,19 @@ void Display::LaunchStructureStagingCarveJob()
                     return out;
                 }
                 ++carveAttempts;
+                SessionLogger::Instance().LogStructureStagingWorkerSolidBegin(
+                    jobId, solidLaneIndex,
+                    static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<void *>(entry.first))),
+                    entry.second.size());
+                SessionLogger::Instance().MaybeFlushAfterStructurePoll();
                 const std::function<bool()> shouldAbort = [&token]()
                 { return token.IsCancellationRequested(); };
                 std::string err;
-                if (StructureCarve::TryApplyStructureCarve(out.staging.get(), entry.first, entry.second, params,
-                                                           &err, &shouldAbort))
+                const bool tryOk = StructureCarve::TryApplyStructureCarve(
+                    out.staging.get(), entry.first, entry.second, params, &err, &shouldAbort);
+                SessionLogger::Instance().LogStructureStagingWorkerSolidEnd(jobId, solidLaneIndex, tryOk);
+                SessionLogger::Instance().MaybeFlushAfterStructurePoll();
+                if (tryOk)
                     ++carvedSolids;
                 else
                 {
@@ -5974,6 +5983,7 @@ void Display::LaunchStructureStagingCarveJob()
                     if (firstErr.empty() && !err.empty())
                         firstErr = err;
                 }
+                ++solidLaneIndex;
             }
 
             out.carvedSolids = carvedSolids;

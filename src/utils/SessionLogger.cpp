@@ -178,6 +178,30 @@ void SessionLogger::LogStructureStagingWorkerStarted(uint64_t jobId)
     PushEvent("structure_staging_worker_started", {{"job_id", std::to_string(jobId)}});
 }
 
+void SessionLogger::LogStructureStagingWorkerSolidBegin(uint64_t jobId, size_t solidLaneIndex,
+                                                        uint64_t solidKeyBits, size_t faceCount)
+{
+    std::ostringstream sk;
+    sk << "0x" << std::hex << solidKeyBits << std::dec;
+    PushEvent("structure_staging_worker_solid_begin",
+              {
+                  {"job_id", std::to_string(jobId)},
+                  {"solid_lane_index", std::to_string(solidLaneIndex)},
+                  {"solid_key", "\"" + sk.str() + "\""},
+                  {"face_count", std::to_string(faceCount)},
+              });
+}
+
+void SessionLogger::LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t solidLaneIndex, bool tryApplyOk)
+{
+    PushEvent("structure_staging_worker_solid_end",
+              {
+                  {"job_id", std::to_string(jobId)},
+                  {"solid_lane_index", std::to_string(solidLaneIndex)},
+                  {"try_apply_ok", tryApplyOk ? "true" : "false"},
+              });
+}
+
 void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
 {
     std::vector<std::pair<std::string, std::string>> fields = {
