@@ -14,6 +14,7 @@
 #include "logic/Import/STLImport.hpp"
 #include "utils/SystemAccent.hpp"
 #include "utils/SystemAppearance.hpp"
+#include "utils/ShutdownStackTrace.hpp"
 
 #include <filesystem>
 #include <mutex>
@@ -864,6 +865,7 @@ bool Display::ResizeEventWatcher(void *userdata, SDL_Event *event)
 
 void Display::Shutdown()
 {
+    ShutdownStackTraceLogIfEnabled("mainthread Display::Shutdown entry");
     SessionLogger::Instance().LogShutdownPhase("display: begin");
     SessionLogger::Instance().LogShutdownPhase("display: ResetStructurePreviewIncrementalState");
     ResetStructurePreviewIncrementalState();
@@ -873,6 +875,7 @@ void Display::Shutdown()
     SessionLogger::Instance().LogShutdownPhase("display: AbandonStructureCarveTaskRunnerAtShutdown");
     AbandonStructureCarveTaskRunnerAtShutdown();
 #endif
+    ShutdownStackTraceLogIfEnabled("mainthread after structure cancel+abandon");
 
     // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
     // Drop task handles (non-blocking abandon of in-flight futures), drain + detach workers, then
@@ -916,6 +919,7 @@ void Display::Shutdown()
     uiRenderer.Shutdown();
     SessionLogger::Instance().LogShutdownPhase("display: viewportRenderer.Shutdown");
     viewportRenderer.Shutdown();
+    ShutdownStackTraceLogIfEnabled("mainthread before renderer.Shutdown");
     SessionLogger::Instance().LogShutdownPhase("display: renderer.Shutdown");
     renderer.Shutdown();
     SessionLogger::Instance().LogShutdownPhase("display: SDL_GL_DestroyContext");
@@ -924,6 +928,7 @@ void Display::Shutdown()
         SDL_GL_DestroyContext(glContext);
         glContext = nullptr;
     }
+    ShutdownStackTraceLogIfEnabled("mainthread after GL context destroyed");
     SessionLogger::Instance().LogShutdownPhase("display: SDL_DestroyWindow");
     if (window)
     {
@@ -932,6 +937,7 @@ void Display::Shutdown()
     }
     SessionLogger::Instance().LogShutdownPhase("display: SDL_Quit");
     SDL_Quit();
+    ShutdownStackTraceLogIfEnabled("mainthread Display::Shutdown before return");
     SessionLogger::Instance().LogShutdownPhase("display: end");
 }
 
@@ -5826,6 +5832,8 @@ void Display::BeginStructureStagingSession()
             if (!out.staging)
                 return out;
 
+            ShutdownStackTraceLogIfEnabled("structure-worker: job entered");
+
             size_t carvedSolids = 0;
             size_t carveAttempts = 0;
             std::string firstErr;
@@ -5833,6 +5841,7 @@ void Display::BeginStructureStagingSession()
             {
                 if (token.IsCancellationRequested())
                 {
+                    ShutdownStackTraceLogIfEnabled("structure-worker: cancel between solids");
                     out.cancelled = true;
                     return out;
                 }
@@ -5845,8 +5854,10 @@ void Display::BeginStructureStagingSession()
                     ++carvedSolids;
                 else
                 {
+                    ShutdownStackTraceLogIfEnabled("structure-worker: TryApplyStructureCarve returned false");
                     if (token.IsCancellationRequested())
                     {
+                        ShutdownStackTraceLogIfEnabled("structure-worker: cancel after TryApply failed");
                         out.cancelled = true;
                         return out;
                     }
@@ -5869,6 +5880,7 @@ void Display::BeginStructureStagingSession()
                 LOG_WARN("Structure staging carve:", SanitizeMessageForSingleLineLog(out.firstErr),
                          "solidsFailed", std::to_string(failedSolids), "of", std::to_string(carveAttempts));
             }
+            ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });
 }

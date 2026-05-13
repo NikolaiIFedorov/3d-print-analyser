@@ -8,6 +8,7 @@
 #include "input/Input.hpp"
 #include "utils/log.hpp"
 #include "utils/SessionLogger.hpp"
+#include "utils/ShutdownStackTrace.hpp"
 
 SDL_Window *window = nullptr;
 std::optional<Display> display;
@@ -44,6 +45,7 @@ glm::vec3 ProjectScreenToWorld(double mouseX, double mouseY,
 
 void Shutdown()
 {
+    ShutdownStackTraceLogIfEnabled("mainthread main::Shutdown entry");
     SessionLogger &sl = SessionLogger::Instance();
     sl.LogShutdownPhase("main: begin");
     if (display)
@@ -56,10 +58,13 @@ void Shutdown()
     if (display)
     {
         sl.LogShutdownPhase("main: before Display::Shutdown");
+        ShutdownStackTraceLogIfEnabled("mainthread before Display::Shutdown");
         display->Shutdown();
+        ShutdownStackTraceLogIfEnabled("mainthread after Display::Shutdown");
         sl.LogShutdownPhase("main: after Display::Shutdown");
     }
     sl.LogShutdownPhase("main: end");
+    ShutdownStackTraceLogIfEnabled("mainthread before session log flush");
     sl.Flush("session_log.json", false);
 }
 
