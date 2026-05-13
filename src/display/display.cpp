@@ -1402,6 +1402,7 @@ void Display::Frame()
     ProcessDeferredImportIfAny();
 #if defined(CAD_USE_CGAL)
     PollStructureStagingTaskIfReady();
+    FlushPendingStructureStagingCarveLaunchIfAny();
 #endif
     ApplyImportProgressSnapshot();
     const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
@@ -5673,6 +5674,7 @@ void Display::RefreshStructurePreviewForRenderer()
 #if defined(CAD_USE_CGAL)
 void Display::CancelPendingStructureCarveJob()
 {
+    pendingStructureStagingCarveLaunch = false;
     if (!pendingStructureStagingTask.has_value())
         return;
     pendingStructureStagingTask->RequestCancel();
@@ -5783,31 +5785,51 @@ void Display::PollStructureStagingTaskIfReady()
     renderDirty = true;
 }
 
-void Display::BeginStructureStagingSession()
+void Display::FlushPendingStructureStagingCarveLaunchIfAny()
 {
+    if (!pendingStructureStagingCarveLaunch)
+        return;
+    pendingStructureStagingCarveLaunch = false;
+    if (activeTool != ActiveTool::Structure)
+    {
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
     if (IsStructureStagingActive())
         return;
     if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
     {
-        LOG_DESC("Structure staging skipped: no active imported tab");
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
         return;
     }
     if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
     {
-        LOG_DESC("Structure staging skipped: active scene is empty");
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
         return;
     }
-    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
-    structureOptFaceExcludeStep = Icons::StepState::Active;
-    SyncStructureOptionalPrereqRowStyle();
+    LaunchStructureStagingCarveJob();
+}
 
-    CancelPendingStructureCarveJob();
-
+void Display::LaunchStructureStagingCarveJob()
+{
     std::unordered_map<const Face *, Face *> structureFaceCloneRemap;
     std::unique_ptr<Scene> staging = scene->Clone(&structureFaceCloneRemap);
     if (!staging)
     {
         LOG_WARN("Structure staging: scene clone failed");
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
         return;
     }
 
@@ -5840,8 +5862,8 @@ void Display::BeginStructureStagingSession()
         bySolid[f.dependency].push_back(&f);
         ++eligibleCount;
     }
-    LOG_DESC("Structure staging: eligible faces", std::to_string(eligibleCount),
-             "across solids", std::to_string(bySolid.size()));
+    LOG_DESC("Structure staging: eligible faces", std::to_string(eligibleCount), "across solids",
+             std::to_string(bySolid.size()));
 
     const uint64_t jobId = ++structureStagingIssuedJobId;
     const size_t targetSceneIndex = activeSceneIndex;
@@ -5913,6 +5935,33 @@ void Display::BeginStructureStagingSession()
             ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });
+}
+
+void Display::BeginStructureStagingSession()
+{
+    if (IsStructureStagingActive())
+        return;
+    if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
+    {
+        LOG_DESC("Structure staging skipped: no active imported tab");
+        return;
+    }
+    if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
+    {
+        LOG_DESC("Structure staging skipped: active scene is empty");
+        return;
+    }
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureOptFaceExcludeStep = Icons::StepState::Active;
+    SyncStructureOptionalPrereqRowStyle();
+
+    CancelPendingStructureCarveJob();
+
+    pendingStructureStagingCarveLaunch = true;
+    SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Preparing carve…");
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
 }
 #else
 void Display::BeginStructureStagingSession()
@@ -6034,7 +6083,8 @@ void Display::SyncStructurePanelDerivedVisibility()
         scene != nullptr && (!scene->solids.empty() || !scene->faces.empty()) &&
         !pendingImportTabActive;
 #if defined(CAD_USE_CGAL)
-    const bool structureCarveBusy = pendingStructureStagingTask.has_value();
+    const bool structureCarveBusy =
+        pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch;
 #else
     const bool structureCarveBusy = false;
 #endif

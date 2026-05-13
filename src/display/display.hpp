@@ -153,8 +153,9 @@ private:
     /// Build the temporary carved staging scene from the current imported scene and swap it into
     /// `ownedScenes[activeSceneIndex]` so the user sees the carve live. The original is held aside in
     /// `structureOriginalScene` for cancel/restore. With `CAD_USE_CGAL`, the CGAL carve runs on a worker thread;
-    /// the swap happens on the main thread when the job completes. No-op when no model is loaded or staging
-    /// is already active.
+    /// the swap happens on the main thread when the job completes. Main-thread `Scene::Clone` + job submit
+    /// run on the **next** `Frame()` tick (see `pendingStructureStagingCarveLaunch`) so tool entry can paint
+    /// once before clone. No-op when no model is loaded or staging is already active.
     void BeginStructureStagingSession();
     /// Restore the pre-staging original scene if a staging session is active; cleared otherwise. Re-runs
     /// `UpdateScene()` so the renderer/pick state rebuild from the original.
@@ -529,5 +530,10 @@ private:
     void PollStructureStagingTaskIfReady();
     /// Cancels an in-flight carve job (if any), bumps `structureStagingIssuedJobId`, clears the header busy hint.
     void CancelPendingStructureCarveJob();
+    /// Set by `BeginStructureStagingSession` after validation; consumed at the start of `Frame()` so the
+    /// first Structure frame can present (ImGui) before main-thread `Scene::Clone` + job submit.
+    bool pendingStructureStagingCarveLaunch = false;
+    void FlushPendingStructureStagingCarveLaunchIfAny();
+    void LaunchStructureStagingCarveJob();
 #endif
 };

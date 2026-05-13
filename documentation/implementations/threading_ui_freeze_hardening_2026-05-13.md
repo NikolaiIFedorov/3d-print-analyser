@@ -47,3 +47,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Fix:** Remove that worker-thread `LOG_WARN`; main thread already logs on the all-failed path in `PollStructureStagingTaskIfReady`. For partial success, log `LOG_WARN` from the **main** thread when `firstErr` is set (same sanitized message), so session/terminal still get a line without blocking the future.
 
+## Follow-up (2026-05-13) — Structure tool opens with no UI update (freeze before first paint)
+
+**Cause:** `pendingToolSwitch` ran `BeginStructureStagingSession()` **before** `ImGui::NewFrame()` in `Render()`. That path did `Scene::Clone` and face grouping on the **main thread** first, so the window could not show the Structure panel or any busy caption until clone finished.
+
+**Fix:** CGAL path splits scheduling vs work: `BeginStructureStagingSession` only validates, cancels any prior job, sets `pendingStructureStagingCarveLaunch`, and shows **Preparing carve…**; `FlushPendingStructureStagingCarveLaunchIfAny` runs at the **start** of the next `Frame()` (after `PollStructureStagingTaskIfReady`) and performs clone + submit + **Carving…**. Footer busy state treats the launch flag like an in-flight carve. `CancelPendingStructureCarveJob` clears the launch flag.
+
