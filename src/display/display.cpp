@@ -5813,9 +5813,12 @@ void Display::PollStructureStagingTaskIfReady()
             SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
         else
             SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed.");
-        LOG_WARN("Structure staging: all carve attempts failed; staying on original scene.",
-                 r.firstErr.empty() ? std::string()
-                                    : SanitizeMessageForSingleLineLog(r.firstErr));
+        // Main-thread WARN writes can block on a backpressured terminal. On this path we only need
+        // diagnostics, not user-facing console noise; keep the app responsive while preserving
+        // structured breadcrumbs in SessionLogger.
+        Log::Background("Structure staging: all carve attempts failed; staying on original scene. " +
+                        (r.firstErr.empty() ? std::string()
+                                            : SanitizeMessageForSingleLineLog(r.firstErr)));
         StructureTriangulation::ClearBakeCache();
         structureEligibleFacesCache.clear();
         SyncStructurePanelDerivedVisibility();
