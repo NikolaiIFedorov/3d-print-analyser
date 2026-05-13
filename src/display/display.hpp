@@ -17,6 +17,7 @@
 #include "rendering/SceneRenderer/SceneRenderer.hpp"
 #include "rendering/ViewportRenderer/ViewportRenderer.hpp"
 #include "rendering/UIRenderer/UIRenderer.hpp"
+#include "rendering/UIRenderer/ToolUserErrorFeedback.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -222,15 +223,10 @@ private:
     float calibHoleOffsetMm = 0.0f;
     float calibElephantFootMm = 0.0f;
     bool calibCompensationValid = false;
-    /// Calibrate panel: stable code + copyable message when span/compensation cannot be computed (phase 1).
-    struct CalibToolErrorState
-    {
-        std::string code;
-        std::string message;
-        std::string relatedParameterLabel;
-        friend bool operator==(const CalibToolErrorState &, const CalibToolErrorState &) = default;
-    };
-    std::optional<CalibToolErrorState> calibToolError;
+    /// Calibrate panel: stable code + copyable message when span/compensation cannot be computed.
+    std::optional<ToolUserErrorPayload> calibToolError;
+    /// Structure panel: CGAL / carve failure surfaced after worker result is applied on the main thread.
+    std::optional<ToolUserErrorPayload> structureToolError;
 
     // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
     Icons::StepState calibStepImport    = Icons::StepState::Active;
@@ -279,6 +275,8 @@ private:
     /// clickability state. The plumbing (this slot + `structureHoverIneligibleReason`) is retained
     /// so a future phase can re-enable the hint by toggling visibility back on.
     Paragraph *structPara_HoverHint = nullptr;
+    /// Copyable carve failure (`ToolUserErrorPayload`); shown when `structureToolError` is set.
+    Paragraph *structPara_ToolError = nullptr;
     /// Extra-prerequisite row: face exclusions (`ExtraPrerequisites` section).
     Paragraph *structPara_OptionalFaceExclude = nullptr;
     /// Drives the optional row checkbox and whether face clicks may toggle exclusions (`Active` = yes).

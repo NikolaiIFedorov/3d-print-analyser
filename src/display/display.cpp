@@ -6,6 +6,7 @@
 #include "rendering/UIRenderer/UIStyle.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
 #include "rendering/UIRenderer/ToolPanel.hpp"
+#include "rendering/UIRenderer/ToolUserErrorFeedback.hpp"
 #include "logic/Analysis/Analysis.hpp"
 #include "logic/Analysis/Overhang/Overhang.hpp"
 #include "logic/Analysis/SharpCorner/SharpCorner.hpp"
@@ -100,6 +101,104 @@ static void TruncateUiInlineMessage(std::string &s, std::size_t maxChars = 72)
             c = ' ';
     }
     return s;
+}
+
+/// Map worker/log diagnostics to stable UI codes; keep messages short and log raw strings separately.
+[[nodiscard]] static ToolUserErrorPayload MapStructureCarveRawToUserError(std::string raw)
+{
+    constexpr const char kInset[] = "Inset (mm)";
+    constexpr const char kModel[] = "Model";
+    constexpr const char kTool[] = "Structure";
+
+    auto ge = [](const char *code, std::string msg, const char *rel)
+    { return ToolUserErrorPayload{std::string(code), std::move(msg), std::string(rel)}; };
+
+    const bool partialPrefix = (raw.size() >= 9 && raw.compare(0, 9, "Partial: ") == 0);
+    if (partialPrefix)
+    {
+        raw.erase(0, 9);
+        while (!raw.empty() && raw[0] == ' ')
+            raw.erase(0, 1);
+    }
+
+    std::string s = SanitizeMessageForSingleLineLog(std::move(raw));
+    if (s.size() > 450)
+    {
+        s.resize(447);
+        s += "...";
+    }
+
+    auto withPartial = [&](ToolUserErrorPayload p) -> ToolUserErrorPayload
+    {
+        if (partialPrefix)
+            p.message = "Some solids carved, then: " + p.message;
+        return p;
+    };
+
+    if (s.empty())
+        return withPartial(ge("STRUCT_CARVE_FAILED", "Structure carve did not complete successfully.", kTool));
+
+    if (s.find("Scene clone failed") != std::string::npos ||
+        (s.find("clone") != std::string::npos &&
+         (s.find("Scene") != std::string::npos || s.find("scene") != std::string::npos)))
+        return withPartial(ge("STRUCT_SCENE_CLONE", "Could not duplicate the scene for carving.", kTool));
+
+    if (s.find("cancelled") != std::string::npos)
+        return withPartial(ge("STRUCT_CANCELLED", "Carve was cancelled.", kTool));
+
+    if (s.find("Could not build triangle soup") != std::string::npos)
+        return withPartial(ge("STRUCT_MESH_SOUP", "Could not build a triangle mesh from the solid for carving.", kModel));
+
+    if (s.find("Invalid triangle soup") != std::string::npos ||
+        s.find("precondition failed for polygon_soup") != std::string::npos)
+        return withPartial(ge("STRUCT_MESH_INVALID",
+                               "Mesh data was not valid for CGAL carving (check the model for gaps or bad triangles).",
+                               kModel));
+
+    if (s.find("Empty CGAL mesh") != std::string::npos)
+        return withPartial(ge("STRUCT_MESH_EMPTY", "CGAL produced an empty mesh from the solid.", kModel));
+
+    if (s.find("CGAL boolean difference failed") != std::string::npos || s.find("corefinement") != std::string::npos)
+        return withPartial(ge("STRUCT_BOOLEAN_FAILED",
+                               "Boolean carving failed. Try a smaller inset, fewer excluded faces, or a simpler mesh.",
+                               kInset));
+
+    if (s.find("No carve prisms were applied") != std::string::npos)
+        return withPartial(ge("STRUCT_NO_PRISM",
+                               "No carve region was applied (preview geometry may be empty or invalid for the current inset).",
+                               kInset));
+
+    if (s.find("Failed to rebuild solid") != std::string::npos)
+        return withPartial(ge("STRUCT_REBUILD_FAILED", "Carving ran but rebuilding the scene solid failed.", kTool));
+
+    if (s.rfind("CGAL exception:", 0) == 0)
+    {
+        std::string tail = s.substr(std::string("CGAL exception:").size());
+        while (!tail.empty() && tail[0] == ' ')
+            tail.erase(0, 1);
+        if (tail.size() > 220)
+        {
+            tail.resize(217);
+            tail += "...";
+        }
+        std::string msg = "CGAL could not complete this carve.";
+        if (!tail.empty())
+            msg += " (" + tail + ")";
+        return withPartial(ge("STRUCT_CGAL_EXCEPTION", msg, kInset));
+    }
+
+    if (s.find("CGAL exception (unknown type)") != std::string::npos)
+        return withPartial(ge("STRUCT_CGAL_UNKNOWN", "CGAL failed with an unknown error type.", kInset));
+
+    if (s.find("worker exception") != std::string::npos)
+        return withPartial(ge("STRUCT_WORKER_EXCEPTION", "The carve worker failed unexpectedly.", kTool));
+
+    std::string fallback = "Structure carve failed.";
+    if (!s.empty() && s.size() <= 240)
+        fallback += " (" + s + ")";
+    else if (!s.empty())
+        fallback += " (" + s.substr(0, 200) + "...)";
+    return withPartial(ge("STRUCT_CARVE_FAILED", fallback, kTool));
 }
 
 static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer)
@@ -207,58 +306,6 @@ static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, co
 
     drawZone(0, z0, left, onLeft);
     drawZone(1, z1, right, onRight);
-}
-
-/// Copyable Calibrate tool error: `[code] message` on click. Returns total height used (px).
-[[nodiscard]] static float CalibDrawToolErrorFeedback(float x0, float y, float w, float pad, ImFont *bodyFont,
-                                                      const std::string &code, const std::string &message,
-                                                      const std::string &paramLabel)
-{
-    if (code.empty() && message.empty())
-        return 0.f;
-
-    ImDrawList *dl = ImGui::GetWindowDrawList();
-    ImFont *font = bodyFont ? bodyFont : ImGui::GetFont();
-    const float fs = font ? font->FontSize : ImGui::GetFontSize();
-    const float wrapW = std::max(1.0f, w - 2.0f * pad);
-    const std::string clip = "[" + code + "] " + message;
-    const float lh = font ? font->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Mg").y : ImGui::GetTextLineHeight();
-
-    const float titleBlock = paramLabel.empty() ? 0.f : lh + 3.f;
-    const ImVec2 clipSz = font ? font->CalcTextSizeA(fs, wrapW, 0.0f, clip.c_str()) : ImGui::CalcTextSize(clip.c_str());
-    const float blockH = titleBlock + clipSz.y + pad;
-
-    ImGui::SetCursorScreenPos(ImVec2(x0, y));
-    ImGui::PushID("calibToolErr");
-    ImGui::InvisibleButton("copyErr", ImVec2(w, blockH));
-    const bool hovered = ImGui::IsItemHovered();
-    const bool clicked = ImGui::IsItemClicked();
-    ImGui::PopID();
-    if (clicked && !clip.empty())
-        ImGui::SetClipboardText(clip.c_str());
-    if (hovered)
-        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-
-    if (hovered)
-    {
-        const ImVec2 mn = ImGui::GetItemRectMin();
-        const ImVec2 mx = ImGui::GetItemRectMax();
-        glm::vec4 hac = Color::GetAccent(1, 0.12f, 1.0f);
-        dl->AddRectFilled(mn, mx, ImGui::GetColorU32(ImVec4(hac.r, hac.g, hac.b, hac.a)), 4.0f);
-    }
-
-    float yc = y;
-    if (!paramLabel.empty())
-    {
-        glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.15f);
-        ImU32 pc = ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a));
-        dl->AddText(font, fs, ImVec2(x0 + pad, yc), pc, paramLabel.c_str());
-        yc += lh + 3.f;
-    }
-    glm::vec4 tc = Color::GetUIText(1);
-    ImU32 mc = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-    dl->AddText(font, fs, ImVec2(x0 + pad, yc), mc, clip.c_str(), nullptr, wrapW);
-    return blockH;
 }
 
 /// Full-row hit target; clipboard is **value only** when `valueStr` is non-empty, otherwise the label (status text).
@@ -3107,7 +3154,7 @@ void Display::RefreshCalibDerivedRowVisible()
 void Display::RefreshCalibCompensation()
 {
     const bool prevValid = calibCompensationValid;
-    const std::optional<CalibToolErrorState> prevErr = calibToolError;
+    const std::optional<ToolUserErrorPayload> prevErr = calibToolError;
 
     calibContourScale = 1.0f;
     calibHoleOffsetMm = 0.0f;
@@ -3118,8 +3165,8 @@ void Display::RefreshCalibCompensation()
 
     auto setPickError = [this](const char *code, const char *msg)
     {
-        calibToolError.emplace(CalibToolErrorState{std::string(code), std::string(msg),
-                                                   std::string(kCalibPlotMeasurementPointsLabel)});
+        calibToolError.emplace(ToolUserErrorPayload{std::string(code), std::string(msg),
+                                                    std::string(kCalibPlotMeasurementPointsLabel)});
     };
 
     const Face *spanA = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
@@ -5417,9 +5464,9 @@ void Display::InitUI()
                 }
                 if (calibToolError.has_value())
                 {
-                    const CalibToolErrorState &te = *calibToolError;
-                    const float errH = CalibDrawToolErrorFeedback(row0.x, y0, w, pad, rowFont, te.code, te.message,
-                                                                  te.relatedParameterLabel);
+                    const ToolUserErrorPayload &te = *calibToolError;
+                    const float errH = DrawToolUserErrorCopyBlock(row0.x, y0, w, pad, rowFont, te.code, te.message,
+                                                                  te.relatedParameterLabel, "calibErr");
                     ImGui::Dummy(ImVec2(w, errH + pad));
                     return;
                 }
@@ -5639,6 +5686,10 @@ void Display::InitUI()
         structPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiStructure = &uiRenderer.AddPanel(structPanel);
 
+        // Reserve root slots for HoverHint + tool error **before** any `FindSection` pointers are taken,
+        // so `AddParagraph` does not reallocate `children` and invalidate cached `Paragraph*`/`Section*`.
+        uiStructure->children.reserve(uiStructure->children.size() + 2);
+
         // Allocate the hover-hint paragraph FIRST so subsequent bindings into `uiStructure->children`
         // are stable. `BuildToolPanel` reserves capacity for exactly the structural children it knows
         // about, so adding HoverHint later forces a vector reallocation that silently invalidates
@@ -5654,6 +5705,31 @@ void Display::InitUI()
             SectionLine &line = structPara_HoverHint->values.emplace_back();
             line.text = "";
             line.textDepth = 2;
+        }
+
+        structPara_ToolError = &uiStructure->AddParagraph("StructToolError");
+        structPara_ToolError->visible = false;
+        structPara_ToolError->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        structPara_ToolError->values.reserve(1);
+        {
+            SectionLine &el = structPara_ToolError->values.emplace_back();
+            el.imguiContent = [this, settingsBodyFont](float w, float h, float)
+            {
+                (void)h;
+                if (!structureToolError.has_value())
+                {
+                    ImGui::Dummy(ImVec2(w, 1.f));
+                    return;
+                }
+                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+                const float pad = ImGui::GetStyle().FramePadding.x;
+                const ImVec2 row0 = ImGui::GetCursorScreenPos();
+                const ToolUserErrorPayload &te = *structureToolError;
+                const float errH =
+                    DrawToolUserErrorCopyBlock(row0.x, row0.y, w, pad, rowFont, te.code, te.message,
+                                               te.relatedParameterLabel, "structErr");
+                ImGui::Dummy(ImVec2(w, std::max(errH, 1.f) + pad));
+            };
         }
 
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
@@ -5807,6 +5883,7 @@ void Display::RefreshStructurePreviewForRenderer()
 void Display::CancelPendingStructureCarveJob()
 {
     structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
+    structureToolError.reset();
     if (!pendingStructureStagingTask.has_value())
         return;
     pendingStructureStagingTask->RequestCancel();
@@ -5850,7 +5927,9 @@ void Display::PollStructureStagingTaskIfReady()
         pendingStructureStagingTask.reset();
         structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
         SessionLogger::Instance().LogStructureStagingWorkerException();
-        SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed (worker exception).");
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError =
+            MapStructureCarveRawToUserError("Structure carve failed (worker exception).");
         LOG_WARN("Structure staging: worker future threw; see session / terminal for details");
         SyncStructurePanelDerivedVisibility();
         uiRenderer.MarkDirty();
@@ -5924,10 +6003,8 @@ void Display::PollStructureStagingTaskIfReady()
     // Cancel even though nothing changed.
     if (r.carveAttempts > 0 && r.carvedSolids == 0)
     {
-        if (!r.firstErr.empty())
-            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
-        else
-            SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed.");
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError = MapStructureCarveRawToUserError(r.firstErr);
         // Main-thread WARN writes can block on a backpressured terminal. On this path we only need
         // diagnostics, not user-facing console noise; keep the app responsive while preserving
         // structured breadcrumbs in SessionLogger.
@@ -5958,12 +6035,16 @@ void Display::PollStructureStagingTaskIfReady()
 
     if (!r.firstErr.empty())
     {
-        SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, r.firstErr);
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError = MapStructureCarveRawToUserError(r.firstErr);
         if (r.carvedSolids < r.carveAttempts)
             LOG_WARN("Structure staging: partial carve;", SanitizeMessageForSingleLineLog(r.firstErr));
     }
     else
+    {
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError.reset();
+    }
 
     StructureTriangulation::ClearBakeCache();
     structureEligibleFacesCache.clear();
@@ -6021,6 +6102,7 @@ void Display::LaunchStructureStagingCarveJob()
     {
         LOG_WARN("Structure staging: scene clone failed");
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError = MapStructureCarveRawToUserError("Scene clone failed.");
         SyncStructurePanelDerivedVisibility();
         uiRenderer.MarkDirty();
         renderDirty = true;
@@ -6063,6 +6145,7 @@ void Display::LaunchStructureStagingCarveJob()
     const size_t targetSceneIndex = activeSceneIndex;
     const size_t solidCarveGroups = bySolid.size();
 
+    structureToolError.reset();
     SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Carving…");
     SyncStructurePanelDerivedVisibility();
     uiRenderer.MarkDirty();
@@ -6220,6 +6303,7 @@ void Display::RestoreStructureOriginalScene()
     structureEligibleFacesCache.clear();
     UpdateScene();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureToolError.reset();
     structureOptFaceExcludeStep = Icons::StepState::Active;
     SyncStructureOptionalPrereqRowStyle();
 }
@@ -6258,6 +6342,7 @@ void Display::CommitStructureStagingScene()
     structureExcludedFaces.clear();
     structureEligibleFacesCache.clear();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    structureToolError.reset();
     structureOptFaceExcludeStep = Icons::StepState::Active;
     SyncStructureOptionalPrereqRowStyle();
 }
@@ -6311,6 +6396,14 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_Import->visible = !activeHasModel;
     if (structPara_SceneEditFooter)
         structPara_SceneEditFooter->visible = activeHasModel && !structureCarveBusy;
+    const bool showStructureToolError =
+        activeHasModel && structureToolError.has_value() && (activeTool == ActiveTool::Structure);
+    if (structPara_ToolError)
+    {
+        structPara_ToolError->visible = showStructureToolError;
+        if (!structPara_ToolError->values.empty())
+            structPara_ToolError->values[0].visible = showStructureToolError;
+    }
     if (structPara_HoverHint)
     {
         // Clickability hint deliberately suppressed at this stage — the algorithm is still in flux

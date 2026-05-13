@@ -51,6 +51,7 @@ add_executable(CAD_OpenGL
     src/display/rendering/UIRenderer/UIRenderer.cpp
     src/display/rendering/UIRenderer/TextRenderer.cpp
     src/display/rendering/UIRenderer/ToolPanel.cpp
+    src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp
     src/display/rendering/ViewportRenderer/ViewportRenderer.cpp
     src/display/rendering/Camera/camera.cpp
     src/display/rendering/ScenePick.cpp
