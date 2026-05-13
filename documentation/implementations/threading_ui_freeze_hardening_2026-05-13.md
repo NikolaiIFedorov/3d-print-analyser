@@ -103,3 +103,9 @@ Replaced the ad-hoc `pendingStructureStagingCarveLaunch` boolean with `Display::
 
 That token is logged in `TryApplyStructureCarve` **immediately before** `BuildCarveFootprintOuterRingsWorld`. The stall is therefore in the **2D footprint pipeline** (outline → frame → projection → offset polygons → strip chord → **CGAL 2D `difference`** → fillet → lift), not the 3D mesh boolean yet. Additional **`fp_*`** phases (`fp_outline_begin`, `fp_offset_begin`, `fp_2d_boolean_enter`, `fp_fillet_outer_begin`, …) are emitted from `StructureTriangulation.cpp` when the same worker trace callback is passed through from the Structure carve worker.
 
+## Follow-up (2026-05-13) — Eager flush but last phase is only `enter`
+
+**Interpretation:** The next carve phase is **`tm_ready`**, which runs only **after** triangle soup extraction plus several **`PMP::`** steps on the worker. If the flushed log stops at **`enter`**, the worker has not yet finished that span — almost always **heavy or stuck `BuildTriangleSoupFromSolid` / `orient_polygon_soup` / `polygon_soup_to_polygon_mesh` / `stitch_borders`**, not footprint or 3D boolean yet.
+
+**Change:** Added **`mesh_soup_*`** and **`pmp_*`** carve_phase tokens between **`enter`** and **`tm_ready`** so eager flush pinpoints which PMP step last completed.
+

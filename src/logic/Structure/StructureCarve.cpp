@@ -300,19 +300,31 @@ bool TryApplyStructureCarve(Scene *scene,
         if (aborted())
             return fail("Structure carve cancelled.");
 
+        invokeTrace("mesh_soup_begin");
         std::vector<K::Point_3> coords;
         std::vector<std::vector<std::size_t>> tris;
         if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
             return fail("Could not build triangle soup from solid.");
+        invokeTrace("mesh_soup_done");
 
+        invokeTrace("pmp_orient_begin");
         PMP::orient_polygon_soup(coords, tris);
+        invokeTrace("pmp_orient_done");
+        invokeTrace("pmp_merge_dup_begin");
         PMP::merge_duplicate_points_in_polygon_soup(coords, tris);
+        invokeTrace("pmp_merge_dup_done");
         CgalMesh tm;
+        invokeTrace("pmp_soup_to_mesh_begin");
         PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
+        invokeTrace("pmp_soup_to_mesh_done");
         if (tm.number_of_faces() == 0)
             return fail("Empty CGAL mesh from solid.");
+        invokeTrace("pmp_dup_non_manifold_begin");
         PMP::duplicate_non_manifold_vertices(tm);
+        invokeTrace("pmp_dup_non_manifold_done");
+        invokeTrace("pmp_stitch_begin");
         PMP::stitch_borders(tm);
+        invokeTrace("pmp_stitch_done");
 
         invokeTrace("tm_ready");
         if (aborted())
