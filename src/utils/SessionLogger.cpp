@@ -164,6 +164,8 @@ void SessionLogger::LogStructureStagingWorkerResult(uint64_t jobId, uint64_t iss
                   {"first_err_snippet", std::move(errSnippet)},
                   {"target_scene", std::to_string(targetSceneIndex)},
               });
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::LogStructureStagingWorkerException()
@@ -263,6 +265,8 @@ void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, cons
     if (!detail.empty())
         fields.push_back({"detail", "\"" + EscapeStr(detail) + "\""});
     PushEvent("structure_staging_apply_phase", std::move(fields));
+    if (StructureWorkerTraceSyncEnabled())
+        Flush(kSessionLogPath, false);
 }
 
 void SessionLogger::MaybeFlushAfterStructurePoll(const std::string &path)
