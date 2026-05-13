@@ -5946,7 +5946,6 @@ void Display::LaunchStructureStagingCarveJob()
 
             ShutdownStackTraceLogIfEnabled("structure-worker: job entered");
             SessionLogger::Instance().LogStructureStagingWorkerStarted(jobId);
-            SessionLogger::Instance().MaybeFlushAfterStructurePoll();
 
             size_t carvedSolids = 0;
             size_t carveAttempts = 0;
@@ -5965,14 +5964,12 @@ void Display::LaunchStructureStagingCarveJob()
                     jobId, solidLaneIndex,
                     static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<void *>(entry.first))),
                     entry.second.size());
-                SessionLogger::Instance().MaybeFlushAfterStructurePoll();
                 const std::function<bool()> shouldAbort = [&token]()
                 { return token.IsCancellationRequested(); };
                 std::string err;
                 const bool tryOk = StructureCarve::TryApplyStructureCarve(
                     out.staging.get(), entry.first, entry.second, params, &err, &shouldAbort);
                 SessionLogger::Instance().LogStructureStagingWorkerSolidEnd(jobId, solidLaneIndex, tryOk);
-                SessionLogger::Instance().MaybeFlushAfterStructurePoll();
                 if (tryOk)
                     ++carvedSolids;
                 else
@@ -6004,6 +6001,8 @@ void Display::LaunchStructureStagingCarveJob()
                 // blocked `cout` keeps the UI on "Carving…" long after CGAL has already printed to stderr.
                 // Main thread logs when applying the result (`PollStructureStagingTaskIfReady`).
             }
+            SessionLogger::Instance().LogStructureStagingWorkerPackagingResult(
+                jobId, carvedSolids, carveAttempts, !out.firstErr.empty());
             ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });

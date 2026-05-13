@@ -112,6 +112,12 @@ public:
                                              size_t faceCount);
     /// Worker returned from `TryApplyStructureCarve` for that lane (`try_apply_ok` = function return value).
     void LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t solidLaneIndex, bool tryApplyOk);
+    /// Worker finished all solid lanes and packed `AsyncStructureStagingResult` (still inside the job lambda,
+    /// immediately before `return out`). If `structure_staging_worker_solid_end` appears but this event does
+    /// not, the hang is between solid end and result packaging; if this appears but `structure_staging_worker_result`
+    /// never does, the packaged_task / future handoff is suspect.
+    void LogStructureStagingWorkerPackagingResult(uint64_t jobId, size_t carvedSolids, size_t carveAttempts,
+                                                  bool hasFirstErr);
     /// Main-thread breadcrumbs after the worker future is consumed (`PollStructureStagingTaskIfReady`).
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});

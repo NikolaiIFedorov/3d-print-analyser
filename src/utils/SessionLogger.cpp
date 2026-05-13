@@ -202,6 +202,18 @@ void SessionLogger::LogStructureStagingWorkerSolidEnd(uint64_t jobId, size_t sol
               });
 }
 
+void SessionLogger::LogStructureStagingWorkerPackagingResult(uint64_t jobId, size_t carvedSolids,
+                                                               size_t carveAttempts, bool hasFirstErr)
+{
+    PushEvent("structure_staging_worker_packaging_result",
+              {
+                  {"job_id", std::to_string(jobId)},
+                  {"carved_solids", std::to_string(carvedSolids)},
+                  {"carve_attempts", std::to_string(carveAttempts)},
+                  {"has_first_err", hasFirstErr ? "true" : "false"},
+              });
+}
+
 void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
 {
     std::vector<std::pair<std::string, std::string>> fields = {

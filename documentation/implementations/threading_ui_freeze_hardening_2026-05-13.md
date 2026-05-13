@@ -87,3 +87,9 @@ If the variable is only set in a terminal but the app is started from the Dock /
 
 Replaced the ad-hoc `pendingStructureStagingCarveLaunch` boolean with `Display::StructureCarvePipelinePhase` (`Idle`, `LaunchPending`, `Carving`) plus `structureCarvePipelinePhase` in `display.hpp`, driven from `BeginStructureStagingSession` / `FlushPendingStructureStagingCarveLaunchIfAny` / `LaunchStructureStagingCarveJob` / `PollStructureStagingTaskIfReady` / `CancelPendingStructureCarveJob`. Same runtime behaviour as the flag, but the carve pipeline state is explicit for footer busy, preview CGAL skip, and future readers.
 
+## Follow-up (2026-05-13) — Session log stops after `solid_end` but UI freezes
+
+**Interpretation:** `structure_staging_worker_solid_end` means `TryApplyStructureCarve` returned to the worker lambda. If **`structure_staging_worker_result` is missing**, the packaged_task has not finished delivering the result to the future yet (hang or crash **after** per-solid work, or main never polling — usually the former if the UI stays on “Carving…”).
+
+**Change:** Stop calling **`MaybeFlushAfterStructurePoll()` from inside the Structure worker lambda** — eager flush rewrites the whole JSON while holding `SessionLogger`’s mutex and can block on disk; that is the same class of risk as worker-thread logging to a backpressured TTY. Eager flush remains on the **main** thread (poll path, post-`Submit`, import). Added **`structure_staging_worker_packaging_result`** immediately before `return out` so logs distinguish “stuck between `solid_end` and return” vs “stuck after packaging / in future machinery”.
+
