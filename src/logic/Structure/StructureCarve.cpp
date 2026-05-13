@@ -324,6 +324,8 @@ bool TryApplyStructureCarve(Scene *scene,
         const double zBottom = zMinWorld - kZMarginMm;
         const double zTop = zMaxWorld + kZMarginMm;
 
+        invokeTrace("after_z_bounds");
+
         bool anyPrismApplied = false;
         for (const Face *face : faces)
         {
@@ -346,6 +348,7 @@ bool TryApplyStructureCarve(Scene *scene,
 
             if (aborted())
                 return fail("Structure carve cancelled.");
+            invokeTrace("before_footprint");
             const std::vector<std::vector<glm::dvec3>> rings =
                 StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
             invokeTrace("footprint_done");

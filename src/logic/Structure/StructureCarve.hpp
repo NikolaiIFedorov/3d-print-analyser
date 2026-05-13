@@ -22,7 +22,9 @@ namespace StructureCarve
 /// Subtracts vertical prisms from `solid` for each `Face` in `faces` (Structure footprint:
 /// filleted `inset \ strip` regions), then rebuilds scene topology from the CGAL mesh and runs
 /// `MergeCoplanarFaces`. Faces must belong to `solid` and be near-horizontal (|n·ẑ| ≥ 0.995) for
-/// the current prism extruder. On failure returns `false` and leaves `solid` unchanged.
+/// the current prism extruder. On failure returns `false` and leaves `solid` unchanged **for paths
+/// that return before** `DetachFacesFromSolid` (normal errors / caught exceptions). A **hang or hard
+/// abort inside CGAL** does not complete that contract until the call returns.
 ///
 /// Requires `CAD_USE_CGAL`. Each face must be a single **simple** outer loop (3+ edges); n-gons
 /// are fan-triangulated for the CGAL soup (convex facets typical after STL coplanar merge).
@@ -33,8 +35,7 @@ namespace StructureCarve
 /// when `errOut` is non-null.
 ///
 /// Optional `workerTrace`: when non-null and the function is non-empty, invoked with short phase
-/// tokens (`tm_ready`, `footprint_done`, `before_boolean`, …) for session forensics — keep callbacks
-/// cheap (no logging to `cout` from here).
+/// tokens (`enter`, `tm_ready`, `after_z_bounds`, `before_footprint`, `footprint_done`, `before_boolean`, …).
 bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
                             const std::vector<const Face *> &faces,
