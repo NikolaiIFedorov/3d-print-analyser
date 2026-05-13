@@ -5631,6 +5631,12 @@ void Display::TickStructurePreviewBuildIfNeeded()
 {
     if (activeTool != ActiveTool::Structure || IsStructureStagingActive())
         return;
+#if defined(CAD_USE_CGAL)
+    // `BuildFaceTriangulationPreview` uses CGAL 2D; the carve worker uses CGAL 3D on another thread.
+    // Running both concurrently has produced UI freezes + repeated CGAL diagnostics — treat as unsafe.
+    if (pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch)
+        return;
+#endif
     std::vector<const Face *> workOrder;
     CollectStructurePreviewWorkOrder(workOrder);
     const double inset = static_cast<double>(structureInsetMm);
@@ -5656,6 +5662,14 @@ void Display::RefreshStructurePreviewForRenderer()
         renderer.SetStructurePreviewSegments({});
         return;
     }
+#if defined(CAD_USE_CGAL)
+    if (pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch)
+    {
+        ResetStructurePreviewIncrementalState();
+        renderer.SetStructurePreviewSegments({});
+        return;
+    }
+#endif
 
     std::vector<const Face *> workOrder;
     CollectStructurePreviewWorkOrder(workOrder);

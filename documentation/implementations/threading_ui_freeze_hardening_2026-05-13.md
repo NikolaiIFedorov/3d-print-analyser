@@ -53,3 +53,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Fix:** CGAL path splits scheduling vs work: `BeginStructureStagingSession` only validates, cancels any prior job, sets `pendingStructureStagingCarveLaunch`, and shows **Preparing carve…**; `FlushPendingStructureStagingCarveLaunchIfAny` runs at the **start** of the next `Frame()` (after `PollStructureStagingTaskIfReady`) and performs clone + submit + **Carving…**. Footer busy state treats the launch flag like an in-flight carve. `CancelPendingStructureCarveJob` clears the launch flag.
 
+## Follow-up (2026-05-13) — Freeze + CGAL spam on simple model while “Carving”
+
+**Cause:** The carve worker runs CGAL 3D (`StructureCarve`), but `TickStructurePreviewBuildIfNeeded` could still run **`StructureTriangulation::BuildFaceTriangulationPreview`** on the **UI thread** whenever staging was not active yet (`IsStructureStagingActive()` false while `pendingStructureStagingTask` held a future). That is **two threads in CGAL** (2D preview vs 3D corefinement), which is unsafe and matched “freeze right as CGAL logs.”
+
+**Fix:** Skip Structure preview bake / refresh paths while `pendingStructureStagingTask` or `pendingStructureStagingCarveLaunch` is set (CAD_USE_CGAL); clear preview segments so the overlay does not fight the worker.
+
