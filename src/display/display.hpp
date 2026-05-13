@@ -222,6 +222,15 @@ private:
     float calibHoleOffsetMm = 0.0f;
     float calibElephantFootMm = 0.0f;
     bool calibCompensationValid = false;
+    /// Calibrate panel: stable code + copyable message when span/compensation cannot be computed (phase 1).
+    struct CalibToolErrorState
+    {
+        std::string code;
+        std::string message;
+        std::string relatedParameterLabel;
+        friend bool operator==(const CalibToolErrorState &, const CalibToolErrorState &) = default;
+    };
+    std::optional<CalibToolErrorState> calibToolError;
 
     // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
     Icons::StepState calibStepImport    = Icons::StepState::Active;

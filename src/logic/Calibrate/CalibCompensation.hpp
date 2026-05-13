@@ -14,6 +14,10 @@ struct Values
     float holeRadiusOffsetMm = 0.0f;
     float elephantFootExcessMm = 0.0f;
     bool valid = false;
+    /// When `valid` is false, optional stable strings for tool UI (string literals, stable for the process).
+    const char *errorCode = nullptr;
+    const char *errorMessage = nullptr;
+    const char *errorParameterLabel = nullptr;
 };
 
 Values Compute(CalibWorkflow workflow, float nominalMm, float measuredMm);

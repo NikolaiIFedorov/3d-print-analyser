@@ -66,6 +66,10 @@ constexpr float kCalibSpanLabelNdcEps = 0.004f;
 /// forced into pure horizontal/vertical lanes (same units as `Pan` deltas after mouse sensitivity scale).
 constexpr float kPanSnapTravelFloor = 3.5e-4f;
 
+/// Must match Calibrate parameter row label and `CalibCompensation` literals for error targeting.
+constexpr const char kCalibPrintMeasurementLabel[] = "Print measurement";
+constexpr const char kCalibPlotMeasurementPointsLabel[] = "Plot measurement points";
+
 /// Font for custom `imguiContent` rows: matches `UIRenderer` (pixel stack when pushed, else pixel/body).
 [[nodiscard]] inline ImFont *FontOrInteractiveRow(const UIRenderer &renderer, ImFont *settingsBodyFont)
 {
@@ -203,6 +207,58 @@ static void DrawSceneEditDualPillRow(float winW, float winH, ImFont *lblFont, co
 
     drawZone(0, z0, left, onLeft);
     drawZone(1, z1, right, onRight);
+}
+
+/// Copyable Calibrate tool error: `[code] message` on click. Returns total height used (px).
+[[nodiscard]] static float CalibDrawToolErrorFeedback(float x0, float y, float w, float pad, ImFont *bodyFont,
+                                                      const std::string &code, const std::string &message,
+                                                      const std::string &paramLabel)
+{
+    if (code.empty() && message.empty())
+        return 0.f;
+
+    ImDrawList *dl = ImGui::GetWindowDrawList();
+    ImFont *font = bodyFont ? bodyFont : ImGui::GetFont();
+    const float fs = font ? font->FontSize : ImGui::GetFontSize();
+    const float wrapW = std::max(1.0f, w - 2.0f * pad);
+    const std::string clip = "[" + code + "] " + message;
+    const float lh = font ? font->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Mg").y : ImGui::GetTextLineHeight();
+
+    const float titleBlock = paramLabel.empty() ? 0.f : lh + 3.f;
+    const ImVec2 clipSz = font ? font->CalcTextSizeA(fs, wrapW, 0.0f, clip.c_str()) : ImGui::CalcTextSize(clip.c_str());
+    const float blockH = titleBlock + clipSz.y + pad;
+
+    ImGui::SetCursorScreenPos(ImVec2(x0, y));
+    ImGui::PushID("calibToolErr");
+    ImGui::InvisibleButton("copyErr", ImVec2(w, blockH));
+    const bool hovered = ImGui::IsItemHovered();
+    const bool clicked = ImGui::IsItemClicked();
+    ImGui::PopID();
+    if (clicked && !clip.empty())
+        ImGui::SetClipboardText(clip.c_str());
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+    if (hovered)
+    {
+        const ImVec2 mn = ImGui::GetItemRectMin();
+        const ImVec2 mx = ImGui::GetItemRectMax();
+        glm::vec4 hac = Color::GetAccent(1, 0.12f, 1.0f);
+        dl->AddRectFilled(mn, mx, ImGui::GetColorU32(ImVec4(hac.r, hac.g, hac.b, hac.a)), 4.0f);
+    }
+
+    float yc = y;
+    if (!paramLabel.empty())
+    {
+        glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.15f);
+        ImU32 pc = ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a));
+        dl->AddText(font, fs, ImVec2(x0 + pad, yc), pc, paramLabel.c_str());
+        yc += lh + 3.f;
+    }
+    glm::vec4 tc = Color::GetUIText(1);
+    ImU32 mc = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+    dl->AddText(font, fs, ImVec2(x0 + pad, yc), mc, clip.c_str(), nullptr, wrapW);
+    return blockH;
 }
 
 /// Full-row hit target; clipboard is **value only** when `valueStr` is non-empty, otherwise the label (status text).
@@ -3050,16 +3106,30 @@ void Display::RefreshCalibDerivedRowVisible()
 
 void Display::RefreshCalibCompensation()
 {
+    const bool prevValid = calibCompensationValid;
+    const std::optional<CalibToolErrorState> prevErr = calibToolError;
+
     calibContourScale = 1.0f;
     calibHoleOffsetMm = 0.0f;
     calibElephantFootMm = 0.0f;
     calibCompensationValid = false;
     calibNominal = 0.0f;
+    calibToolError.reset();
+
+    auto setPickError = [this](const char *code, const char *msg)
+    {
+        calibToolError.emplace(CalibToolErrorState{std::string(code), std::string(msg),
+                                                   std::string(kCalibPlotMeasurementPointsLabel)});
+    };
 
     const Face *spanA = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
     const Face *spanB = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
     if (scene == nullptr || spanA == nullptr || spanB == nullptr)
+    {
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
         return;
+    }
 
     CalibrateNominal::SpanResult span;
     if (calibWorkflow == CalibWorkflow::ElephantFoot && calibEdgePoint1 != nullptr &&
@@ -3068,25 +3138,59 @@ void Display::RefreshCalibCompensation()
     else
         span = CalibrateNominal::SpanBetweenFaces(spanA, spanB);
     if (!span.valid)
+    {
+        setPickError("CAL_SPAN_GEOMETRY", "Could not estimate a CAD span from the current face picks.");
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
         return;
+    }
 
     if (calibWorkflow != CalibWorkflow::ElephantFoot &&
         !CalibrateNominal::NominalSpanPerpendicularToBuild(spanA, spanB, CalibrateDistance::DefaultCalibrateBuildDirection()))
+    {
+        setPickError("CAL_SPAN_AXIS",
+                     "CAD span from the picks is not usable with the default build axis for this workflow.");
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
         return;
+    }
 
     calibNominal = span.nominalMm;
-    if (calibWorkflow == CalibWorkflow::None)
+    if (calibNominal <= 1e-5f)
+    {
+        setPickError("CAL_SPAN_TINY", "CAD span is effectively zero; try parallel faces or a longer span.");
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
         return;
+    }
+
+    if (calibWorkflow == CalibWorkflow::None)
+    {
+        setPickError("CAL_WORKFLOW_UNSUPPORTED",
+                     "The two picks do not support a supported calibration workflow together.");
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
+        return;
+    }
 
     const CalibrateCompensation::Values vals =
         CalibrateCompensation::Compute(calibWorkflow, calibNominal, calibMeasured);
     if (!vals.valid)
+    {
+        if (vals.errorCode && vals.errorMessage && vals.errorParameterLabel)
+            calibToolError.emplace(vals.errorCode, vals.errorMessage, vals.errorParameterLabel);
+        if (prevValid != calibCompensationValid || prevErr != calibToolError)
+            uiRenderer.MarkDirty();
         return;
+    }
 
     calibContourScale = vals.contourScale;
     calibHoleOffsetMm = vals.holeRadiusOffsetMm;
     calibElephantFootMm = vals.elephantFootExcessMm;
     calibCompensationValid = true;
+
+    if (prevValid != calibCompensationValid || prevErr != calibToolError)
+        uiRenderer.MarkDirty();
 }
 
 void Display::snapInput(float &x, float &y)
@@ -5226,7 +5330,10 @@ void Display::InitUI()
                 const float cellRight = ImGui::GetItemRectMax().x;
                 float labelTextH =
                     rowFont ? rowFont->CalcTextSizeA(fs, FLT_MAX, 0.0f, "Print measurement").y : ImGui::CalcTextSize("Print measurement").y;
-                ImU32 labelCol = ImGui::GetColorU32(ImVec4(tcLabel.r, tcLabel.g, tcLabel.b, tcLabel.a));
+                const bool errOnPrint = calibToolError.has_value() &&
+                                        calibToolError->relatedParameterLabel == kCalibPrintMeasurementLabel;
+                glm::vec4 labelColRgb = errOnPrint ? Color::GetAccent(2, 1.0f, 1.2f) : tcLabel;
+                ImU32 labelCol = ImGui::GetColorU32(ImVec4(labelColRgb.r, labelColRgb.g, labelColRgb.b, labelColRgb.a));
                 if (rowFont)
                     dl->AddText(rowFont, fs, ImVec2(rowOrigin.x + pad, itemBottom - labelTextH), labelCol, "Print measurement");
                 else
@@ -5306,6 +5413,14 @@ void Display::InitUI()
                         return;
                     }
                     ImGui::Dummy(ImVec2(w, pad));
+                    return;
+                }
+                if (calibToolError.has_value())
+                {
+                    const CalibToolErrorState &te = *calibToolError;
+                    const float errH = CalibDrawToolErrorFeedback(row0.x, y0, w, pad, rowFont, te.code, te.message,
+                                                                  te.relatedParameterLabel);
+                    ImGui::Dummy(ImVec2(w, errH + pad));
                     return;
                 }
                 if (spanBad)
