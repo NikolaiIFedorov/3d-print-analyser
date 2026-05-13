@@ -5634,7 +5634,8 @@ void Display::TickStructurePreviewBuildIfNeeded()
 #if defined(CAD_USE_CGAL)
     // `BuildFaceTriangulationPreview` uses CGAL 2D; the carve worker uses CGAL 3D on another thread.
     // Running both concurrently has produced UI freezes + repeated CGAL diagnostics — treat as unsafe.
-    if (pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch)
+    if (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
+        pendingStructureStagingTask.has_value())
         return;
 #endif
     std::vector<const Face *> workOrder;
@@ -5663,7 +5664,8 @@ void Display::RefreshStructurePreviewForRenderer()
         return;
     }
 #if defined(CAD_USE_CGAL)
-    if (pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch)
+    if (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
+        pendingStructureStagingTask.has_value())
     {
         ResetStructurePreviewIncrementalState();
         renderer.SetStructurePreviewSegments({});
@@ -5688,7 +5690,7 @@ void Display::RefreshStructurePreviewForRenderer()
 #if defined(CAD_USE_CGAL)
 void Display::CancelPendingStructureCarveJob()
 {
-    pendingStructureStagingCarveLaunch = false;
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
     if (!pendingStructureStagingTask.has_value())
         return;
     pendingStructureStagingTask->RequestCancel();
@@ -5714,6 +5716,7 @@ void Display::PollStructureStagingTaskIfReady()
     {
         // Worker packaged_task threw; do not leave the panel stuck on "Carving…".
         pendingStructureStagingTask.reset();
+        structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
         SessionLogger::Instance().LogStructureStagingWorkerException();
         SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed (worker exception).");
         LOG_WARN("Structure staging: worker future threw; see session / terminal for details");
@@ -5736,13 +5739,14 @@ void Display::PollStructureStagingTaskIfReady()
 
     AsyncStructureStagingResult r = std::move(*ready);
     pendingStructureStagingTask.reset();
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
 
     SessionLogger::Instance().LogStructureStagingWorkerResult(r.jobId, structureStagingIssuedJobId, r.cancelled,
                                                               r.carvedSolids, r.carveAttempts, static_cast<bool>(r.staging),
                                                               r.firstErr, r.targetSceneIndex);
 
     // As soon as the future is consumed, drop "Carving…" and refresh footer visibility (`structureCarveBusy`
-    // is derived from `pendingStructureStagingTask`). CGAL may still be printing to stderr while the worker
+    // is derived from `structureCarvePipelinePhase` + `pendingStructureStagingTask`). CGAL may still be printing to stderr while the worker
     // unwinds — without this, the header can lie behind stderr for a long time.
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
     SyncStructurePanelDerivedVisibility();
@@ -5842,9 +5846,9 @@ void Display::PollStructureStagingTaskIfReady()
 
 void Display::FlushPendingStructureStagingCarveLaunchIfAny()
 {
-    if (!pendingStructureStagingCarveLaunch)
+    if (structureCarvePipelinePhase != StructureCarvePipelinePhase::LaunchPending)
         return;
-    pendingStructureStagingCarveLaunch = false;
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
     if (activeTool != ActiveTool::Structure)
     {
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
@@ -6003,6 +6007,7 @@ void Display::LaunchStructureStagingCarveJob()
             ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Carving;
     SessionLogger::Instance().LogStructureStagingJobSubmitted(jobId, targetSceneIndex, solidCarveGroups,
                                                                eligibleCount);
     SessionLogger::Instance().MaybeFlushAfterStructurePoll();
@@ -6028,7 +6033,7 @@ void Display::BeginStructureStagingSession()
 
     CancelPendingStructureCarveJob();
 
-    pendingStructureStagingCarveLaunch = true;
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::LaunchPending;
     SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Preparing carve…");
     SyncStructurePanelDerivedVisibility();
     uiRenderer.MarkDirty();
@@ -6154,8 +6159,8 @@ void Display::SyncStructurePanelDerivedVisibility()
         scene != nullptr && (!scene->solids.empty() || !scene->faces.empty()) &&
         !pendingImportTabActive;
 #if defined(CAD_USE_CGAL)
-    const bool structureCarveBusy =
-        pendingStructureStagingTask.has_value() || pendingStructureStagingCarveLaunch;
+    const bool structureCarveBusy = structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
+                                    pendingStructureStagingTask.has_value();
 #else
     const bool structureCarveBusy = false;
 #endif

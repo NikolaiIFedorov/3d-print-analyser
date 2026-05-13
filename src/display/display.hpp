@@ -154,7 +154,7 @@ private:
     /// `ownedScenes[activeSceneIndex]` so the user sees the carve live. The original is held aside in
     /// `structureOriginalScene` for cancel/restore. With `CAD_USE_CGAL`, the CGAL carve runs on a worker thread;
     /// the swap happens on the main thread when the job completes. Main-thread `Scene::Clone` + job submit
-    /// run on the **next** `Frame()` tick (see `pendingStructureStagingCarveLaunch`) so tool entry can paint
+    /// run on the **next** `Frame()` tick (see `StructureCarvePipelinePhase::LaunchPending`) so tool entry can paint
     /// once before clone. No-op when no model is loaded or staging is already active.
     void BeginStructureStagingSession();
     /// Restore the pre-staging original scene if a staging session is active; cleared otherwise. Re-runs
@@ -347,6 +347,15 @@ private:
     std::optional<TaskRunner::TaskHandle<AsyncImportResult>> pendingImportTask;
     std::optional<TaskRunner::TaskHandle<AsyncAnalysisResult>> pendingAnalysisTask;
 #if defined(CAD_USE_CGAL)
+    /// Main-thread sequencing for Structure carve (deferred clone/submit vs worker future). Keeps UI / preview
+    /// gates aligned with `FlushPendingStructureStagingCarveLaunchIfAny` + `PollStructureStagingTaskIfReady`.
+    enum class StructureCarvePipelinePhase : uint8_t
+    {
+        Idle = 0,
+        LaunchPending,
+        Carving,
+    };
+
     /// Worker output for `BeginStructureStagingSession`: carved staging scene and optional carve error text.
     struct AsyncStructureStagingResult
     {
@@ -361,6 +370,7 @@ private:
     std::optional<TaskRunner::TaskHandle<AsyncStructureStagingResult>> pendingStructureStagingTask;
     /// Incremented when a new carve job is issued or when pending work is invalidated; results must match to apply.
     uint64_t structureStagingIssuedJobId = 0;
+    StructureCarvePipelinePhase structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
 #endif
     const Scene *pendingAnalysisScene = nullptr;
     /// Latest async analysis result awaiting render application (tints / flaw overlay).
@@ -530,9 +540,6 @@ private:
     void PollStructureStagingTaskIfReady();
     /// Cancels an in-flight carve job (if any), bumps `structureStagingIssuedJobId`, clears the header busy hint.
     void CancelPendingStructureCarveJob();
-    /// Set by `BeginStructureStagingSession` after validation; consumed at the start of `Frame()` so the
-    /// first Structure frame can present (ImGui) before main-thread `Scene::Clone` + job submit.
-    bool pendingStructureStagingCarveLaunch = false;
     void FlushPendingStructureStagingCarveLaunchIfAny();
     void LaunchStructureStagingCarveJob();
 #endif

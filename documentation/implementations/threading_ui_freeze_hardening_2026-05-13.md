@@ -51,13 +51,13 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Cause:** `pendingToolSwitch` ran `BeginStructureStagingSession()` **before** `ImGui::NewFrame()` in `Render()`. That path did `Scene::Clone` and face grouping on the **main thread** first, so the window could not show the Structure panel or any busy caption until clone finished.
 
-**Fix:** CGAL path splits scheduling vs work: `BeginStructureStagingSession` only validates, cancels any prior job, sets `pendingStructureStagingCarveLaunch`, and shows **Preparing carve…**; `FlushPendingStructureStagingCarveLaunchIfAny` runs at the **start** of the next `Frame()` (after `PollStructureStagingTaskIfReady`) and performs clone + submit + **Carving…**. Footer busy state treats the launch flag like an in-flight carve. `CancelPendingStructureCarveJob` clears the launch flag.
+**Fix:** CGAL path splits scheduling vs work: `BeginStructureStagingSession` only validates, cancels any prior job, sets `structureCarvePipelinePhase` to **`LaunchPending`**, and shows **Preparing carve…**; `FlushPendingStructureStagingCarveLaunchIfAny` runs at the **start** of the next `Frame()` (after `PollStructureStagingTaskIfReady`) and consumes that phase (then **`Carving`** after successful `Submit`) so clone + submit + **Carving…** happen after the first Structure frame can paint. Footer busy state treats **`LaunchPending`** / **`Carving`** like an in-flight carve. `CancelPendingStructureCarveJob` resets the phase to **`Idle`**.
 
 ## Follow-up (2026-05-13) — Freeze + CGAL spam on simple model while “Carving”
 
 **Cause:** The carve worker runs CGAL 3D (`StructureCarve`), but `TickStructurePreviewBuildIfNeeded` could still run **`StructureTriangulation::BuildFaceTriangulationPreview`** on the **UI thread** whenever staging was not active yet (`IsStructureStagingActive()` false while `pendingStructureStagingTask` held a future). That is **two threads in CGAL** (2D preview vs 3D corefinement), which is unsafe and matched “freeze right as CGAL logs.”
 
-**Fix:** Skip Structure preview bake / refresh paths while `pendingStructureStagingTask` or `pendingStructureStagingCarveLaunch` is set (CAD_USE_CGAL); clear preview segments so the overlay does not fight the worker.
+**Fix:** Skip Structure preview bake / refresh paths while `pendingStructureStagingTask` is set **or** `structureCarvePipelinePhase != Idle` (CAD_USE_CGAL), so **`LaunchPending`** also blocks preview before clone/submit; clear preview segments so the overlay does not fight the worker.
 
 ## Follow-up (2026-05-13) — Session log: `structure_staging_worker_result`
 
@@ -82,4 +82,8 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 - After **`LogStructureStagingJobSubmitted`** (carve queued), another eager flush runs so you see **`structure_staging_job_submitted`** on disk even if the app never reaches **`structure_staging_worker_result`** (worker stuck or killed).
 
 If the variable is only set in a terminal but the app is started from the Dock / another tool, it will not see it.
+
+## Follow-up (2026-05-12) — `StructureCarvePipelinePhase`
+
+Replaced the ad-hoc `pendingStructureStagingCarveLaunch` boolean with `Display::StructureCarvePipelinePhase` (`Idle`, `LaunchPending`, `Carving`) plus `structureCarvePipelinePhase` in `display.hpp`, driven from `BeginStructureStagingSession` / `FlushPendingStructureStagingCarveLaunchIfAny` / `LaunchStructureStagingCarveJob` / `PollStructureStagingTaskIfReady` / `CancelPendingStructureCarveJob`. Same runtime behaviour as the flag, but the carve pipeline state is explicit for footer busy, preview CGAL skip, and future readers.
 
