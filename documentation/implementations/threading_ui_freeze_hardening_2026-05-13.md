@@ -93,3 +93,9 @@ Replaced the ad-hoc `pendingStructureStagingCarveLaunch` boolean with `Display::
 
 **Change:** Stop calling **`MaybeFlushAfterStructurePoll()` from inside the Structure worker lambda** — eager flush rewrites the whole JSON while holding `SessionLogger`’s mutex and can block on disk; that is the same class of risk as worker-thread logging to a backpressured TTY. Eager flush remains on the **main** thread (poll path, post-`Submit`, import). Added **`structure_staging_worker_packaging_result`** immediately before `return out` so logs distinguish “stuck between `solid_end` and return” vs “stuck after packaging / in future machinery”.
 
+## Follow-up (2026-05-13) — Log stops at `solid_begin` (“Carving…”)
+
+**Interpretation:** `structure_staging_worker_solid_begin` is emitted immediately **before** `TryApplyStructureCarve`. With **no** `structure_staging_worker_solid_end`, the worker is still **inside** that call — usually long CGAL (`mesh` prep, footprint / 2D work, or **`corefine_and_compute_difference`**). The **Carving…** caption is expected until the job lambda returns; **cancel cannot preempt** work already inside `corefine` (CGAL limitation).
+
+**Change:** `TryApplyStructureCarve` accepts an optional **`workerTrace`** callback; the Structure worker wires **`structure_staging_worker_carve_phase`** (`enter`, `tm_ready`, `footprint_done`, `before_boolean`, `after_boolean`, `before_detach`, `after_rebuild`). **`shouldAbort` is checked immediately before each boolean** so cancel can bail between rings. Worker-thread **`LOG_WARN` / `LOG_DESC`** on this path use **`Log::Background`** (not emitted at default verbosity — avoids TTY backpressure while the future is open).
+
