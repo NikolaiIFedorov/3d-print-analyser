@@ -257,6 +257,14 @@ static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &footprintC
 
     PMP::orient_polygon_soup(coords, faces);
     PMP::merge_duplicate_points_in_polygon_soup(coords, faces);
+    // CGAL will hard-fail (precondition violation) if the soup does not define a valid polygon mesh.
+    // Guard it explicitly so hostile geometry degrades to a recoverable error instead of aborting.
+    if (!PMP::is_polygon_soup_a_polygon_mesh(faces))
+    {
+        PMP::repair_polygon_soup(coords, faces);
+        if (!PMP::is_polygon_soup_a_polygon_mesh(faces))
+            return CgalMesh{};
+    }
     PMP::polygon_soup_to_polygon_mesh(coords, faces, mesh);
     PMP::duplicate_non_manifold_vertices(mesh);
     PMP::stitch_borders(mesh);
@@ -315,6 +323,12 @@ bool TryApplyStructureCarve(Scene *scene,
         invokeTrace("pmp_merge_dup_done");
         CgalMesh tm;
         invokeTrace("pmp_soup_to_mesh_begin");
+        if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+        {
+            PMP::repair_polygon_soup(coords, tris);
+            if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+                return fail("Invalid triangle soup: CGAL precondition failed for polygon_soup_to_polygon_mesh.");
+        }
         PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
         invokeTrace("pmp_soup_to_mesh_done");
         if (tm.number_of_faces() == 0)

@@ -8,6 +8,7 @@
 #include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
 #include <CGAL/Polygon_mesh_processing/remesh_planar_patches.h>
 #include <CGAL/Polygon_mesh_processing/repair.h>
+#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
 
 #include <boost/graph/graph_traits.hpp>
 
@@ -179,6 +180,16 @@ bool TryRemeshPlanarPatchesReplacingSolidFaces(Scene *scene, Solid *solid, Merge
     PMP::orient_polygon_soup(coords, tris);
 
     CgalMesh tm;
+    // Guard against CGAL precondition violations on hostile soups.
+    if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+    {
+        PMP::repair_polygon_soup(coords, tris);
+        if (!PMP::is_polygon_soup_a_polygon_mesh(tris))
+        {
+            LOG_WARN("CGAL path: invalid triangle soup (is_polygon_soup_a_polygon_mesh failed)");
+            return false;
+        }
+    }
     PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
     if (tm.number_of_faces() == 0)
     {
