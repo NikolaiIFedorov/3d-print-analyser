@@ -35,7 +35,9 @@ namespace StructureCarve
 /// when `errOut` is non-null.
 ///
 /// Optional `workerTrace`: when non-null and the function is non-empty, invoked with short phase
-/// tokens (`enter`, `tm_ready`, `after_z_bounds`, `before_footprint`, `footprint_done`, `before_boolean`, …).
+/// tokens (`enter`, `tm_ready`, `after_z_bounds`, `before_footprint`, `footprint_done_rings_N`,
+/// `before_prism`, `after_prism`, `before_boolean`, …). CGAL may print to **stderr** independently of
+/// these events — stderr lines are not proof the call has returned to C++ yet.
 bool TryApplyStructureCarve(Scene *scene,
                             Solid *solid,
                             const std::vector<const Face *> &faces,

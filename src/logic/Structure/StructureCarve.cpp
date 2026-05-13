@@ -23,6 +23,7 @@
 #include <functional>
 #include <limits>
 #include <map>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -284,7 +285,7 @@ bool TryApplyStructureCarve(Scene *scene,
         return shouldAbort != nullptr && (*shouldAbort)();
     };
 
-    auto invokeTrace = [&](const char *phase)
+    auto invokeTrace = [&](const std::string &phase)
     {
         if (workerTrace != nullptr && *workerTrace)
             (*workerTrace)(phase);
@@ -351,7 +352,7 @@ bool TryApplyStructureCarve(Scene *scene,
             invokeTrace("before_footprint");
             const std::vector<std::vector<glm::dvec3>> rings =
                 StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params);
-            invokeTrace("footprint_done");
+            invokeTrace(std::string("footprint_done_rings_") + std::to_string(rings.size()));
             if (aborted())
                 return fail("Structure carve cancelled.");
             for (const std::vector<glm::dvec3> &ring : rings)
@@ -359,10 +360,18 @@ bool TryApplyStructureCarve(Scene *scene,
                 if (aborted())
                     return fail("Structure carve cancelled.");
                 if (ring.size() < 3)
+                {
+                    invokeTrace("ring_skip_short");
                     continue;
+                }
+                invokeTrace("before_prism");
                 CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);
+                invokeTrace("after_prism");
                 if (!prism.is_valid() || prism.number_of_faces() == 0)
+                {
+                    invokeTrace("ring_skip_invalid_prism");
                     continue;
+                }
 
                 if (aborted())
                     return fail("Structure carve cancelled.");
