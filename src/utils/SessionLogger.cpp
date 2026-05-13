@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <mutex>
 #include <random>
 
 namespace
@@ -172,6 +173,11 @@ void SessionLogger::LogStructureStagingJobSubmitted(uint64_t jobId, size_t targe
               });
 }
 
+void SessionLogger::LogStructureStagingWorkerStarted(uint64_t jobId)
+{
+    PushEvent("structure_staging_worker_started", {{"job_id", std::to_string(jobId)}});
+}
+
 void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
 {
     std::vector<std::pair<std::string, std::string>> fields = {
@@ -260,11 +266,13 @@ uint64_t SessionLogger::ElapsedMs() const
 void SessionLogger::PushEvent(const std::string &type,
                               std::vector<std::pair<std::string, std::string>> fields)
 {
+    std::lock_guard<std::mutex> lock(eventsMutex);
     events.push_back({ElapsedMs(), type, std::move(fields)});
 }
 
 std::string SessionLogger::SerializeJson() const
 {
+    std::lock_guard<std::mutex> lock(eventsMutex);
     // Wall-clock timestamp for the session_start field
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);

@@ -5941,6 +5941,8 @@ void Display::LaunchStructureStagingCarveJob()
                 return out;
 
             ShutdownStackTraceLogIfEnabled("structure-worker: job entered");
+            SessionLogger::Instance().LogStructureStagingWorkerStarted(jobId);
+            SessionLogger::Instance().MaybeFlushAfterStructurePoll();
 
             size_t carvedSolids = 0;
             size_t carveAttempts = 0;

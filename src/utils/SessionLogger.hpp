@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 #include <chrono>
+#include <mutex>
 #include <glm/glm.hpp>
 
 #include "logic/Import/STLImport.hpp"
@@ -104,6 +105,8 @@ public:
     /// has not finished yet — use `structure_staging_worker_result` when the future is consumed).
     void LogStructureStagingJobSubmitted(uint64_t jobId, size_t targetSceneIndex, size_t solidCarveGroups,
                                           size_t eligibleFaceCount);
+    /// Structure carve worker entered the job body (callable from the worker thread; pair with eager flush).
+    void LogStructureStagingWorkerStarted(uint64_t jobId);
     /// Main-thread breadcrumbs after the worker future is consumed (`PollStructureStagingTaskIfReady`).
     /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
     void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});
@@ -132,6 +135,7 @@ private:
     std::chrono::steady_clock::time_point startTime;
     /// Unique per `Start()` so two exported `session_log.json` files are never ambiguous.
     std::string sessionRunId;
+    mutable std::mutex eventsMutex;
 
     uint64_t ElapsedMs() const;
     void PushEvent(const std::string &type,
