@@ -5688,23 +5688,61 @@ void Display::PollStructureStagingTaskIfReady()
 {
     if (!pendingStructureStagingTask.has_value())
         return;
-    std::optional<AsyncStructureStagingResult> ready = pendingStructureStagingTask->TryTake(WorkerFuturePollRemainingMs());
+
+    const auto clearCarvingUi = [this]()
+    {
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+    };
+
+    std::optional<AsyncStructureStagingResult> ready;
+    try
+    {
+        ready = pendingStructureStagingTask->TryTake(WorkerFuturePollRemainingMs());
+    }
+    catch (...)
+    {
+        // Worker packaged_task threw; do not leave the panel stuck on "Carving…".
+        pendingStructureStagingTask.reset();
+        SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Structure carve failed (worker exception).");
+        LOG_WARN("Structure staging: worker future threw; see session / terminal for details");
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
+
     if (!ready.has_value())
         return;
     pendingStructureStagingTask.reset();
 
     AsyncStructureStagingResult r = std::move(*ready);
     if (r.jobId != structureStagingIssuedJobId)
+    {
+        clearCarvingUi();
         return;
+    }
     if (r.cancelled)
+    {
+        clearCarvingUi();
         return;
+    }
     if (r.targetSceneIndex == SIZE_MAX || r.targetSceneIndex >= ownedScenes.size())
+    {
+        clearCarvingUi();
         return;
+    }
     if (r.targetSceneIndex != activeSceneIndex || activeTool != ActiveTool::Structure)
+    {
+        clearCarvingUi();
         return;
+    }
     if (!r.staging)
     {
         LOG_WARN("Structure staging: worker returned empty scene");
+        clearCarvingUi();
         return;
     }
 

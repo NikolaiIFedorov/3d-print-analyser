@@ -35,3 +35,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 - **Worker lambda**: passes token-backed `shouldAbort`; on `TryApply` failure, if cancel requested treats as `out.cancelled` (quit / `CancelPendingStructureCarveJob`).
 - **Shutdown**: `AbandonStructureCarveTaskRunnerAtShutdown()` — lazy `TaskRunner*` for structure queue; after `CancelPendingStructureCarveJob`, calls `RequestStopClearQueueAndDetachWorkers` so the structure worker is never `join()`’d at process exit and queued follow-up jobs are dropped.
 
+## Follow-up (2026-05-13) — “Carving…” stuck, no CGAL error in UI
+
+**Cause:** `PollStructureStagingTaskIfReady` consumed the future (`reset`) then **returned early** (stale `jobId`, `cancelled`, wrong tab/tool, empty `staging`) **without** clearing the **Carving…** trailing caption — looks like a hang or “join,” but the worker may already be done.
+
+**Fix:** Clear structure panel trailing + mark dirty on every discard path; `try/catch` around `TryTake` so worker exceptions replace Carving with a short failure caption.
+
