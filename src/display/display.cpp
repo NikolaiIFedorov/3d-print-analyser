@@ -23,6 +23,7 @@
 #include <vector>
 #include <queue>
 #include <cstdio>
+#include <cstdlib>
 #include <random>
 #include "logic/Import/OBJImport.hpp"
 #include "logic/Import/ThreeMFImport.hpp"
@@ -5707,10 +5708,26 @@ void Display::PollStructureStagingTaskIfReady()
     if (!pendingStructureStagingTask.has_value())
         return;
 
+    const bool pollTraceOn = []()
+    {
+        const char *e = std::getenv("CAD_STRUCTURE_POLL_TRACE");
+        return e != nullptr && e[0] != '\0' && !(e[0] == '0' && e[1] == '\0');
+    }();
+
     std::optional<AsyncStructureStagingResult> ready;
     try
     {
-        ready = pendingStructureStagingTask->TryTake(WorkerFuturePollRemainingMs());
+        const std::chrono::milliseconds maxWait = WorkerFuturePollRemainingMs();
+        const auto t0 = std::chrono::steady_clock::now();
+        ready = pendingStructureStagingTask->TryTake(maxWait);
+        const auto t1 = std::chrono::steady_clock::now();
+        if (pollTraceOn)
+        {
+            const uint64_t waitedMs =
+                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
+            SessionLogger::Instance().LogStructureStagingPollSlice(
+                static_cast<uint64_t>(maxWait.count()), waitedMs, ready.has_value());
+        }
     }
     catch (...)
     {

@@ -211,6 +211,16 @@ void SessionLogger::LogStructureStagingWorkerCarvePhase(uint64_t jobId, const st
               });
 }
 
+void SessionLogger::LogStructureStagingPollSlice(uint64_t maxWaitMs, uint64_t waitedMs, bool ready)
+{
+    PushEvent("structure_staging_poll_slice",
+              {
+                  {"max_wait_ms", std::to_string(maxWaitMs)},
+                  {"waited_ms", std::to_string(waitedMs)},
+                  {"ready", ready ? "true" : "false"},
+              });
+}
+
 void SessionLogger::LogStructureStagingWorkerPackagingResult(uint64_t jobId, size_t carvedSolids,
                                                                size_t carveAttempts, bool hasFirstErr)
 {

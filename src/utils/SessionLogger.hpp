@@ -115,6 +115,9 @@ public:
     /// Inside `TryApplyStructureCarve` on the worker — short `phase` token (e.g. `before_boolean`) to locate
     /// hangs between `structure_staging_worker_solid_begin` and `solid_end`.
     void LogStructureStagingWorkerCarvePhase(uint64_t jobId, const std::string &phase);
+    /// Main-thread poll slice for the Structure carve future (`PollStructureStagingTaskIfReady`).
+    /// Logs how long `TryTake(maxWait)` waited (bounded by per-frame budget) and whether the future was ready.
+    void LogStructureStagingPollSlice(uint64_t maxWaitMs, uint64_t waitedMs, bool ready);
     /// Worker finished all solid lanes and packed `AsyncStructureStagingResult` (still inside the job lambda,
     /// immediately before `return out`). If `structure_staging_worker_solid_end` appears but this event does
     /// not, the hang is between solid end and result packaging; if this appears but `structure_staging_worker_result`
