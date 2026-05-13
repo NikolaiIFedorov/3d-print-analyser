@@ -5742,15 +5742,34 @@ void Display::PollStructureStagingTaskIfReady()
     renderDirty = true;
 
     if (r.jobId != structureStagingIssuedJobId)
+    {
+        SessionLogger::Instance().LogStructureStagingApplyPhase(
+            "discarded_stale_job", "result_job=" + std::to_string(r.jobId) +
+                                       " issued_job=" + std::to_string(structureStagingIssuedJobId));
         return;
+    }
     if (r.cancelled)
+    {
+        SessionLogger::Instance().LogStructureStagingApplyPhase("discarded_cancelled");
         return;
+    }
     if (r.targetSceneIndex == SIZE_MAX || r.targetSceneIndex >= ownedScenes.size())
+    {
+        SessionLogger::Instance().LogStructureStagingApplyPhase(
+            "discarded_bad_target_scene", "target_scene=" + std::to_string(r.targetSceneIndex));
         return;
+    }
     if (r.targetSceneIndex != activeSceneIndex || activeTool != ActiveTool::Structure)
+    {
+        SessionLogger::Instance().LogStructureStagingApplyPhase(
+            "discarded_wrong_tab_or_tool",
+            "target_scene=" + std::to_string(r.targetSceneIndex) +
+                " active_scene=" + std::to_string(activeSceneIndex));
         return;
+    }
     if (!r.staging)
     {
+        SessionLogger::Instance().LogStructureStagingApplyPhase("discarded_empty_staging");
         LOG_WARN("Structure staging: worker returned empty scene");
         return;
     }
@@ -5774,6 +5793,10 @@ void Display::PollStructureStagingTaskIfReady()
         MarkPickDirty();
         uiRenderer.MarkDirty();
         renderDirty = true;
+        SessionLogger::Instance().LogStructureStagingApplyPhase(
+            "apply_all_carves_failed_on_scene",
+            "carve_attempts=" + std::to_string(r.carveAttempts) +
+                (r.firstErr.empty() ? std::string() : std::string(" err=") + r.firstErr.substr(0, 120)));
         return;
     }
 
@@ -5797,7 +5820,11 @@ void Display::PollStructureStagingTaskIfReady()
 
     StructureTriangulation::ClearBakeCache();
     structureEligibleFacesCache.clear();
+    SessionLogger::Instance().LogStructureStagingApplyPhase(
+        "applied_scene_swap", "job=" + std::to_string(r.jobId) + " scene=" + std::to_string(activeSceneIndex));
     UpdateScene();
+    SessionLogger::Instance().LogStructureStagingApplyPhase(
+        "applied_after_update_scene", "job=" + std::to_string(r.jobId));
     SyncStructurePanelDerivedVisibility();
     MarkPickDirty();
     uiRenderer.MarkDirty();

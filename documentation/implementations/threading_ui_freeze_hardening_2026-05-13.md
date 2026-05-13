@@ -63,3 +63,9 @@ Bounded `TryTake` shares one 16 ms slice across three polls—tunable if a singl
 
 **Change:** On the **main thread** when `PollStructureStagingTaskIfReady` consumes a finished carve future, call `SessionLogger::LogStructureStagingWorkerResult` (wraps `PushEvent`) with `job_id`, `issued_job_id`, `job_id_matches`, `cancelled`, `carved_solids`, `carve_attempts`, `has_staging`, `has_first_err`, `first_err_snippet` (truncated), `target_scene`. Packaged-task exceptions call `LogStructureStagingWorkerException`. Compare `session_log.json` between a freezing and a non-freezing model after quit (or `CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1` for mid-run flush experiments).
 
+## Follow-up (2026-05-13) — Identical `structure_staging_worker_result` on good vs bad model
+
+**Interpretation:** That event only means the **worker** finished similarly; a freeze can still happen on **apply** (`UpdateScene` / GPU incremental rebuild / pick) or later. Identical `t_ms`/`dt_ms` across two exports usually means the same file or copy-paste, not two runs — fixed by **`session_run_id`** in JSON (unique per `SessionLogger::Start()`).
+
+**Fix:** `LogStructureStagingApplyPhase` breadcrumbs: `discarded_*`, `apply_all_carves_failed_on_scene`, `applied_scene_swap`, `applied_after_update_scene`. If the log shows `applied_scene_swap` but not `applied_after_update_scene`, the hang is inside **`UpdateScene()`** (geometry path).
+

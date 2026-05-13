@@ -7,6 +7,7 @@
 #include <sstream>
 #include <iomanip>
 #include <ctime>
+#include <random>
 
 SessionLogger &SessionLogger::Instance()
 {
@@ -17,6 +18,16 @@ SessionLogger &SessionLogger::Instance()
 void SessionLogger::Start()
 {
     startTime = std::chrono::steady_clock::now();
+    {
+        std::random_device rd;
+        std::mt19937_64 gen(rd());
+        std::uniform_int_distribution<uint64_t> dist;
+        sessionRunId = std::to_string(
+                           std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::system_clock::now().time_since_epoch())
+                               .count()) +
+                       "_" + std::to_string(dist(gen));
+    }
     PushEvent("app_start", {});
     Log::Session("Session started");
 }
@@ -127,6 +138,16 @@ void SessionLogger::LogStructureStagingWorkerException()
     PushEvent("structure_staging_worker_exception", {});
 }
 
+void SessionLogger::LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail)
+{
+    std::vector<std::pair<std::string, std::string>> fields = {
+        {"phase", "\"" + EscapeStr(phase) + "\""},
+    };
+    if (!detail.empty())
+        fields.push_back({"detail", "\"" + EscapeStr(detail) + "\""});
+    PushEvent("structure_staging_apply_phase", std::move(fields));
+}
+
 void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl)
 {
     if (!stl.hasMergeDiagnostics)
@@ -207,6 +228,7 @@ std::string SessionLogger::SerializeJson() const
     std::ostringstream out;
     out << "{\n";
     out << "  \"session_start\": \"" << timeBuf << "\",\n";
+    out << "  \"session_run_id\": \"" << EscapeStr(sessionRunId) << "\",\n";
     out << "  \"events\": [\n";
 
     for (size_t i = 0; i < events.size(); ++i)

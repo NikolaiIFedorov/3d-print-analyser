@@ -100,6 +100,9 @@ public:
                                          size_t carveAttempts, bool hasStaging, const std::string &firstErr,
                                          size_t targetSceneIndex);
     void LogStructureStagingWorkerException();
+    /// Main-thread breadcrumbs after the worker future is consumed (`PollStructureStagingTaskIfReady`).
+    /// `phase` is a short stable token (e.g. `applied_after_update_scene`, `discarded_stale_job`).
+    void LogStructureStagingApplyPhase(const std::string &phase, const std::string &detail = {});
 
 private:
     SessionLogger() = default;
@@ -114,6 +117,8 @@ private:
 
     std::vector<Event> events;
     std::chrono::steady_clock::time_point startTime;
+    /// Unique per `Start()` so two exported `session_log.json` files are never ambiguous.
+    std::string sessionRunId;
 
     uint64_t ElapsedMs() const;
     void PushEvent(const std::string &type,
