@@ -1,0 +1,43 @@
+# Geometry validity (`AppInvalidTag`) — mitigations and repair roadmap
+
+This note captures how we think about **invalid app geometry**, what to tell users, and how we might **move toward valid** geometry over time. It complements the code in `include/GeometryValidity.hpp`, `src/logic/GeometryValidity.cpp`, and the **per-solid cache** on `Solid` (`cachedAppInvalidGeometryTags`, `cachedAppInvalidGeometryTagsFresh`).
+
+## Principles
+
+1. **Validity is contextual** — The same mesh can be fine for viewing but invalid for an operation that needs a closed solid, consistent orientation, or CGAL soup guarantees. Prefer wording like “invalid **for this step**” in product copy when appropriate.
+
+2. **Trust the cache only when fresh** — Before using `Solid::cachedAppInvalidGeometryTags` for gating or UI, ensure `cachedAppInvalidGeometryTagsFresh` is true, or call `GeometryValidity::RefreshSolidAppGeometryValidityCache` (lazy refresh on read is an acceptable safety net if some mutation path forgot to invalidate).
+
+3. **Structure-specific pick rules** stay out of this table for now — Planar-only, single-loop, “upward enough”, and min-span rules live in `Display::IsStructureFaceEligible` until that pipeline stabilizes; see `documentation/implementations/structure_face_triangulation_2026-05-11.md`.
+
+4. **CGAL has its own vocabulary** — Soup/mesh outcomes use `CgalPolygonSoupTag` and CGAL’s definitions; a different kernel would need a parallel enum.
+
+## `AppInvalidTag` reference (detection today vs future)
+
+| Tag | What it means (app layer) | Detected today? | Default user-facing angle | Mitigation / repair ideas (phased) | When to refuse vs warn |
+|-----|---------------------------|-----------------|----------------------------|-----------------------------------|-------------------------|
+| `DegenerateTriangle` | Near–zero area triangles from fan decomposition of face loops (scale-aware threshold). | Yes | “Some faces are too thin or collapsed.” | **Later:** remove zero-area fans, merge vertices within epsilon after import; **now:** suggest re-import / check source mesh. | **Refuse** steps that need stable facet areas; **warn** for display-only. |
+| `NullOrEmptyTopology` | Missing solid/face/surface, empty loops, null edge/points, or fewer than three vertices in a loop after a clean walk. | Yes | “The model’s connectivity is broken or incomplete.” | **Usually a bug or aborted op** — fix the pipeline; optional recovery from last good snapshot. | **Refuse** most geometry ops until fixed. |
+| `SelfIntersection` | Surface passes through itself (volumes ambiguous). | **Reserved** — not set by `EvaluateAppInvalidTagsForSolid` yet. | “The model intersects itself.” | **Later:** selective remesh, boolean cleanup, or user-guided repair; expensive. | **Refuse** robust booleans / carve until addressed or user accepts risk. |
+| `OpenBoundary` | At least one `Edge` appears on only one face in the solid’s half-edge count (sheet or open shell). | Yes | “This solid has a boundary — it is not a closed volume.” | **Often intentional** — offer **two profiles:** “closed solid required” vs “open OK”; **later:** hole fill / cap only when user asks. | **Warn** by default; **refuse** only for tools that require watertight input. |
+| `NonManifoldConnectivity` | An edge shared by more than two face sides, or two uses that do not oppose along the same endpoints. | Yes | “Edges meet in a way this operation cannot handle.” | **Later:** CGAL / libigl style repair, split non-manifold vertices, remove internal sheets — often **ambiguous**; prefer explicit repair command + preview. | **Refuse** CGAL soup paths that need manifold-like input; **warn** otherwise. |
+| `InconsistentFaceOrientation` | Same directed edge used twice from adjacent faces (normals / winding disagree). | Yes | “Face directions disagree on shared edges.” | **Later:** consistent orientation pass (e.g. flood-fill from seed face, or volume sign); may need user choice if multiple shells. | **Refuse** volume-dependent ops; **warn** for rendering. |
+
+## Suggested implementation order (engineering)
+
+1. **UX and gating** — Map tags (and CGAL failures) to short, actionable strings; block only when the **current tool’s contract** requires it.
+2. **Low-ambiguity fixes** — Vertex merge / duplicate weld (already partially present on STL import), drop **zero-area** facets where safe.
+3. **Explicit repair commands** — Non-manifold repair, orientation, hole fill — **with preview** and clear “cannot auto-fix” paths.
+4. **Self-intersection** — Only after detection exists; treat as advanced.
+
+## Code touchpoints (for maintainers)
+
+- Evaluation: `GeometryValidity::EvaluateAppInvalidTagsForSolid`
+- Cache: `Solid::cachedAppInvalidGeometryTags`, `Solid::cachedAppInvalidGeometryTagsFresh`
+- Refresh: `GeometryValidity::RefreshSolidAppGeometryValidityCache` — after `Scene::CreateSolid`, end of `Scene::MergeCoplanarFaces`
+- Invalidate: `GeometryValidity::InvalidateSolidAppGeometryValidityCache` — before tearing down a solid’s faces (e.g. Structure carve / CGAL STL experiment detach)
+- Carve diagnostics: `StructureCarve` logs app tags on certain failures (see `STRUCT_MESH_*` handling in `display.cpp` for user-visible errors)
+
+## Revision
+
+- **2026-05-14** — Initial table and principles (mitigations roadmap; no automatic repair implemented beyond existing import/merge behavior).

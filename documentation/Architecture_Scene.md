@@ -49,7 +49,7 @@ The Scene module is the data-ownership layer of CAD_OpenGL. It implements a Boun
 | `Curve.hpp / .cpp` | Abstract `Curve`, `ArcCurve`, `NurbsCurve` | Polymorphic curve evaluation. `Evaluate(t, start, end) → glm::dvec3`. Owned by `Scene::curves` as `unique_ptr<Curve>`. |
 | `Surface.hpp` | Abstract `Surface`, `PlanarSurface`, `NurbsSurface` | Polymorphic normal query. `GetNormal()` / `GetNormal(u,v)` / `IsPlanar()`. Owned by `Face::surface` as `unique_ptr<Surface>`. |
 | `Face.hpp / .cpp` | Class `Face` | Owns edge loops as `vector<vector<OrientedEdge>>`. Owns a `Surface` via `unique_ptr`. Auto-orients edge loops on construction. Computes planar data for planar faces. |
-| `Solid.hpp` | Struct `Solid` | Aggregates `vector<Face*>`. Top-level entity. |
+| `Solid.hpp` | Struct `Solid` | Aggregates `vector<Face*>` plus cached `AppInvalidTag` / freshness for app-level validity. Top-level entity. |
 | `Geometry.hpp` | Structs `Vertex`, `ArcData`, `PlanarData` | Shared POD types used across modules. |
 | `AllGeometry.hpp` | Meta-header | Includes all geometry headers + declares `FormPtr` variant. |
 
@@ -75,8 +75,11 @@ Scene::CreateFace(edgeLoops)
 Scene::CreateSolid(faceVec)
   → solids.emplace_back()
   → face->dependency = &solid for all faces
+  → GeometryValidity::RefreshSolidAppGeometryValidityCache(solid)
   → return &solids.back()
 ```
+
+**App geometry validity** — Each `Solid` caches `GeometryValidity::AppInvalidTag` results (`cachedAppInvalidGeometryTags`, `cachedAppInvalidGeometryTagsFresh`). Mitigations, UX angles, and a phased repair roadmap are documented in `documentation/GeometryValidity_AppInvalidTag_mitigations.md`.
 
 ### Key Abstractions
 
