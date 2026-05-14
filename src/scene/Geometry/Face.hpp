@@ -27,6 +27,11 @@ public:
 
     const Surface &GetSurface() const { return *surface; }
 
+    /// Reverses every boundary loop (reverse edge order + toggle `reversed`) and recomputes
+    /// `PlanarSurface` data. No-op if not planar. Used to fix same-directed shared edges between
+    /// two manifold-adjacent faces (clean case).
+    bool FlipWindingIfPlanar();
+
 private:
     void OrientEdgeLoops(const std::vector<std::vector<Edge *>> &edgePtrs);
     PlanarData CalculatePlanarData();

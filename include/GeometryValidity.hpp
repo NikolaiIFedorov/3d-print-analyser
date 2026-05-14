@@ -93,6 +93,12 @@ struct DegenerateRepairStats
 
 [[nodiscard]] bool TryRepairDegenerateSolidBRep(Solid &solid, DegenerateRepairStats *statsOut = nullptr) noexcept;
 
+/// For **clean** manifold edges (exactly two incident faces on `Edge::dependencies`): if both
+/// faces use the same directed half-edge (A→B on both), flips winding on one **planar** incident
+/// face and recomputes its plane. Iterates until stable or a cap. Skips non-planar faces and
+/// edges that are not two-face manifold.
+[[nodiscard]] bool TryRepairInconsistentFaceOrientationSolid(Solid &solid) noexcept;
+
 /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
 {

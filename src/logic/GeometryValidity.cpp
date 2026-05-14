@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -429,6 +430,79 @@ void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept
 {
     solid.cachedAppInvalidGeometryTags = AppInvalidTag::None;
     solid.cachedAppInvalidGeometryTagsFresh = false;
+}
+
+bool TryRepairInconsistentFaceOrientationSolid(Solid &solid) noexcept
+{
+    constexpr int kMaxPasses = 128;
+    bool anyChange = false;
+    for (int pass = 0; pass < kMaxPasses; ++pass)
+    {
+        bool passChange = false;
+        std::unordered_map<Edge *, std::vector<std::tuple<Face *, Point *, Point *>>> uses;
+        uses.reserve(solid.faces.size() * 3u + 8u);
+
+        for (Face *f : solid.faces)
+        {
+            if (f == nullptr || f->dependency != &solid)
+                continue;
+            for (const auto &loop : f->loops)
+            {
+                for (const OrientedEdge &oe : loop)
+                {
+                    if (oe.edge == nullptr || oe.GetStart() == nullptr || oe.GetEnd() == nullptr)
+                        continue;
+                    uses[oe.edge].push_back({f, oe.GetStart(), oe.GetEnd()});
+                }
+            }
+        }
+
+        for (const auto &kv : uses)
+        {
+            Edge *const e = kv.first;
+            const auto &vec = kv.second;
+            if (e == nullptr || vec.size() != 2)
+                continue;
+            if (e->dependencies.size() != 2)
+                continue;
+
+            Face *const f0 = std::get<0>(vec[0]);
+            Face *const f1 = std::get<0>(vec[1]);
+            Point *const a0 = std::get<1>(vec[0]);
+            Point *const b0 = std::get<2>(vec[0]);
+            Point *const a1 = std::get<1>(vec[1]);
+            Point *const b1 = std::get<2>(vec[1]);
+            if (f0 == nullptr || f1 == nullptr || f0 == f1)
+                continue;
+            if (!(a0 == a1 && b0 == b1))
+                continue;
+
+            const bool p0 = f0->GetSurface().IsPlanar();
+            const bool p1 = f1->GetSurface().IsPlanar();
+            if (!p0 && !p1)
+                continue;
+
+            Face *flip = nullptr;
+            if (p0 && p1)
+                flip = (reinterpret_cast<std::uintptr_t>(f0) >= reinterpret_cast<std::uintptr_t>(f1)) ? f0 : f1;
+            else
+                flip = p0 ? f0 : f1;
+
+            if (flip->FlipWindingIfPlanar())
+            {
+                passChange = true;
+                anyChange = true;
+            }
+        }
+
+        if (!passChange)
+            break;
+    }
+
+    if (anyChange)
+        LOG_BACK("Orientation repair: adjusted planar face winding for same-directed manifold edges");
+
+    return anyChange;
 }
 
 bool TryRepairDegenerateSolidBRep(Solid &solid, DegenerateRepairStats *statsOut) noexcept

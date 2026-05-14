@@ -1,6 +1,7 @@
 #include "Face.hpp"
 #include "utils/log.hpp"
 
+#include <algorithm>
 #include <vector>
 
 namespace
@@ -141,4 +142,20 @@ PlanarData Face::CalculatePlanarData()
     data.normal = normal;
     data.d = glm::dot(normal, ring[0]);
     return data;
+}
+
+bool Face::FlipWindingIfPlanar()
+{
+    if (surface == nullptr || !surface->IsPlanar())
+        return false;
+    for (std::vector<OrientedEdge> &loop : loops)
+    {
+        if (loop.empty())
+            continue;
+        std::reverse(loop.begin(), loop.end());
+        for (OrientedEdge &oe : loop)
+            oe.reversed = !oe.reversed;
+    }
+    static_cast<PlanarSurface *>(surface.get())->data = CalculatePlanarData();
+    return true;
 }

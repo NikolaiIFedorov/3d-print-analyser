@@ -75,6 +75,8 @@ Scene::CreateFace(edgeLoops)
 Scene::CreateSolid(faceVec)
   → solids.emplace_back()
   → face->dependency = &solid for all faces
+  → GeometryValidity::TryRepairDegenerateSolidBRep(solid)
+  → GeometryValidity::TryRepairInconsistentFaceOrientationSolid(solid)
   → GeometryValidity::RefreshSolidAppGeometryValidityCache(solid)
   → return &solids.back()
 ```

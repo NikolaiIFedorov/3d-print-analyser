@@ -21,7 +21,7 @@ This note captures how we think about **invalid app geometry**, what to tell use
 | `SelfIntersection` | Surface passes through itself (volumes ambiguous). | **Reserved** — not set by `EvaluateAppInvalidTagsForSolid` yet. | “The model intersects itself.” | **Later:** selective remesh, boolean cleanup, or user-guided repair; expensive. | **Refuse** robust booleans / carve until addressed or user accepts risk. |
 | `OpenBoundary` | At least one `Edge` appears on only one face in the solid’s half-edge count (sheet or open shell). | Yes | “This solid has a boundary — it is not a closed volume.” | **Often intentional** — offer **two profiles:** “closed solid required” vs “open OK”; **later:** hole fill / cap only when user asks. | **Warn** by default; **refuse** only for tools that require watertight input. |
 | `NonManifoldConnectivity` | An edge shared by more than two face sides, or two uses that do not oppose along the same endpoints. | Yes | “Edges meet in a way this operation cannot handle.” | **Later:** CGAL / libigl style repair, split non-manifold vertices, remove internal sheets — often **ambiguous**; prefer explicit repair command + preview. | **Refuse** CGAL soup paths that need manifold-like input; **warn** otherwise. |
-| `InconsistentFaceOrientation` | Same directed edge used twice from adjacent faces (normals / winding disagree). | Yes | “Face directions disagree on shared edges.” | **Later:** consistent orientation pass (e.g. flood-fill from seed face, or volume sign); may need user choice if multiple shells. | **Refuse** volume-dependent ops; **warn** for rendering. |
+| `InconsistentFaceOrientation` | Same directed edge used twice from adjacent faces (normals / winding disagree). | Yes | “Face directions disagree on shared edges.” | **Shipped (2026-05-14):** `TryRepairInconsistentFaceOrientationSolid` + `Face::FlipWindingIfPlanar` for **two-face manifold** planar edges (iterative). **Later:** NURBS, multi-shell volume sign, non-manifold. | **Refuse** volume-dependent ops; **warn** for rendering. |
 
 ## Suggested implementation order (engineering)
 
@@ -41,4 +41,4 @@ This note captures how we think about **invalid app geometry**, what to tell use
 ## Revision
 
 - **2026-05-14** — Initial table and principles.
-- **2026-05-14** — `TryRepairDegenerateSolidBRep` (weld + remove) wired from `CreateSolid` / `MergeCoplanarFaces`; see `documentation/implementations/degenerate_triangle_repair_2026-05-14.md`.
+- **2026-05-14** — `TryRepairInconsistentFaceOrientationSolid` + `Face::FlipWindingIfPlanar`; see `documentation/implementations/orientation_repair_manifold_edges_2026-05-14.md`.
