@@ -1,5 +1,5 @@
 # Documentation TODO
-Last updated: 2026-05-12
+Last updated: 2026-05-14
 
 ---
 
@@ -34,6 +34,17 @@ Last updated: 2026-05-12
 - [ ] Remove dead code: `renderBuffer` / `lockedBuffer` declared but never used
 - [ ] Add entity deletion / modification API (currently create-only)
 - [ ] Document / validate `NurbsSurface::GetNormal()` midpoint assumption for highly curved surfaces
+
+### Geometry validity & degenerate repair (optional hardening — fine to defer)
+Source: `TryRepairDegenerateSolidBRep`, `documentation/implementations/degenerate_triangle_repair_2026-05-14.md`
+
+- [ ] **Duplicate `Edge*` after weld** — dedupe or merge straight edges that share the same
+      `(startPoint, endPoint)` pair once vertices are welded (only if telemetry shows real cases).
+- [ ] **Planar plane after weld** — recompute `PlanarSurface` `normal` / `d` for affected faces if
+      weld ε is increased or tools need exact plane equations post-repair.
+- [ ] **Fan vs true polygon** — degeneracy uses fan-from-`v0` like evaluation; revisit with a
+      proper polygon-area or triangulation test if non-convex n-gons become common beyond
+      merged STL patches.
 
 ### Analysis
 - [ ] Fix `Slice::At()` sequential pairing — incorrect for non-convex cross-sections

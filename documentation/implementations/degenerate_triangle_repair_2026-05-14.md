@@ -23,6 +23,8 @@
 - **Non-convex n-gons:** fan-from-`v0` test matches evaluator but can be conservative vs true polygon area.
 - **Curved-only solids:** weld only affects straight edges; degeneracy from sampling may need a different path.
 
+**Tracked in** `documentation/TODO` under *Geometry validity & degenerate repair (optional hardening)*.
+
 ## Outcome
 
 Build clean; repair is best-effort and idempotent-ish (second pass usually no-op unless new degeneracies appear).
