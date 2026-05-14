@@ -16,7 +16,7 @@ This note captures how we think about **invalid app geometry**, what to tell use
 
 | Tag | What it means (app layer) | Detected today? | Default user-facing angle | Mitigation / repair ideas (phased) | When to refuse vs warn |
 |-----|---------------------------|-----------------|----------------------------|-----------------------------------|-------------------------|
-| `DegenerateTriangle` | Near–zero area triangles from fan decomposition of face loops (scale-aware threshold). | Yes | “Some faces are too thin or collapsed.” | **Later:** remove zero-area fans, merge vertices within epsilon after import; **now:** suggest re-import / check source mesh. | **Refuse** steps that need stable facet areas; **warn** for display-only. |
+| `DegenerateTriangle` | Near–zero area triangles from fan decomposition of face loops (scale-aware threshold). | Yes | “Some faces are too thin or collapsed.” | **Shipped (2026-05-14):** `TryRepairDegenerateSolidBRep` — spatial-hash weld of straight-edge endpoints (skips curved / bridge edges), then removes faces still failing the same fan area test. Further: edge-collapse / remesh if needed. | **Refuse** steps that need stable facet areas; **warn** for display-only. |
 | `NullOrEmptyTopology` | Missing solid/face/surface, empty loops, null edge/points, or fewer than three vertices in a loop after a clean walk. | Yes | “The model’s connectivity is broken or incomplete.” | **Usually a bug or aborted op** — fix the pipeline; optional recovery from last good snapshot. | **Refuse** most geometry ops until fixed. |
 | `SelfIntersection` | Surface passes through itself (volumes ambiguous). | **Reserved** — not set by `EvaluateAppInvalidTagsForSolid` yet. | “The model intersects itself.” | **Later:** selective remesh, boolean cleanup, or user-guided repair; expensive. | **Refuse** robust booleans / carve until addressed or user accepts risk. |
 | `OpenBoundary` | At least one `Edge` appears on only one face in the solid’s half-edge count (sheet or open shell). | Yes | “This solid has a boundary — it is not a closed volume.” | **Often intentional** — offer **two profiles:** “closed solid required” vs “open OK”; **later:** hole fill / cap only when user asks. | **Warn** by default; **refuse** only for tools that require watertight input. |
@@ -40,4 +40,5 @@ This note captures how we think about **invalid app geometry**, what to tell use
 
 ## Revision
 
-- **2026-05-14** — Initial table and principles (mitigations roadmap; no automatic repair implemented beyond existing import/merge behavior).
+- **2026-05-14** — Initial table and principles.
+- **2026-05-14** — `TryRepairDegenerateSolidBRep` (weld + remove) wired from `CreateSolid` / `MergeCoplanarFaces`; see `documentation/implementations/degenerate_triangle_repair_2026-05-14.md`.

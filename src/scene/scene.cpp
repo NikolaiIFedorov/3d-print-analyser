@@ -264,6 +264,7 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     for (Face *face : faces)
         face->dependency = &solid;
 
+    (void)GeometryValidity::TryRepairDegenerateSolidBRep(solid);
     GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
 
     if constexpr (kLogSceneConstruction)
@@ -725,6 +726,7 @@ void Scene::MergeCoplanarFaces(
         CompleteCoplanarMergeDiagnostics(solid, diag);
     reportProgress(1.0f, true);
 
+    (void)GeometryValidity::TryRepairDegenerateSolidBRep(*solid);
     GeometryValidity::RefreshSolidAppGeometryValidityCache(*solid);
 
     if constexpr (kLogMergeDebug)

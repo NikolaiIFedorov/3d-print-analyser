@@ -79,6 +79,20 @@ constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
 void RefreshSolidAppGeometryValidityCache(Solid &solid) noexcept;
 void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept;
 
+/// Weld nearby straight-edge endpoints (spatial hash + union), then remove faces whose
+/// triangle / fan decomposition is still below the same scale-aware area threshold as
+/// `EvaluateAppInvalidTagsForSolid`. Skips edges with `curve` or `bridgePoints` (no endpoint moves).
+/// Clears removed faces' loops and `dependency` like coplanar merge defunct faces.
+/// Returns whether any change was made. Does **not** refresh `Solid` validity cache — caller should.
+struct DegenerateRepairStats
+{
+    std::size_t weldUnionPairs = 0;
+    std::size_t edgesRetargeted = 0;
+    std::size_t facesRemoved = 0;
+};
+
+[[nodiscard]] bool TryRepairDegenerateSolidBRep(Solid &solid, DegenerateRepairStats *statsOut = nullptr) noexcept;
+
 /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
 {
