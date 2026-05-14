@@ -1,5 +1,6 @@
 #include "Structure/StructureCarve.hpp"
 
+#include "GeometryValidity.hpp"
 #include "Structure/StructureTriangulation.hpp"
 #include "scene/scene.hpp"
 #include "Geometry/OrientedEdge.hpp"
@@ -299,6 +300,14 @@ bool TryApplyStructureCarve(Scene *scene,
             (*workerTrace)(phase);
     };
 
+    auto logAppGeometryTagsIfAny = [&](const char *context)
+    {
+        const GeometryValidity::AppInvalidTag t = GeometryValidity::EvaluateAppInvalidTagsForSolid(*solid);
+        if (GeometryValidity::Any(t))
+            LOG_WARN(std::string(context) + " — AppInvalidTag: " +
+                     GeometryValidity::DescribeAppInvalidTagsForLog(t));
+    };
+
     if (scene == nullptr || solid == nullptr || faces.empty())
         return true;
 
@@ -312,7 +321,10 @@ bool TryApplyStructureCarve(Scene *scene,
         std::vector<K::Point_3> coords;
         std::vector<std::vector<std::size_t>> tris;
         if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
+        {
+            logAppGeometryTagsIfAny("Structure carve: triangle soup build failed");
             return fail("Could not build triangle soup from solid.");
+        }
         invokeTrace("mesh_soup_done");
 
         invokeTrace("pmp_orient_begin");
@@ -331,7 +343,10 @@ bool TryApplyStructureCarve(Scene *scene,
             const bool soupOkAfterRepair = PMP::is_polygon_soup_a_polygon_mesh(tris);
             invokeTrace(soupOkAfterRepair ? "pmp_soup_repair_ok" : "pmp_soup_repair_fail");
             if (!soupOkAfterRepair)
+            {
+                logAppGeometryTagsIfAny("Structure carve: CGAL soup still invalid after repair");
                 return fail("Invalid triangle soup: CGAL precondition failed for polygon_soup_to_polygon_mesh.");
+            }
         }
         PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
         invokeTrace("pmp_soup_to_mesh_done");

@@ -40,6 +40,7 @@ add_executable(CAD_OpenGL
     src/main.cpp
     src/utils/log.cpp
     src/utils/SessionLogger.cpp
+    src/logic/GeometryValidity.cpp
     src/utils/ShutdownStackTrace.cpp
     src/utils/Settings.cpp
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp

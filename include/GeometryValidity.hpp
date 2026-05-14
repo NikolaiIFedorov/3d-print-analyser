@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <type_traits>
 
 /// Canonical **valid / invalid** vocabulary for mesh and scene geometry.
@@ -15,6 +16,8 @@
 /// - Structure-tool pick rules (planar-only, single loop, “upward enough”, min span) live in
 ///   `Display::IsStructureFaceEligible` until that pipeline stabilizes; do not duplicate them here
 ///   yet to avoid two sources of truth.
+
+struct Solid;
 
 namespace GeometryValidity
 {
@@ -59,6 +62,19 @@ constexpr bool Any(AppInvalidTag flags) noexcept
 {
     return flags != AppInvalidTag::None;
 }
+
+constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
+{
+    return Any(flags) ? AppState::Invalid : AppState::Valid;
+}
+
+/// Scans `solid` faces/edges for issues the app treats as invalid independent of CGAL.
+/// **Not implemented here (reserved flag):** `SelfIntersection` — requires heavier tests; callers
+/// may set it elsewhere when detectors exist.
+[[nodiscard]] AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept;
+
+/// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).
+[[nodiscard]] std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags);
 
 /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
