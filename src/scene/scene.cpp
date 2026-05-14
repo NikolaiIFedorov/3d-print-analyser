@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "GeometryExperiments.hpp"
+#include "GeometryValidity.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -262,6 +263,8 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     solid.faces = faces;
     for (Face *face : faces)
         face->dependency = &solid;
+
+    GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
 
     if constexpr (kLogSceneConstruction)
         LOG_VOID("Created solid");
@@ -721,6 +724,8 @@ void Scene::MergeCoplanarFaces(
     if (diag)
         CompleteCoplanarMergeDiagnostics(solid, diag);
     reportProgress(1.0f, true);
+
+    GeometryValidity::RefreshSolidAppGeometryValidityCache(*solid);
 
     if constexpr (kLogMergeDebug)
         LOG_DEBU("Merged to " + std::to_string(solid->faces.size()) + " faces");

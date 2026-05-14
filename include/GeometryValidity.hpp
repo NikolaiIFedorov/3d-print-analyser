@@ -76,6 +76,9 @@ constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
 /// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).
 [[nodiscard]] std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags);
 
+void RefreshSolidAppGeometryValidityCache(Solid &solid) noexcept;
+void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept;
+
 /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
 {

@@ -1,5 +1,6 @@
 #include "STLCgalPlanarExperiment.hpp"
 #include "GeometryExperiments.hpp"
+#include "GeometryValidity.hpp"
 #include "scene/scene.hpp"
 
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
@@ -29,6 +30,7 @@ namespace
 {
 static void DetachFacesFromSolid(Scene &, Solid &solid)
 {
+    GeometryValidity::InvalidateSolidAppGeometryValidityCache(solid);
     std::vector<Face *> copy = solid.faces;
     solid.faces.clear();
     for (Face *pf : copy)

@@ -40,6 +40,7 @@ namespace
 
 static void DetachFacesFromSolid(Solid &solid)
 {
+    GeometryValidity::InvalidateSolidAppGeometryValidityCache(solid);
     std::vector<Face *> copy = solid.faces;
     solid.faces.clear();
     for (Face *pf : copy)

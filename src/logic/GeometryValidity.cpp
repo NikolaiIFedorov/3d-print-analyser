@@ -211,4 +211,16 @@ std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags)
     return out;
 }
 
+void RefreshSolidAppGeometryValidityCache(Solid &solid) noexcept
+{
+    solid.cachedAppInvalidGeometryTags = EvaluateAppInvalidTagsForSolid(solid);
+    solid.cachedAppInvalidGeometryTagsFresh = true;
+}
+
+void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept
+{
+    solid.cachedAppInvalidGeometryTags = AppInvalidTag::None;
+    solid.cachedAppInvalidGeometryTagsFresh = false;
+}
+
 } // namespace GeometryValidity
