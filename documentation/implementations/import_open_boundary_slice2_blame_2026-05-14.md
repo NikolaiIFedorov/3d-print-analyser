@@ -1,0 +1,26 @@
+# Import open boundary — slice 2 (3D blame lines)
+
+## Goal
+
+After slice 1 (contract + banner), show **where** the open boundary is: highlight contributing **`Edge`** segments in the viewport using the existing pick-highlight **line** pass.
+
+## Approach
+
+- **`GeometryValidity::CollectOpenBoundaryEdgesForSolid`** — builds the same directed `edgeUses` map as connectivity evaluation (face-loop walk), calls `EvaluateEdgeConnectivityTags` with an optional **`openBoundaryEdgesOut`** list instead of duplicating DSU / weld logic.
+- **`EvaluateEdgeConnectivityTags`** — fourth parameter `std::vector<const Edge *> *openBoundaryEdgesOut`; when a directed-use group is exactly one unique incidence (same rule as `OpenBoundary` for straight groups and curved edges), push a representative `Edge *`.
+- **`SortUniqueDirectedUsesInPlace`** — factored from `AppendTagsFromDirectedUses` so tag logic and blame collection share one dedup ordering.
+- **`Display::RebuildImportOpenBoundaryBlameEdges`** — when `calibStepImportClosedVolume` is **Active**, merges per-solid open-boundary edges into `importOpenBoundaryBlameEdges` (deduped); clears when contract **Done**; **`MarkPickDirty()`** so `RebuildPickHighlightMesh` runs.
+- **`RebuildPickHighlightMesh`** — draws blame edges with accent colour via existing `appendEdgeLinesRgb` + pick segment soup.
+
+## Outcome
+
+Shipped; `cmake --build build --target CAD_OpenGL` succeeds.
+
+## Follow-ups
+
+- Rebuild blame after **topology-changing** edits without import/tab (same hook family as slice 1 refresh).
+- Optional: soften colour / depth bias if blame fights Structure eligible tint.
+
+## Mini retro
+
+Pushing optional edge list through `EvaluateEdgeConnectivityTags` avoided a large copy of the weld/DSU block; if more tags need geometry subsets, consider a small visitor or structured connectivity result type.

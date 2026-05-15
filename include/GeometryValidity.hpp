@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 /// Canonical **valid / invalid** vocabulary for mesh and scene geometry.
 ///
@@ -18,6 +19,7 @@
 ///   yet to avoid two sources of truth.
 
 struct Solid;
+struct Edge;
 
 namespace GeometryValidity
 {
@@ -73,6 +75,11 @@ constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
 /// projected to the face plane (each loop and between distinct loops). Non-planar faces are not
 /// classified here yet (no flag from curved patches); triangle-soup tests can extend this later.
 [[nodiscard]] AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept;
+
+/// Collects **straight and curved** `Edge` pointers that participate in an open boundary, using the
+/// same directed-use grouping as `AppInvalidTag::OpenBoundary` in `EvaluateAppInvalidTagsForSolid`.
+/// Clears `out` first; order is not stable.
+void CollectOpenBoundaryEdgesForSolid(const Solid &solid, std::vector<const Edge *> &out) noexcept;
 
 /// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).
 [[nodiscard]] std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags);

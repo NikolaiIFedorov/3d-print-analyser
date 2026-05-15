@@ -2461,6 +2461,13 @@ void Display::RebuildPickHighlightMesh()
     appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
     appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
 
+    if (!importOpenBoundaryBlameEdges.empty())
+    {
+        const glm::vec3 obRgb = glm::vec3(Color::GetAccent(2, 1.0f, 0.9f));
+        for (const Edge *e : importOpenBoundaryBlameEdges)
+            appendEdgeLinesRgb(e, obRgb);
+    }
+
     const bool calibSecondPickConstrained =
         activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
         CalibSlotHasPick(calibFacePoint1, calibEdgePoint1);
@@ -6499,6 +6506,30 @@ bool Display::ImportAllowsGeometryDependentTools() const noexcept
            calibStepImportClosedVolume == Icons::StepState::Done;
 }
 
+void Display::RebuildImportOpenBoundaryBlameEdges()
+{
+    importOpenBoundaryBlameEdges.clear();
+    if (scene == nullptr || calibStepImportClosedVolume == Icons::StepState::Done)
+    {
+        MarkPickDirty();
+        return;
+    }
+    std::unordered_set<const Edge *> seen;
+    std::vector<const Edge *> chunk;
+    chunk.reserve(64);
+    for (const Solid &solid : scene->solids)
+    {
+        chunk.clear();
+        GeometryValidity::CollectOpenBoundaryEdgesForSolid(solid, chunk);
+        for (const Edge *e : chunk)
+        {
+            if (e != nullptr && seen.insert(e).second)
+                importOpenBoundaryBlameEdges.push_back(e);
+        }
+    }
+    MarkPickDirty();
+}
+
 void Display::RefreshImportClosedVolumeContractFromScene() noexcept
 {
     using GeometryValidity::AppInvalidTag;
@@ -6509,6 +6540,7 @@ void Display::RefreshImportClosedVolumeContractFromScene() noexcept
         calibStepImportClosedVolume = Icons::StepState::Done;
         importOpenBoundaryToolPayload.reset();
         importOpenBoundaryBannerDismissed = false;
+        RebuildImportOpenBoundaryBlameEdges();
         return;
     }
 
@@ -6539,6 +6571,7 @@ void Display::RefreshImportClosedVolumeContractFromScene() noexcept
         importOpenBoundaryToolPayload.reset();
         importOpenBoundaryBannerDismissed = false;
     }
+    RebuildImportOpenBoundaryBlameEdges();
 }
 
 void Display::SyncCalibrateImportPrerequisiteVisibility()

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <atomic>
 #include <unordered_set>
+#include <vector>
 #include "utils/utils.hpp"
 #include "utils/TaskRunner.hpp"
 #include "utils/MainThreadPipeline.hpp"
@@ -176,6 +177,7 @@ private:
     /// Re-evaluate `OpenBoundary` on the active `scene` and update `calibStepImportClosedVolume` + payload.
     void RefreshImportClosedVolumeContractFromScene() noexcept;
     void SyncCalibrateImportPrerequisiteVisibility();
+    void RebuildImportOpenBoundaryBlameEdges();
     [[nodiscard]] bool ImportAllowsGeometryDependentTools() const noexcept;
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
@@ -234,6 +236,8 @@ private:
     /// Post-import open-boundary banner (Calibrate panel); cleared when contract satisfied.
     std::optional<ToolUserErrorPayload> importOpenBoundaryToolPayload;
     bool importOpenBoundaryBannerDismissed = false;
+    /// Segments for `OpenBoundary` “blame” overlay (pick highlight line pass).
+    std::vector<const Edge *> importOpenBoundaryBlameEdges;
 
     // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
     Icons::StepState calibStepImport    = Icons::StepState::Active;

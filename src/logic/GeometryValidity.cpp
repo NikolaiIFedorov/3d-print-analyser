@@ -288,8 +288,7 @@ struct UndirectedSegGridKeyHash
 
 using DirectedFaceUse = std::tuple<Face *, Point *, Point *>;
 
-void AppendTagsFromDirectedUses(std::vector<std::tuple<Face *, Point *, Point *>> &uses,
-                                AppInvalidTag &tags) noexcept
+void SortUniqueDirectedUsesInPlace(std::vector<DirectedFaceUse> &uses) noexcept
 {
     std::sort(uses.begin(), uses.end(), [](const DirectedFaceUse &t1, const DirectedFaceUse &t2) noexcept
     {
@@ -312,6 +311,11 @@ void AppendTagsFromDirectedUses(std::vector<std::tuple<Face *, Point *, Point *>
                                       std::get<2>(t1) == std::get<2>(t2);
                            }),
                uses.end());
+}
+
+void AppendTagsFromDirectedUses(std::vector<DirectedFaceUse> &uses, AppInvalidTag &tags) noexcept
+{
+    SortUniqueDirectedUsesInPlace(uses);
 
     const int c = static_cast<int>(uses.size());
     if (c == 1)
@@ -336,7 +340,8 @@ void AppendTagsFromDirectedUses(std::vector<std::tuple<Face *, Point *, Point *>
 void EvaluateEdgeConnectivityTags(
     const Solid &solid,
     const std::unordered_map<Edge *, std::vector<std::tuple<Face *, Point *, Point *>>> &edgeUses,
-    AppInvalidTag &tags) noexcept
+    AppInvalidTag &tags,
+    std::vector<const Edge *> *openBoundaryEdgesOut) noexcept
 {
     for (const auto &kv : edgeUses)
     {
@@ -346,6 +351,13 @@ void EvaluateEdgeConnectivityTags(
         if (e->curve != nullptr || !e->bridgePoints.empty())
         {
             std::vector<std::tuple<Face *, Point *, Point *>> copy = kv.second;
+            if (openBoundaryEdgesOut != nullptr)
+            {
+                std::vector<DirectedFaceUse> tmp = kv.second;
+                SortUniqueDirectedUsesInPlace(tmp);
+                if (tmp.size() == 1u)
+                    openBoundaryEdgesOut->push_back(e);
+            }
             AppendTagsFromDirectedUses(copy, tags);
         }
     }
@@ -416,6 +428,13 @@ void EvaluateEdgeConnectivityTags(
             const auto it = edgeUses.find(e);
             if (it != edgeUses.end())
                 merged.insert(merged.end(), it->second.begin(), it->second.end());
+        }
+        if (openBoundaryEdgesOut != nullptr)
+        {
+            std::vector<DirectedFaceUse> tmp = merged;
+            SortUniqueDirectedUsesInPlace(tmp);
+            if (tmp.size() == 1u && !gv.second.empty())
+                openBoundaryEdgesOut->push_back(straight[static_cast<std::size_t>(gv.second[0])].edge);
         }
         AppendTagsFromDirectedUses(merged, tags);
     }
@@ -896,11 +915,48 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
         }
     }
 
-    EvaluateEdgeConnectivityTags(solid, edgeUses, tags);
+    EvaluateEdgeConnectivityTags(solid, edgeUses, tags, nullptr);
     EvaluateVertexLinkConnectivityTags(solid, tags);
     EvaluatePlanarLoopSelfIntersectionTags(solid, tags);
 
     return tags;
+}
+
+void CollectOpenBoundaryEdgesForSolid(const Solid &solid, std::vector<const Edge *> &out) noexcept
+{
+    out.clear();
+    std::unordered_map<Edge *, std::vector<std::tuple<Face *, Point *, Point *>>> edgeUses;
+    edgeUses.reserve(solid.faces.size() * 3u + 8u);
+
+    for (Face *face : solid.faces)
+    {
+        if (face == nullptr || face->surface == nullptr || face->loops.empty())
+            continue;
+        for (const auto &loop : face->loops)
+        {
+            if (loop.empty())
+                continue;
+            for (const OrientedEdge &oe : loop)
+            {
+                if (oe.edge == nullptr || oe.GetStart() == nullptr || oe.GetEnd() == nullptr)
+                    continue;
+                edgeUses[oe.edge].emplace_back(face, oe.GetStart(), oe.GetEnd());
+            }
+        }
+    }
+
+    AppInvalidTag discard = AppInvalidTag::None;
+    std::vector<const Edge *> raw;
+    raw.reserve(edgeUses.size() * 2u + 8u);
+    EvaluateEdgeConnectivityTags(solid, edgeUses, discard, &raw);
+
+    std::unordered_set<const Edge *> seen;
+    seen.reserve(raw.size() * 2u + 8u);
+    for (const Edge *e : raw)
+    {
+        if (e != nullptr && seen.insert(e).second)
+            out.push_back(e);
+    }
 }
 
 std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags)

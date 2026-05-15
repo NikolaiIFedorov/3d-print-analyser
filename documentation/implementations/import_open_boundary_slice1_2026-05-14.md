@@ -26,7 +26,7 @@ Shipped slice 1:
 
 ## Follow-ups
 
-Wire **Fix** to a named repair; 3D blame on boundary edges; call `RefreshImportClosedVolumeContractFromScene` after other topology-changing commits if tools should re-check without a tab switch.
+Wire **Fix** to a named repair; **3D blame** shipped in `import_open_boundary_slice2_blame_2026-05-14.md`; call `RefreshImportClosedVolumeContractFromScene` after other topology-changing commits if tools should re-check without a tab switch.
 
 ## Mini retro
 
