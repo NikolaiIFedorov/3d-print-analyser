@@ -173,6 +173,10 @@ private:
     /// Import row vs scene-edit footer visibility (footer only when prerequisites are satisfied).
     void SyncStructurePanelDerivedVisibility();
     void SyncStructureOptionalPrereqRowStyle();
+    /// Re-evaluate `OpenBoundary` on the active `scene` and update `calibStepImportClosedVolume` + payload.
+    void RefreshImportClosedVolumeContractFromScene() noexcept;
+    void SyncCalibrateImportPrerequisiteVisibility();
+    [[nodiscard]] bool ImportAllowsGeometryDependentTools() const noexcept;
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
     Input *inputForGestureSync = nullptr;
@@ -227,9 +231,16 @@ private:
     std::optional<ToolUserErrorPayload> calibToolError;
     /// Structure panel: CGAL / carve failure surfaced after worker result is applied on the main thread.
     std::optional<ToolUserErrorPayload> structureToolError;
+    /// Post-import open-boundary banner (Calibrate panel); cleared when contract satisfied.
+    std::optional<ToolUserErrorPayload> importOpenBoundaryToolPayload;
+    bool importOpenBoundaryBannerDismissed = false;
 
     // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
     Icons::StepState calibStepImport    = Icons::StepState::Active;
+    /// After a file is attached: **Done** when no `Solid` in the active scene reports `OpenBoundary`
+    /// (fresh `GeometryValidity` cache); **Active** until repair clears the tag. Gates tool picks
+    /// together with `calibStepImport` — see `import_open_boundary_ux_2026-05-14.md`.
+    Icons::StepState calibStepImportClosedVolume = Icons::StepState::Done;
     Icons::StepState calibStepPoint1    = Icons::StepState::Active;
     Icons::StepState calibStepPoint2    = Icons::StepState::Active;
     Icons::StepState calibStepMeasure   = Icons::StepState::Active;
@@ -257,6 +268,8 @@ private:
     Paragraph *uiCalibrateProcessing = nullptr;
     // Calibrate step-flow pointers — updated when picking is wired
     Paragraph *calibPara_Import = nullptr;          // hidden after file import
+    Paragraph *calibPara_ImportClosed = nullptr;  // "Closed volume (tools)" prerequisite row
+    Paragraph *calibPara_OpenBoundaryBanner = nullptr; // Fix / Exit strip after import when OB
     Paragraph *calibPara_Point1 = nullptr;          // shown/activated after import
     Paragraph *calibPara_Point2 = nullptr;          // shown after point1 is plotted
     Paragraph *calibPara_Measure = nullptr;         // direct Calibrate row; hidden until import
@@ -268,6 +281,7 @@ private:
     SectionLine *calibLine_Point2Primary = nullptr;
     /// Structure prerequisites: import row (hidden after import; uses `calibStepImport` like Calibrate).
     Paragraph *structPara_Import = nullptr;
+    Paragraph *structPara_ImportClosed = nullptr;
     /// Cancel/Accept row; hidden until import prerequisite is complete.
     Paragraph *structPara_SceneEditFooter = nullptr;
     /// Single-line hover hint for ineligible faces. Currently dormant — `SyncStructurePanel-

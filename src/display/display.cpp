@@ -37,6 +37,7 @@
 #include "CalibDistanceType.hpp"
 #include "CalibCompensation.hpp"
 #include "Structure/StructureTriangulation.hpp"
+#include "GeometryValidity.hpp"
 #if defined(CAD_USE_CGAL)
 #include "Structure/StructureCarve.hpp"
 #endif
@@ -2272,8 +2273,8 @@ PickFilter Display::GetActivePickFilter() const
 
     if (activeTool == ActiveTool::Structure)
     {
-        // Structure tool needs the import prereq satisfied before face picking is offered.
-        if (calibStepImport != Icons::StepState::Done)
+        // Structure tool needs import + closed-volume contract before face picking is offered.
+        if (!ImportAllowsGeometryDependentTools())
             return PickFilter::None;
         return PickFilter::Faces;
     }
@@ -3140,7 +3141,7 @@ void Display::RefreshCalibDerivedRowVisible()
                                                           : (calibPara_Measure && calibPara_Measure->visible);
     if (parameterRowsVisible)
     {
-        const bool importDone = calibStepImport == Icons::StepState::Done;
+        const bool importDone = ImportAllowsGeometryDependentTools();
         const bool hasTwoPicks = CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) &&
                                  CalibSlotHasPick(calibFacePoint2, calibEdgePoint2);
         next = importDone && hasTwoPicks;
@@ -3696,7 +3697,7 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
     }
     if (calibSec_Parameters)
     {
-        const bool nextVisible = !calibrateBusy && calibStepImport == Icons::StepState::Done;
+        const bool nextVisible = !calibrateBusy && ImportAllowsGeometryDependentTools();
         if (calibSec_Parameters->visible != nextVisible)
         {
             calibSec_Parameters->visible = nextVisible;
@@ -3705,7 +3706,7 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
     }
     if (calibPara_Measure)
     {
-        const bool nextVisible = !calibrateBusy && calibStepImport == Icons::StepState::Done;
+        const bool nextVisible = !calibrateBusy && ImportAllowsGeometryDependentTools();
         if (calibPara_Measure->visible != nextVisible)
         {
             calibPara_Measure->visible = nextVisible;
@@ -3882,16 +3883,20 @@ void Display::ProcessDeferredImportIfAny()
 
                                        if (state->activateImportedScene)
                                        {
+                                           importOpenBoundaryBannerDismissed = false;
                                            calibStepImport = Icons::StepState::Done;
                                            calibPara_Import->visible = false;
-                                           SyncStructurePanelDerivedVisibility();
-                                           calibPara_Point1->visible = true;
-                                           calibPara_Point2->visible = true;
+                                           RefreshImportClosedVolumeContractFromScene();
+                                           const bool toolsReady = ImportAllowsGeometryDependentTools();
+                                           calibPara_Point1->visible = toolsReady;
+                                           calibPara_Point2->visible = toolsReady;
                                            if (calibSec_Parameters)
-                                               calibSec_Parameters->visible = true;
+                                               calibSec_Parameters->visible = toolsReady;
                                            if (calibPara_Measure)
-                                               calibPara_Measure->visible = true;
+                                               calibPara_Measure->visible = toolsReady;
+                                           SyncStructurePanelDerivedVisibility();
                                            ClearCalibrateFacePicks();
+                                           SyncCalibrateImportPrerequisiteVisibility();
                                            if (activeTool == ActiveTool::Structure)
                                            {
                                                if (IsStructureStagingActive())
@@ -4054,11 +4059,13 @@ void Display::RebuildFileTabs()
             {
                 UpdateScene();
                 FrameScene();
+                RefreshImportClosedVolumeContractFromScene();
             }
             // Live-carve continues on the newly focused tab if Structure stays active.
             if (activeTool == ActiveTool::Structure)
                 BeginStructureStagingSession();
             SyncStructurePanelDerivedVisibility();
+            SyncCalibrateImportPrerequisiteVisibility();
             pendingFileTabsRebuild = true;
             uiRenderer.MarkDirty();
         };
@@ -5275,11 +5282,15 @@ void Display::InitUI()
         calibDef.calculatorSectionTitle = "Result";
 
         // ── Prerequisites ──────────────────────────────────────────────────
-        calibDef.prerequisites.reserve(3);
+        calibDef.prerequisites.reserve(4);
         calibDef.prerequisites.push_back({"CalibImport", "Import a file", "",
                                           Icons::CheckBox(&calibStepImport), false, true,
                                           [this]()
                                           { DoFileImport(); }});
+        calibDef.prerequisites.push_back(
+            {"CalibImportClosed", "Closed volume (tools)",
+             "Required for Structure and calibration picks on faces.",
+             Icons::CheckBox(&calibStepImportClosedVolume), false, true, {}});
         calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point", "to measure against",
                                           Icons::CheckBox(&calibStepPoint1), false, false});
         calibDef.prerequisites.push_back({"CalibPoint2", "Plot measurement point", "parallel point to first selection",
@@ -5460,7 +5471,7 @@ void Display::InitUI()
                     !CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) ||
                     !CalibSlotHasPick(calibFacePoint2, calibEdgePoint2);
                 const bool spanBad = !missingFaces && calibNominal <= 1e-5f;
-                const bool importDone = calibStepImport == Icons::StepState::Done;
+                const bool importDone = ImportAllowsGeometryDependentTools();
                 const bool firstFaceDone = calibStepPoint1 == Icons::StepState::Done;
 
                 if (missingFaces)
@@ -5542,10 +5553,11 @@ void Display::InitUI()
         Section *prereqs = FindSection(*uiCalibrate, "Prerequisites");
         calibSec_Prerequisites = prereqs;
         calibPara_Import = &prereqs->children[0];
-        calibPara_Point1 = &prereqs->children[1];
-        calibPara_Point2 = &prereqs->children[2];
-        calibLine_Point1Primary = &prereqs->children[1].values[0];
-        calibLine_Point2Primary = &prereqs->children[2].values[0];
+        calibPara_ImportClosed = &prereqs->children[1];
+        calibPara_Point1 = &prereqs->children[2];
+        calibPara_Point2 = &prereqs->children[3];
+        calibLine_Point1Primary = &prereqs->children[2].values[0];
+        calibLine_Point2Primary = &prereqs->children[3].values[0];
 
         calibSec_Parameters = FindSection(*uiCalibrate, "Parameters");
         calibSec_Result = FindSection(*uiCalibrate, "Calculator");
@@ -5613,6 +5625,8 @@ void Display::InitUI()
         // Point1 and Point2 are hidden until a file is imported
         calibPara_Point1->visible = false;
         calibPara_Point2->visible = false;
+        if (calibPara_ImportClosed)
+            calibPara_ImportClosed->visible = false;
         if (calibSec_Parameters)
             calibSec_Parameters->visible = false;
         if (calibSec_Result)
@@ -5633,6 +5647,45 @@ void Display::InitUI()
             line.textDepth = 2;
         }
 
+        calibPara_OpenBoundaryBanner = &uiCalibrate->AddParagraph("CalibOpenBoundaryBanner");
+        calibPara_OpenBoundaryBanner->visible = false;
+        calibPara_OpenBoundaryBanner->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        calibPara_OpenBoundaryBanner->values.reserve(1);
+        {
+            SectionLine &el = calibPara_OpenBoundaryBanner->values.emplace_back();
+            el.imguiContent = [this, settingsBodyFont](float w, float h, float)
+            {
+                (void)h;
+                if (!importOpenBoundaryToolPayload.has_value())
+                {
+                    ImGui::Dummy(ImVec2(w, 1.f));
+                    return;
+                }
+                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+                const float pad = ImGui::GetStyle().FramePadding.x;
+                const ImVec2 row0 = ImGui::GetCursorScreenPos();
+                const ToolUserErrorPayload &te = *importOpenBoundaryToolPayload;
+                const float errH = DrawToolUserErrorCopyBlock(row0.x, row0.y, w, pad, rowFont, te.code, te.message,
+                                                              te.relatedParameterLabel, "oobImp");
+                ImGui::SetCursorScreenPos(ImVec2(row0.x, row0.y + errH + pad));
+                ImGui::BeginDisabled(true);
+                (void)ImGui::Button("Fix##oobFix");
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Repair is not available yet.");
+                ImGui::SameLine();
+                if (ImGui::Button("Exit##oobExit"))
+                {
+                    importOpenBoundaryBannerDismissed = true;
+                    SyncCalibrateImportPrerequisiteVisibility();
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+                const float totalH = (ImGui::GetItemRectMax().y - row0.y) + pad;
+                ImGui::Dummy(ImVec2(w, totalH));
+            };
+        }
+
         RefreshCalibDerivedRowVisible();
     }
 
@@ -5643,11 +5696,14 @@ void Display::InitUI()
         structDef.description = "Carve printable patterns into solid faces";
         structDef.flattenParameters = true;
 
-        structDef.prerequisites.reserve(1);
+        structDef.prerequisites.reserve(2);
         structDef.prerequisites.push_back({"StructImport", "Import a file", "",
                                            Icons::CheckBox(&calibStepImport), false, true,
                                            [this]()
                                            { DoFileImport(); }});
+        structDef.prerequisites.push_back({"StructImportClosed", "Closed volume (tools)",
+                                           "Required before face selection.",
+                                           Icons::CheckBox(&calibStepImportClosedVolume), false, true, {}});
 
         structDef.optionalPrerequisites.reserve(1);
         structDef.optionalPrerequisites.push_back(
@@ -5746,7 +5802,11 @@ void Display::InitUI()
 
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
+        {
             structPara_Import = &structPrereqs->children[0];
+            if (structPrereqs->children.size() > 1)
+                structPara_ImportClosed = &structPrereqs->children[1];
+        }
         if (Section *structOpt = FindSection(*uiStructure, "ExtraPrerequisites"); structOpt != nullptr)
         {
             for (Paragraph &p : structOpt->children)
@@ -6400,14 +6460,20 @@ void Display::SyncStructurePanelDerivedVisibility()
 #else
     const bool structureCarveBusy = false;
 #endif
+    const bool importContractNeedsAttention =
+        activeHasModel && calibStepImport == Icons::StepState::Done &&
+        calibStepImportClosedVolume != Icons::StepState::Done;
     if (Section *prereq = FindSection(*uiStructure, "Prerequisites"))
-        prereq->visible = !activeHasModel;
+        prereq->visible = !activeHasModel || importContractNeedsAttention;
     if (Section *optPre = FindSection(*uiStructure, "ExtraPrerequisites"))
-        optPre->visible = activeHasModel;
+        optPre->visible = activeHasModel && !importContractNeedsAttention;
     if (structPara_Import)
         structPara_Import->visible = !activeHasModel;
+    if (structPara_ImportClosed)
+        structPara_ImportClosed->visible = importContractNeedsAttention;
     if (structPara_SceneEditFooter)
-        structPara_SceneEditFooter->visible = activeHasModel && !structureCarveBusy;
+        structPara_SceneEditFooter->visible =
+            activeHasModel && !structureCarveBusy && !importContractNeedsAttention;
     const bool showStructureToolError =
         activeHasModel && structureToolError.has_value() && (activeTool == ActiveTool::Structure);
     if (structPara_ToolError)
@@ -6424,6 +6490,70 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_HoverHint->visible = false;
     }
     SyncStructureOptionalPrereqRowStyle();
+    uiRenderer.MarkDirty();
+}
+
+bool Display::ImportAllowsGeometryDependentTools() const noexcept
+{
+    return calibStepImport == Icons::StepState::Done &&
+           calibStepImportClosedVolume == Icons::StepState::Done;
+}
+
+void Display::RefreshImportClosedVolumeContractFromScene() noexcept
+{
+    using GeometryValidity::AppInvalidTag;
+    using GeometryValidity::Any;
+
+    if (scene == nullptr || scene->solids.empty())
+    {
+        calibStepImportClosedVolume = Icons::StepState::Done;
+        importOpenBoundaryToolPayload.reset();
+        importOpenBoundaryBannerDismissed = false;
+        return;
+    }
+
+    bool anyOpen = false;
+    for (Solid &solid : scene->solids)
+    {
+        if (!solid.cachedAppInvalidGeometryTagsFresh)
+            GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
+        if (Any(solid.cachedAppInvalidGeometryTags & AppInvalidTag::OpenBoundary))
+        {
+            anyOpen = true;
+            break;
+        }
+    }
+
+    if (anyOpen)
+    {
+        calibStepImportClosedVolume = Icons::StepState::Active;
+        importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+            std::string("IMPORT_OPEN_BOUNDARY"),
+            std::string("Open boundary — this solid is not a closed volume. Tools that need a watertight mesh "
+                         "stay unavailable until you repair."),
+            std::string("")});
+    }
+    else
+    {
+        calibStepImportClosedVolume = Icons::StepState::Done;
+        importOpenBoundaryToolPayload.reset();
+        importOpenBoundaryBannerDismissed = false;
+    }
+}
+
+void Display::SyncCalibrateImportPrerequisiteVisibility()
+{
+    if (calibPara_ImportClosed)
+        calibPara_ImportClosed->visible = calibStepImport == Icons::StepState::Done;
+    if (calibPara_OpenBoundaryBanner)
+    {
+        const bool show = importOpenBoundaryToolPayload.has_value() && calibStepImport == Icons::StepState::Done &&
+                           calibStepImportClosedVolume != Icons::StepState::Done &&
+                           !importOpenBoundaryBannerDismissed;
+        calibPara_OpenBoundaryBanner->visible = show;
+        if (!calibPara_OpenBoundaryBanner->values.empty())
+            calibPara_OpenBoundaryBanner->values[0].visible = show;
+    }
     uiRenderer.MarkDirty();
 }
 
