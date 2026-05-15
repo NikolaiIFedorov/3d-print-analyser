@@ -69,8 +69,9 @@ constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
 }
 
 /// Scans `solid` faces/edges for issues the app treats as invalid independent of CGAL.
-/// **Not implemented here (reserved flag):** `SelfIntersection` — requires heavier tests; callers
-/// may set it elsewhere when detectors exist.
+/// **`SelfIntersection` (v1):** proper segment–segment crossings in **planar face** boundary loops
+/// projected to the face plane (each loop and between distinct loops). Non-planar faces are not
+/// classified here yet (no flag from curved patches); triangle-soup tests can extend this later.
 [[nodiscard]] AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept;
 
 /// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).

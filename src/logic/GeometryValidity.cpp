@@ -5,6 +5,7 @@
 #include "Geometry/OrientedEdge.hpp"
 #include "Geometry/Point.hpp"
 #include "Geometry/Solid.hpp"
+#include "Geometry/Surface.hpp"
 #include "utils/log.hpp"
 
 #include <algorithm>
@@ -592,6 +593,187 @@ void EvaluateVertexLinkConnectivityTags(const Solid &solid, AppInvalidTag &tags)
     }
 }
 
+static void BuildPlaneBasis(const glm::dvec3 &nUnit, glm::dvec3 &uOut, glm::dvec3 &vOut) noexcept
+{
+    const glm::dvec3 axis = (std::abs(nUnit.x) <= 0.9) ? glm::dvec3(1.0, 0.0, 0.0) : glm::dvec3(0.0, 1.0, 0.0);
+    uOut = glm::normalize(glm::cross(axis, nUnit));
+    vOut = glm::normalize(glm::cross(nUnit, uOut));
+}
+
+[[nodiscard]] static glm::dvec2 ProjectPointToPlane2d(const glm::dvec3 &p, const glm::dvec3 &origin,
+                                                      const glm::dvec3 &u, const glm::dvec3 &v) noexcept
+{
+    const glm::dvec3 r = p - origin;
+    return {glm::dot(r, u), glm::dot(r, v)};
+}
+
+[[nodiscard]] static bool SegmentsIntersectProper2D(const glm::dvec2 &a, const glm::dvec2 &b,
+                                                     const glm::dvec2 &c, const glm::dvec2 &d,
+                                                     double crossEps) noexcept
+{
+    auto cross = [](const glm::dvec2 &p, const glm::dvec2 &q) noexcept
+    {
+        return p.x * q.y - p.y * q.x;
+    };
+    const glm::dvec2 ab = b - a;
+    const glm::dvec2 cd = d - c;
+    const double t1 = cross(ab, c - a);
+    const double t2 = cross(ab, d - a);
+    const double t3 = cross(cd, a - c);
+    const double t4 = cross(cd, b - c);
+    auto sgn = [crossEps](double x) noexcept -> int
+    {
+        if (x > crossEps)
+            return 1;
+        if (x < -crossEps)
+            return -1;
+        return 0;
+    };
+    return sgn(t1) * sgn(t2) < 0 && sgn(t3) * sgn(t4) < 0;
+}
+
+[[nodiscard]] static bool Ring2dHasProperSelfIntersection(const std::vector<glm::dvec2> &ring,
+                                                          double crossEps,
+                                                          double minSegLen2) noexcept
+{
+    const std::size_t n = ring.size();
+    if (n < 4)
+        return false;
+    for (std::size_t i = 0; i < n; ++i)
+    {
+        const std::size_t i1 = (i + 1) % n;
+        if (glm::dot(ring[i1] - ring[i], ring[i1] - ring[i]) < minSegLen2)
+            continue;
+        for (std::size_t j = i + 1; j < n; ++j)
+        {
+            const std::size_t j1 = (j + 1) % n;
+            if (i == j || i == j1 || i1 == j || i1 == j1)
+                continue;
+            if (glm::dot(ring[j1] - ring[j], ring[j1] - ring[j]) < minSegLen2)
+                continue;
+            if (SegmentsIntersectProper2D(ring[i], ring[i1], ring[j], ring[j1], crossEps))
+                return true;
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] static bool TwoRingsHaveCrossingSegments2d(const std::vector<glm::dvec2> &ra,
+                                                         const std::vector<glm::dvec2> &rb,
+                                                         double crossEps,
+                                                         double minSegLen2) noexcept
+{
+    const std::size_t na = ra.size();
+    const std::size_t nb = rb.size();
+    if (na < 2 || nb < 2)
+        return false;
+    for (std::size_t i = 0; i < na; ++i)
+    {
+        const std::size_t i1 = (i + 1) % na;
+        if (glm::dot(ra[i1] - ra[i], ra[i1] - ra[i]) < minSegLen2)
+            continue;
+        for (std::size_t j = 0; j < nb; ++j)
+        {
+            const std::size_t j1 = (j + 1) % nb;
+            if (glm::dot(rb[j1] - rb[j], rb[j1] - rb[j]) < minSegLen2)
+                continue;
+            if (SegmentsIntersectProper2D(ra[i], ra[i1], rb[j], rb[j1], crossEps))
+                return true;
+        }
+    }
+    return false;
+}
+
+void EvaluatePlanarLoopSelfIntersectionTags(const Solid &solid, AppInvalidTag &tags) noexcept
+{
+    for (Face *face : solid.faces)
+    {
+        if (face == nullptr || face->surface == nullptr || face->loops.empty())
+            continue;
+        if (!face->surface->IsPlanar())
+            continue;
+
+        const auto *const planar = static_cast<const PlanarSurface *>(face->surface.get());
+        const glm::dvec3 n = planar->data.normal;
+        const double nLen = glm::length(n);
+        if (nLen < 1e-30)
+            continue;
+        const glm::dvec3 nHat = n / nLen;
+
+        std::vector<std::vector<glm::dvec3>> rings3d;
+        rings3d.reserve(face->loops.size());
+        double maxSegLen = 0.0;
+        for (const auto &loop : face->loops)
+        {
+            if (loop.size() < 3)
+                continue;
+            std::vector<glm::dvec3> ring;
+            ring.reserve(loop.size());
+            bool bad = false;
+            for (const OrientedEdge &oe : loop)
+            {
+                if (oe.edge == nullptr || oe.GetStart() == nullptr)
+                {
+                    bad = true;
+                    break;
+                }
+                ring.push_back(oe.GetStartPosition());
+            }
+            if (bad || ring.size() < 3)
+                continue;
+            const std::size_t rn = ring.size();
+            for (std::size_t i = 0; i < rn; ++i)
+            {
+                const std::size_t i1 = (i + 1) % rn;
+                maxSegLen = std::max(maxSegLen, glm::distance(ring[i], ring[i1]));
+            }
+            rings3d.push_back(std::move(ring));
+        }
+        if (rings3d.empty())
+            continue;
+
+        const glm::dvec3 origin = rings3d[0][0];
+        glm::dvec3 uAxis{};
+        glm::dvec3 vAxis{};
+        BuildPlaneBasis(nHat, uAxis, vAxis);
+
+        const double crossEps = std::max(1e-18, std::max(maxSegLen, 1.0) * 1e-14);
+        const double minSegLen2 = std::max(1e-30, crossEps * crossEps * 1.0e6);
+
+        std::vector<std::vector<glm::dvec2>> rings2d;
+        rings2d.reserve(rings3d.size());
+        for (const std::vector<glm::dvec3> &r3 : rings3d)
+        {
+            std::vector<glm::dvec2> r2;
+            r2.reserve(r3.size());
+            for (const glm::dvec3 &p : r3)
+                r2.push_back(ProjectPointToPlane2d(p, origin, uAxis, vAxis));
+            rings2d.push_back(std::move(r2));
+        }
+
+        for (const std::vector<glm::dvec2> &r2 : rings2d)
+        {
+            if (Ring2dHasProperSelfIntersection(r2, crossEps, minSegLen2))
+            {
+                tags |= AppInvalidTag::SelfIntersection;
+                goto next_face;
+            }
+        }
+        for (std::size_t a = 0; a < rings2d.size(); ++a)
+        {
+            for (std::size_t b = a + 1; b < rings2d.size(); ++b)
+            {
+                if (TwoRingsHaveCrossingSegments2d(rings2d[a], rings2d[b], crossEps, minSegLen2))
+                {
+                    tags |= AppInvalidTag::SelfIntersection;
+                    goto next_face;
+                }
+            }
+        }
+    next_face:;
+    }
+}
+
 } // namespace
 
 AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
@@ -716,6 +898,7 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
 
     EvaluateEdgeConnectivityTags(solid, edgeUses, tags);
     EvaluateVertexLinkConnectivityTags(solid, tags);
+    EvaluatePlanarLoopSelfIntersectionTags(solid, tags);
 
     return tags;
 }
