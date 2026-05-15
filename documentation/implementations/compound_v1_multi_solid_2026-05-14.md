@@ -13,7 +13,7 @@ Introduce a **first-class** scene object that references **several existing `Sol
 
 ## Not in this change
 
-- No UI, selection, or import path calling `CreateCompound` yet.
+- No **explicit** UI tree row or click-to-select on `Compound` yet; `TryCreateCompoundWrappingAllSolidsIfNone` runs automatically on import attach when applicable.
 - No removal API for compounds (erase from deque) — add when needed.
 
 ---
