@@ -46,6 +46,13 @@ Source: `TryRepairDegenerateSolidBRep`, `documentation/implementations/degenerat
       proper polygon-area or triangulation test if non-convex n-gons become common beyond
       merged STL patches.
 
+### Import / geometry diagnostics UI (planned)
+Source: `documentation/implementations/import_open_boundary_ux_2026-05-14.md`
+
+- [ ] Post-import: compact + expandable **shared diagnostics** for `AppInvalidTag` (esp. open
+      boundary); file bar stays minimal. Prerequisite rows can deep-link the same copy.
+- [ ] Named **“patch”** toggles only when a concrete repair pipeline exists (no placeholder toggle).
+
 ### Analysis
 - [ ] Fix `Slice::At()` sequential pairing — incorrect for non-convex cross-sections
       or faces with more than 2 edge crossings per loop
