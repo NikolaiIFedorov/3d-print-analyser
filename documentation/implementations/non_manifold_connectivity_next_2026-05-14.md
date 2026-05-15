@@ -27,3 +27,15 @@ Repairs are **under-specified**: splitting non-manifold vertices, deleting inter
 ## Outcome
 
 Next engineering focus after OpenBoundary **UX Phase A** can be **non-manifold messaging + gating**; repair remains **explicit** until a chosen algorithm is owned and tested.
+
+---
+
+## Update (same day): duplicate straight `Edge` merge
+
+**Shipped:** `GeometryValidity::TryMergeDuplicateStraightEdgesSolid` — buckets straight edges (no `curve`, no `bridgePoints`) by undirected `(Point*, Point*)`, keeps the canonical `Edge*` (smallest address), retargets all solid `OrientedEdge`s, clears merged edges’ endpoints and dependency sets, removes them from `Point::dependencies`.
+
+**Call order in `Scene::CreateSolid` and coplanar merge:** `TryRepairDegenerateSolidBRep` → `TryRepairInconsistentFaceOrientationSolid` → `TryMergeDuplicateStraightEdgesSolid` → `RefreshSolidAppGeometryValidityCache`.
+
+**Rationale:** Weld can leave multiple `Edge*` records for the same segment; merging reduces bogus directed-use counts before downstream logic and diagnostics treat the solid as non-manifold.
+
+**Note:** `include/GeometryValidity.hpp` had dropped the `TryRepairInconsistentFaceOrientationSolid` declaration when merge docs were added; declaration restored beside the implementation.

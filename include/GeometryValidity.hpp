@@ -99,6 +99,12 @@ struct DegenerateRepairStats
 /// edges that are not two-face manifold.
 [[nodiscard]] bool TryRepairInconsistentFaceOrientationSolid(Solid &solid) noexcept;
 
+/// Merge redundant **straight** `Edge` records that share the same undirected endpoint pair
+/// (after weld, duplicate `Edge*` can remain). Retargets all solid face `OrientedEdge`s to the
+/// canonical `Edge*` (smallest address), updates `Face` / `Point` dependency sets, and orphans
+/// merged edges. Skips buckets containing curved or bridged edges.
+[[nodiscard]] bool TryMergeDuplicateStraightEdgesSolid(Solid &solid) noexcept;
+
 /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
 {

@@ -674,4 +674,136 @@ bool TryRepairDegenerateSolidBRep(Solid &solid, DegenerateRepairStats *statsOut)
     return anyChange;
 }
 
+static void RetargetHalfEdgeForDuplicateMerge(OrientedEdge &oe, Face *f, Edge *dup, Edge *keeper) noexcept
+{
+    if (dup == nullptr || keeper == nullptr || f == nullptr)
+        return;
+    Point *const logicalS = oe.GetStart();
+    Point *const logicalE = oe.GetEnd();
+    dup->dependencies.erase(f);
+    oe.edge = keeper;
+    if (logicalS == keeper->startPoint && logicalE == keeper->endPoint)
+        oe.reversed = false;
+    else if (logicalS == keeper->endPoint && logicalE == keeper->startPoint)
+        oe.reversed = true;
+    else
+    {
+        LOG_WARN("Duplicate edge merge: could not match logical walk to keeper endpoints");
+        oe.reversed = false;
+    }
+    keeper->dependencies.insert(f);
+}
+
+bool TryMergeDuplicateStraightEdgesSolid(Solid &solid) noexcept
+{
+    std::unordered_set<Edge *> edgeSet;
+    edgeSet.reserve(solid.faces.size() * 3u + 8u);
+    for (Face *f : solid.faces)
+    {
+        if (f == nullptr || f->dependency != &solid)
+            continue;
+        for (const auto &loop : f->loops)
+        {
+            for (const OrientedEdge &oe : loop)
+            {
+                if (oe.edge != nullptr)
+                    edgeSet.insert(oe.edge);
+            }
+        }
+    }
+
+    struct EndpointKey
+    {
+        Point *lo = nullptr;
+        Point *hi = nullptr;
+        bool operator==(const EndpointKey &o) const noexcept { return lo == o.lo && hi == o.hi; }
+    };
+    struct EndpointKeyHash
+    {
+        std::size_t operator()(const EndpointKey &k) const noexcept
+        {
+            return std::hash<Point *>{}(k.lo) ^ (std::hash<Point *>{}(k.hi) << 1);
+        }
+    };
+
+    auto makeKey = [](Edge *e) -> EndpointKey
+    {
+        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+            return {};
+        Point *const a = e->startPoint;
+        Point *const b = e->endPoint;
+        if (a == b)
+            return {};
+        if (reinterpret_cast<std::uintptr_t>(a) <= reinterpret_cast<std::uintptr_t>(b))
+            return {a, b};
+        return {b, a};
+    };
+
+    std::unordered_map<EndpointKey, std::vector<Edge *>, EndpointKeyHash> buckets;
+    buckets.reserve(edgeSet.size() * 2u + 8u);
+    for (Edge *e : edgeSet)
+    {
+        if (e == nullptr || e->curve != nullptr || !e->bridgePoints.empty())
+            continue;
+        const EndpointKey k = makeKey(e);
+        if (k.lo == nullptr)
+            continue;
+        buckets[k].push_back(e);
+    }
+
+    bool anyChange = false;
+    std::size_t mergedCount = 0;
+
+    for (auto &kv : buckets)
+    {
+        std::vector<Edge *> &vec = kv.second;
+        if (vec.size() < 2u)
+            continue;
+        std::sort(vec.begin(), vec.end(), [](Edge *a, Edge *b) noexcept
+        {
+            return reinterpret_cast<std::uintptr_t>(a) < reinterpret_cast<std::uintptr_t>(b);
+        });
+        vec.erase(std::unique(vec.begin(), vec.end()), vec.end());
+        if (vec.size() < 2u)
+            continue;
+
+        Edge *const keeper = vec[0];
+        for (std::size_t i = 1; i < vec.size(); ++i)
+        {
+            Edge *dup = vec[i];
+            if (dup == nullptr || dup == keeper)
+                continue;
+
+            for (Face *f : solid.faces)
+            {
+                if (f == nullptr || f->dependency != &solid)
+                    continue;
+                for (auto &loop : f->loops)
+                {
+                    for (OrientedEdge &oe : loop)
+                    {
+                        if (oe.edge == dup)
+                            RetargetHalfEdgeForDuplicateMerge(oe, f, dup, keeper);
+                    }
+                }
+            }
+
+            if (dup->startPoint != nullptr)
+                dup->startPoint->dependencies.erase(dup);
+            if (dup->endPoint != nullptr)
+                dup->endPoint->dependencies.erase(dup);
+            dup->startPoint = nullptr;
+            dup->endPoint = nullptr;
+            dup->dependencies.clear();
+            ++mergedCount;
+            anyChange = true;
+        }
+    }
+
+    if (anyChange)
+        LOG_BACK("Duplicate edge merge: orphaned ", mergedCount, " redundant straight Edge records");
+
+    return anyChange;
+}
+
 } // namespace GeometryValidity
