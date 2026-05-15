@@ -5552,9 +5552,61 @@ void Display::InitUI()
         calibPanel.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
         calibPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiCalibrate = &uiRenderer.AddPanel(calibPanel);
-        // AddPanel copies `calibPanel`; vector capacity hint on the local copy is not preserved.
-        // Reserve on the live panel before storing child pointers.
-        uiCalibrate->children.reserve(uiCalibrate->children.size() + 1);
+        // Root `AddParagraph` must not run after we take `Paragraph*` into nested Sections — a realloc of
+        // `uiCalibrate->children` moves every `Section`/`Paragraph` by value and invalidates those
+        // pointers (same failure mode as Structure HoverHint below). Reserve headroom and append the
+        // extra root paragraphs **before** `FindSection` bindings.
+        uiCalibrate->children.reserve(uiCalibrate->children.size() + 4);
+
+        uiCalibrateProcessing = &uiCalibrate->AddParagraph("Processing");
+        uiCalibrateProcessing->visible = false;
+        uiCalibrateProcessing->dimFill = true;
+        uiCalibrateProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        uiCalibrateProcessing->values.reserve(1);
+        {
+            SectionLine &line = uiCalibrateProcessing->values.emplace_back();
+            line.text = "Refreshing calibration...";
+            line.textDepth = 2;
+        }
+
+        calibPara_OpenBoundaryBanner = &uiCalibrate->AddParagraph("CalibOpenBoundaryBanner");
+        calibPara_OpenBoundaryBanner->visible = false;
+        calibPara_OpenBoundaryBanner->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
+        calibPara_OpenBoundaryBanner->values.reserve(1);
+        {
+            SectionLine &el = calibPara_OpenBoundaryBanner->values.emplace_back();
+            el.imguiContent = [this, settingsBodyFont](float w, float h, float)
+            {
+                (void)h;
+                if (!importOpenBoundaryToolPayload.has_value())
+                {
+                    ImGui::Dummy(ImVec2(w, 1.f));
+                    return;
+                }
+                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
+                const float pad = ImGui::GetStyle().FramePadding.x;
+                const ImVec2 row0 = ImGui::GetCursorScreenPos();
+                const ToolUserErrorPayload &te = *importOpenBoundaryToolPayload;
+                const float errH = DrawToolUserErrorCopyBlock(row0.x, row0.y, w, pad, rowFont, te.code, te.message,
+                                                              te.relatedParameterLabel, "oobImp");
+                ImGui::SetCursorScreenPos(ImVec2(row0.x, row0.y + errH + pad));
+                ImGui::BeginDisabled(true);
+                (void)ImGui::Button("Fix##oobFix");
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Repair is not available yet.");
+                ImGui::SameLine();
+                if (ImGui::Button("Exit##oobExit"))
+                {
+                    importOpenBoundaryBannerDismissed = true;
+                    SyncCalibrateImportPrerequisiteVisibility();
+                    uiRenderer.MarkDirty();
+                    renderDirty = true;
+                }
+                const float totalH = (ImGui::GetItemRectMax().y - row0.y) + pad;
+                ImGui::Dummy(ImVec2(w, totalH));
+            };
+        }
 
         // ── Paragraph pointers for live state mutation ──────────────────────
         Section *prereqs = FindSection(*uiCalibrate, "Prerequisites");
@@ -5642,56 +5694,6 @@ void Display::InitUI()
             calibPara_Measure->visible = false;
         if (calibPara_Derived)
             calibPara_Derived->visible = false;
-
-        uiCalibrateProcessing = &uiCalibrate->AddParagraph("Processing");
-        uiCalibrateProcessing->visible = false;
-        uiCalibrateProcessing->dimFill = true;
-        uiCalibrateProcessing->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
-        uiCalibrateProcessing->values.reserve(1);
-        {
-            SectionLine &line = uiCalibrateProcessing->values.emplace_back();
-            line.text = "Refreshing calibration...";
-            line.textDepth = 2;
-        }
-
-        calibPara_OpenBoundaryBanner = &uiCalibrate->AddParagraph("CalibOpenBoundaryBanner");
-        calibPara_OpenBoundaryBanner->visible = false;
-        calibPara_OpenBoundaryBanner->padding = UIGrid::GAP * UIElement::INSET_RATIO * 0.85f;
-        calibPara_OpenBoundaryBanner->values.reserve(1);
-        {
-            SectionLine &el = calibPara_OpenBoundaryBanner->values.emplace_back();
-            el.imguiContent = [this, settingsBodyFont](float w, float h, float)
-            {
-                (void)h;
-                if (!importOpenBoundaryToolPayload.has_value())
-                {
-                    ImGui::Dummy(ImVec2(w, 1.f));
-                    return;
-                }
-                ImFont *rowFont = FontOrInteractiveRow(uiRenderer, settingsBodyFont);
-                const float pad = ImGui::GetStyle().FramePadding.x;
-                const ImVec2 row0 = ImGui::GetCursorScreenPos();
-                const ToolUserErrorPayload &te = *importOpenBoundaryToolPayload;
-                const float errH = DrawToolUserErrorCopyBlock(row0.x, row0.y, w, pad, rowFont, te.code, te.message,
-                                                              te.relatedParameterLabel, "oobImp");
-                ImGui::SetCursorScreenPos(ImVec2(row0.x, row0.y + errH + pad));
-                ImGui::BeginDisabled(true);
-                (void)ImGui::Button("Fix##oobFix");
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip("Repair is not available yet.");
-                ImGui::SameLine();
-                if (ImGui::Button("Exit##oobExit"))
-                {
-                    importOpenBoundaryBannerDismissed = true;
-                    SyncCalibrateImportPrerequisiteVisibility();
-                    uiRenderer.MarkDirty();
-                    renderDirty = true;
-                }
-                const float totalH = (ImGui::GetItemRectMax().y - row0.y) + pad;
-                ImGui::Dummy(ImVec2(w, totalH));
-            };
-        }
 
         RefreshCalibDerivedRowVisible();
     }

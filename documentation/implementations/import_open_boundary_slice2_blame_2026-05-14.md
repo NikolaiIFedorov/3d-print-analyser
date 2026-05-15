@@ -16,6 +16,10 @@ After slice 1 (contract + banner), show **where** the open boundary is: highligh
 
 Shipped; `cmake --build build --target CAD_OpenGL` succeeds.
 
+## Bugfix (Calibrate crash)
+
+`uiCalibrate->children.reserve(size + 1)` then two root `AddParagraph` calls **after** caching `calibPara_*` into nested `Prerequisites` reallocated the root vector and **invalidated** those pointers (same pattern as Structure HoverHint). **Fix:** reserve adequate headroom and append **Processing** + **OpenBoundaryBanner** paragraphs **before** `FindSection` / pointer capture.
+
 ## Follow-ups
 
 - Rebuild blame after **topology-changing** edits without import/tab (same hook family as slice 1 refresh).
