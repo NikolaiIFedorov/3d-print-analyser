@@ -31,6 +31,7 @@
 #include "input/FileImport.hpp"
 #include "input/Input.hpp"
 #include "rendering/ScenePick.hpp"
+#include "Geometry/Curve.hpp"
 #include "Geometry/Edge.hpp"
 #include "Geometry/Point.hpp"
 #include "CalibNominal.hpp"
@@ -80,6 +81,53 @@ constexpr const char kCalibPlotMeasurementPointsLabel[] = "Plot measurement poin
     if (ImFont *f = renderer.GetPixelImFont())
         return f;
     return settingsBodyFont;
+}
+
+constexpr int kOpenBoundaryBlameCurveSegments = 16;
+
+void AppendOpenBoundaryBlameSegment(const glm::dvec3 &a, const glm::dvec3 &b, const glm::vec3 &rgb,
+                                    std::vector<Vertex> &verts, std::vector<uint32_t> &indices)
+{
+    const glm::vec3 lineNormal(0.0f, 0.0f, 1.0f);
+    const uint32_t base = static_cast<uint32_t>(verts.size());
+    verts.push_back({glm::vec3(a), rgb, lineNormal});
+    verts.push_back({glm::vec3(b), rgb, lineNormal});
+    indices.push_back(base);
+    indices.push_back(base + 1);
+}
+
+void AppendOpenBoundaryBlameEdgeGeometry(const Edge *edge, const glm::vec3 &rgb, std::vector<Vertex> &verts,
+                                         std::vector<uint32_t> &indices)
+{
+    if (edge == nullptr || edge->startPoint == nullptr || edge->endPoint == nullptr)
+        return;
+    const glm::dvec3 p0 = edge->startPoint->position;
+    const glm::dvec3 p1 = edge->endPoint->position;
+    if (edge->curve != nullptr)
+    {
+        for (int i = 0; i < kOpenBoundaryBlameCurveSegments; ++i)
+        {
+            const double t0 = static_cast<double>(i) / kOpenBoundaryBlameCurveSegments;
+            const double t1 = static_cast<double>(i + 1) / kOpenBoundaryBlameCurveSegments;
+            AppendOpenBoundaryBlameSegment(edge->curve->Evaluate(t0, p0, p1), edge->curve->Evaluate(t1, p0, p1), rgb,
+                                         verts, indices);
+        }
+        return;
+    }
+    if (!edge->bridgePoints.empty())
+    {
+        glm::dvec3 prev = p0;
+        for (Point *bp : edge->bridgePoints)
+        {
+            if (bp == nullptr)
+                continue;
+            AppendOpenBoundaryBlameSegment(prev, bp->position, rgb, verts, indices);
+            prev = bp->position;
+        }
+        AppendOpenBoundaryBlameSegment(prev, p1, rgb, verts, indices);
+        return;
+    }
+    AppendOpenBoundaryBlameSegment(p0, p1, rgb, verts, indices);
 }
 
 static void TruncateUiInlineMessage(std::string &s, std::size_t maxChars = 72)
@@ -2463,9 +2511,9 @@ void Display::RebuildPickHighlightMesh()
 
     if (!importOpenBoundaryBlameEdges.empty())
     {
-        const glm::vec3 obRgb = glm::vec3(Color::GetAccent(2, 1.0f, 0.9f));
+        const glm::vec3 obRgb = glm::vec3(Color::GetAccentSteps(0.85f, 1.2f, 1.15f));
         for (const Edge *e : importOpenBoundaryBlameEdges)
-            appendEdgeLinesRgb(e, obRgb);
+            AppendOpenBoundaryBlameEdgeGeometry(e, obRgb, pickHighlightLineVertices, pickHighlightLineIndices);
     }
 
     const bool calibSecondPickConstrained =

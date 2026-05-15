@@ -433,8 +433,11 @@ void EvaluateEdgeConnectivityTags(
         {
             std::vector<DirectedFaceUse> tmp = merged;
             SortUniqueDirectedUsesInPlace(tmp);
-            if (tmp.size() == 1u && !gv.second.empty())
-                openBoundaryEdgesOut->push_back(straight[static_cast<std::size_t>(gv.second[0])].edge);
+            if (tmp.size() == 1u)
+            {
+                for (int idx : gv.second)
+                    openBoundaryEdgesOut->push_back(straight[static_cast<std::size_t>(idx)].edge);
+            }
         }
         AppendTagsFromDirectedUses(merged, tags);
     }

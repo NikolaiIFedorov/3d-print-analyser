@@ -20,6 +20,10 @@ Shipped; `cmake --build build --target CAD_OpenGL` succeeds.
 
 `uiCalibrate->children.reserve(size + 1)` then two root `AddParagraph` calls **after** caching `calibPara_*` into nested `Prerequisites` reallocated the root vector and **invalidated** those pointers (same pattern as Structure HoverHint). **Fix:** reserve adequate headroom and append **Processing** + **OpenBoundaryBanner** paragraphs **before** `FindSection` / pointer capture.
 
+## Bugfix (blame lines invisible)
+
+Blame drew only when `PickSegment::edge` matched the collected `Edge*` (missed welded-straight **sibling** records in the same open group). **Fix:** collect **all** edges in an open weld group; draw blame from **edge geometry** (endpoints / curve / bridge) instead of pick-segment lookup; brighter accent line colour.
+
 ## Follow-ups
 
 - Rebuild blame after **topology-changing** edits without import/tab (same hook family as slice 1 refresh).
