@@ -275,6 +275,41 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     return &solid;
 }
 
+namespace
+{
+[[nodiscard]] bool SceneHasSolid(const Scene &scene, const Solid *p) noexcept
+{
+    if (p == nullptr)
+        return false;
+    for (const Solid &s : scene.solids)
+    {
+        if (&s == p)
+            return true;
+    }
+    return false;
+}
+} // namespace
+
+Compound *Scene::CreateCompound(std::vector<Solid *> members)
+{
+    std::vector<Solid *> deduped;
+    deduped.reserve(members.size());
+    std::unordered_set<Solid *> seen;
+    for (Solid *s : members)
+    {
+        if (!SceneHasSolid(*this, s))
+            continue;
+        if (!seen.insert(s).second)
+            continue;
+        deduped.push_back(s);
+    }
+    if (deduped.empty())
+        return nullptr;
+    compounds.emplace_back();
+    compounds.back().solids = std::move(deduped);
+    return &compounds.back();
+}
+
 std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *outFaceRemap) const
 {
     auto out = std::make_unique<Scene>();
@@ -369,6 +404,8 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
             faceMap.emplace(&f, nf);
     }
 
+    std::unordered_map<const Solid *, Solid *> solidMap;
+    solidMap.reserve(solids.size());
     for (const Solid &s : solids)
     {
         std::vector<Face *> newFaces;
@@ -379,7 +416,24 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
             if (it != faceMap.end())
                 newFaces.push_back(it->second);
         }
-        out->CreateSolid(newFaces);
+        Solid *const ns = out->CreateSolid(newFaces);
+        solidMap.emplace(&s, ns);
+    }
+
+    for (const Compound &c : compounds)
+    {
+        std::vector<Solid *> newMembers;
+        newMembers.reserve(c.solids.size());
+        for (Solid *os : c.solids)
+        {
+            if (os == nullptr)
+                continue;
+            const auto itS = solidMap.find(os);
+            if (itS != solidMap.end())
+                newMembers.push_back(itS->second);
+        }
+        if (!newMembers.empty())
+            (void)out->CreateCompound(std::move(newMembers));
     }
 
     out->renderBuffer = renderBuffer;

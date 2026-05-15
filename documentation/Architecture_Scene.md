@@ -50,8 +50,9 @@ The Scene module is the data-ownership layer of CAD_OpenGL. It implements a Boun
 | `Surface.hpp` | Abstract `Surface`, `PlanarSurface`, `NurbsSurface` | Polymorphic normal query. `GetNormal()` / `GetNormal(u,v)` / `IsPlanar()`. Owned by `Face::surface` as `unique_ptr<Surface>`. |
 | `Face.hpp / .cpp` | Class `Face` | Owns edge loops as `vector<vector<OrientedEdge>>`. Owns a `Surface` via `unique_ptr`. Auto-orients edge loops on construction. Computes planar data for planar faces. |
 | `Solid.hpp` | Struct `Solid` | Aggregates `vector<Face*>` plus cached `AppInvalidTag` / freshness for app-level validity. Top-level entity. |
+| `Compound.hpp` | Struct `Compound` | v1: `vector<Solid*>` — non-owning group of scene solids; see `Scene::compounds` / `CreateCompound`. |
 | `Geometry.hpp` | Structs `Vertex`, `ArcData`, `PlanarData` | Shared POD types used across modules. |
-| `AllGeometry.hpp` | Meta-header | Includes all geometry headers + declares `FormPtr` variant. |
+| `AllGeometry.hpp` | Meta-header | Includes geometry headers + `FormPtr` variant (`Point*`, `Edge*`, `Curve*`, `Face*`, `Solid*`, **`Compound*`**). |
 
 ### Data Flow
 
@@ -77,8 +78,13 @@ Scene::CreateSolid(faceVec)
   → face->dependency = &solid for all faces
   → GeometryValidity::TryRepairDegenerateSolidBRep(solid)
   → GeometryValidity::TryRepairInconsistentFaceOrientationSolid(solid)
+  → GeometryValidity::TryMergeDuplicateStraightEdgesSolid(solid)
   → GeometryValidity::RefreshSolidAppGeometryValidityCache(solid)
-  → return &solids.back()
+  → return &solid
+
+Scene::CreateCompound(memberSolids)
+  → dedupe + validate pointers into this scene's solids
+  → compounds.emplace_back(); copy member vector → return &compounds.back()
 ```
 
 **App geometry validity** — Each `Solid` caches `GeometryValidity::AppInvalidTag` results (`cachedAppInvalidGeometryTags`, `cachedAppInvalidGeometryTagsFresh`). Mitigations, UX angles, and a phased repair roadmap are documented in `documentation/GeometryValidity_AppInvalidTag_mitigations.md`.
@@ -159,7 +165,7 @@ No new dependencies introduced.
 | Issue | Severity | Details | Remediation |
 |-------|----------|---------|-------------|
 | `renderBuffer` / `lockedBuffer` unused | Minor | Declared in `Scene` but never read or written | Remove |
-| `FormPtr` variant declared but unused | Minor | `using FormPtr = std::variant<...>` in `AllGeometry.hpp` | Remove or use |
+| `FormPtr` variant mostly unused | Minor | `using FormPtr = std::variant<..., Compound*>` in `AllGeometry.hpp` — **Compound** added 2026-05-14 for grouping | Wire selection / hit testing when ready |
 | Planar normal from 3 vertices only | Minor | `CalculatePlanarData()` uses `oe0`, `oe1`, `oe2` start points — can fail if first 3 are collinear | Use Newell's method or check for degeneracy |
 | No `const` on factory return | Minor | `CreatePoint()` returns `Point*` not `const Point*` | Acceptable — callers need mutation for dependency wiring |
 | Edge wiring in `CreateEdge(start, end, curve)` calls `CreateEdge(start, end)` then mutates | Minor | Two-step construction; `curve->dependencies.insert(edge)` happens after initial creation | Could be combined but is functionally correct |

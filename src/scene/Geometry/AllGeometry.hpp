@@ -6,7 +6,8 @@
 #include "Surface.hpp"
 #include "Face.hpp"
 #include "Solid.hpp"
+#include "Compound.hpp"
 
-using FormPtr = std::variant<Point *, Edge *, Curve *, Face *, Solid *>;
+using FormPtr = std::variant<Point *, Edge *, Curve *, Face *, Solid *, Compound *>;
 
 #include "Geometry.hpp"

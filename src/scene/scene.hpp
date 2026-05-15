@@ -53,6 +53,11 @@ public:
     std::deque<Solid> solids;
     Solid *CreateSolid(const std::vector<Face *> &faces);
 
+    std::deque<Compound> compounds;
+    /// Non-owning references to `Solid`s in this scene. Nulls and unknown pointers skipped;
+    /// duplicates removed (first occurrence kept). Returns nullptr if no members remain.
+    Compound *CreateCompound(std::vector<Solid *> members);
+
     /// Topology snapshot without merging — used when STL merge experiment skips `MergeCoplanarFaces`.
     void CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
 
