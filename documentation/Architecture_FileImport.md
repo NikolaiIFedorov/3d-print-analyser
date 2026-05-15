@@ -22,7 +22,7 @@ The file import pipeline brings 3D mesh data from disk into the B-rep `Scene` gr
 1. **File filter vs importers:** The dialog still lists extensions (e.g. STEP, PLY) that the worker treats as **unsupported** (`result.ok == false`, progress message *"Unsupported import format."*). This avoids attaching an empty scene, but **UX is still weak** until filters match code or importers exist.
 2. **SDL callback lifetime:** `FileImport` still uses heap-allocated `FileCallback` for SDL3 `userdata` (non-RAII pattern).
 3. **Heavy main-thread steps:** `FrameScene`, `UpdateScene`, and GPU rebuild triggered from the apply pipeline can still be **large** for huge meshes — mitigated by `MainThreadPipeline` time budget, not eliminated.
-4. **Post-import geometry diagnostics (planned):** surface `Solid` `AppInvalidTag` / freshness after attach — UX design for **open boundary** and shared diagnostics surface: `documentation/implementations/import_open_boundary_ux_2026-05-14.md`.
+4. **Post-import geometry diagnostics (planned):** surface `Solid` `AppInvalidTag` / freshness after attach — UX design for **open boundary** (post-import **Fix** / **Exit**, **3D blame**, import-prerequisite completion for clean-dependent tools): `documentation/implementations/import_open_boundary_ux_2026-05-14.md`.
 
 ---
 
