@@ -11,6 +11,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <queue>
 #include <tuple>
 #include <unordered_map>
 #include <unordered_set>
@@ -239,6 +240,358 @@ void RemoveFaceFromSolid(Solid &solid, Face *face) noexcept
     solid.faces.erase(std::remove(solid.faces.begin(), solid.faces.end(), face), solid.faces.end());
 }
 
+[[nodiscard]] bool LexLessWeldKey(WeldGridKey a, WeldGridKey b) noexcept
+{
+    return std::tie(a.x, a.y, a.z) < std::tie(b.x, b.y, b.z);
+}
+
+struct UndirectedSegGridKey
+{
+    WeldGridKey k0{};
+    WeldGridKey k1{};
+    bool operator==(const UndirectedSegGridKey &o) const noexcept
+    {
+        return k0.x == o.k0.x && k0.y == o.k0.y && k0.z == o.k0.z && k1.x == o.k1.x && k1.y == o.k1.y && k1.z == o.k1.z;
+    }
+};
+
+struct UndirectedSegGridKeyHash
+{
+    std::size_t operator()(const UndirectedSegGridKey &k) const noexcept
+    {
+        WeldGridKeyHash h{};
+        std::size_t out = h(k.k0);
+        out ^= h(k.k1) + 0x9e3779b97f4a7c15ULL + (out << 6) + (out >> 2);
+        return out;
+    }
+};
+
+[[nodiscard]] UndirectedSegGridKey MakeUndirectedSegGridKey(const glm::dvec3 &pa, const glm::dvec3 &pb,
+                                                             double weldEps) noexcept
+{
+    WeldGridKey a = MakeWeldKey(pa, weldEps);
+    WeldGridKey b = MakeWeldKey(pb, weldEps);
+    if (LexLessWeldKey(b, a))
+        std::swap(a, b);
+    return {a, b};
+}
+
+[[nodiscard]] bool EdgesGeomCoincidentUndirected(const glm::dvec3 &a0, const glm::dvec3 &b0,
+                                                 const glm::dvec3 &a1, const glm::dvec3 &b1,
+                                                 double segTol) noexcept
+{
+    const double dAlign = glm::distance(a0, a1) + glm::distance(b0, b1);
+    const double dCross = glm::distance(a0, b1) + glm::distance(b0, a1);
+    return std::min(dAlign, dCross) <= segTol;
+}
+
+using DirectedFaceUse = std::tuple<Face *, Point *, Point *>;
+
+void AppendTagsFromDirectedUses(std::vector<std::tuple<Face *, Point *, Point *>> &uses,
+                                AppInvalidTag &tags) noexcept
+{
+    std::sort(uses.begin(), uses.end(), [](const DirectedFaceUse &t1, const DirectedFaceUse &t2) noexcept
+    {
+        Face *f1 = std::get<0>(t1);
+        Face *f2 = std::get<0>(t2);
+        if (f1 != f2)
+            return reinterpret_cast<std::uintptr_t>(f1) < reinterpret_cast<std::uintptr_t>(f2);
+        Point *a1 = std::get<1>(t1);
+        Point *a2 = std::get<1>(t2);
+        if (a1 != a2)
+            return reinterpret_cast<std::uintptr_t>(a1) < reinterpret_cast<std::uintptr_t>(a2);
+        Point *b1 = std::get<2>(t1);
+        Point *b2 = std::get<2>(t2);
+        return reinterpret_cast<std::uintptr_t>(b1) < reinterpret_cast<std::uintptr_t>(b2);
+    });
+    uses.erase(std::unique(uses.begin(), uses.end(),
+                           [](const DirectedFaceUse &t1, const DirectedFaceUse &t2) noexcept
+                           {
+                               return std::get<0>(t1) == std::get<0>(t2) && std::get<1>(t1) == std::get<1>(t2) &&
+                                      std::get<2>(t1) == std::get<2>(t2);
+                           }),
+               uses.end());
+
+    const int c = static_cast<int>(uses.size());
+    if (c == 1)
+        tags |= AppInvalidTag::OpenBoundary;
+    else if (c > 2)
+        tags |= AppInvalidTag::NonManifoldConnectivity;
+    else if (c == 2)
+    {
+        Point *a0 = std::get<1>(uses[0]);
+        Point *b0 = std::get<2>(uses[0]);
+        Point *a1 = std::get<1>(uses[1]);
+        Point *b1 = std::get<2>(uses[1]);
+        const bool opposite = (a0 == b1 && b0 == a1);
+        const bool same = (a0 == a1 && b0 == b1);
+        if (same)
+            tags |= AppInvalidTag::InconsistentFaceOrientation;
+        else if (!opposite)
+            tags |= AppInvalidTag::NonManifoldConnectivity;
+    }
+}
+
+void EvaluateEdgeConnectivityTags(
+    const Solid &solid,
+    const std::unordered_map<Edge *, std::vector<std::tuple<Face *, Point *, Point *>>> &edgeUses,
+    AppInvalidTag &tags) noexcept
+{
+    for (const auto &kv : edgeUses)
+    {
+        Edge *const e = kv.first;
+        if (e == nullptr)
+            continue;
+        if (e->curve != nullptr || !e->bridgePoints.empty())
+        {
+            std::vector<std::tuple<Face *, Point *, Point *>> copy = kv.second;
+            AppendTagsFromDirectedUses(copy, tags);
+        }
+    }
+
+    struct StraightGeom
+    {
+        Edge *edge = nullptr;
+        glm::dvec3 pa{};
+        glm::dvec3 pb{};
+    };
+
+    std::vector<StraightGeom> straight;
+    straight.reserve(edgeUses.size());
+    for (const auto &kv : edgeUses)
+    {
+        Edge *const e = kv.first;
+        if (e == nullptr || e->curve != nullptr || !e->bridgePoints.empty())
+            continue;
+        if (e->startPoint == nullptr || e->endPoint == nullptr)
+            continue;
+        straight.push_back({e, e->startPoint->position, e->endPoint->position});
+    }
+
+    const int nStraight = static_cast<int>(straight.size());
+    if (nStraight == 0)
+        return;
+
+    const double weldEps = WeldEpsilonFromSolid(solid);
+    const double segTol = std::max(8.0 * weldEps, 1e-15);
+
+    Dsu dsu(nStraight);
+    std::unordered_map<UndirectedSegGridKey, std::vector<int>, UndirectedSegGridKeyHash> buckets;
+    buckets.reserve(static_cast<std::size_t>(nStraight) * 2u + 8u);
+    for (int i = 0; i < nStraight; ++i)
+    {
+        const StraightGeom &sg = straight[static_cast<std::size_t>(i)];
+        const UndirectedSegGridKey key = MakeUndirectedSegGridKey(sg.pa, sg.pb, weldEps);
+        buckets[key].push_back(i);
+    }
+
+    for (auto &bk : buckets)
+    {
+        std::vector<int> &ix = bk.second;
+        for (std::size_t a = 0; a < ix.size(); ++a)
+        {
+            for (std::size_t b = a + 1; b < ix.size(); ++b)
+            {
+                const StraightGeom &sa = straight[static_cast<std::size_t>(ix[a])];
+                const StraightGeom &sb = straight[static_cast<std::size_t>(ix[b])];
+                if (EdgesGeomCoincidentUndirected(sa.pa, sa.pb, sb.pa, sb.pb, segTol))
+                    dsu.unite(ix[static_cast<std::size_t>(a)], ix[static_cast<std::size_t>(b)]);
+            }
+        }
+    }
+
+    std::unordered_map<int, std::vector<int>> groups;
+    groups.reserve(static_cast<std::size_t>(nStraight) * 2u + 8u);
+    for (int i = 0; i < nStraight; ++i)
+        groups[dsu.find(i)].push_back(i);
+
+    for (const auto &gv : groups)
+    {
+        std::vector<std::tuple<Face *, Point *, Point *>> merged;
+        merged.reserve(gv.second.size() * 4u + 8u);
+        for (int idx : gv.second)
+        {
+            Edge *const e = straight[static_cast<std::size_t>(idx)].edge;
+            const auto it = edgeUses.find(e);
+            if (it != edgeUses.end())
+                merged.insert(merged.end(), it->second.begin(), it->second.end());
+        }
+        AppendTagsFromDirectedUses(merged, tags);
+    }
+}
+
+struct PointPairHash
+{
+    std::size_t operator()(const std::pair<Point *, Point *> &p) const noexcept
+    {
+        return std::hash<void *>{}(p.first) ^ (std::hash<void *>{}(p.second) << 1);
+    }
+};
+
+void EvaluateVertexLinkConnectivityTags(const Solid &solid, AppInvalidTag &tags) noexcept
+{
+    std::unordered_set<Point *> seenPoints;
+    seenPoints.reserve(solid.faces.size() * 4u + 8u);
+
+    for (const Face *face : solid.faces)
+    {
+        if (face == nullptr)
+            continue;
+        for (const auto &loop : face->loops)
+        {
+            for (const OrientedEdge &oe : loop)
+            {
+                if (oe.edge == nullptr)
+                    continue;
+                if (Point *s = oe.GetStart())
+                    seenPoints.insert(s);
+                if (Point *e = oe.GetEnd())
+                    seenPoints.insert(e);
+            }
+        }
+    }
+
+    for (Point *p : seenPoints)
+    {
+        if (p == nullptr)
+            continue;
+
+        [&]() {
+            std::vector<std::pair<Point *, Point *>> linkEdges;
+            linkEdges.reserve(32u);
+
+            for (const Face *face : solid.faces)
+            {
+                if (face == nullptr)
+                    continue;
+                for (const auto &loop : face->loops)
+                {
+                    const std::size_t n = loop.size();
+                    if (n < 3)
+                        continue;
+                    for (std::size_t j = 0; j < n; ++j)
+                    {
+                        const OrientedEdge &oe = loop[j];
+                        if (oe.edge == nullptr || oe.GetStart() == nullptr || oe.GetEnd() == nullptr)
+                            continue;
+                        if (oe.GetStart() != p)
+                            continue;
+                        const std::size_t jPrev = (j + n - 1) % n;
+                        Point *const prevN = loop[jPrev].GetStart();
+                        Point *const nextN = oe.GetEnd();
+                        if (prevN == nullptr || nextN == nullptr)
+                            continue;
+                        if (prevN == p || nextN == p || prevN == nextN)
+                            continue;
+                        Point *lo = prevN;
+                        Point *hi = nextN;
+                        if (reinterpret_cast<std::uintptr_t>(lo) > reinterpret_cast<std::uintptr_t>(hi))
+                            std::swap(lo, hi);
+                        linkEdges.emplace_back(lo, hi);
+                    }
+                }
+            }
+
+            if (linkEdges.empty())
+                return;
+
+            std::unordered_map<std::pair<Point *, Point *>, int, PointPairHash> wedgeCount;
+            wedgeCount.reserve(linkEdges.size() * 2u + 8u);
+            for (const auto &pr : linkEdges)
+            {
+                if (++wedgeCount[pr] > 1)
+                {
+                    tags |= AppInvalidTag::NonManifoldConnectivity;
+                    return;
+                }
+            }
+
+            std::unordered_map<Point *, std::unordered_set<Point *>> adj;
+            adj.reserve(wedgeCount.size() * 4u + 8u);
+            for (const auto &kv : wedgeCount)
+            {
+                Point *u = kv.first.first;
+                Point *v = kv.first.second;
+                adj[u].insert(v);
+                adj[v].insert(u);
+            }
+
+            for (const auto &kv : adj)
+            {
+                if (kv.second.size() > 2u)
+                {
+                    tags |= AppInvalidTag::NonManifoldConnectivity;
+                    return;
+                }
+            }
+
+            std::unordered_set<Point *> nodes;
+            for (const auto &kv : wedgeCount)
+            {
+                nodes.insert(kv.first.first);
+                nodes.insert(kv.first.second);
+            }
+
+            std::unordered_set<Point *> visitedGlobal;
+            int componentsWithEdges = 0;
+            for (Point *seed : nodes)
+            {
+                if (visitedGlobal.count(seed) != 0u)
+                    continue;
+                std::unordered_set<Point *> comp;
+                std::queue<Point *> q;
+                q.push(seed);
+                comp.insert(seed);
+                while (!q.empty())
+                {
+                    Point *u = q.front();
+                    q.pop();
+                    const auto itAdj = adj.find(u);
+                    if (itAdj == adj.end())
+                        continue;
+                    for (Point *v : itAdj->second)
+                    {
+                        if (comp.count(v) == 0u)
+                        {
+                            comp.insert(v);
+                            q.push(v);
+                        }
+                    }
+                }
+
+                std::size_t E = 0;
+                for (Point *u : comp)
+                {
+                    const auto itA = adj.find(u);
+                    if (itA != adj.end())
+                        E += itA->second.size();
+                }
+                E /= 2u;
+                const std::size_t V = comp.size();
+                if (E == 0u)
+                {
+                    for (Point *u : comp)
+                        visitedGlobal.insert(u);
+                    continue;
+                }
+
+                for (Point *u : comp)
+                    visitedGlobal.insert(u);
+
+                ++componentsWithEdges;
+                if (!(E == V || E == V - 1))
+                {
+                    tags |= AppInvalidTag::NonManifoldConnectivity;
+                    return;
+                }
+            }
+
+            if (componentsWithEdges >= 2)
+                tags |= AppInvalidTag::NonManifoldConnectivity;
+        }();
+    }
+}
+
 } // namespace
 
 AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
@@ -256,7 +609,7 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
         mx = glm::max(mx, p);
     };
 
-    std::unordered_map<Edge *, std::vector<std::pair<Point *, Point *>>> edgeUses;
+    std::unordered_map<Edge *, std::vector<std::tuple<Face *, Point *, Point *>>> edgeUses;
     edgeUses.reserve(solid.faces.size() * 3u + 8u);
     std::vector<std::vector<glm::dvec3>> ringsForDegeneracy;
     ringsForDegeneracy.reserve(solid.faces.size());
@@ -264,7 +617,7 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
     if (solid.faces.empty())
         tags |= AppInvalidTag::NullOrEmptyTopology;
 
-    for (const Face *face : solid.faces)
+    for (Face *face : solid.faces)
     {
         if (face == nullptr)
         {
@@ -311,7 +664,7 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
                 continue;
 
             for (const auto &he : loopHalfEdges)
-                edgeUses[he.first].push_back(he.second);
+                edgeUses[he.first].emplace_back(face, he.second.first, he.second.second);
 
             const std::size_t n = ring.size();
             if (n < 3)
@@ -361,30 +714,8 @@ AppInvalidTag EvaluateAppInvalidTagsForSolid(const Solid &solid) noexcept
         }
     }
 
-    for (const auto &kv : edgeUses)
-    {
-        const Edge *const e = kv.first;
-        const auto &vec = kv.second;
-        (void)e;
-        const int c = static_cast<int>(vec.size());
-        if (c == 1)
-            tags |= AppInvalidTag::OpenBoundary;
-        else if (c > 2)
-            tags |= AppInvalidTag::NonManifoldConnectivity;
-        else if (c == 2)
-        {
-            const Point *a0 = vec[0].first;
-            const Point *b0 = vec[0].second;
-            const Point *a1 = vec[1].first;
-            const Point *b1 = vec[1].second;
-            const bool opposite = (a0 == b1 && b0 == a1);
-            const bool same = (a0 == a1 && b0 == b1);
-            if (same)
-                tags |= AppInvalidTag::InconsistentFaceOrientation;
-            else if (!opposite)
-                tags |= AppInvalidTag::NonManifoldConnectivity;
-        }
-    }
+    EvaluateEdgeConnectivityTags(solid, edgeUses, tags);
+    EvaluateVertexLinkConnectivityTags(solid, tags);
 
     return tags;
 }
