@@ -1388,7 +1388,17 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
 #endif
 
     if (!geometryDirtyAll)
-        geometryDirtySolids.insert(solid);
+    {
+        if (scene != nullptr)
+        {
+            std::unordered_set<const Solid *> expanded;
+            scene->InsertSolidWithCompoundMembers(solid, expanded);
+            for (const Solid *sx : expanded)
+                geometryDirtySolids.insert(sx);
+        }
+        else
+            geometryDirtySolids.insert(solid);
+    }
     ScheduleNode(InvalidationNode::Geometry);
     ScheduleNode(InvalidationNode::Analysis);
     ScheduleNode(InvalidationNode::Pick);
@@ -3772,6 +3782,8 @@ void Display::ProcessDeferredImportIfAny()
                                    {
                                        SetImportProgress("Attaching imported scene...", 0.85f);
                                        ownedScenes.push_back(std::move(state->result.importedScene));
+                                       if (Scene *attached = ownedScenes.back().get())
+                                           attached->TryCreateCompoundWrappingAllSolidsIfNone();
                                        state->importedSceneIndex = ownedScenes.size() - 1;
                                        state->activateImportedScene = pendingImportTabActive;
                                        if (state->activateImportedScene)

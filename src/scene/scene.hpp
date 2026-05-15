@@ -58,6 +58,13 @@ public:
     /// duplicates removed (first occurrence kept). Returns nullptr if no members remain.
     Compound *CreateCompound(std::vector<Solid *> members);
 
+    /// If there are at least two solids and no compounds yet, creates one compound listing every solid
+    /// in `solids` iteration order. No-op otherwise (idempotent for single-solid scenes).
+    void TryCreateCompoundWrappingAllSolidsIfNone() noexcept;
+
+    /// Inserts `s` and every other solid in the same compound as `s` (if any) into `out`.
+    void InsertSolidWithCompoundMembers(const Solid *s, std::unordered_set<const Solid *> &out) const noexcept;
+
     /// Topology snapshot without merging — used when STL merge experiment skips `MergeCoplanarFaces`.
     void CollectCoplanarMergeTopology(Solid *solid, MergeCoplanarDiagnostics *diagnosticsOut);
 

@@ -310,6 +310,45 @@ Compound *Scene::CreateCompound(std::vector<Solid *> members)
     return &compounds.back();
 }
 
+void Scene::TryCreateCompoundWrappingAllSolidsIfNone() noexcept
+{
+    if (solids.size() < 2u || !compounds.empty())
+        return;
+    std::vector<Solid *> m;
+    m.reserve(solids.size());
+    for (Solid &s : solids)
+        m.push_back(&s);
+    (void)CreateCompound(std::move(m));
+}
+
+void Scene::InsertSolidWithCompoundMembers(const Solid *s, std::unordered_set<const Solid *> &out) const noexcept
+{
+    if (s == nullptr)
+        return;
+    out.insert(s);
+    const Compound *found = nullptr;
+    for (const Compound &c : compounds)
+    {
+        for (Solid *m : c.solids)
+        {
+            if (m == s)
+            {
+                found = &c;
+                break;
+            }
+        }
+        if (found != nullptr)
+            break;
+    }
+    if (found == nullptr)
+        return;
+    for (Solid *m : found->solids)
+    {
+        if (m != nullptr)
+            out.insert(m);
+    }
+}
+
 std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *outFaceRemap) const
 {
     auto out = std::make_unique<Scene>();

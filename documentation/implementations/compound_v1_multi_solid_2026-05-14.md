@@ -16,6 +16,14 @@ Introduce a **first-class** scene object that references **several existing `Sol
 - No UI, selection, or import path calling `CreateCompound` yet.
 - No removal API for compounds (erase from deque) — add when needed.
 
+---
+
+## Update (same file): import + dirty propagation
+
+- **`Scene::TryCreateCompoundWrappingAllSolidsIfNone()`** — after a successful import attach, if the new scene has **≥2 solids** and **no compounds** yet, creates one compound listing **all** solids in deque order.
+- **`Scene::InsertSolidWithCompoundMembers`** — used by **`Display::MarkGeometryDirtySolid`** so incremental mesh rebuild / analysis invalidation touches **every solid in the same compound** as the dirtied solid (proxy for “select group” until explicit selection state exists).
+
+
 ## Outcome
 
 Shipped as above; `cmake --build build --target CAD_OpenGL` succeeds.

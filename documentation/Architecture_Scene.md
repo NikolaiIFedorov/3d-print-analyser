@@ -85,6 +85,9 @@ Scene::CreateSolid(faceVec)
 Scene::CreateCompound(memberSolids)
   → dedupe + validate pointers into this scene's solids
   → compounds.emplace_back(); copy member vector → return &compounds.back()
+
+Scene::TryCreateCompoundWrappingAllSolidsIfNone()
+  → if solids.size() ≥ 2 and compounds empty: CreateCompound(all solid pointers in order)
 ```
 
 **App geometry validity** — Each `Solid` caches `GeometryValidity::AppInvalidTag` results (`cachedAppInvalidGeometryTags`, `cachedAppInvalidGeometryTagsFresh`). Mitigations, UX angles, and a phased repair roadmap are documented in `documentation/GeometryValidity_AppInvalidTag_mitigations.md`.
