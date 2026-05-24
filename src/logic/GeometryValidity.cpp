@@ -948,16 +948,17 @@ void CollectOpenBoundaryEdgesForSolid(const Solid &solid, std::vector<const Edge
         }
     }
 
-    AppInvalidTag discard = AppInvalidTag::None;
-    std::vector<const Edge *> raw;
-    raw.reserve(edgeUses.size() * 2u + 8u);
-    EvaluateEdgeConnectivityTags(solid, edgeUses, discard, &raw);
-
-    std::unordered_set<const Edge *> seen;
-    seen.reserve(raw.size() * 2u + 8u);
-    for (const Edge *e : raw)
+    // Per-edge directed use count (before straight-edge weld grouping used for tagging). Matches what
+    // users see as a "boundary edge" on screen and is more complete for viewport blame than the weld
+    // representative used inside `EvaluateEdgeConnectivityTags`.
+    for (const auto &kv : edgeUses)
     {
-        if (e != nullptr && seen.insert(e).second)
+        Edge *const e = kv.first;
+        if (e == nullptr)
+            continue;
+        std::vector<DirectedFaceUse> uses = kv.second;
+        SortUniqueDirectedUsesInPlace(uses);
+        if (uses.size() == 1u)
             out.push_back(e);
     }
 }

@@ -32,3 +32,14 @@ Blame drew only when `PickSegment::edge` matched the collected `Edge*` (missed w
 ## Mini retro
 
 Pushing optional edge list through `EvaluateEdgeConnectivityTags` avoided a large copy of the weld/DSU block; if more tags need geometry subsets, consider a small visitor or structured connectivity result type.
+
+## 2026-05-25 — intuitive missing-face context trial
+
+User validation showed strict boundary-only blame can feel incomplete: one edge visually expected as part of the missing cap was not highlighted. We kept strict boundary edges as canonical truth and added an inferred context set in `Display::RebuildImportOpenBoundaryBlameEdges`:
+
+- Build `boundaryVertices` from strict open-boundary edges.
+- Scan solid loops for non-boundary edges connected to those vertices.
+- Prefer edges where **both endpoints** are boundary vertices; if none exist, fall back to one-endpoint candidates.
+- Upload/draw context in the dedicated open-boundary line pass (`importOpenBoundaryContextEdges`) with a softer accent than strict edges.
+
+Result: view now reads closer to “all edges around the missing face” without changing the underlying gating/truth rule (`OpenBoundary`).

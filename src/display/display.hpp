@@ -178,6 +178,8 @@ private:
     void RefreshImportClosedVolumeContractFromScene() noexcept;
     void SyncCalibrateImportPrerequisiteVisibility();
     void RebuildImportOpenBoundaryBlameEdges();
+    void RebuildOpenBoundaryBlameLineGpuMesh();
+    bool TryFixOpenBoundaryForActiveScene();
     [[nodiscard]] bool ImportAllowsGeometryDependentTools() const noexcept;
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
@@ -236,8 +238,12 @@ private:
     /// Post-import open-boundary banner (Calibrate panel); cleared when contract satisfied.
     std::optional<ToolUserErrorPayload> importOpenBoundaryToolPayload;
     bool importOpenBoundaryBannerDismissed = false;
-    /// Segments for `OpenBoundary` “blame” overlay (pick highlight line pass).
+    /// Segments for `OpenBoundary` “blame” overlay (dedicated line pass).
+    /// `importOpenBoundaryContextEdges` adds inferred perimeter context around strict boundary edges.
     std::vector<const Edge *> importOpenBoundaryBlameEdges;
+    std::vector<const Edge *> importOpenBoundaryContextEdges;
+    std::vector<Vertex> openBoundaryBlameLineVertices;
+    std::vector<uint32_t> openBoundaryBlameLineIndices;
 
     // Step indicator states — read per-frame by CheckBox lambdas; update in-place, no rebuild needed
     Icons::StepState calibStepImport    = Icons::StepState::Active;

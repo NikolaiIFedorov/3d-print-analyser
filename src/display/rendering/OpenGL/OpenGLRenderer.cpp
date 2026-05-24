@@ -303,6 +303,15 @@ void OpenGLRenderer::Shutdown()
     calibHoverSpanLineVAO = calibHoverSpanLineVBO = calibHoverSpanLineIBO = 0;
     calibHoverSpanLineIndexCount = 0;
 
+    if (openBoundaryBlameLineVBO)
+        glDeleteBuffers(1, &openBoundaryBlameLineVBO);
+    if (openBoundaryBlameLineVAO)
+        glDeleteVertexArrays(1, &openBoundaryBlameLineVAO);
+    if (openBoundaryBlameLineIBO)
+        glDeleteBuffers(1, &openBoundaryBlameLineIBO);
+    openBoundaryBlameLineVAO = openBoundaryBlameLineVBO = openBoundaryBlameLineIBO = 0;
+    openBoundaryBlameLineIndexCount = 0;
+
     if (structurePreviewLineVBO)
         glDeleteBuffers(1, &structurePreviewLineVBO);
     if (structurePreviewLineVAO)
@@ -595,6 +604,44 @@ void OpenGLRenderer::UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &ver
         glGenBuffers(1, &calibHoverSpanLineIBO);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, calibHoverSpanLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &vertices,
+                                                     const std::vector<uint32_t> &indices)
+{
+    openBoundaryBlameLineIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (openBoundaryBlameLineVAO == 0)
+        glGenVertexArrays(1, &openBoundaryBlameLineVAO);
+
+    glBindVertexArray(openBoundaryBlameLineVAO);
+
+    if (openBoundaryBlameLineVBO == 0)
+        glGenBuffers(1, &openBoundaryBlameLineVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, openBoundaryBlameLineVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (openBoundaryBlameLineIBO == 0)
+        glGenBuffers(1, &openBoundaryBlameLineIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, openBoundaryBlameLineIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
                  indices.empty() ? nullptr : indices.data(),
@@ -1156,6 +1203,76 @@ void OpenGLRenderer::DrawPickHighlightLines(float pixelWidth, bool xrayOverlay)
 
     glBindVertexArray(pickHighlightLineVAO);
     glDrawElements(GL_LINES, drawIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    if (xrayOverlay)
+    {
+        glDepthMask(depthMaskWas);
+        if (depthTestWas)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        if (!blendWas)
+            glDisable(GL_BLEND);
+    }
+    else
+    {
+        glDepthMask(GL_TRUE);
+    }
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawOpenBoundaryBlameLine(float pixelWidth, bool xrayOverlay)
+{
+    if (openBoundaryBlameLineIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uAlpha", xrayOverlay ? 0.55f : 1.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    if (xrayOverlay)
+    {
+        glGetBooleanv(GL_BLEND, &blendWas);
+        glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    }
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
+
+    glBindVertexArray(openBoundaryBlameLineVAO);
+    glDrawElements(GL_LINES, openBoundaryBlameLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)

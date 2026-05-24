@@ -130,6 +130,831 @@ void AppendOpenBoundaryBlameEdgeGeometry(const Edge *edge, const glm::vec3 &rgb,
     AppendOpenBoundaryBlameSegment(p0, p1, rgb, verts, indices);
 }
 
+void CollectRepairCandidateLinearEdgesForSolid(
+    const Solid &solid,
+    std::vector<Edge *> &outEdges,
+    std::size_t &skippedNonLinearEdges)
+{
+    outEdges.clear();
+    skippedNonLinearEdges = 0;
+
+    std::vector<const Edge *> boundaryEdges;
+    GeometryValidity::CollectOpenBoundaryEdgesForSolid(solid, boundaryEdges);
+    if (boundaryEdges.empty())
+        return;
+
+    std::unordered_set<const Edge *> boundarySet;
+    std::unordered_set<const Point *> boundaryVertices;
+    std::unordered_set<Edge *> seen;
+    boundarySet.reserve(boundaryEdges.size());
+    boundaryVertices.reserve(boundaryEdges.size() * 2u + 8u);
+    outEdges.reserve(boundaryEdges.size() * 2u + 8u);
+
+    auto appendIfLinear = [&](const Edge *ec)
+    {
+        Edge *e = const_cast<Edge *>(ec);
+        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+        {
+            skippedNonLinearEdges++;
+            return;
+        }
+        if (e->curve != nullptr || !e->bridgePoints.empty())
+        {
+            skippedNonLinearEdges++;
+            return;
+        }
+        if (!seen.insert(e).second)
+            return;
+        outEdges.push_back(e);
+    };
+
+    for (const Edge *e : boundaryEdges)
+    {
+        if (e == nullptr)
+            continue;
+        boundarySet.insert(e);
+        if (e->startPoint != nullptr)
+            boundaryVertices.insert(e->startPoint);
+        if (e->endPoint != nullptr)
+            boundaryVertices.insert(e->endPoint);
+        appendIfLinear(e);
+    }
+
+    for (Face *face : solid.faces)
+    {
+        if (face == nullptr || face->loops.empty())
+            continue;
+        for (const std::vector<OrientedEdge> &loop : face->loops)
+        {
+            for (const OrientedEdge &oe : loop)
+            {
+                const Edge *e = oe.edge;
+                const Point *start = oe.GetStart();
+                const Point *end = oe.GetEnd();
+                if (e == nullptr || start == nullptr || end == nullptr || boundarySet.contains(e))
+                    continue;
+                if (!boundaryVertices.contains(start) || !boundaryVertices.contains(end))
+                    continue;
+                appendIfLinear(e);
+            }
+        }
+    }
+}
+
+void CollectClosedLinearBoundaryLoops(
+    const std::vector<Edge *> &candidateEdges,
+    std::vector<std::vector<Edge *>> &loopsOut,
+    std::size_t &skippedLinearBoundaryEdges)
+{
+    loopsOut.clear();
+    skippedLinearBoundaryEdges = 0;
+    if (candidateEdges.empty())
+        return;
+
+    std::unordered_set<Edge *> allEdges;
+    allEdges.reserve(candidateEdges.size());
+    std::unordered_map<Point *, std::vector<Edge *>> vertexAdj;
+    vertexAdj.reserve(candidateEdges.size() * 2u + 8u);
+    std::unordered_map<Point *, int> degree;
+    degree.reserve(candidateEdges.size() * 2u + 8u);
+
+    for (Edge *e : candidateEdges)
+    {
+        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr || e->startPoint == e->endPoint)
+        {
+            skippedLinearBoundaryEdges++;
+            continue;
+        }
+        if (!allEdges.insert(e).second)
+            continue;
+        vertexAdj[e->startPoint].push_back(e);
+        vertexAdj[e->endPoint].push_back(e);
+        degree[e->startPoint]++;
+        degree[e->endPoint]++;
+    }
+
+    std::unordered_set<Edge *> aliveEdges = allEdges;
+    std::queue<Point *> peelQueue;
+    for (const auto &kv : degree)
+    {
+        if (kv.first != nullptr && kv.second < 2)
+            peelQueue.push(kv.first);
+    }
+    while (!peelQueue.empty())
+    {
+        Point *v = peelQueue.front();
+        peelQueue.pop();
+        const auto itAdj = vertexAdj.find(v);
+        if (itAdj == vertexAdj.end())
+            continue;
+        for (Edge *e : itAdj->second)
+        {
+            if (e == nullptr || !aliveEdges.contains(e))
+                continue;
+            aliveEdges.erase(e);
+            for (Point *p : {e->startPoint, e->endPoint})
+            {
+                if (p == nullptr)
+                    continue;
+                auto itDeg = degree.find(p);
+                if (itDeg == degree.end() || itDeg->second <= 0)
+                    continue;
+                --itDeg->second;
+                if (itDeg->second == 1)
+                    peelQueue.push(p);
+            }
+        }
+    }
+
+    std::unordered_set<Edge *> eligibleEdges;
+    eligibleEdges.reserve(aliveEdges.size());
+    for (Edge *e : aliveEdges)
+    {
+        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+            continue;
+        const auto itA = degree.find(e->startPoint);
+        const auto itB = degree.find(e->endPoint);
+        if (itA != degree.end() && itB != degree.end() && itA->second == 2 && itB->second == 2)
+            eligibleEdges.insert(e);
+    }
+
+    std::unordered_set<Edge *> usedLoopEdges;
+    usedLoopEdges.reserve(eligibleEdges.size());
+    for (Edge *seed : eligibleEdges)
+    {
+        if (seed == nullptr || usedLoopEdges.contains(seed))
+            continue;
+
+        std::vector<Edge *> loop;
+        loop.reserve(16);
+        Point *start = seed->startPoint;
+        Point *curr = seed->endPoint;
+        Edge *prev = seed;
+        loop.push_back(seed);
+        usedLoopEdges.insert(seed);
+
+        std::size_t guard = 0;
+        bool closed = false;
+        while (true)
+        {
+            if (curr == start)
+            {
+                closed = true;
+                break;
+            }
+            const auto itAdj = vertexAdj.find(curr);
+            if (itAdj == vertexAdj.end())
+                break;
+
+            Edge *next = nullptr;
+            for (Edge *cand : itAdj->second)
+            {
+                if (cand == nullptr || cand == prev || !eligibleEdges.contains(cand))
+                    continue;
+                next = cand;
+                break;
+            }
+            if (next == nullptr || usedLoopEdges.contains(next))
+                break;
+
+            Point *nextPoint = nullptr;
+            if (next->startPoint == curr)
+                nextPoint = next->endPoint;
+            else if (next->endPoint == curr)
+                nextPoint = next->startPoint;
+            if (nextPoint == nullptr)
+                break;
+
+            loop.push_back(next);
+            usedLoopEdges.insert(next);
+            prev = next;
+            curr = nextPoint;
+            if (++guard > eligibleEdges.size() + 1u)
+                break;
+        }
+
+        if (closed && loop.size() >= 3u)
+            loopsOut.push_back(std::move(loop));
+    }
+
+    std::unordered_set<Edge *> loopEdgeSet;
+    loopEdgeSet.reserve(candidateEdges.size());
+    for (const std::vector<Edge *> &loop : loopsOut)
+    {
+        for (Edge *e : loop)
+        {
+            if (e != nullptr)
+                loopEdgeSet.insert(e);
+        }
+    }
+    for (Edge *e : allEdges)
+    {
+        if (e != nullptr && !loopEdgeSet.contains(e))
+            skippedLinearBoundaryEdges++;
+    }
+}
+
+bool BuildLoopRingPoints(const std::vector<Edge *> &loop, std::vector<glm::dvec3> &ringOut)
+{
+    ringOut.clear();
+    if (loop.size() < 3u || loop[0] == nullptr || loop[0]->startPoint == nullptr || loop[0]->endPoint == nullptr)
+        return false;
+
+    Point *current = loop[0]->startPoint;
+    if (loop.size() > 1u && loop[1] != nullptr)
+    {
+        Edge *e0 = loop[0];
+        Edge *e1 = loop[1];
+        if (e0->endPoint == e1->startPoint || e0->endPoint == e1->endPoint)
+            current = e0->startPoint;
+        else if (e0->startPoint == e1->startPoint || e0->startPoint == e1->endPoint)
+            current = e0->endPoint;
+    }
+    Point *const start = current;
+    if (start == nullptr)
+        return false;
+
+    ringOut.reserve(loop.size());
+    for (Edge *e : loop)
+    {
+        if (e == nullptr || current == nullptr)
+            return false;
+        ringOut.push_back(current->position);
+        if (e->startPoint == current)
+            current = e->endPoint;
+        else if (e->endPoint == current)
+            current = e->startPoint;
+        else
+            return false;
+    }
+    return current == start && ringOut.size() >= 3u;
+}
+
+glm::dvec3 LoopNewellNormal(const std::vector<glm::dvec3> &ring)
+{
+    if (ring.size() < 3u)
+        return glm::dvec3(0.0, 0.0, 1.0);
+    glm::dvec3 n(0.0);
+    for (std::size_t i = 0; i < ring.size(); ++i)
+    {
+        const glm::dvec3 &a = ring[i];
+        const glm::dvec3 &b = ring[(i + 1u) % ring.size()];
+        n.x += (a.y - b.y) * (a.z + b.z);
+        n.y += (a.z - b.z) * (a.x + b.x);
+        n.z += (a.x - b.x) * (a.y + b.y);
+    }
+    const double len = glm::length(n);
+    if (len < 1e-20)
+        return glm::dvec3(0.0, 0.0, 1.0);
+    return n / len;
+}
+
+void BuildPlaneBasisFromNormal(const glm::dvec3 &normal, glm::dvec3 &uOut, glm::dvec3 &vOut)
+{
+    const glm::dvec3 axisRef = std::abs(normal.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(0.0, 1.0, 0.0);
+    uOut = glm::normalize(glm::cross(axisRef, normal));
+    vOut = glm::normalize(glm::cross(normal, uOut));
+}
+
+double SignedArea2d(const std::vector<glm::dvec2> &poly)
+{
+    if (poly.size() < 3u)
+        return 0.0;
+    double a = 0.0;
+    for (std::size_t i = 0; i < poly.size(); ++i)
+    {
+        const glm::dvec2 &p = poly[i];
+        const glm::dvec2 &q = poly[(i + 1u) % poly.size()];
+        a += p.x * q.y - q.x * p.y;
+    }
+    return 0.5 * a;
+}
+
+bool PointInPolygon2d(const glm::dvec2 &p, const std::vector<glm::dvec2> &poly)
+{
+    if (poly.size() < 3u)
+        return false;
+
+    auto pointOnSegment = [](const glm::dvec2 &q, const glm::dvec2 &a, const glm::dvec2 &b) -> bool
+    {
+        const glm::dvec2 ab = b - a;
+        const glm::dvec2 aq = q - a;
+        const double cross = ab.x * aq.y - ab.y * aq.x;
+        const double dot = aq.x * ab.x + aq.y * ab.y;
+        const double len2 = ab.x * ab.x + ab.y * ab.y;
+        const double eps = 1e-9;
+        if (std::abs(cross) > eps)
+            return false;
+        if (dot < -eps || dot > len2 + eps)
+            return false;
+        return true;
+    };
+
+    for (std::size_t i = 0; i < poly.size(); ++i)
+    {
+        const glm::dvec2 &a = poly[i];
+        const glm::dvec2 &b = poly[(i + 1u) % poly.size()];
+        if (pointOnSegment(p, a, b))
+            return true;
+    }
+
+    bool inside = false;
+    for (std::size_t i = 0, j = poly.size() - 1; i < poly.size(); j = i++)
+    {
+        const glm::dvec2 &a = poly[i];
+        const glm::dvec2 &b = poly[j];
+        const bool intersects = ((a.y > p.y) != (b.y > p.y)) &&
+                                (p.x < (b.x - a.x) * (p.y - a.y) / ((b.y - a.y) + 1e-20) + a.x);
+        if (intersects)
+            inside = !inside;
+    }
+    return inside;
+}
+
+bool SolidAlreadyHasEquivalentFaceLoops(const Solid &solid, const std::vector<std::vector<Edge *>> &faceLoops)
+{
+    if (faceLoops.empty())
+        return false;
+
+    std::vector<std::unordered_set<Edge *>> candidateSets;
+    candidateSets.reserve(faceLoops.size());
+    for (const std::vector<Edge *> &loop : faceLoops)
+    {
+        std::unordered_set<Edge *> s;
+        s.reserve(loop.size());
+        for (Edge *e : loop)
+        {
+            if (e != nullptr)
+                s.insert(e);
+        }
+        if (s.empty())
+            return false;
+        candidateSets.push_back(std::move(s));
+    }
+
+    for (Face *face : solid.faces)
+    {
+        if (face == nullptr || face->loops.size() != candidateSets.size())
+            continue;
+
+        std::vector<bool> used(face->loops.size(), false);
+        bool allMatched = true;
+        for (const std::unordered_set<Edge *> &cand : candidateSets)
+        {
+            bool matched = false;
+            for (std::size_t i = 0; i < face->loops.size(); ++i)
+            {
+                if (used[i] || face->loops[i].size() != cand.size())
+                    continue;
+                bool same = true;
+                for (const OrientedEdge &oe : face->loops[i])
+                {
+                    if (oe.edge == nullptr || !cand.contains(oe.edge))
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+                if (same)
+                {
+                    used[i] = true;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched)
+            {
+                allMatched = false;
+                break;
+            }
+        }
+        if (allMatched)
+            return true;
+    }
+    return false;
+}
+
+std::vector<std::vector<std::vector<Edge *>>> GroupCapLoopsIntoFaces(const std::vector<std::vector<Edge *>> &loopsIn)
+{
+    struct LoopGeom
+    {
+        std::vector<Edge *> edges;
+        std::vector<glm::dvec2> ring2d;
+        glm::dvec2 sample2d{};
+        double absArea = 0.0;
+        int planeGroup = -1;
+        bool assigned = false;
+    };
+
+    std::vector<LoopGeom> loops;
+    loops.reserve(loopsIn.size());
+
+    std::vector<glm::dvec3> groupNormals;
+    std::vector<double> groupD;
+    std::vector<glm::dvec3> groupOrigins;
+    std::vector<glm::dvec3> groupU;
+    std::vector<glm::dvec3> groupV;
+
+    for (const std::vector<Edge *> &loop : loopsIn)
+    {
+        std::vector<glm::dvec3> ring3d;
+        if (!BuildLoopRingPoints(loop, ring3d))
+            continue;
+        const glm::dvec3 n = LoopNewellNormal(ring3d);
+        const glm::dvec3 origin = ring3d.front();
+        const double d = glm::dot(n, origin);
+
+        int group = -1;
+        for (std::size_t gi = 0; gi < groupNormals.size(); ++gi)
+        {
+            const double nd = std::abs(glm::dot(n, groupNormals[gi]));
+            const double dd = std::abs(d - groupD[gi]);
+            if (nd > 0.995 && dd < 1e-4)
+            {
+                group = static_cast<int>(gi);
+                break;
+            }
+        }
+        if (group < 0)
+        {
+            group = static_cast<int>(groupNormals.size());
+            groupNormals.push_back(n);
+            groupD.push_back(d);
+            groupOrigins.push_back(origin);
+            glm::dvec3 u, v;
+            BuildPlaneBasisFromNormal(n, u, v);
+            groupU.push_back(u);
+            groupV.push_back(v);
+        }
+
+        LoopGeom lg;
+        lg.edges = loop;
+        lg.planeGroup = group;
+        lg.ring2d.reserve(ring3d.size());
+        for (const glm::dvec3 &p : ring3d)
+        {
+            const glm::dvec3 dv = p - groupOrigins[group];
+            lg.ring2d.emplace_back(glm::dot(dv, groupU[group]), glm::dot(dv, groupV[group]));
+        }
+        glm::dvec2 centroid2d(0.0);
+        for (const glm::dvec2 &uv : lg.ring2d)
+            centroid2d += uv;
+        centroid2d /= static_cast<double>(lg.ring2d.size());
+        lg.sample2d = centroid2d;
+        lg.absArea = std::abs(SignedArea2d(lg.ring2d));
+        loops.push_back(std::move(lg));
+    }
+
+    std::vector<std::vector<std::vector<Edge *>>> faceLoopGroups;
+    for (std::size_t gi = 0; gi < groupNormals.size(); ++gi)
+    {
+        std::vector<int> ids;
+        for (std::size_t i = 0; i < loops.size(); ++i)
+        {
+            if (!loops[i].assigned && loops[i].planeGroup == static_cast<int>(gi))
+                ids.push_back(static_cast<int>(i));
+        }
+        std::sort(ids.begin(), ids.end(), [&](int a, int b)
+                  { return loops[a].absArea > loops[b].absArea; });
+
+        for (int outerId : ids)
+        {
+            if (loops[outerId].assigned)
+                continue;
+            loops[outerId].assigned = true;
+            std::vector<std::vector<Edge *>> oneFace;
+            oneFace.push_back(loops[outerId].edges);
+
+            for (int innerId : ids)
+            {
+                if (innerId == outerId || loops[innerId].assigned)
+                    continue;
+                if (PointInPolygon2d(loops[innerId].sample2d, loops[outerId].ring2d))
+                {
+                    loops[innerId].assigned = true;
+                    oneFace.push_back(loops[innerId].edges);
+                }
+            }
+            faceLoopGroups.push_back(std::move(oneFace));
+        }
+    }
+
+    return faceLoopGroups;
+}
+
+bool BuildFaceOuterLoop2d(const Face *face,
+                          const glm::dvec3 &origin,
+                          const glm::dvec3 &uAxis,
+                          const glm::dvec3 &vAxis,
+                          std::vector<glm::dvec2> &ringOut,
+                          glm::dvec2 &centroidOut,
+                          double &absAreaOut)
+{
+    ringOut.clear();
+    centroidOut = glm::dvec2(0.0);
+    absAreaOut = 0.0;
+    if (face == nullptr || face->surface == nullptr || !face->surface->IsPlanar() || face->loops.empty() ||
+        face->loops[0].size() < 3u)
+        return false;
+
+    const std::vector<OrientedEdge> &outer = face->loops[0];
+    ringOut.reserve(outer.size());
+    for (const OrientedEdge &oe : outer)
+    {
+        if (oe.edge == nullptr || oe.GetStart() == nullptr)
+            return false;
+        const glm::dvec3 d = oe.GetStartPosition() - origin;
+        ringOut.emplace_back(glm::dot(d, uAxis), glm::dot(d, vAxis));
+    }
+    if (ringOut.size() < 3u)
+        return false;
+    for (const glm::dvec2 &p : ringOut)
+        centroidOut += p;
+    centroidOut /= static_cast<double>(ringOut.size());
+    absAreaOut = std::abs(SignedArea2d(ringOut));
+    return absAreaOut > 1e-12;
+}
+
+bool IsFaceContainedInCoplanarFace(const Face *innerFace, const Face *outerFace)
+{
+    if (innerFace == nullptr || outerFace == nullptr || innerFace == outerFace || innerFace->surface == nullptr ||
+        outerFace->surface == nullptr || !innerFace->surface->IsPlanar() || !outerFace->surface->IsPlanar())
+        return false;
+
+    const glm::dvec3 nIn = glm::normalize(innerFace->GetSurface().GetNormal());
+    const glm::dvec3 nOut = glm::normalize(outerFace->GetSurface().GetNormal());
+    if (std::abs(glm::dot(nIn, nOut)) < 0.999)
+        return false;
+
+    if (innerFace->loops.empty() || innerFace->loops[0].empty() || outerFace->loops.empty() || outerFace->loops[0].empty())
+        return false;
+
+    const glm::dvec3 origin = innerFace->loops[0][0].GetStartPosition();
+    const double dIn = glm::dot(nIn, origin);
+    const double dOut = glm::dot(nIn, outerFace->loops[0][0].GetStartPosition());
+    if (std::abs(dIn - dOut) > 1e-4)
+        return false;
+
+    glm::dvec3 uAxis, vAxis;
+    BuildPlaneBasisFromNormal(nIn, uAxis, vAxis);
+    std::vector<glm::dvec2> innerRing;
+    std::vector<glm::dvec2> outerRing;
+    glm::dvec2 innerCentroid(0.0), outerCentroid(0.0);
+    double innerArea = 0.0, outerArea = 0.0;
+    if (!BuildFaceOuterLoop2d(innerFace, origin, uAxis, vAxis, innerRing, innerCentroid, innerArea) ||
+        !BuildFaceOuterLoop2d(outerFace, origin, uAxis, vAxis, outerRing, outerCentroid, outerArea))
+        return false;
+    if (outerArea <= innerArea * 1.001)
+        return false;
+    return PointInPolygon2d(innerCentroid, outerRing);
+}
+
+void PruneStandaloneInnerFixCaps(Solid &solid, const std::vector<Face *> &createdCaps)
+{
+    if (createdCaps.size() < 2u)
+        return;
+
+    std::unordered_set<Face *> removeSet;
+    std::unordered_map<Face *, Face *> innerToOuter;
+    for (Face *inner : createdCaps)
+    {
+        if (inner == nullptr || inner->loops.size() != 1u)
+            continue;
+        Face *bestOuter = nullptr;
+        double bestOuterArea = std::numeric_limits<double>::max();
+        for (Face *outer : createdCaps)
+        {
+            if (outer == nullptr || outer == inner)
+                continue;
+            if (IsFaceContainedInCoplanarFace(inner, outer))
+            {
+                std::vector<glm::dvec2> outerRing;
+                glm::dvec2 c(0.0);
+                double a = 0.0;
+                const glm::dvec3 origin = outer->loops[0][0].GetStartPosition();
+                const glm::dvec3 n = glm::normalize(outer->GetSurface().GetNormal());
+                glm::dvec3 u, v;
+                BuildPlaneBasisFromNormal(n, u, v);
+                if (BuildFaceOuterLoop2d(outer, origin, u, v, outerRing, c, a) && a < bestOuterArea)
+                {
+                    bestOuterArea = a;
+                    bestOuter = outer;
+                }
+            }
+        }
+        if (bestOuter != nullptr)
+        {
+            removeSet.insert(inner);
+            innerToOuter[inner] = bestOuter;
+        }
+    }
+    if (removeSet.empty())
+        return;
+
+    for (Face *f : removeSet)
+    {
+        if (f == nullptr)
+            continue;
+        Face *outer = nullptr;
+        const auto itOuter = innerToOuter.find(f);
+        if (itOuter != innerToOuter.end())
+            outer = itOuter->second;
+        if (outer != nullptr && !f->loops.empty())
+        {
+            std::vector<OrientedEdge> innerLoopCopy = f->loops[0];
+            outer->loops.push_back(innerLoopCopy);
+            for (const OrientedEdge &oe : innerLoopCopy)
+            {
+                if (oe.edge != nullptr)
+                    oe.edge->dependencies.insert(outer);
+            }
+        }
+        for (std::vector<OrientedEdge> &loop : f->loops)
+        {
+            for (OrientedEdge &oe : loop)
+            {
+                if (oe.edge != nullptr)
+                    oe.edge->dependencies.erase(f);
+            }
+        }
+        f->loops.clear();
+        f->dependency = nullptr;
+    }
+    solid.faces.erase(std::remove_if(solid.faces.begin(), solid.faces.end(),
+                                     [&](Face *f) { return f != nullptr && removeSet.contains(f); }),
+                      solid.faces.end());
+}
+
+bool TryBuildPlanarHullCapLoop(Scene *scene,
+                               const std::vector<const Edge *> &boundaryEdges,
+                               std::vector<Edge *> &loopOut)
+{
+    loopOut.clear();
+    if (scene == nullptr || boundaryEdges.size() < 3u)
+        return false;
+
+    std::vector<Point *> points;
+    points.reserve(boundaryEdges.size() * 2u);
+    std::unordered_set<Point *> seenPoints;
+    seenPoints.reserve(boundaryEdges.size() * 2u + 8u);
+    glm::dvec3 normalAccum(0.0);
+    for (const Edge *e : boundaryEdges)
+    {
+        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+            continue;
+        if (seenPoints.insert(e->startPoint).second)
+            points.push_back(e->startPoint);
+        if (seenPoints.insert(e->endPoint).second)
+            points.push_back(e->endPoint);
+        for (Face *f : e->dependencies)
+        {
+            if (f != nullptr && f->surface != nullptr && f->surface->IsPlanar())
+                normalAccum += f->GetSurface().GetNormal();
+        }
+    }
+    if (points.size() < 3u)
+        return false;
+
+    glm::dvec3 normal = normalAccum;
+    if (glm::dot(normal, normal) < 1e-18)
+    {
+        bool found = false;
+        for (std::size_t i = 0; i < points.size() && !found; ++i)
+        {
+            for (std::size_t j = i + 1; j < points.size() && !found; ++j)
+            {
+                for (std::size_t k = j + 1; k < points.size() && !found; ++k)
+                {
+                    const glm::dvec3 n =
+                        glm::cross(points[j]->position - points[i]->position, points[k]->position - points[i]->position);
+                    if (glm::dot(n, n) > 1e-18)
+                    {
+                        normal = n;
+                        found = true;
+                    }
+                }
+            }
+        }
+        if (!found)
+            return false;
+    }
+    normal = glm::normalize(normal);
+
+    glm::dvec3 centroid(0.0);
+    for (Point *p : points)
+        centroid += p->position;
+    centroid /= static_cast<double>(points.size());
+
+    const double extentMm = [&]()
+    {
+        double mx = 0.0;
+        for (Point *p : points)
+            mx = std::max(mx, glm::length(p->position - centroid));
+        return mx;
+    }();
+    const double planeTol = std::max(1e-6, extentMm * 1e-5);
+    for (Point *p : points)
+    {
+        if (std::abs(glm::dot(normal, p->position - centroid)) > planeTol)
+            return false;
+    }
+
+    glm::dvec3 axisRef = std::abs(normal.z) < 0.9 ? glm::dvec3(0.0, 0.0, 1.0) : glm::dvec3(0.0, 1.0, 0.0);
+    glm::dvec3 u = glm::normalize(glm::cross(axisRef, normal));
+    glm::dvec3 v = glm::normalize(glm::cross(normal, u));
+
+    struct HullPoint
+    {
+        Point *p = nullptr;
+        glm::dvec2 uv{};
+    };
+    std::vector<HullPoint> pts2d;
+    pts2d.reserve(points.size());
+    for (Point *p : points)
+    {
+        const glm::dvec3 d = p->position - centroid;
+        pts2d.push_back(HullPoint{p, glm::dvec2(glm::dot(d, u), glm::dot(d, v))});
+    }
+    std::sort(pts2d.begin(), pts2d.end(), [](const HullPoint &a, const HullPoint &b)
+              { return a.uv.x < b.uv.x || (a.uv.x == b.uv.x && a.uv.y < b.uv.y); });
+
+    auto cross2 = [](const glm::dvec2 &a, const glm::dvec2 &b, const glm::dvec2 &c)
+    { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); };
+
+    std::vector<HullPoint> hull;
+    hull.reserve(pts2d.size() * 2u);
+    for (const HullPoint &hp : pts2d)
+    {
+        while (hull.size() >= 2 && cross2(hull[hull.size() - 2].uv, hull[hull.size() - 1].uv, hp.uv) <= 0.0)
+            hull.pop_back();
+        hull.push_back(hp);
+    }
+    const std::size_t lowerSz = hull.size();
+    for (std::size_t i = pts2d.size(); i-- > 0;)
+    {
+        const HullPoint &hp = pts2d[i];
+        while (hull.size() > lowerSz && cross2(hull[hull.size() - 2].uv, hull[hull.size() - 1].uv, hp.uv) <= 0.0)
+            hull.pop_back();
+        hull.push_back(hp);
+    }
+    if (hull.size() < 4u)
+        return false;
+    hull.pop_back();
+
+    std::unordered_set<Point *> hullPts;
+    hullPts.reserve(hull.size());
+    for (const HullPoint &hp : hull)
+    {
+        if (hp.p != nullptr)
+            hullPts.insert(hp.p);
+    }
+    std::vector<HullPoint> ring = hull;
+    if (hullPts.size() != points.size())
+    {
+        // Fallback for non-convex/perimeter-with-collinear-vertex cases:
+        // use all planar boundary vertices sorted by polar angle around centroid.
+        ring = pts2d;
+        std::sort(ring.begin(), ring.end(), [](const HullPoint &a, const HullPoint &b)
+                  {
+                      const double aa = std::atan2(a.uv.y, a.uv.x);
+                      const double bb = std::atan2(b.uv.y, b.uv.x);
+                      if (aa != bb)
+                          return aa < bb;
+                      const double ra2 = a.uv.x * a.uv.x + a.uv.y * a.uv.y;
+                      const double rb2 = b.uv.x * b.uv.x + b.uv.y * b.uv.y;
+                      return ra2 < rb2;
+                  });
+    }
+
+    auto findEdge = [&](Point *a, Point *b) -> Edge *
+    {
+        if (a == nullptr || b == nullptr)
+            return nullptr;
+        for (const Edge *e : boundaryEdges)
+        {
+            if (e == nullptr)
+                continue;
+            if ((e->startPoint == a && e->endPoint == b) || (e->startPoint == b && e->endPoint == a))
+                return const_cast<Edge *>(e);
+        }
+        return scene->CreateEdge(a, b);
+    };
+
+    loopOut.reserve(ring.size());
+    for (std::size_t i = 0; i < ring.size(); ++i)
+    {
+        Point *a = ring[i].p;
+        Point *b = ring[(i + 1) % ring.size()].p;
+        if (a == nullptr || b == nullptr || a == b)
+            return false;
+        Edge *e = findEdge(a, b);
+        if (e == nullptr)
+            return false;
+        loopOut.push_back(e);
+    }
+    return loopOut.size() >= 3u;
+}
+
 static void TruncateUiInlineMessage(std::string &s, std::size_t maxChars = 72)
 {
     if (s.size() <= maxChars)
@@ -1250,6 +2075,11 @@ void Display::Render()
     renderer.RenderPickHighlightLinesXray(4.0f);
     renderer.RenderCalibHoverSpanLine(5.0f, false);
     renderer.RenderCalibHoverSpanLine(4.0f, true);
+    if (!importOpenBoundaryBlameEdges.empty())
+    {
+        renderer.RenderOpenBoundaryBlameLine(7.0f, false);
+        renderer.RenderOpenBoundaryBlameLine(5.0f, true);
+    }
 
     // Nominal span label: GL TextRenderer **before** UI mesh so opaque panels occlude it (ImGui always
     // composites above `UIRenderer`'s GL backgrounds).
@@ -1493,13 +2323,20 @@ void Display::RunPickNode()
         return;
     }
 
-    if (pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
+    const bool wantPickHighlight =
+        pickDirty || hoverPickFace != nullptr || hoverPickEdge != nullptr || calibFacePoint1 != nullptr ||
         calibFacePoint2 != nullptr || calibEdgePoint1 != nullptr || calibEdgePoint2 != nullptr ||
-        !structureExcludedFaces.empty() || activeTool == ActiveTool::Structure)
-    {
-        // Structure tool always rebuilds: included-by-default eligible faces need the faint tint
-        // even when nothing is hovered or excluded, so the user sees the design intent on tool entry.
+        !structureExcludedFaces.empty() || activeTool == ActiveTool::Structure;
+    const bool wantOpenBoundaryBlame = !importOpenBoundaryBlameEdges.empty() || !importOpenBoundaryContextEdges.empty() ||
+                                       importOpenBoundaryToolPayload.has_value();
+
+    if (wantPickHighlight)
         RebuildPickHighlightMesh();
+    if (wantOpenBoundaryBlame)
+        RebuildOpenBoundaryBlameLineGpuMesh();
+
+    if (wantPickHighlight || wantOpenBoundaryBlame)
+    {
         InvalidationExec(InvalidationNode::Pick);
         return;
     }
@@ -2508,13 +3345,6 @@ void Display::RebuildPickHighlightMesh()
 
     appendEdgeLines(calibEdgePoint1, 1.0f, 0.72f);
     appendEdgeLines(calibEdgePoint2, 1.0f, 0.72f);
-
-    if (!importOpenBoundaryBlameEdges.empty())
-    {
-        const glm::vec3 obRgb = glm::vec3(Color::GetAccentSteps(0.85f, 1.2f, 1.15f));
-        for (const Edge *e : importOpenBoundaryBlameEdges)
-            AppendOpenBoundaryBlameEdgeGeometry(e, obRgb, pickHighlightLineVertices, pickHighlightLineIndices);
-    }
 
     const bool calibSecondPickConstrained =
         activeTool == ActiveTool::Calibrate && calibPara_Point2 && calibPara_Point2->selected &&
@@ -5638,11 +6468,22 @@ void Display::InitUI()
                 const float errH = DrawToolUserErrorCopyBlock(row0.x, row0.y, w, pad, rowFont, te.code, te.message,
                                                               te.relatedParameterLabel, "oobImp");
                 ImGui::SetCursorScreenPos(ImVec2(row0.x, row0.y + errH + pad));
-                ImGui::BeginDisabled(true);
-                (void)ImGui::Button("Fix##oobFix");
-                ImGui::EndDisabled();
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-                    ImGui::SetTooltip("Repair is not available yet.");
+                if (ImGui::Button("Fix##oobFix"))
+                {
+                    const bool fixed = TryFixOpenBoundaryForActiveScene();
+                    if (!fixed)
+                    {
+                        importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+                            std::string("IMPORT_OPEN_BOUNDARY_FIX_FAILED"),
+                            std::string("Fix could not infer a closed linear boundary loop for this mesh. "
+                                        "Try repairing in your CAD tool, then re-import."),
+                            std::string("")});
+                        importOpenBoundaryBannerDismissed = false;
+                        SyncCalibrateImportPrerequisiteVisibility();
+                        uiRenderer.MarkDirty();
+                        renderDirty = true;
+                    }
+                }
                 ImGui::SameLine();
                 if (ImGui::Button("Exit##oobExit"))
                 {
@@ -6556,15 +7397,147 @@ bool Display::ImportAllowsGeometryDependentTools() const noexcept
            calibStepImportClosedVolume == Icons::StepState::Done;
 }
 
+bool Display::TryFixOpenBoundaryForActiveScene()
+{
+    if (scene == nullptr || scene->solids.empty())
+        return false;
+
+    bool madeAnyRepair = false;
+    std::size_t skippedBoundaryEdges = 0;
+    std::size_t loopsDetected = 0;
+    std::size_t loopsCapped = 0;
+    std::size_t hullFallbackCaps = 0;
+    for (Solid &solid : scene->solids)
+    {
+        bool repairedThisSolid = false;
+        std::vector<Face *> createdCapsThisSolid;
+        std::vector<const Edge *> boundaryEdges;
+        GeometryValidity::CollectOpenBoundaryEdgesForSolid(solid, boundaryEdges);
+        if (boundaryEdges.empty())
+            continue;
+        std::vector<Edge *> repairCandidates;
+        std::size_t skippedNonLinear = 0;
+        CollectRepairCandidateLinearEdgesForSolid(solid, repairCandidates, skippedNonLinear);
+        if (repairCandidates.empty())
+        {
+            skippedBoundaryEdges += skippedNonLinear;
+            continue;
+        }
+
+        std::vector<std::vector<Edge *>> loopsToCap;
+        std::size_t skippedThisSolid = 0;
+        CollectClosedLinearBoundaryLoops(repairCandidates, loopsToCap, skippedThisSolid);
+        loopsDetected += loopsToCap.size();
+        skippedBoundaryEdges += skippedThisSolid + skippedNonLinear;
+
+        if (loopsToCap.empty())
+        {
+            std::vector<Edge *> hullLoop;
+            if (TryBuildPlanarHullCapLoop(scene, boundaryEdges, hullLoop) &&
+                !SolidAlreadyHasEquivalentFaceLoops(solid, {hullLoop}))
+            {
+                Face *cap = scene->CreateFace({hullLoop});
+                if (cap != nullptr)
+                {
+                    cap->dependency = &solid;
+                    solid.faces.push_back(cap);
+                    createdCapsThisSolid.push_back(cap);
+                    repairedThisSolid = true;
+                    madeAnyRepair = true;
+                    loopsCapped++;
+                    hullFallbackCaps++;
+                }
+            }
+        }
+        else
+        {
+            const std::vector<std::vector<std::vector<Edge *>>> groupedFaces = GroupCapLoopsIntoFaces(loopsToCap);
+            for (const std::vector<std::vector<Edge *>> &faceLoops : groupedFaces)
+            {
+                if (faceLoops.empty() || SolidAlreadyHasEquivalentFaceLoops(solid, faceLoops))
+                    continue;
+                Face *cap = scene->CreateFace(faceLoops);
+                if (cap == nullptr)
+                    continue;
+                cap->dependency = &solid;
+                solid.faces.push_back(cap);
+                createdCapsThisSolid.push_back(cap);
+                repairedThisSolid = true;
+                madeAnyRepair = true;
+                loopsCapped++;
+            }
+        }
+
+        PruneStandaloneInnerFixCaps(solid, createdCapsThisSolid);
+
+        if (repairedThisSolid)
+            GeometryValidity::InvalidateSolidAppGeometryValidityCache(solid);
+    }
+
+    if (!madeAnyRepair)
+        return false;
+
+    for (Solid &solid : scene->solids)
+        scene->MergeCoplanarFaces(&solid);
+    for (Solid &solid : scene->solids)
+        GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
+
+    importOpenBoundaryBannerDismissed = false;
+    RefreshImportClosedVolumeContractFromScene();
+    if (importOpenBoundaryToolPayload.has_value() && skippedBoundaryEdges > 0)
+    {
+        importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+            std::string("IMPORT_OPEN_BOUNDARY_FIX_PARTIAL"),
+            std::string("Fix capped ") + std::to_string(loopsCapped) + " loop(s) from " + std::to_string(loopsDetected) +
+                " detected; skipped edges: " + std::to_string(skippedBoundaryEdges) +
+                (hullFallbackCaps > 0 ? std::string(" (including planar hull fallback).")
+                                      : std::string(". Some open boundaries remain unresolved.")),
+            std::string("")});
+    }
+    LOG_DESC("OpenBoundary Fix:",
+             std::string("loopsDetected=") + std::to_string(loopsDetected),
+             std::string("loopsCapped=") + std::to_string(loopsCapped),
+             std::string("hullFallbackCaps=") + std::to_string(hullFallbackCaps),
+             std::string("skippedEdges=") + std::to_string(skippedBoundaryEdges));
+    SyncCalibrateImportPrerequisiteVisibility();
+    uiRenderer.MarkDirty();
+    MarkGeometryDirtyAll();
+    MarkPickDirty();
+    renderDirty = true;
+    return true;
+}
+
+void Display::RebuildOpenBoundaryBlameLineGpuMesh()
+{
+    openBoundaryBlameLineVertices.clear();
+    openBoundaryBlameLineIndices.clear();
+    if (!importOpenBoundaryBlameEdges.empty())
+    {
+        const glm::vec3 obRgb = glm::vec3(Color::GetAccentSteps(0.85f, 1.2f, 1.15f));
+        for (const Edge *e : importOpenBoundaryBlameEdges)
+            AppendOpenBoundaryBlameEdgeGeometry(e, obRgb, openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
+    }
+    if (!importOpenBoundaryContextEdges.empty())
+    {
+        const glm::vec3 ctxRgb = glm::vec3(Color::GetAccentSteps(0.55f, 0.95f, 0.65f));
+        for (const Edge *e : importOpenBoundaryContextEdges)
+            AppendOpenBoundaryBlameEdgeGeometry(e, ctxRgb, openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
+    }
+    renderer.UploadOpenBoundaryBlameLineMesh(openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
+}
+
 void Display::RebuildImportOpenBoundaryBlameEdges()
 {
     importOpenBoundaryBlameEdges.clear();
+    importOpenBoundaryContextEdges.clear();
     if (scene == nullptr || calibStepImportClosedVolume == Icons::StepState::Done)
     {
+        RebuildOpenBoundaryBlameLineGpuMesh();
         MarkPickDirty();
         return;
     }
     std::unordered_set<const Edge *> seen;
+    std::unordered_set<const Point *> boundaryVertices;
     std::vector<const Edge *> chunk;
     chunk.reserve(64);
     for (const Solid &solid : scene->solids)
@@ -6575,8 +7548,44 @@ void Display::RebuildImportOpenBoundaryBlameEdges()
         {
             if (e != nullptr && seen.insert(e).second)
                 importOpenBoundaryBlameEdges.push_back(e);
+            if (e != nullptr)
+            {
+                if (e->startPoint != nullptr)
+                    boundaryVertices.insert(e->startPoint);
+                if (e->endPoint != nullptr)
+                    boundaryVertices.insert(e->endPoint);
+            }
         }
     }
+
+    std::unordered_set<const Edge *> contextSeen;
+    for (const Solid &solid : scene->solids)
+    {
+        for (Face *face : solid.faces)
+        {
+            if (face == nullptr || face->loops.empty())
+                continue;
+            for (const std::vector<OrientedEdge> &loop : face->loops)
+            {
+                for (const OrientedEdge &oe : loop)
+                {
+                    const Edge *e = oe.edge;
+                    const Point *start = oe.GetStart();
+                    const Point *end = oe.GetEnd();
+                    if (e == nullptr || start == nullptr || end == nullptr || seen.contains(e))
+                        continue;
+
+                    const bool startBoundary = boundaryVertices.contains(start);
+                    const bool endBoundary = boundaryVertices.contains(end);
+                    if (!startBoundary || !endBoundary)
+                        continue;
+                    if (contextSeen.insert(e).second)
+                        importOpenBoundaryContextEdges.push_back(e);
+                }
+            }
+        }
+    }
+    RebuildOpenBoundaryBlameLineGpuMesh();
     MarkPickDirty();
 }
 
