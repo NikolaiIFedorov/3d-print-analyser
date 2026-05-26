@@ -25,7 +25,7 @@ Repeat until problem and approach are clear.
 ## Stage 2 — Documentation
 
 - Check `documentation/implementations/` for an existing log on this problem or idea.
-- **If none:** create a log (append only). Capture: idea, implementation plan, bugs encountered, patch attempts, outcome.
+- **If none:** create a log (append only). Capture: idea, test plan / tests written, implementation plan, bugs encountered, patch attempts, outcome.
 
 ## Stage 3 — Implementation checklist
 

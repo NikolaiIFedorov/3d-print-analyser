@@ -211,6 +211,7 @@ Before implementing, check `documentation/implementations/` for an existing log 
 - **If a log exists:** Read it for context — prior attempts, bugs hit, and outcomes.
 - **If no log exists:** Create one. Each log is a running record (append, never overwrite) and should capture:
   - **Idea** — what is being changed and why
+  - **Test plan / Tests written** — what tests are added or modified to verify the functionality
   - **Implementation plan** — the chosen approach
   - **Bugs encountered** — issues that arose during implementation
   - **Patch attempts** — theories tried and whether they worked
