@@ -24,9 +24,17 @@ When SOLID adds noticeable cost (indirection, virtuals in hot paths, extra alloc
 
 ## Pre-implementation critique
 
+- **TDD:** Write unit tests for new logic before implementation.
 - What edge cases are missed? What existing behaviour could break silently?
+- **Log-First Debugging:** For bug work, use logging to validate the hypothesis from `session_log.json` before changing implementation logic.
 - When replacing/unifying code: diff old paths, list every behavioural difference — each needs keep / drop / generalize.
 - Consider at least one alternative; if no clear win, reconsider.
+
+## Thread ownership guardrail
+
+- Main thread owns UI/input/navigation/render scheduling, GLFW events, and OpenGL calls.
+- Workers own heavy compute/IO and return results via explicit handoff (queue/message/future).
+- Avoid direct worker mutation of scene/UI state; apply worker results on the main thread.
 
 ## DRY
 

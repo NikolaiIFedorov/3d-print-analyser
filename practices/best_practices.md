@@ -4,6 +4,12 @@ Guidelines for writing code in this project.
 
 ---
 
+## Policy-Skill Sync
+
+- When `practices/best_practices.md` changes, run the `sync-skills-from-best-practices` skill to align project skills with the updated policy.
+
+---
+
 ## SOLID Principles
 
 > **Performance takes priority.** When applying SOLID principles introduces a noticeable performance cost (extra indirection, virtual dispatch in hot paths, unnecessary allocations), prioritize performance over architectural purity.
@@ -94,12 +100,33 @@ Guidelines for writing code in this project.
 
 ---
 
+## Test-Driven Development (TDD)
+
+- Write tests for new functionality *before* writing the implementation. (Yes, unit testing is highly encouraged in C++!).
+- This ensures the implementation is correct, testable, and verifiable from the start.
+- When fixing a bug, write a failing test that reproduces the bug before attempting to fix it.
+- Design classes and functions to be testable (e.g., use dependency injection and avoid hidden global state).
+
+---
+
 ## Pre-Implementation Critique
 
 - Before writing code, briefly question the approach: what edge cases does it miss? What existing behavior could it silently break?
 - When replacing or unifying existing code, diff the old paths side-by-side and list every behavioral difference. Each difference needs an explicit decision: keep, drop, or generalize.
 - Consider at least one alternative approach. If the chosen approach has no clear advantage over the alternative, it may not be the right one.
+- For bug fixes, verify the problem against `session_log.json` before implementing. Use concrete log evidence (event order, state snapshots, timings) to anchor the hypothesis.
 - This is not about blocking progress — a few minutes of scrutiny prevents hours of debugging.
+
+---
+
+## Debugging Evidence Policy (Log-First Debugging)
+
+- **Log-First Debugging:** Do not attempt to fix an issue by blindly changing implementation logic. Instead, first add targeted logging to `session_log.json` to capture the state, variables, and timings relevant to your theory.
+- If the logs align with your running theory, *then* proceed to implement the logic fix.
+- Treat `session_log.json` as the primary debugging source for runtime behavior and regressions.
+- Start with a timeline from `session_log.json`, form hypotheses, test those hypotheses by adding more logging if needed, and verify against new runs.
+- Use terminal output as secondary context only (build failures, startup crashes, logger initialization failures).
+- Avoid trial-and-error logic patches without log-backed reasoning.
 
 ---
 
@@ -123,10 +150,13 @@ Guidelines for writing code in this project.
 
 ## Mini retrospective
 
-**When:** After a successful implementation — the change builds, behaves as intended, and the post-implementation review is done. Spend a few minutes on a **mini retro** while context is still warm. This is not a full team ceremony — it is a short capture of learning for you and for future sessions (including agent-assisted work).
+**When:** After a successful implementation that involved meaningful debugging effort (for example: multiple failed theories, multiple patch attempts, or a bug that was not fixed on the first try). For quick fixes that are solved cleanly in one attempt, a full mini retro is optional.
+
+Spend a few minutes on a **mini retro** while context is still warm. This is not a full team ceremony — it is a short capture of learning for you and for future sessions (including agent-assisted work).
 
 - **What worked well** — Which approaches, docs (`documentation/`, implementation logs), tools, or **Cursor skills** actually helped? What would you repeat next time?
 - **What did not work** — Wrong assumptions, rabbit holes, missing context, unclear requirements, or friction in the codebase or workflow.
+- **What triggered the bug** — Record the concrete trigger and root cause (state transition, ordering issue, data shape, timing/threading interaction, assumption violation). Note the earliest log evidence that exposed it.
 - **How to improve skills or this file** — If a skill was misleading, too vague, or missing a step, note a concrete edit to that skill or rule. If these best practices missed something important (a checklist item, a workflow gap), **update this file** in the same spirit: short bullets, no bloat.
 
 Optional: append a one-paragraph “retro” to the relevant implementation log in `documentation/implementations/` so the next person (or future you) inherits the lesson without re-learning it.
@@ -137,6 +167,16 @@ Optional: append a one-paragraph “retro” to the relevant implementation log 
 
 - When a pattern or approach is established for one piece of functionality, related code should follow the same approach.
 - Deviations are acceptable when justified by a concrete reason (e.g., performance), not by convenience.
+
+---
+
+## Threading and Ownership
+
+- The main thread owns UI, input handling, navigation, render scheduling, GLFW event polling, and OpenGL calls.
+- Worker threads are for heavy compute, parsing/import, and other background jobs that do not touch OpenGL/GLFW state directly.
+- Workers return results through explicit handoff points (queues/messages/futures); the main thread validates and applies results.
+- Do not mutate scene/UI state concurrently from workers; keep ownership boundaries explicit.
+- For async paths, align with `documentation/Architecture_UIThreadAndWorkers.md` and `documentation/Architecture_AsyncWorkRoadmap.md`.
 
 ---
 
@@ -158,6 +198,7 @@ This workflow applies whenever a change to functionality is requested — whethe
 Before any code changes:
 - **Question the idea.** Clarify what the expected vs. actual behaviour is. This catches cases where a feature is mistaken for a bug, or where the problem context is misunderstood.
 - **Critique the idea.** Identify oversights, edge cases, and at least one alternative approach.
+- **Ground it in evidence.** For bug work, inspect `session_log.json` first. Practice **log-first debugging**: add targeted logging to verify your hypothesis before touching the implementation logic.
 - **Scan the TODO.** Check the relevant section of `documentation/TODO` for the module being touched. Small, isolated items (remove a duplicate call, extract a constant, fix a naming inconsistency) should be addressed in the same change. Larger items (replace a singleton, redesign an interface) are noted but left for a dedicated task.
 - **Goal:** Both sides fully understand the problem and the proposed solution before anything is implemented.
 
@@ -179,14 +220,15 @@ Before implementing, check `documentation/implementations/` for an existing log 
 
 Apply the following checklist when writing or changing code:
 
-1. **Critique the approach first** — identify edge cases, silent behaviour changes, and at least one alternative.
-2. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)? For **async jobs, `TaskRunner`, or CGAL** touched from display/input paths, align with `documentation/Architecture_UIThreadAndWorkers.md` and the phased plan `documentation/Architecture_AsyncWorkRoadmap.md` (main thread polls; workers own heavy work).
-3. **Check performance** — are there unnecessary allocations, copies, or per-frame heap allocations? Are OpenGL calls batched?
-4. **Check portability** — are paths handled with `std::filesystem`? Are there platform-specific assumptions?
-5. **Check naming** — camelCase/PascalCase conventions, concise and unambiguous.
-6. **Check consistency** — does the new code match existing patterns in the codebase?
-7. **Check DRY** — is any logic duplicated? Could a helper or recursive approach replace copy-pasted blocks?
-8. **Post-implementation review** — re-read the diff. Remove dead code, extract duplicates, unify divergent patterns.
+1. **Write tests first (TDD)** — write unit tests for the new functionality or a failing test for a bug before implementing the logic.
+2. **Critique the approach first** — identify edge cases, silent behaviour changes, and at least one alternative.
+3. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)? For **async jobs, `TaskRunner`, or CGAL** touched from display/input paths, align with `documentation/Architecture_UIThreadAndWorkers.md` and the phased plan `documentation/Architecture_AsyncWorkRoadmap.md` (main thread polls; workers own heavy work).
+4. **Check performance** — are there unnecessary allocations, copies, or per-frame heap allocations? Are OpenGL calls batched?
+5. **Check portability** — are paths handled with `std::filesystem`? Are there platform-specific assumptions?
+6. **Check naming** — camelCase/PascalCase conventions, concise and unambiguous.
+7. **Check consistency** — does the new code match existing patterns in the codebase?
+8. **Check DRY** — is any logic duplicated? Could a helper or recursive approach replace copy-pasted blocks?
+9. **Post-implementation review** — re-read the diff. Remove dead code, extract duplicates, unify divergent patterns.
 
 When a trade-off arises between SOLID purity and performance, choose performance and explain why.
 
@@ -195,13 +237,13 @@ When a trade-off arises between SOLID purity and performance, choose performance
 **If it works:**
 - Verify the build passes cleanly.
 - Run through the Stage 3 checklist as a review pass.
-- Run the **mini retrospective** (see [Mini retrospective](#mini-retrospective)): what worked, what did not, and whether any **skills** or **this file** deserve a small update.
+- If the change required meaningful debugging effort (not fixed in one clean attempt), run the **mini retrospective** (see [Mini retrospective](#mini-retrospective)): what worked, what did not, what triggered the bug, and whether any **skills** or **this file** deserve a small update.
 - Commit the code to maintain a consistent version history.
 - Update the implementation log in `documentation/implementations/` with the outcome (and optionally the retro notes).
 
 **If it does not work:**
 - Log the failure and any theories in the implementation log.
-- Propose theories as to why it does not work; test each one.
+- Propose theories as to why it does not work; test each one against `session_log.json` evidence.
 - If all theories are exhausted without resolution, return to Stage 1 — treat it as a fresh problem and question whether the original approach was correct.
 
 The cycle then repeats from Stage 1.
