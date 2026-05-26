@@ -107,9 +107,7 @@ static TopoDS_Shape BuildVerticalPrismOcct(const Face *face, double zBottom, dou
             }
             else
             {
-                TopoDS_Wire w = poly.Wire();
-                w.Reverse();
-                mkFace->Add(w);
+                mkFace->Add(poly.Wire());
             }
         }
     }
@@ -194,24 +192,8 @@ static TopoDS_Shape BuildVerticalPrismOcct(const Face *face, double zBottom, dou
     currentUnion = unifier.Shape();
 
     // Step 3: Extrude the footprint
-    TopoDS_Shape prism;
-    bool firstPrism = true;
-    for (TopExp_Explorer ex(currentUnion, TopAbs_FACE); ex.More(); ex.Next()) {
-        TopoDS_Face f = TopoDS::Face(ex.Current());
-        BRepPrimAPI_MakePrism prismMaker(f, gp_Vec(0, 0, zTop - zBottom));
-        if (firstPrism) {
-            prism = prismMaker.Shape();
-            firstPrism = false;
-        } else {
-            BRepAlgoAPI_Fuse fuser(prism, prismMaker.Shape());
-            fuser.Build();
-            if (fuser.IsDone()) {
-                prism = fuser.Shape();
-            }
-        }
-    }
-
-    return prism;
+    BRepPrimAPI_MakePrism prismMaker(currentUnion, gp_Vec(0, 0, zTop - zBottom));
+    return prismMaker.Shape();
 }
 
 } // namespace

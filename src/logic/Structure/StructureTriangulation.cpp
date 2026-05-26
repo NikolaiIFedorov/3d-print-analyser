@@ -88,9 +88,7 @@ static std::vector<std::vector<glm::dvec3>> BuildOffsetRings(const Face *face, c
             }
             else
             {
-                TopoDS_Wire w = poly.Wire();
-                w.Reverse();
-                mkFace->Add(w);
+                mkFace->Add(poly.Wire());
             }
         }
     }
