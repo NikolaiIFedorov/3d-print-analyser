@@ -54,6 +54,9 @@ public:
     /// When `runTopologyRepairs` is false, keeps imported topology unchanged and only refreshes validity tags.
     Solid *CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepairs = true);
 
+    /// Populates an existing Solid with CAD_OpenGL structs (Faces, Edges, Points) translated from a TopoDS_Shape.
+    void PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape);
+
     std::deque<Compound> compounds;
     /// Non-owning references to `Solid`s in this scene. Nulls and unknown pointers skipped;
     /// duplicates removed (first occurrence kept). Returns nullptr if no members remain.

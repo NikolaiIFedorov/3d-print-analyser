@@ -599,6 +599,12 @@ void SceneRenderer::UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &v
     renderer.UploadOpenBoundaryBlameLineMesh(vertices, indices);
 }
 
+void SceneRenderer::UploadOpenBoundaryBlameFaceMesh(const std::vector<Vertex> &vertices,
+                                                    const std::vector<uint32_t> &indices)
+{
+    renderer.UploadOpenBoundaryBlameFaceMesh(vertices, indices);
+}
+
 void SceneRenderer::UploadPickHighlightRejectMesh(const std::vector<Vertex> &vertices,
                                                   const std::vector<uint32_t> &indices)
 {
@@ -649,6 +655,11 @@ void SceneRenderer::RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay
 void SceneRenderer::RenderOpenBoundaryBlameLine(float lineWidthPx, bool xrayOverlay)
 {
     renderer.DrawOpenBoundaryBlameLine(lineWidthPx, xrayOverlay);
+}
+
+void SceneRenderer::RenderOpenBoundaryBlameFace(bool xrayOverlay)
+{
+    renderer.DrawOpenBoundaryBlameFace(xrayOverlay);
 }
 
 void SceneRenderer::SetCamera(Camera &camera)

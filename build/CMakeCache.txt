@@ -320,6 +320,9 @@ MPFR_LIBRARIES:FILEPATH=/opt/homebrew/lib/libmpfr.dylib
 
 MPFR_LIBRARIES_DIR:FILEPATH=/opt/homebrew/lib
 
+//The directory containing a CMake configuration file for OpenCASCADE.
+OpenCASCADE_DIR:PATH=/opt/homebrew/lib/cmake/opencascade
+
 //The directory containing a CMake configuration file for SDL3.
 SDL3_DIR:PATH=/opt/homebrew/lib/cmake/SDL3
 

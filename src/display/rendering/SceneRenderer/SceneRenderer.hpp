@@ -67,6 +67,7 @@ public:
     void RenderPickHighlightLines(float lineWidthPx);
     void RenderPickHighlightLinesXray(float lineWidthPx);
     void RenderCalibHoverSpanLine(float lineWidthPx, bool xrayOverlay = false);
+    void RenderOpenBoundaryBlameFace(bool xrayOverlay = false);
     void RenderOpenBoundaryBlameLine(float lineWidthPx, bool xrayOverlay = false);
     /// Dedicated mesh from `structurePreviewSegments`; foreground + occluded passes.
     void RenderStructurePreviewLines(float lineWidthPx);
@@ -81,6 +82,7 @@ public:
     void UploadPickHighlightLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices,
                                      uint32_t xrayIndexCount = 0);
     void UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadOpenBoundaryBlameFaceMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
     const std::vector<PickTriangle> &GetPickTriangles() const { return pickTriangles; }

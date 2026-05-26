@@ -178,8 +178,10 @@ private:
     void RefreshImportClosedVolumeContractFromScene() noexcept;
     void SyncCalibrateImportPrerequisiteVisibility();
     void RebuildImportOpenBoundaryBlameEdges();
+    void RebuildOpenBoundaryBlameFaceGpuMesh();
     void RebuildOpenBoundaryBlameLineGpuMesh();
     bool TryFixOpenBoundaryForActiveScene();
+    bool TryFixSelfIntersectionForActiveScene();
     [[nodiscard]] bool ImportAllowsGeometryDependentTools() const noexcept;
     SDL_Window *window = nullptr;
     SDL_GLContext glContext = nullptr;
@@ -238,10 +240,13 @@ private:
     /// Post-import open-boundary banner (Calibrate panel); cleared when contract satisfied.
     std::optional<ToolUserErrorPayload> importOpenBoundaryToolPayload;
     bool importOpenBoundaryBannerDismissed = false;
+    std::string openBoundaryDiagLastSignature;
     /// Segments for `OpenBoundary` “blame” overlay (dedicated line pass).
     /// `importOpenBoundaryContextEdges` adds inferred perimeter context around strict boundary edges.
     std::vector<const Edge *> importOpenBoundaryBlameEdges;
     std::vector<const Edge *> importOpenBoundaryContextEdges;
+    std::vector<Vertex> openBoundaryBlameFaceVertices;
+    std::vector<uint32_t> openBoundaryBlameFaceIndices;
     std::vector<Vertex> openBoundaryBlameLineVertices;
     std::vector<uint32_t> openBoundaryBlameLineIndices;
 

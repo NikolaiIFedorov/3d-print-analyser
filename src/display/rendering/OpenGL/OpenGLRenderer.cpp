@@ -68,6 +68,12 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
       calibHoverSpanLineVAO(other.calibHoverSpanLineVAO), calibHoverSpanLineVBO(other.calibHoverSpanLineVBO),
       calibHoverSpanLineIBO(other.calibHoverSpanLineIBO),
       calibHoverSpanLineIndexCount(other.calibHoverSpanLineIndexCount),
+      openBoundaryBlameLineVAO(other.openBoundaryBlameLineVAO), openBoundaryBlameLineVBO(other.openBoundaryBlameLineVBO),
+      openBoundaryBlameLineIBO(other.openBoundaryBlameLineIBO),
+      openBoundaryBlameLineIndexCount(other.openBoundaryBlameLineIndexCount),
+      openBoundaryBlameFaceVAO(other.openBoundaryBlameFaceVAO), openBoundaryBlameFaceVBO(other.openBoundaryBlameFaceVBO),
+      openBoundaryBlameFaceIBO(other.openBoundaryBlameFaceIBO),
+      openBoundaryBlameFaceIndexCount(other.openBoundaryBlameFaceIndexCount),
       viewMatrix(other.viewMatrix), projectionMatrix(other.projectionMatrix), modelMatrix(other.modelMatrix),
       shader(std::move(other.shader)),
       lineShader(std::move(other.lineShader))
@@ -81,9 +87,12 @@ OpenGLRenderer::OpenGLRenderer(OpenGLRenderer &&other) noexcept
     other.pickHighlightRejectVAO = other.pickHighlightRejectVBO = other.pickHighlightRejectIBO = 0;
     other.pickHighlightCalibInvalidVAO = other.pickHighlightCalibInvalidVBO = other.pickHighlightCalibInvalidIBO = 0;
     other.calibHoverSpanLineVAO = other.calibHoverSpanLineVBO = other.calibHoverSpanLineIBO = 0;
+    other.openBoundaryBlameLineVAO = other.openBoundaryBlameLineVBO = other.openBoundaryBlameLineIBO = 0;
+    other.openBoundaryBlameFaceVAO = other.openBoundaryBlameFaceVBO = other.openBoundaryBlameFaceIBO = 0;
     other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
         other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = other.pickHighlightRejectIndexCount =
-            other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount = 0;
+            other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount =
+                other.openBoundaryBlameLineIndexCount = other.openBoundaryBlameFaceIndexCount = 0;
     other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
     other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
     other.lineVertexCapacity = other.lineIndexCapacity = 0;
@@ -128,6 +137,14 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         calibHoverSpanLineVBO = other.calibHoverSpanLineVBO;
         calibHoverSpanLineIBO = other.calibHoverSpanLineIBO;
         calibHoverSpanLineIndexCount = other.calibHoverSpanLineIndexCount;
+        openBoundaryBlameLineVAO = other.openBoundaryBlameLineVAO;
+        openBoundaryBlameLineVBO = other.openBoundaryBlameLineVBO;
+        openBoundaryBlameLineIBO = other.openBoundaryBlameLineIBO;
+        openBoundaryBlameLineIndexCount = other.openBoundaryBlameLineIndexCount;
+        openBoundaryBlameFaceVAO = other.openBoundaryBlameFaceVAO;
+        openBoundaryBlameFaceVBO = other.openBoundaryBlameFaceVBO;
+        openBoundaryBlameFaceIBO = other.openBoundaryBlameFaceIBO;
+        openBoundaryBlameFaceIndexCount = other.openBoundaryBlameFaceIndexCount;
         viewMatrix = other.viewMatrix;
         projectionMatrix = other.projectionMatrix;
         modelMatrix = other.modelMatrix;
@@ -142,9 +159,12 @@ OpenGLRenderer &OpenGLRenderer::operator=(OpenGLRenderer &&other) noexcept
         other.pickHighlightRejectVAO = other.pickHighlightRejectVBO = other.pickHighlightRejectIBO = 0;
         other.pickHighlightCalibInvalidVAO = other.pickHighlightCalibInvalidVBO = other.pickHighlightCalibInvalidIBO = 0;
         other.calibHoverSpanLineVAO = other.calibHoverSpanLineVBO = other.calibHoverSpanLineIBO = 0;
+        other.openBoundaryBlameLineVAO = other.openBoundaryBlameLineVBO = other.openBoundaryBlameLineIBO = 0;
+        other.openBoundaryBlameFaceVAO = other.openBoundaryBlameFaceVBO = other.openBoundaryBlameFaceIBO = 0;
         other.triangleIndexCount = other.triangleVertexCount = other.lineIndexCount = other.lineVertexCount =
             other.pickHighlightIndexCount = other.pickHighlightLineIndexCount = other.pickHighlightRejectIndexCount =
-                other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount = 0;
+                other.pickHighlightCalibInvalidIndexCount = other.calibHoverSpanLineIndexCount =
+                    other.openBoundaryBlameLineIndexCount = other.openBoundaryBlameFaceIndexCount = 0;
         other.pickHighlightXrayIndexCount = other.pickHighlightLineXrayIndexCount = 0;
         other.triangleVertexCapacity = other.triangleIndexCapacity = 0;
         other.lineVertexCapacity = other.lineIndexCapacity = 0;
@@ -311,6 +331,14 @@ void OpenGLRenderer::Shutdown()
         glDeleteBuffers(1, &openBoundaryBlameLineIBO);
     openBoundaryBlameLineVAO = openBoundaryBlameLineVBO = openBoundaryBlameLineIBO = 0;
     openBoundaryBlameLineIndexCount = 0;
+    if (openBoundaryBlameFaceVBO)
+        glDeleteBuffers(1, &openBoundaryBlameFaceVBO);
+    if (openBoundaryBlameFaceVAO)
+        glDeleteVertexArrays(1, &openBoundaryBlameFaceVAO);
+    if (openBoundaryBlameFaceIBO)
+        glDeleteBuffers(1, &openBoundaryBlameFaceIBO);
+    openBoundaryBlameFaceVAO = openBoundaryBlameFaceVBO = openBoundaryBlameFaceIBO = 0;
+    openBoundaryBlameFaceIndexCount = 0;
 
     if (structurePreviewLineVBO)
         glDeleteBuffers(1, &structurePreviewLineVBO);
@@ -642,6 +670,44 @@ void OpenGLRenderer::UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &
         glGenBuffers(1, &openBoundaryBlameLineIBO);
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, openBoundaryBlameLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadOpenBoundaryBlameFaceMesh(const std::vector<Vertex> &vertices,
+                                                     const std::vector<uint32_t> &indices)
+{
+    openBoundaryBlameFaceIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (openBoundaryBlameFaceVAO == 0)
+        glGenVertexArrays(1, &openBoundaryBlameFaceVAO);
+
+    glBindVertexArray(openBoundaryBlameFaceVAO);
+
+    if (openBoundaryBlameFaceVBO == 0)
+        glGenBuffers(1, &openBoundaryBlameFaceVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, openBoundaryBlameFaceVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (openBoundaryBlameFaceIBO == 0)
+        glGenBuffers(1, &openBoundaryBlameFaceIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, openBoundaryBlameFaceIBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER,
                  static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
                  indices.empty() ? nullptr : indices.data(),
@@ -1292,6 +1358,69 @@ void OpenGLRenderer::DrawOpenBoundaryBlameLine(float pixelWidth, bool xrayOverla
     {
         glDepthMask(GL_TRUE);
     }
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawOpenBoundaryBlameFace(bool xrayOverlay)
+{
+    if (openBoundaryBlameFaceIndexCount == 0)
+        return;
+
+    shader.Use();
+
+    glm::mat4 viewProj = projectionMatrix * viewMatrix;
+    shader.SetMat4("uViewProjection", viewProj);
+    shader.SetMat4("uModel", modelMatrix);
+    shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
+    shader.SetVec3("uViewPos", viewPos);
+    shader.SetFloat("uBrightenAmount", 0.22f);
+    shader.SetFloat("uBlueMin", 0.0f);
+    shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
+    shader.SetFloat("uBlueNear", 0.0f);
+    shader.SetFloat("uBlueFar", Color::GRID_EXTENT);
+    shader.SetFloat("uGridPlaneFade", 0.0f);
+    shader.SetFloat("uGridOpacity", 1.0f);
+    shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uLightingEnabled", 0.0f);
+    shader.SetFloat("uAlpha", xrayOverlay ? 0.38f : 0.62f);
+    shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    glGetBooleanv(GL_BLEND, &blendWas);
+    glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(xrayOverlay ? DepthCompareBehind() : DepthComparePass());
+    glDepthMask(GL_FALSE);
+
+    const bool skipPickPolygonOffset =
+        ViewportDepthExperiments::IsNoPickPolygonOffset() || RenderingExperiments::kPickHighlightNoPolygonOffset ||
+        xrayOverlay;
+    if (!skipPickPolygonOffset)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(-1.0f, -1.0f);
+    }
+
+    glBindVertexArray(openBoundaryBlameFaceVAO);
+    glDrawElements(GL_TRIANGLES, openBoundaryBlameFaceIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (!skipPickPolygonOffset)
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    glDepthMask(depthMaskWas);
+    if (depthTestWas)
+        glEnable(GL_DEPTH_TEST);
+    else
+        glDisable(GL_DEPTH_TEST);
+    if (!blendWas)
+        glDisable(GL_BLEND);
 
     GetGLError();
 }

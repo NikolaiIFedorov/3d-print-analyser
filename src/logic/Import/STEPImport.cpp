@@ -80,76 +80,14 @@ Solid *ImportSTEP(Scene *scene, const std::string &filepath)
     BRepMesh_IncrementalMesh meshGen(fusedShape, 0.1, false, 0.5, true);
 
     // 4. Bridge to Scene (B-Rep Translation)
-    std::unordered_map<TopoDS_Shape, Point*> pointMap;
-    std::unordered_map<TopoDS_Shape, Edge*> edgeMap;
-    std::vector<Face*> sceneFaces;
+    Solid* solid = scene->CreateSolid({}, false); // Create empty solid first
+    scene->PopulateSolidFromOcctShape(solid, fusedShape);
 
-    auto getOrCreatePoint = [&](const TopoDS_Vertex& v) -> Point* {
-        auto it = pointMap.find(v);
-        if (it != pointMap.end()) {
-            return it->second;
-        }
-        gp_Pnt p = BRep_Tool::Pnt(v);
-        glm::dvec3 pos(p.X(), p.Y(), p.Z());
-        Point* newPoint = scene->CreatePoint(pos);
-        newPoint->occtVertex = v;
-        pointMap[v] = newPoint;
-        return newPoint;
-    };
-
-    auto getOrCreateEdge = [&](const TopoDS_Edge& e) -> Edge* {
-        auto it = edgeMap.find(e);
-        if (it != edgeMap.end()) {
-            return it->second;
-        }
-        TopoDS_Vertex v1, v2;
-        TopExp::Vertices(e, v1, v2);
-        
-        Point* p1 = getOrCreatePoint(v1);
-        Point* p2 = getOrCreatePoint(v2);
-
-        Edge* newEdge = scene->CreateEdge(p1, p2);
-        newEdge->occtEdge = e;
-        edgeMap[e] = newEdge;
-        return newEdge;
-    };
-
-    for (TopExp_Explorer exFace(fusedShape, TopAbs_FACE); exFace.More(); exFace.Next()) {
-        TopoDS_Face occtFace = TopoDS::Face(exFace.Current());
-        
-        std::vector<std::vector<Edge*>> loops;
-
-        for (TopExp_Explorer exWire(occtFace, TopAbs_WIRE); exWire.More(); exWire.Next()) {
-            TopoDS_Wire wire = TopoDS::Wire(exWire.Current());
-            std::vector<Edge*> loopEdges;
-            
-            for (BRepTools_WireExplorer exEdge(wire); exEdge.More(); exEdge.Next()) {
-                TopoDS_Edge occtEdge = exEdge.Current();
-                Edge* edge = getOrCreateEdge(occtEdge);
-                loopEdges.push_back(edge);
-            }
-            if (!loopEdges.empty()) {
-                loops.push_back(loopEdges);
-            }
-        }
-
-        if (loops.empty()) continue;
-
-        auto surf = std::make_unique<OcctSurface>(occtFace);
-        Face* sceneFace = scene->CreateFace(loops, std::move(surf));
-        if (sceneFace != nullptr) {
-            sceneFace->occtFace = occtFace;
-            sceneFaces.push_back(sceneFace);
-        }
-    }
-
-    if (sceneFaces.empty()) {
+    if (solid->faces.empty()) {
         LOG_ERROR("STEP import resulted in 0 faces.");
         return nullptr;
     }
 
-    Solid* solid = scene->CreateSolid(sceneFaces, false);
-    solid->occtShape = fusedShape;
-    LOG_INFO("Successfully imported STEP file. Faces: ", sceneFaces.size());
+    LOG_INFO("Successfully imported STEP file. Faces: ", solid->faces.size());
     return solid;
 }

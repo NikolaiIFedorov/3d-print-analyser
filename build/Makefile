@@ -142,6 +142,19 @@ CAD_OpenGL/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/build
 .PHONY : CAD_OpenGL/fast
 
+#=============================================================================
+# Target rules for targets named occt_spike
+
+# Build rule for target.
+occt_spike: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 occt_spike
+.PHONY : occt_spike
+
+# fast build rule for target.
+occt_spike/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/build
+.PHONY : occt_spike/fast
+
 include/glad/src/glad.o: include/glad/src/glad.c.o
 .PHONY : include/glad/src/glad.o
 
@@ -718,6 +731,30 @@ src/display/rendering/UIRenderer/ToolPanel.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolPanel.cpp.s
 .PHONY : src/display/rendering/UIRenderer/ToolPanel.cpp.s
 
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.o: src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.o
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.o
+
+# target to build an object file
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.o
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.o
+
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.i: src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.i
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.i
+
+# target to preprocess a source file
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.i
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.i
+
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.s: src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.s
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.s
+
+# target to generate assembly for a file
+src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.s
+.PHONY : src/display/rendering/UIRenderer/ToolUserErrorFeedback.cpp.s
+
 src/display/rendering/UIRenderer/UIRenderer.o: src/display/rendering/UIRenderer/UIRenderer.cpp.o
 .PHONY : src/display/rendering/UIRenderer/UIRenderer.o
 
@@ -1054,6 +1091,30 @@ src/logic/Calibrate/CalibNominal.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.s
 .PHONY : src/logic/Calibrate/CalibNominal.cpp.s
 
+src/logic/GeometryValidity.o: src/logic/GeometryValidity.cpp.o
+.PHONY : src/logic/GeometryValidity.o
+
+# target to build an object file
+src/logic/GeometryValidity.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.o
+.PHONY : src/logic/GeometryValidity.cpp.o
+
+src/logic/GeometryValidity.i: src/logic/GeometryValidity.cpp.i
+.PHONY : src/logic/GeometryValidity.i
+
+# target to preprocess a source file
+src/logic/GeometryValidity.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.i
+.PHONY : src/logic/GeometryValidity.cpp.i
+
+src/logic/GeometryValidity.s: src/logic/GeometryValidity.cpp.s
+.PHONY : src/logic/GeometryValidity.s
+
+# target to generate assembly for a file
+src/logic/GeometryValidity.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.s
+.PHONY : src/logic/GeometryValidity.cpp.s
+
 src/logic/Import/OBJImport.o: src/logic/Import/OBJImport.cpp.o
 .PHONY : src/logic/Import/OBJImport.o
 
@@ -1078,29 +1139,29 @@ src/logic/Import/OBJImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/OBJImport.cpp.s
 .PHONY : src/logic/Import/OBJImport.cpp.s
 
-src/logic/Import/STLCgalPlanarExperiment.o: src/logic/Import/STLCgalPlanarExperiment.cpp.o
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.o
+src/logic/Import/STEPImport.o: src/logic/Import/STEPImport.cpp.o
+.PHONY : src/logic/Import/STEPImport.o
 
 # target to build an object file
-src/logic/Import/STLCgalPlanarExperiment.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.o
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.o
+src/logic/Import/STEPImport.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.o
+.PHONY : src/logic/Import/STEPImport.cpp.o
 
-src/logic/Import/STLCgalPlanarExperiment.i: src/logic/Import/STLCgalPlanarExperiment.cpp.i
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.i
+src/logic/Import/STEPImport.i: src/logic/Import/STEPImport.cpp.i
+.PHONY : src/logic/Import/STEPImport.i
 
 # target to preprocess a source file
-src/logic/Import/STLCgalPlanarExperiment.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.i
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.i
+src/logic/Import/STEPImport.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.i
+.PHONY : src/logic/Import/STEPImport.cpp.i
 
-src/logic/Import/STLCgalPlanarExperiment.s: src/logic/Import/STLCgalPlanarExperiment.cpp.s
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.s
+src/logic/Import/STEPImport.s: src/logic/Import/STEPImport.cpp.s
+.PHONY : src/logic/Import/STEPImport.s
 
 # target to generate assembly for a file
-src/logic/Import/STLCgalPlanarExperiment.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STLCgalPlanarExperiment.cpp.s
-.PHONY : src/logic/Import/STLCgalPlanarExperiment.cpp.s
+src/logic/Import/STEPImport.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.s
+.PHONY : src/logic/Import/STEPImport.cpp.s
 
 src/logic/Import/STLImport.o: src/logic/Import/STLImport.cpp.o
 .PHONY : src/logic/Import/STLImport.o
@@ -1149,6 +1210,30 @@ src/logic/Import/ThreeMFImport.s: src/logic/Import/ThreeMFImport.cpp.s
 src/logic/Import/ThreeMFImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/ThreeMFImport.cpp.s
 .PHONY : src/logic/Import/ThreeMFImport.cpp.s
+
+src/logic/Structure/StructureCarve.o: src/logic/Structure/StructureCarve.cpp.o
+.PHONY : src/logic/Structure/StructureCarve.o
+
+# target to build an object file
+src/logic/Structure/StructureCarve.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.o
+.PHONY : src/logic/Structure/StructureCarve.cpp.o
+
+src/logic/Structure/StructureCarve.i: src/logic/Structure/StructureCarve.cpp.i
+.PHONY : src/logic/Structure/StructureCarve.i
+
+# target to preprocess a source file
+src/logic/Structure/StructureCarve.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.i
+.PHONY : src/logic/Structure/StructureCarve.cpp.i
+
+src/logic/Structure/StructureCarve.s: src/logic/Structure/StructureCarve.cpp.s
+.PHONY : src/logic/Structure/StructureCarve.s
+
+# target to generate assembly for a file
+src/logic/Structure/StructureCarve.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.s
+.PHONY : src/logic/Structure/StructureCarve.cpp.s
 
 src/logic/Structure/StructureTriangulation.o: src/logic/Structure/StructureTriangulation.cpp.o
 .PHONY : src/logic/Structure/StructureTriangulation.o
@@ -1246,6 +1331,30 @@ src/scene/Geometry/Face.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s
 .PHONY : src/scene/Geometry/Face.cpp.s
 
+src/scene/Geometry/Surface.o: src/scene/Geometry/Surface.cpp.o
+.PHONY : src/scene/Geometry/Surface.o
+
+# target to build an object file
+src/scene/Geometry/Surface.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.o
+.PHONY : src/scene/Geometry/Surface.cpp.o
+
+src/scene/Geometry/Surface.i: src/scene/Geometry/Surface.cpp.i
+.PHONY : src/scene/Geometry/Surface.i
+
+# target to preprocess a source file
+src/scene/Geometry/Surface.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.i
+.PHONY : src/scene/Geometry/Surface.cpp.i
+
+src/scene/Geometry/Surface.s: src/scene/Geometry/Surface.cpp.s
+.PHONY : src/scene/Geometry/Surface.s
+
+# target to generate assembly for a file
+src/scene/Geometry/Surface.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.s
+.PHONY : src/scene/Geometry/Surface.cpp.s
+
 src/scene/scene.o: src/scene/scene.cpp.o
 .PHONY : src/scene/scene.o
 
@@ -1269,6 +1378,30 @@ src/scene/scene.s: src/scene/scene.cpp.s
 src/scene/scene.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
 .PHONY : src/scene/scene.cpp.s
+
+src/spike/occt_spike.o: src/spike/occt_spike.cpp.o
+.PHONY : src/spike/occt_spike.o
+
+# target to build an object file
+src/spike/occt_spike.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/src/spike/occt_spike.cpp.o
+.PHONY : src/spike/occt_spike.cpp.o
+
+src/spike/occt_spike.i: src/spike/occt_spike.cpp.i
+.PHONY : src/spike/occt_spike.i
+
+# target to preprocess a source file
+src/spike/occt_spike.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/src/spike/occt_spike.cpp.i
+.PHONY : src/spike/occt_spike.cpp.i
+
+src/spike/occt_spike.s: src/spike/occt_spike.cpp.s
+.PHONY : src/spike/occt_spike.s
+
+# target to generate assembly for a file
+src/spike/occt_spike.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/src/spike/occt_spike.cpp.s
+.PHONY : src/spike/occt_spike.cpp.s
 
 src/utils/SessionLogger.o: src/utils/SessionLogger.cpp.o
 .PHONY : src/utils/SessionLogger.o
@@ -1317,6 +1450,30 @@ src/utils/Settings.s: src/utils/Settings.cpp.s
 src/utils/Settings.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/Settings.cpp.s
 .PHONY : src/utils/Settings.cpp.s
+
+src/utils/ShutdownStackTrace.o: src/utils/ShutdownStackTrace.cpp.o
+.PHONY : src/utils/ShutdownStackTrace.o
+
+# target to build an object file
+src/utils/ShutdownStackTrace.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/ShutdownStackTrace.cpp.o
+.PHONY : src/utils/ShutdownStackTrace.cpp.o
+
+src/utils/ShutdownStackTrace.i: src/utils/ShutdownStackTrace.cpp.i
+.PHONY : src/utils/ShutdownStackTrace.i
+
+# target to preprocess a source file
+src/utils/ShutdownStackTrace.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/ShutdownStackTrace.cpp.i
+.PHONY : src/utils/ShutdownStackTrace.cpp.i
+
+src/utils/ShutdownStackTrace.s: src/utils/ShutdownStackTrace.cpp.s
+.PHONY : src/utils/ShutdownStackTrace.s
+
+# target to generate assembly for a file
+src/utils/ShutdownStackTrace.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/ShutdownStackTrace.cpp.s
+.PHONY : src/utils/ShutdownStackTrace.cpp.s
 
 src/utils/SystemAccent.o: src/utils/SystemAccent.mm.o
 .PHONY : src/utils/SystemAccent.o
@@ -1400,6 +1557,7 @@ help:
 	@echo "... rebuild_cache"
 	@echo "... CAD_OpenGL"
 	@echo "... glad"
+	@echo "... occt_spike"
 	@echo "... include/glad/src/glad.o"
 	@echo "... include/glad/src/glad.i"
 	@echo "... include/glad/src/glad.s"
@@ -1472,6 +1630,9 @@ help:
 	@echo "... src/display/rendering/UIRenderer/ToolPanel.o"
 	@echo "... src/display/rendering/UIRenderer/ToolPanel.i"
 	@echo "... src/display/rendering/UIRenderer/ToolPanel.s"
+	@echo "... src/display/rendering/UIRenderer/ToolUserErrorFeedback.o"
+	@echo "... src/display/rendering/UIRenderer/ToolUserErrorFeedback.i"
+	@echo "... src/display/rendering/UIRenderer/ToolUserErrorFeedback.s"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.o"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.i"
 	@echo "... src/display/rendering/UIRenderer/UIRenderer.s"
@@ -1514,18 +1675,24 @@ help:
 	@echo "... src/logic/Calibrate/CalibNominal.o"
 	@echo "... src/logic/Calibrate/CalibNominal.i"
 	@echo "... src/logic/Calibrate/CalibNominal.s"
+	@echo "... src/logic/GeometryValidity.o"
+	@echo "... src/logic/GeometryValidity.i"
+	@echo "... src/logic/GeometryValidity.s"
 	@echo "... src/logic/Import/OBJImport.o"
 	@echo "... src/logic/Import/OBJImport.i"
 	@echo "... src/logic/Import/OBJImport.s"
-	@echo "... src/logic/Import/STLCgalPlanarExperiment.o"
-	@echo "... src/logic/Import/STLCgalPlanarExperiment.i"
-	@echo "... src/logic/Import/STLCgalPlanarExperiment.s"
+	@echo "... src/logic/Import/STEPImport.o"
+	@echo "... src/logic/Import/STEPImport.i"
+	@echo "... src/logic/Import/STEPImport.s"
 	@echo "... src/logic/Import/STLImport.o"
 	@echo "... src/logic/Import/STLImport.i"
 	@echo "... src/logic/Import/STLImport.s"
 	@echo "... src/logic/Import/ThreeMFImport.o"
 	@echo "... src/logic/Import/ThreeMFImport.i"
 	@echo "... src/logic/Import/ThreeMFImport.s"
+	@echo "... src/logic/Structure/StructureCarve.o"
+	@echo "... src/logic/Structure/StructureCarve.i"
+	@echo "... src/logic/Structure/StructureCarve.s"
 	@echo "... src/logic/Structure/StructureTriangulation.o"
 	@echo "... src/logic/Structure/StructureTriangulation.i"
 	@echo "... src/logic/Structure/StructureTriangulation.s"
@@ -1538,15 +1705,24 @@ help:
 	@echo "... src/scene/Geometry/Face.o"
 	@echo "... src/scene/Geometry/Face.i"
 	@echo "... src/scene/Geometry/Face.s"
+	@echo "... src/scene/Geometry/Surface.o"
+	@echo "... src/scene/Geometry/Surface.i"
+	@echo "... src/scene/Geometry/Surface.s"
 	@echo "... src/scene/scene.o"
 	@echo "... src/scene/scene.i"
 	@echo "... src/scene/scene.s"
+	@echo "... src/spike/occt_spike.o"
+	@echo "... src/spike/occt_spike.i"
+	@echo "... src/spike/occt_spike.s"
 	@echo "... src/utils/SessionLogger.o"
 	@echo "... src/utils/SessionLogger.i"
 	@echo "... src/utils/SessionLogger.s"
 	@echo "... src/utils/Settings.o"
 	@echo "... src/utils/Settings.i"
 	@echo "... src/utils/Settings.s"
+	@echo "... src/utils/ShutdownStackTrace.o"
+	@echo "... src/utils/ShutdownStackTrace.i"
+	@echo "... src/utils/ShutdownStackTrace.s"
 	@echo "... src/utils/SystemAccent.o"
 	@echo "... src/utils/SystemAccent.i"
 	@echo "... src/utils/SystemAccent.s"

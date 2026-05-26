@@ -1018,35 +1018,13 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/vector_relational.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/integer.hpp \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glm-1.0.2/glm/detail/func_integer.inl \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/basis.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/array2.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/util.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/check.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/curve.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/exception_ptr.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/operations.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/nested_exception.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/terminate.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/surface.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/evaluate.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/modify.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/obj.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../core/curve.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../core/surface.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/array2.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/util.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/fstream \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/path.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iomanip \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/put_character_sequence.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/ostreambuf_iterator.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/pad_and_output.h \
+  /opt/homebrew/include/opencascade/TopoDS_Vertex.hxx \
+  /opt/homebrew/include/opencascade/TopoDS_Shape.hxx \
+  /opt/homebrew/include/opencascade/Standard_Handle.hxx \
+  /opt/homebrew/include/opencascade/Standard_Std.hxx \
+  /opt/homebrew/include/opencascade/Standard_Stream.hxx \
+  /opt/homebrew/include/opencascade/Standard_Macro.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ios \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/error_category.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/error_code.h \
@@ -1068,9 +1046,17 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ctime \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/check_memory_order.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/is_always_lock_free.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/locale \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/istream \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/istreambuf_iterator.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/default_sentinel.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/basic_ostream.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/operations.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/put_character_sequence.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/ostreambuf_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__locale_dir/pad_and_output.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/bitset \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_char_like_type.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/locale \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/streambuf \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/nl_types.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/types.h \
@@ -1110,42 +1096,6 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_fsblkcnt_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_fsfilcnt_t.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_types/_nl_item.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/basic_ostream.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/bitset \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__type_traits/is_char_like_type.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/istream \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/filesystem \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/copy_options.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_entry.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_status.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_type.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/perms.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_time_type.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/file_clock.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/filesystem_error.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/operations.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/perm_options.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/space_info.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_iterator.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_options.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/path_iterator.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/recursive_directory_iterator.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/u8path.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ScenePick.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
-  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iostream \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/ostream \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__ostream/print.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/format \
@@ -1173,6 +1123,175 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/print \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__system_error/throw_system_error.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/unistd.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iomanip \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/fstream \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/path.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/filesystem \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/copy_options.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_entry.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_status.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_type.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/perms.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/file_time_type.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/file_clock.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/filesystem_error.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/operations.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/perm_options.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/space_info.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/directory_options.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/path_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/recursive_directory_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__filesystem/u8path.h \
+  /opt/homebrew/include/opencascade/Standard_Transient.hxx \
+  /opt/homebrew/include/opencascade/Standard.hxx \
+  /opt/homebrew/include/opencascade/Standard_DefineAlloc.hxx \
+  /opt/homebrew/include/opencascade/Standard_Integer.hxx \
+  /opt/homebrew/include/opencascade/Standard_TypeDef.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/inttypes.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/inttypes.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/inttypes.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_inttypes.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/xlocale/_inttypes.h \
+  /opt/homebrew/include/opencascade/Standard_PrimitiveTypes.hxx \
+  /opt/homebrew/include/opencascade/Standard_Boolean.hxx \
+  /opt/homebrew/include/opencascade/Standard_Real.hxx \
+  /opt/homebrew/include/opencascade/Standard_Character.hxx \
+  /opt/homebrew/include/opencascade/Standard_ExtCharacter.hxx \
+  /opt/homebrew/include/opencascade/Standard_CString.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/atomic \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/aliases.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_lock_free.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_flag.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/support.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__thread/support/pthread.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/convert_to_timespec.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/pthread.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/pthread/sched.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/pthread/pthread_impl.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/pthread/qos.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/qos.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_mach_port_t.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sched.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_init.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/fence.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/kill_dependency.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__atomic/atomic_ref.h \
+  /opt/homebrew/include/opencascade/Standard_HashUtils.hxx \
+  /opt/homebrew/include/opencascade/Standard_HashUtils.lxx \
+  /opt/homebrew/include/opencascade/TopLoc_Location.hxx \
+  /opt/homebrew/include/opencascade/TopLoc_SListOfItemLocation.hxx \
+  /opt/homebrew/include/opencascade/Standard_OStream.hxx \
+  /opt/homebrew/include/opencascade/TopLoc_Location.lxx \
+  /opt/homebrew/include/opencascade/TopLoc_Datum3D.hxx \
+  /opt/homebrew/include/opencascade/Standard_Type.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/typeindex \
+  /opt/homebrew/include/opencascade/gp_Trsf.hxx \
+  /opt/homebrew/include/opencascade/gp_TrsfForm.hxx \
+  /opt/homebrew/include/opencascade/gp_Mat.hxx \
+  /opt/homebrew/include/opencascade/gp.hxx \
+  /opt/homebrew/include/opencascade/Standard_OutOfRange.hxx \
+  /opt/homebrew/include/opencascade/Standard_SStream.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/sstream \
+  /opt/homebrew/include/opencascade/Standard_RangeError.hxx \
+  /opt/homebrew/include/opencascade/Standard_DomainError.hxx \
+  /opt/homebrew/include/opencascade/Standard_DefineException.hxx \
+  /opt/homebrew/include/opencascade/Standard_Failure.hxx \
+  /opt/homebrew/include/opencascade/Standard_ConstructionError.hxx \
+  /opt/homebrew/include/opencascade/gp_XYZ.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Mat4.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Vec4.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Vec3.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Vec2.hxx \
+  /opt/homebrew/include/opencascade/Standard_Dump.hxx \
+  /opt/homebrew/include/opencascade/NCollection_IndexedDataMap.hxx \
+  /opt/homebrew/include/opencascade/NCollection_BaseMap.hxx \
+  /opt/homebrew/include/opencascade/NCollection_BaseAllocator.hxx \
+  /opt/homebrew/include/opencascade/Standard_DefineHandle.hxx \
+  /opt/homebrew/include/opencascade/NCollection_DefineAlloc.hxx \
+  /opt/homebrew/include/opencascade/NCollection_ListNode.hxx \
+  /opt/homebrew/include/opencascade/NCollection_TListNode.hxx \
+  /opt/homebrew/include/opencascade/Standard_TypeMismatch.hxx \
+  /opt/homebrew/include/opencascade/Standard_NoSuchObject.hxx \
+  /opt/homebrew/include/opencascade/NCollection_StlIterator.hxx \
+  /opt/homebrew/include/opencascade/Standard_Assert.hxx \
+  /opt/homebrew/include/opencascade/Standard_ProgramError.hxx \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/iterator \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/front_insert_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/insert_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/istream_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/ostream_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/common_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/variant \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__fwd/variant.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__iterator/counted_iterator.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__concepts/common_with.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/concepts \
+  /opt/homebrew/include/opencascade/NCollection_DefaultHasher.hxx \
+  /opt/homebrew/include/opencascade/NCollection_DefineHasher.hxx \
+  /opt/homebrew/include/opencascade/NCollection_List.hxx \
+  /opt/homebrew/include/opencascade/NCollection_TListIterator.hxx \
+  /opt/homebrew/include/opencascade/NCollection_BaseList.hxx \
+  /opt/homebrew/include/opencascade/TCollection_AsciiString.hxx \
+  /opt/homebrew/include/opencascade/Standard_PCharacter.hxx \
+  /opt/homebrew/include/opencascade/Standard_IStream.hxx \
+  /opt/homebrew/include/opencascade/TCollection_AsciiString.lxx \
+  /opt/homebrew/include/opencascade/NCollection_Mat3.hxx \
+  /opt/homebrew/include/opencascade/gp_Trsf2d.hxx \
+  /opt/homebrew/include/opencascade/gp_Mat2d.hxx \
+  /opt/homebrew/include/opencascade/gp_XY.hxx \
+  /opt/homebrew/include/opencascade/gp_Pnt2d.hxx \
+  /opt/homebrew/include/opencascade/gp_Vec2d.hxx \
+  /opt/homebrew/include/opencascade/gp_VectorWithNullMagnitude.hxx \
+  /opt/homebrew/include/opencascade/gp_Dir2d.hxx \
+  /opt/homebrew/include/opencascade/gp_Ax2d.hxx \
+  /opt/homebrew/include/opencascade/gp_Vec.hxx \
+  /opt/homebrew/include/opencascade/gp_Dir.hxx \
+  /opt/homebrew/include/opencascade/gp_Pnt.hxx \
+  /opt/homebrew/include/opencascade/TopLoc_ItemLocation.hxx \
+  /opt/homebrew/include/opencascade/TopoDS_TShape.hxx \
+  /opt/homebrew/include/opencascade/TopAbs.hxx \
+  /opt/homebrew/include/opencascade/TopAbs_Orientation.hxx \
+  /opt/homebrew/include/opencascade/TopAbs_ShapeEnum.hxx \
+  /opt/homebrew/include/opencascade/TopAbs_State.hxx \
+  /opt/homebrew/include/opencascade/TopoDS_ListOfShape.hxx \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Edge.hpp \
+  /opt/homebrew/include/opencascade/TopoDS_Edge.hxx \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Curve.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/tinynurbs.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/basis.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/array2.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/../util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/check.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/curve.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/exception \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/exception_ptr.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/nested_exception.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__exception/terminate.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/surface.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/evaluate.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/array2.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/core/modify.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/obj.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../core/curve.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../core/surface.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/array2.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/tinynurbs/include/tinynurbs/io/../util/util.h \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Geometry.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Surface.hpp \
+  /opt/homebrew/include/opencascade/TopoDS_Face.hxx \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Face.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/OrientedEdge.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Solid.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/GeometryValidity.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/scene/Geometry/Compound.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/color.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/logic/Analysis/AnalysisTypes.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/display/rendering/ScenePick.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/include/RenderingExperiments.hpp \
+  /Users/nikolnotai/Documents/CAD_OpenGl/src/utils/log.hpp \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/source_location \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/chrono \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/calendar.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/day.h \
@@ -1195,4 +1314,47 @@ CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/utc_clock.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/zoned_time.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/ostream.h \
-  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h
+  /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1/__chrono/parser_std_format_spec.h \
+  /opt/homebrew/include/opencascade/BRep_Tool.hxx \
+  /opt/homebrew/include/opencascade/GeomAbs_Shape.hxx \
+  /opt/homebrew/include/opencascade/Geom_Surface.hxx \
+  /opt/homebrew/include/opencascade/Geom_Curve.hxx \
+  /opt/homebrew/include/opencascade/Geom_Geometry.hxx \
+  /opt/homebrew/include/opencascade/Geom2d_Curve.hxx \
+  /opt/homebrew/include/opencascade/Geom2d_Geometry.hxx \
+  /opt/homebrew/include/opencascade/Poly_ListOfTriangulation.hxx \
+  /opt/homebrew/include/opencascade/Poly_Triangulation.hxx \
+  /opt/homebrew/include/opencascade/Bnd_Box.hxx \
+  /opt/homebrew/include/opencascade/Poly_HArray1OfTriangle.hxx \
+  /opt/homebrew/include/opencascade/Poly_Array1OfTriangle.hxx \
+  /opt/homebrew/include/opencascade/Poly_Triangle.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Array1.hxx \
+  /opt/homebrew/include/opencascade/Standard_DimensionMismatch.hxx \
+  /opt/homebrew/include/opencascade/Standard_DimensionError.hxx \
+  /opt/homebrew/include/opencascade/Standard_OutOfMemory.hxx \
+  /opt/homebrew/include/opencascade/Standard_NotImplemented.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Iterator.hxx \
+  /opt/homebrew/include/opencascade/NCollection_Allocator.hxx \
+  /opt/homebrew/include/opencascade/StdFail_NotDone.hxx \
+  /opt/homebrew/include/opencascade/NCollection_IndexedIterator.hxx \
+  /opt/homebrew/include/opencascade/NCollection_DefineHArray1.hxx \
+  /opt/homebrew/include/opencascade/Poly_ArrayOfNodes.hxx \
+  /opt/homebrew/include/opencascade/NCollection_AliasedArray.hxx \
+  /opt/homebrew/include/opencascade/gp_Vec3f.hxx \
+  /opt/homebrew/include/opencascade/Poly_ArrayOfUVNodes.hxx \
+  /opt/homebrew/include/opencascade/gp_Vec2f.hxx \
+  /opt/homebrew/include/opencascade/Poly_MeshPurpose.hxx \
+  /opt/homebrew/include/opencascade/TColgp_HArray1OfPnt.hxx \
+  /opt/homebrew/include/opencascade/TColgp_Array1OfPnt.hxx \
+  /opt/homebrew/include/opencascade/TColgp_HArray1OfPnt2d.hxx \
+  /opt/homebrew/include/opencascade/TColgp_Array1OfPnt2d.hxx \
+  /opt/homebrew/include/opencascade/TShort_HArray1OfShortReal.hxx \
+  /opt/homebrew/include/opencascade/Standard_ShortReal.hxx \
+  /opt/homebrew/include/opencascade/TShort_Array1OfShortReal.hxx \
+  /opt/homebrew/include/opencascade/Poly_Polygon3D.hxx \
+  /opt/homebrew/include/opencascade/TColStd_HArray1OfReal.hxx \
+  /opt/homebrew/include/opencascade/TColStd_Array1OfReal.hxx \
+  /opt/homebrew/include/opencascade/Poly_Polygon2D.hxx \
+  /opt/homebrew/include/opencascade/Poly_PolygonOnTriangulation.hxx \
+  /opt/homebrew/include/opencascade/Standard_NullObject.hxx \
+  /opt/homebrew/include/opencascade/TColStd_Array1OfInteger.hxx

@@ -21,7 +21,7 @@ inline constexpr CalibHoleQualifyProbe kCalibHoleQualifyProbe = CalibHoleQualify
 
 // --- Theory: coplanar merge creates large single faces that z-fight internally or with neighbors.
 // Set `true`, rebuild, re-import STL — if the artifact changes, merge is implicated.
-inline constexpr bool kSkipStlMergeCoplanarFaces = false;
+inline constexpr bool kSkipStlMergeCoplanarFaces = true;
 
 // Coplanar merge accepts a pair when |dot(ni, nj)| > 1 - kMergeCoplanarNormalDotSlack (opposite
 // winding on the same flat counts). Tighter rejects more sliver noise; looser risks curved merges.
@@ -32,11 +32,4 @@ inline constexpr double kMergeCoplanarNormalDotSlack = 5e-3;
 // print CAD, 0.001 mm is intended to catch exporter / float drift without hiding printable detail.
 inline constexpr double kMergeCoplanarPlaneTolFloor = 1e-3;
 
-#ifdef CAD_USE_CGAL
-// Requires CMake `-DCAD_USE_CGAL=ON` (default) and CGAL on the toolchain.
-// Default `false`: STL import uses homegrown `MergeCoplanarFaces` only (best wireframe / solid
-// quality in practice). Set `true` to A/B CGAL `remesh_planar_patches` first (soup rebuild),
-// then the same merge pass; on CGAL failure, import falls back to merge-only.
-inline constexpr bool kUseCgalRemeshPlanarPatchesForStl = false;
-#endif
 } // namespace GeometryExperiments

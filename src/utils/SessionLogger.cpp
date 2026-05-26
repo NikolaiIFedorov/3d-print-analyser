@@ -324,6 +324,30 @@ void SessionLogger::LogStlMergeDiagnostics(const std::string &filename, const ST
     Log::Session("STL merge diagnostics recorded for " + filename);
 }
 
+void SessionLogger::LogOpenBoundaryDiagnostics(const std::string &filename,
+                                               size_t solidsTotal,
+                                               size_t solidsWithOpenBoundary,
+                                               size_t groupsOpenBoundary,
+                                               size_t groupsManifoldOpposite,
+                                               size_t groupsCount2SameDirection,
+                                               size_t groupsCount2NonOpposite,
+                                               size_t groupsNonManifold3Plus,
+                                               size_t highlightedEdgeCount)
+{
+    PushEvent("open_boundary_diagnostics", {
+                                                {"filename", "\"" + EscapeStr(filename) + "\""},
+                                                {"solids_total", std::to_string(solidsTotal)},
+                                                {"solids_with_open_boundary", std::to_string(solidsWithOpenBoundary)},
+                                                {"groups_open_boundary", std::to_string(groupsOpenBoundary)},
+                                                {"groups_manifold_opposite", std::to_string(groupsManifoldOpposite)},
+                                                {"groups_count2_same_direction", std::to_string(groupsCount2SameDirection)},
+                                                {"groups_count2_non_opposite", std::to_string(groupsCount2NonOpposite)},
+                                                {"groups_non_manifold_3plus", std::to_string(groupsNonManifold3Plus)},
+                                                {"highlighted_edge_count", std::to_string(highlightedEdgeCount)},
+                                            });
+    Log::Session("Open-boundary diagnostics recorded for " + filename);
+}
+
 void SessionLogger::Flush(const std::string &path, bool logToConsole)
 {
     std::ofstream file(path);

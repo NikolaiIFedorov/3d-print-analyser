@@ -3,6 +3,17 @@
 #include "GeometryValidity.hpp"
 #include "utils/log.hpp"
 
+#include <TopoDS_Shape.hxx>
+#include <TopoDS.hxx>
+#include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
+#include <BRepTools_WireExplorer.hxx>
+#include <BRep_Tool.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Vertex.hxx>
+
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
@@ -275,15 +286,93 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepa
         return &solid;
     }
 
-    (void)GeometryValidity::TryRepairDegenerateSolidBRep(solid);
-    (void)GeometryValidity::TryRepairInconsistentFaceOrientationSolid(solid);
-    (void)GeometryValidity::TryMergeDuplicateStraightEdgesSolid(solid);
+    if (runTopologyRepairs)
+    {
+        GeometryValidity::TryRepairSolidBRep(this, solid);
+    }
     GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
 
     if constexpr (kLogSceneConstruction)
         LOG_VOID("Created solid");
 
     return &solid;
+}
+
+void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
+{
+    if (solid == nullptr || shape.IsNull())
+        return;
+
+    std::unordered_map<TopoDS_Shape, Point*> pointMap;
+    std::unordered_map<TopoDS_Shape, Edge*> edgeMap;
+    std::vector<Face*> sceneFaces;
+
+    auto getOrCreatePoint = [&](const TopoDS_Vertex& v) -> Point* {
+        auto it = pointMap.find(v);
+        if (it != pointMap.end()) {
+            return it->second;
+        }
+        gp_Pnt p = BRep_Tool::Pnt(v);
+        glm::dvec3 pos(p.X(), p.Y(), p.Z());
+        Point* newPoint = this->CreatePoint(pos);
+        newPoint->occtVertex = v;
+        pointMap[v] = newPoint;
+        return newPoint;
+    };
+
+    auto getOrCreateEdge = [&](const TopoDS_Edge& e) -> Edge* {
+        auto it = edgeMap.find(e);
+        if (it != edgeMap.end()) {
+            return it->second;
+        }
+        TopoDS_Vertex v1, v2;
+        TopExp::Vertices(e, v1, v2);
+        
+        Point* p1 = getOrCreatePoint(v1);
+        Point* p2 = getOrCreatePoint(v2);
+
+        Edge* newEdge = this->CreateEdge(p1, p2);
+        if (newEdge != nullptr) {
+            newEdge->occtEdge = e;
+            edgeMap[e] = newEdge;
+        }
+        return newEdge;
+    };
+
+    for (TopExp_Explorer exFace(shape, TopAbs_FACE); exFace.More(); exFace.Next()) {
+        TopoDS_Face occtFace = TopoDS::Face(exFace.Current());
+        
+        std::vector<std::vector<Edge*>> loops;
+
+        for (TopExp_Explorer exWire(occtFace, TopAbs_WIRE); exWire.More(); exWire.Next()) {
+            TopoDS_Wire wire = TopoDS::Wire(exWire.Current());
+            std::vector<Edge*> loopEdges;
+            
+            for (BRepTools_WireExplorer exEdge(wire); exEdge.More(); exEdge.Next()) {
+                TopoDS_Edge occtEdge = exEdge.Current();
+                Edge* edge = getOrCreateEdge(occtEdge);
+                if (edge != nullptr) {
+                    loopEdges.push_back(edge);
+                }
+            }
+            if (!loopEdges.empty()) {
+                loops.push_back(loopEdges);
+            }
+        }
+
+        if (loops.empty()) continue;
+
+        auto surf = std::make_unique<OcctSurface>(occtFace);
+        Face* sceneFace = this->CreateFace(loops, std::move(surf));
+        if (sceneFace != nullptr) {
+            sceneFace->occtFace = occtFace;
+            sceneFace->dependency = solid;
+            sceneFaces.push_back(sceneFace);
+        }
+    }
+
+    solid->faces = sceneFaces;
+    solid->occtShape = shape;
 }
 
 namespace
@@ -935,9 +1024,7 @@ void Scene::MergeCoplanarFaces(
         CompleteCoplanarMergeDiagnostics(solid, diag);
     reportProgress(1.0f, true);
 
-    (void)GeometryValidity::TryRepairDegenerateSolidBRep(*solid);
-    (void)GeometryValidity::TryRepairInconsistentFaceOrientationSolid(*solid);
-    (void)GeometryValidity::TryMergeDuplicateStraightEdgesSolid(*solid);
+    GeometryValidity::TryRepairSolidBRep(this, *solid);
     GeometryValidity::RefreshSolidAppGeometryValidityCache(*solid);
 
     if constexpr (kLogMergeDebug)

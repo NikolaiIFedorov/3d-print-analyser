@@ -90,6 +90,17 @@ public:
     /// STL importer + coplanar merge diagnostics (written to session_log.json for offline analysis).
     void LogStlMergeDiagnostics(const std::string &filename, const STLImportStats &stl);
 
+    /// Open-boundary directed-use classification summary (debugging edge blame false positives).
+    void LogOpenBoundaryDiagnostics(const std::string &filename,
+                                    size_t solidsTotal,
+                                    size_t solidsWithOpenBoundary,
+                                    size_t groupsOpenBoundary,
+                                    size_t groupsManifoldOpposite,
+                                    size_t groupsCount2SameDirection,
+                                    size_t groupsCount2NonOpposite,
+                                    size_t groupsNonManifold3Plus,
+                                    size_t highlightedEdgeCount);
+
     /// Quit/teardown breadcrumb: appends a `shutdown_phase` event. By default the session log is **not**
     /// flushed here (see `main::Shutdown` for a single end flush); set `CAD_SESSION_LOG_SHUTDOWN_PER_PHASE_FLUSH=1`
     /// to flush `session_log.json` after every phase for mid-teardown hang forensics.

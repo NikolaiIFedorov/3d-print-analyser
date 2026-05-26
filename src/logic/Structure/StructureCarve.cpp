@@ -7,32 +7,22 @@
 #include "Geometry/Surface.hpp"
 #include "utils/log.hpp"
 
-#if defined(CAD_USE_CGAL)
-
-#undef Handle
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Surface_mesh.h>
-#include <CGAL/Polygon_mesh_processing/corefinement.h>
-#include <CGAL/Polygon_mesh_processing/orient_polygon_soup.h>
-#include <CGAL/Polygon_mesh_processing/polygon_soup_to_polygon_mesh.h>
-#include <CGAL/Polygon_mesh_processing/repair.h>
-#include <CGAL/Polygon_mesh_processing/repair_polygon_soup.h>
-#include <CGAL/Polygon_mesh_processing/stitch_borders.h>
-#include <boost/graph/graph_traits.hpp>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepPrimAPI_MakePrism.hxx>
+#include <BRepAlgoAPI_Cut.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Solid.hxx>
+#include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <gp_Vec.hxx>
 
 #include <cmath>
 #include <exception>
 #include <functional>
 #include <limits>
-#include <map>
 #include <string>
-#include <unordered_map>
 #include <vector>
-
-using K = CGAL::Exact_predicates_inexact_constructions_kernel;
-namespace PMP = CGAL::Polygon_mesh_processing;
-using CgalMesh = CGAL::Surface_mesh<K::Point_3>;
-using HalfedgeDesc = boost::graph_traits<CgalMesh>::halfedge_descriptor;
 
 namespace StructureCarve
 {
@@ -57,132 +47,6 @@ static void DetachFacesFromSolid(Solid &solid)
         pf->loops.clear();
         pf->dependency = nullptr;
     }
-}
-
-static bool BuildTriangleSoupFromSolid(Solid &solid,
-                                       std::vector<K::Point_3> &coords,
-                                       std::vector<std::vector<std::size_t>> &trianglesOut)
-{
-    coords.clear();
-    trianglesOut.clear();
-    std::unordered_map<Point *, std::size_t> pointIndex;
-
-    auto indexOfPoint = [&](Point *p) -> std::size_t
-    {
-        auto it = pointIndex.find(p);
-        if (it != pointIndex.end())
-            return it->second;
-        glm::dvec3 g = p->position;
-        coords.push_back(K::Point_3(g.x, g.y, g.z));
-        const std::size_t ix = coords.size() - 1;
-        pointIndex.emplace(p, ix);
-        return ix;
-    };
-
-    for (Face *f : solid.faces)
-    {
-        if (f == nullptr || f->dependency != &solid || f->loops.empty())
-            continue;
-        if (f->loops.size() != 1)
-        {
-            LOG_WARN("Structure carve: multi-loop faces not supported");
-            return false;
-        }
-        const auto &loop = f->loops[0];
-        const std::size_t n = loop.size();
-        if (n < 3)
-            continue;
-
-        std::vector<std::size_t> idx(n);
-        for (std::size_t i = 0; i < n; ++i)
-        {
-            Point *pq = loop[i].GetStart();
-            if (pq == nullptr)
-            {
-                LOG_WARN("Structure carve: face loop vertex null");
-                return false;
-            }
-            idx[i] = indexOfPoint(pq);
-        }
-
-        if (n == 3)
-        {
-            trianglesOut.push_back({idx[0], idx[1], idx[2]});
-        }
-        else
-        {
-            // Fan from vertex 0 — correct for convex planar facets (typical merged STL quads).
-            for (std::size_t i = 1; i + 1 < n; ++i)
-                trianglesOut.push_back({idx[0], idx[i], idx[i + 1]});
-        }
-    }
-
-    return !trianglesOut.empty() && coords.size() >= 3;
-}
-
-static bool RebuildSolidFromCgalMesh(Scene *scene, Solid &solid, const CgalMesh &cgMesh)
-{
-    std::map<CgalMesh::Vertex_index, Point *> vxToPt;
-
-    for (CgalMesh::Vertex_index vd : CGAL::vertices(cgMesh))
-    {
-        const K::Point_3 qp = cgMesh.point(vd);
-        Point *const p =
-            scene->CreatePoint(glm::dvec3(CGAL::to_double(qp.x()), CGAL::to_double(qp.y()), CGAL::to_double(qp.z())));
-        vxToPt.emplace(vd, p);
-    }
-
-    for (CgalMesh::Face_index fid : CGAL::faces(cgMesh))
-    {
-        HalfedgeDesc h = CGAL::halfedge(fid, cgMesh);
-        HalfedgeDesc h0 = h;
-        std::vector<Point *> ring;
-        do
-        {
-            CgalMesh::Vertex_index vi = CGAL::target(h, cgMesh);
-            auto itVp = vxToPt.find(vi);
-            if (itVp == vxToPt.end())
-            {
-                LOG_WARN("Structure carve: CGAL vertex missing from remap");
-                return false;
-            }
-            ring.push_back(itVp->second);
-            h = CGAL::next(h, cgMesh);
-        } while (h != h0);
-
-        const std::size_t n = ring.size();
-        if (n < 3)
-        {
-            LOG_WARN("Structure carve: degenerate facet after boolean");
-            return false;
-        }
-
-        std::vector<Edge *> boundary;
-        boundary.reserve(n);
-        for (std::size_t i = 0; i < n; ++i)
-        {
-            Point *a = ring[i];
-            Point *b = ring[(i + 1) % n];
-            if (a == b)
-            {
-                LOG_WARN("Structure carve: collapsed edge in facet");
-                return false;
-            }
-            Edge *ed = scene->CreateEdge(a, b);
-            if (ed == nullptr)
-            {
-                LOG_WARN("Structure carve: CreateEdge failed");
-                return false;
-            }
-            boundary.push_back(ed);
-        }
-
-        Face *nf = scene->CreateFace({boundary});
-        nf->dependency = &solid;
-        solid.faces.push_back(nf);
-    }
-
-    return !solid.faces.empty();
 }
 
 static void SolidWorldZBounds(const Solid &solid, double &zMin, double &zMax)
@@ -212,66 +76,29 @@ static void SolidWorldZBounds(const Solid &solid, double &zMin, double &zMax)
     }
 }
 
-static CgalMesh BuildVerticalPrismMesh(const std::vector<glm::dvec3> &footprintCCW, double zBottom,
-                                       double zTop)
+static TopoDS_Shape BuildVerticalPrismOcct(const std::vector<glm::dvec3> &footprintCCW, double zBottom, double zTop)
 {
-    CgalMesh mesh;
     const std::size_t n = footprintCCW.size();
     if (n < 3 || !(zBottom < zTop))
-        return mesh;
+        return TopoDS_Shape();
 
-    std::vector<K::Point_3> coords;
-    std::vector<std::vector<std::size_t>> faces;
-    coords.reserve(n * 2);
-    faces.reserve(2 * n + 2 * (n - 2));
-
-    auto addPoint = [&](const glm::dvec3 &p) -> std::size_t
-    {
-        coords.emplace_back(p.x, p.y, p.z);
-        return coords.size() - 1;
-    };
-
-    std::vector<std::size_t> bi;
-    std::vector<std::size_t> ti;
-    bi.reserve(n);
-    ti.reserve(n);
+    BRepBuilderAPI_MakePolygon poly;
     for (std::size_t i = 0; i < n; ++i)
     {
         const glm::dvec3 &p = footprintCCW[i];
-        bi.push_back(addPoint(glm::dvec3(p.x, p.y, zBottom)));
+        poly.Add(gp_Pnt(p.x, p.y, zBottom));
     }
-    for (std::size_t i = 0; i < n; ++i)
-    {
-        const glm::dvec3 &p = footprintCCW[i];
-        ti.push_back(addPoint(glm::dvec3(p.x, p.y, zTop)));
-    }
+    poly.Close();
 
-    for (std::size_t i = 1; i + 1 < n; ++i)
-        faces.push_back({bi[0], bi[i + 1], bi[i]});
-    for (std::size_t i = 1; i + 1 < n; ++i)
-        faces.push_back({ti[0], ti[i], ti[i + 1]});
+    if (!poly.IsDone())
+        return TopoDS_Shape();
 
-    for (std::size_t i = 0; i < n; ++i)
-    {
-        const std::size_t ni = (i + 1) % n;
-        faces.push_back({bi[i], bi[ni], ti[ni]});
-        faces.push_back({bi[i], ti[ni], ti[i]});
-    }
+    TopoDS_Face face = BRepBuilderAPI_MakeFace(poly.Wire());
+    if (face.IsNull())
+        return TopoDS_Shape();
 
-    PMP::orient_polygon_soup(coords, faces);
-    PMP::merge_duplicate_points_in_polygon_soup(coords, faces);
-    // CGAL will hard-fail (precondition violation) if the soup does not define a valid polygon mesh.
-    // Guard it explicitly so hostile geometry degrades to a recoverable error instead of aborting.
-    if (!PMP::is_polygon_soup_a_polygon_mesh(faces))
-    {
-        PMP::repair_polygon_soup(coords, faces);
-        if (!PMP::is_polygon_soup_a_polygon_mesh(faces))
-            return CgalMesh{};
-    }
-    PMP::polygon_soup_to_polygon_mesh(coords, faces, mesh);
-    PMP::duplicate_non_manifold_vertices(mesh);
-    PMP::stitch_borders(mesh);
-    return mesh;
+    BRepPrimAPI_MakePrism prismMaker(face, gp_Vec(0, 0, zTop - zBottom));
+    return prismMaker.Shape();
 }
 
 } // namespace
@@ -302,16 +129,11 @@ bool TryApplyStructureCarve(Scene *scene,
             (*workerTrace)(phase);
     };
 
-    auto logAppGeometryTagsIfAny = [&](const char *context)
-    {
-        const GeometryValidity::AppInvalidTag t = GeometryValidity::EvaluateAppInvalidTagsForSolid(*solid);
-        if (GeometryValidity::Any(t))
-            LOG_WARN(std::string(context) + " — AppInvalidTag: " +
-                     GeometryValidity::DescribeAppInvalidTagsForLog(t));
-    };
-
     if (scene == nullptr || solid == nullptr || faces.empty())
         return true;
+
+    if (solid->occtShape.IsNull())
+        return fail("Solid has no OCCT shape.");
 
     try
     {
@@ -319,51 +141,7 @@ bool TryApplyStructureCarve(Scene *scene,
         if (aborted())
             return fail("Structure carve cancelled.");
 
-        invokeTrace("mesh_soup_begin");
-        std::vector<K::Point_3> coords;
-        std::vector<std::vector<std::size_t>> tris;
-        if (!BuildTriangleSoupFromSolid(*solid, coords, tris))
-        {
-            logAppGeometryTagsIfAny("Structure carve: triangle soup build failed");
-            return fail("Could not build triangle soup from solid.");
-        }
-        invokeTrace("mesh_soup_done");
-
-        invokeTrace("pmp_orient_begin");
-        PMP::orient_polygon_soup(coords, tris);
-        invokeTrace("pmp_orient_done");
-        invokeTrace("pmp_merge_dup_begin");
-        PMP::merge_duplicate_points_in_polygon_soup(coords, tris);
-        invokeTrace("pmp_merge_dup_done");
-        CgalMesh tm;
-        invokeTrace("pmp_soup_to_mesh_begin");
-        const bool soupOk = PMP::is_polygon_soup_a_polygon_mesh(tris);
-        invokeTrace(soupOk ? "pmp_soup_check_ok" : "pmp_soup_check_fail");
-        if (!soupOk)
-        {
-            PMP::repair_polygon_soup(coords, tris);
-            const bool soupOkAfterRepair = PMP::is_polygon_soup_a_polygon_mesh(tris);
-            invokeTrace(soupOkAfterRepair ? "pmp_soup_repair_ok" : "pmp_soup_repair_fail");
-            if (!soupOkAfterRepair)
-            {
-                logAppGeometryTagsIfAny("Structure carve: CGAL soup still invalid after repair");
-                return fail("Invalid triangle soup: CGAL precondition failed for polygon_soup_to_polygon_mesh.");
-            }
-        }
-        PMP::polygon_soup_to_polygon_mesh(coords, tris, tm);
-        invokeTrace("pmp_soup_to_mesh_done");
-        if (tm.number_of_faces() == 0)
-            return fail("Empty CGAL mesh from solid.");
-        invokeTrace("pmp_dup_non_manifold_begin");
-        PMP::duplicate_non_manifold_vertices(tm);
-        invokeTrace("pmp_dup_non_manifold_done");
-        invokeTrace("pmp_stitch_begin");
-        PMP::stitch_borders(tm);
-        invokeTrace("pmp_stitch_done");
-
-        invokeTrace("tm_ready");
-        if (aborted())
-            return fail("Structure carve cancelled.");
+        TopoDS_Shape currentShape = solid->occtShape;
 
         double zMinWorld = 0.0;
         double zMaxWorld = 0.0;
@@ -397,8 +175,12 @@ bool TryApplyStructureCarve(Scene *scene,
             if (aborted())
                 return fail("Structure carve cancelled.");
             invokeTrace("before_footprint");
+#if defined(CAD_USE_CGAL)
             const std::vector<std::vector<glm::dvec3>> rings =
                 StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params, workerTrace);
+#else
+            const std::vector<std::vector<glm::dvec3>> rings;
+#endif
             invokeTrace(std::string("footprint_done_rings_") + std::to_string(rings.size()));
             if (aborted())
                 return fail("Structure carve cancelled.");
@@ -412,9 +194,9 @@ bool TryApplyStructureCarve(Scene *scene,
                     continue;
                 }
                 invokeTrace("before_prism");
-                CgalMesh prism = BuildVerticalPrismMesh(ring, zBottom, zTop);
+                TopoDS_Shape prism = BuildVerticalPrismOcct(ring, zBottom, zTop);
                 invokeTrace("after_prism");
-                if (!prism.is_valid() || prism.number_of_faces() == 0)
+                if (prism.IsNull())
                 {
                     invokeTrace("ring_skip_invalid_prism");
                     continue;
@@ -423,11 +205,12 @@ bool TryApplyStructureCarve(Scene *scene,
                 if (aborted())
                     return fail("Structure carve cancelled.");
                 invokeTrace("before_boolean");
-                CgalMesh diffOut;
-                if (!PMP::corefine_and_compute_difference(tm, prism, diffOut))
-                    return fail("CGAL boolean difference failed (try smaller inset or check mesh).");
+                BRepAlgoAPI_Cut cutter(currentShape, prism);
+                cutter.Build();
+                if (cutter.HasErrors())
+                    return fail("OCCT boolean difference failed.");
                 invokeTrace("after_boolean");
-                tm = std::move(diffOut);
+                currentShape = cutter.Shape();
                 anyPrismApplied = true;
             }
         }
@@ -439,38 +222,22 @@ bool TryApplyStructureCarve(Scene *scene,
             return fail("Structure carve cancelled.");
         invokeTrace("before_detach");
         DetachFacesFromSolid(*solid);
-        if (!RebuildSolidFromCgalMesh(scene, *solid, tm))
-            return fail("Failed to rebuild solid from carved mesh.");
+        
+        scene->PopulateSolidFromOcctShape(solid, currentShape);
 
         invokeTrace("after_rebuild");
         scene->MergeCoplanarFaces(solid, nullptr, nullptr);
         Log::Background("Structure carve: applied to solid with " + std::to_string(faces.size()) + " face pick(s)");
         return true;
     }
-    catch (const std::exception &ex)
+    catch (const std::exception &e)
     {
-        if (errOut != nullptr)
-        {
-            *errOut = std::string("CGAL exception: ") + ex.what();
-            const std::string w(ex.what());
-            if (w.find("intersection_nodes") != std::string::npos ||
-                w.find("corefinement") != std::string::npos ||
-                w.find("assertion violation") != std::string::npos)
-            {
-                *errOut += " Try a smaller inset, check the mesh for self-intersections or near-duplicate vertices, "
-                           "or simplify caps on extruded profiles.";
-            }
-        }
-        return false;
+        return fail((std::string("Structure carve exception: ") + e.what()).c_str());
     }
     catch (...)
     {
-        if (errOut != nullptr)
-            *errOut = "CGAL exception (unknown type).";
-        return false;
+        return fail("Structure carve unknown exception.");
     }
 }
 
 } // namespace StructureCarve
-
-#endif // CAD_USE_CGAL

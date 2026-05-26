@@ -77,6 +77,8 @@ add_executable(CAD_OpenGL
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp
     src/logic/Import/STEPImport.cpp
+    src/logic/Structure/StructureTriangulation.cpp
+    src/logic/Structure/StructureCarve.cpp
     include/miniz.c
     include/miniz_tdef.c
     include/miniz_tinfl.c
@@ -144,33 +146,6 @@ target_link_libraries(CAD_OpenGL PRIVATE
 
 if(WIN32)
     target_link_libraries(CAD_OpenGL PRIVATE opengl32)
-endif()
-
-# CGAL is used by:
-#   1. The Structure tool's face triangulation and carve (`StructureTriangulation.cpp`, `StructureCarve.cpp`).
-#   2. The legacy STL planar remesh experiment (`STLCgalPlanarExperiment.cpp`).
-# Default ON because the Structure tool depends on it; can be disabled for distributions that need
-# to avoid the (L)GPL transitive licence. When OFF, the Structure tool falls back to a "CGAL not
-# available" hint and no triangulation runs.
-option(CAD_USE_CGAL
-    "Link against CGAL (required for the Structure tool's face triangulation; LGPL/GPL — see docs)"
-    ON)
-if(CAD_USE_CGAL)
-    # CGAL prints a deferred notice when CMAKE_BUILD_TYPE is not Release; Debug is normal here.
-    if(NOT DEFINED CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE)
-        set(CGAL_DO_NOT_WARN_ABOUT_CMAKE_BUILD_TYPE TRUE CACHE BOOL
-            "Suppress CGAL non-Release build reminder (unset with cmake -U... to see it again)")
-    endif()
-    find_package(CGAL REQUIRED CONFIG)
-    target_compile_definitions(CAD_OpenGL PRIVATE CAD_USE_CGAL=1)
-    target_sources(CAD_OpenGL PRIVATE
-        src/logic/Import/STLCgalPlanarExperiment.cpp
-        src/logic/Structure/StructureTriangulation.cpp
-        src/logic/Structure/StructureCarve.cpp)
-    target_link_libraries(CAD_OpenGL PRIVATE CGAL::CGAL)
-    message(STATUS "CGAL: ENABLED (Structure triangulation + STL planar remesh experiment)")
-else()
-    message(STATUS "CGAL: disabled — Structure triangulation unavailable")
 endif()
 
 # Mac-specific

@@ -20,6 +20,7 @@
 
 struct Solid;
 struct Edge;
+class Scene;
 
 namespace GeometryValidity
 {
@@ -81,39 +82,18 @@ constexpr AppState AppStateFromTags(AppInvalidTag flags) noexcept
 /// Clears `out` first; order is not stable.
 void CollectOpenBoundaryEdgesForSolid(const Solid &solid, std::vector<const Edge *> &out) noexcept;
 
-/// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).
-[[nodiscard]] std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags);
+    /// Human-readable list of set bits for logs / diagnostics (comma-separated; empty if `None`).
+    [[nodiscard]] std::string DescribeAppInvalidTagsForLog(AppInvalidTag flags);
 
-void RefreshSolidAppGeometryValidityCache(Solid &solid) noexcept;
-void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept;
+    void RefreshSolidAppGeometryValidityCache(Solid &solid) noexcept;
+    void InvalidateSolidAppGeometryValidityCache(Solid &solid) noexcept;
 
-/// Weld nearby straight-edge endpoints (spatial hash + union), then remove faces whose
-/// triangle / fan decomposition is still below the same scale-aware area threshold as
-/// `EvaluateAppInvalidTagsForSolid`. Skips edges with `curve` or `bridgePoints` (no endpoint moves).
-/// Clears removed faces' loops and `dependency` like coplanar merge defunct faces.
-/// Returns whether any change was made. Does **not** refresh `Solid` validity cache — caller should.
-struct DegenerateRepairStats
-{
-    std::size_t weldUnionPairs = 0;
-    std::size_t edgesRetargeted = 0;
-    std::size_t facesRemoved = 0;
-};
+    /// Uses OCCT ShapeFix_Shape to heal the solid's topology (orientations, degenerate edges, open boundaries).
+    /// If changes are made, it repopulates the Solid's CAD_OpenGL structs via the scene.
+    /// Returns whether any change was made. Does **not** refresh `Solid` validity cache — caller should.
+    [[nodiscard]] bool TryRepairSolidBRep(Scene *scene, Solid &solid) noexcept;
 
-[[nodiscard]] bool TryRepairDegenerateSolidBRep(Solid &solid, DegenerateRepairStats *statsOut = nullptr) noexcept;
-
-/// For **clean** manifold edges (exactly two incident faces on `Edge::dependencies`): if both
-/// faces use the same directed half-edge (A→B on both), flips winding on one **planar** incident
-/// face and recomputes its plane. Iterates until stable or a cap. Skips non-planar faces and
-/// edges that are not two-face manifold.
-[[nodiscard]] bool TryRepairInconsistentFaceOrientationSolid(Solid &solid) noexcept;
-
-/// Merge redundant **straight** `Edge` records that share the same undirected endpoint pair
-/// (after weld, duplicate `Edge*` can remain). Retargets all solid face `OrientedEdge`s to the
-/// canonical `Edge*` (smallest address), updates `Face` / `Point` dependency sets, and orphans
-/// merged edges. Skips buckets containing curved or bridged edges.
-[[nodiscard]] bool TryMergeDuplicateStraightEdgesSolid(Solid &solid) noexcept;
-
-/// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
+    /// CGAL PMP polygon-soup / mesh lifecycle — map from concrete checks (`StructureCarve`, etc.).
 enum class CgalPolygonSoupTag : std::uint8_t
 {
     Unknown = 0,
@@ -126,5 +106,19 @@ enum class CgalPolygonSoupTag : std::uint8_t
     /// Conversion ran but the mesh has no faces (or equivalent empty result).
     MeshEmpty,
 };
+
+/// Debug counters for how edge-use grouping classified a solid's boundary/connectivity.
+struct OpenBoundaryDebugStats
+{
+    std::size_t edgeGroupsOpenBoundary = 0;          // count == 1
+    std::size_t edgeGroupsManifoldOpposite = 0;      // count == 2, opposite directions
+    std::size_t edgeGroupsCount2SameDirection = 0;   // count == 2, same direction
+    std::size_t edgeGroupsCount2NonOpposite = 0;     // count == 2, neither opposite nor same
+    std::size_t edgeGroupsNonManifold3Plus = 0;      // count > 2
+    std::size_t highlightedEdgeCount = 0;            // how many Edge* would be blamed as open
+};
+
+/// Uses the same straight-edge grouping + directed-use classification as app validity tags.
+[[nodiscard]] OpenBoundaryDebugStats CollectOpenBoundaryDebugStatsForSolid(const Solid &solid) noexcept;
 
 } // namespace GeometryValidity

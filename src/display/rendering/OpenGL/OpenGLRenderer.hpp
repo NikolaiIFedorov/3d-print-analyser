@@ -68,6 +68,10 @@ private:
     GLuint openBoundaryBlameLineVBO = 0;
     GLuint openBoundaryBlameLineIBO = 0;
     uint32_t openBoundaryBlameLineIndexCount = 0;
+    GLuint openBoundaryBlameFaceVAO = 0;
+    GLuint openBoundaryBlameFaceVBO = 0;
+    GLuint openBoundaryBlameFaceIBO = 0;
+    uint32_t openBoundaryBlameFaceIndexCount = 0;
 
     GLuint structurePreviewLineVAO = 0;
     GLuint structurePreviewLineVBO = 0;
@@ -128,6 +132,7 @@ public:
                                      uint32_t xrayIndexCount = 0);
     void UploadCalibHoverSpanLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadOpenBoundaryBlameFaceMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadStructurePreviewLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
@@ -144,6 +149,7 @@ public:
     void DrawPickHighlightLines(float pixelWidth, bool xrayOverlay = false);
     void DrawCalibHoverSpanLine(float pixelWidth, bool xrayOverlay = false);
     void DrawOpenBoundaryBlameLine(float pixelWidth, bool xrayOverlay = false);
+    void DrawOpenBoundaryBlameFace(bool xrayOverlay = false);
     void DrawStructurePreviewLines(float pixelWidth, bool xrayOverlay);
     void DrawLines();
     /// Draws the first `lineIndexPrefixCount` line indices using depth-behind + blend (translucent shell x-ray edges).
