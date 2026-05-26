@@ -7,6 +7,7 @@
 #include <BRepBuilderAPI_MakePolygon.hxx>
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
@@ -46,8 +47,13 @@ bool OBJImport::Import(const std::string &filePath, Scene *scene, const ImportPr
 
     ReportImportProgress(progress, "Merging coplanar faces...", 0.8f);
     ShapeUpgrade_UnifySameDomain unifier(sewedShape, Standard_True, Standard_True, Standard_True);
+    unifier.SetLinearTolerance(1e-4);
+    unifier.SetAngularTolerance(1e-3);
     unifier.Build();
     TopoDS_Shape unifiedShape = unifier.Shape();
+
+    ReportImportProgress(progress, "Generating display mesh...", 0.85f);
+    BRepMesh_IncrementalMesh meshGen(unifiedShape, 0.1, false, 0.5, true);
 
     ReportImportProgress(progress, "Populating scene...", 0.9f);
     Solid *solid = scene->CreateSolid({});
