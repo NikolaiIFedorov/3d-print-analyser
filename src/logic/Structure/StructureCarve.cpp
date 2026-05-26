@@ -11,10 +11,15 @@
 #include <BRepBuilderAPI_MakeFace.hxx>
 #include <BRepPrimAPI_MakePrism.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepOffsetAPI_MakeOffset.hxx>
+#include <BOPAlgo_BuilderFace.hxx>
+#include <BRepAlgoAPI_Fuse.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Solid.hxx>
 #include <TopoDS_Face.hxx>
 #include <TopoDS_Wire.hxx>
+#include <TopExp_Explorer.hxx>
 #include <gp_Vec.hxx>
 
 #include <cmath>
@@ -76,29 +81,137 @@ static void SolidWorldZBounds(const Solid &solid, double &zMin, double &zMax)
     }
 }
 
-static TopoDS_Shape BuildVerticalPrismOcct(const std::vector<glm::dvec3> &footprintCCW, double zBottom, double zTop)
+static TopoDS_Shape BuildVerticalPrismOcct(const Face *face, double zBottom, double zTop, const StructureTriangulation::BakeParams &params)
 {
-    const std::size_t n = footprintCCW.size();
-    if (n < 3 || !(zBottom < zTop))
+    if (face == nullptr || face->loops.empty() || !(zBottom < zTop))
         return TopoDS_Shape();
 
-    BRepBuilderAPI_MakePolygon poly;
-    for (std::size_t i = 0; i < n; ++i)
+    std::unique_ptr<BRepBuilderAPI_MakeFace> mkFace;
+    for (const auto &loop : face->loops)
     {
-        const glm::dvec3 &p = footprintCCW[i];
-        poly.Add(gp_Pnt(p.x, p.y, zBottom));
+        BRepBuilderAPI_MakePolygon poly;
+        for (const OrientedEdge &oe : loop)
+        {
+            if (oe.GetStart() != nullptr)
+            {
+                glm::dvec3 p = oe.GetStartPosition();
+                poly.Add(gp_Pnt(p.x, p.y, zBottom));
+            }
+        }
+        poly.Close();
+        if (poly.IsDone())
+        {
+            if (!mkFace)
+            {
+                mkFace = std::make_unique<BRepBuilderAPI_MakeFace>(poly.Wire());
+            }
+            else
+            {
+                TopoDS_Wire w = poly.Wire();
+                w.Reverse();
+                mkFace->Add(w);
+            }
+        }
     }
-    poly.Close();
 
-    if (!poly.IsDone())
+    if (!mkFace || !mkFace->IsDone())
         return TopoDS_Shape();
 
-    TopoDS_Face face = BRepBuilderAPI_MakeFace(poly.Wire());
-    if (face.IsNull())
+    TopoDS_Face occtFace = mkFace->Face();
+
+    if (params.insetMm <= 1e-6)
+    {
+        BRepPrimAPI_MakePrism prismMaker(occtFace, gp_Vec(0, 0, zTop - zBottom));
+        return prismMaker.Shape();
+    }
+
+    // Step 1: Inset by 2 * insetMm
+    BRepOffsetAPI_MakeOffset offsetMaker;
+    offsetMaker.Init(occtFace, GeomAbs_Arc);
+    offsetMaker.Perform(-2.0 * params.insetMm);
+    if (!offsetMaker.IsDone())
+        return TopoDS_Shape();
+    TopoDS_Shape innerShape = offsetMaker.Shape();
+
+    TopTools_ListOfShape innerEdges;
+    for (TopExp_Explorer ex(innerShape, TopAbs_EDGE); ex.More(); ex.Next()) {
+        innerEdges.Append(ex.Current());
+    }
+    if (innerEdges.IsEmpty())
         return TopoDS_Shape();
 
-    BRepPrimAPI_MakePrism prismMaker(face, gp_Vec(0, 0, zTop - zBottom));
-    return prismMaker.Shape();
+    BOPAlgo_BuilderFace innerBuilder;
+    innerBuilder.SetFace(occtFace);
+    innerBuilder.SetShapes(innerEdges);
+    innerBuilder.Perform();
+    const TopTools_ListOfShape& innerFaces = innerBuilder.Areas();
+
+    // Step 2: Outset by insetMm
+    TopoDS_Shape currentUnion;
+    bool firstUnion = true;
+    for (TopTools_ListIteratorOfListOfShape it(innerFaces); it.More(); it.Next()) {
+        TopoDS_Face f = TopoDS::Face(it.Value());
+        BRepOffsetAPI_MakeOffset offsetMaker2;
+        offsetMaker2.Init(f, GeomAbs_Arc);
+        offsetMaker2.Perform(params.insetMm);
+        if (!offsetMaker2.IsDone()) continue;
+        TopoDS_Shape outset = offsetMaker2.Shape();
+        
+        TopTools_ListOfShape outsetEdges;
+        for (TopExp_Explorer ex(outset, TopAbs_EDGE); ex.More(); ex.Next()) {
+            outsetEdges.Append(ex.Current());
+        }
+        if (outsetEdges.IsEmpty()) continue;
+
+        BOPAlgo_BuilderFace outsetBuilder;
+        outsetBuilder.SetFace(occtFace);
+        outsetBuilder.SetShapes(outsetEdges);
+        outsetBuilder.Perform();
+        
+        TopoDS_Shape outsetFace;
+        if (outsetBuilder.Areas().Extent() > 0) {
+            outsetFace = outsetBuilder.Areas().First();
+        } else {
+            continue;
+        }
+        
+        if (firstUnion) {
+            currentUnion = outsetFace;
+            firstUnion = false;
+        } else {
+            BRepAlgoAPI_Fuse fuser(currentUnion, outsetFace);
+            fuser.Build();
+            if (fuser.IsDone()) {
+                currentUnion = fuser.Shape();
+            }
+        }
+    }
+
+    if (firstUnion) return TopoDS_Shape();
+
+    ShapeUpgrade_UnifySameDomain unifier(currentUnion, Standard_True, Standard_True, Standard_True);
+    unifier.Build();
+    currentUnion = unifier.Shape();
+
+    // Step 3: Extrude the footprint
+    TopoDS_Shape prism;
+    bool firstPrism = true;
+    for (TopExp_Explorer ex(currentUnion, TopAbs_FACE); ex.More(); ex.Next()) {
+        TopoDS_Face f = TopoDS::Face(ex.Current());
+        BRepPrimAPI_MakePrism prismMaker(f, gp_Vec(0, 0, zTop - zBottom));
+        if (firstPrism) {
+            prism = prismMaker.Shape();
+            firstPrism = false;
+        } else {
+            BRepAlgoAPI_Fuse fuser(prism, prismMaker.Shape());
+            fuser.Build();
+            if (fuser.IsDone()) {
+                prism = fuser.Shape();
+            }
+        }
+    }
+
+    return prism;
 }
 
 } // namespace
@@ -174,45 +287,25 @@ bool TryApplyStructureCarve(Scene *scene,
 
             if (aborted())
                 return fail("Structure carve cancelled.");
-            invokeTrace("before_footprint");
-#if defined(CAD_USE_CGAL)
-            const std::vector<std::vector<glm::dvec3>> rings =
-                StructureTriangulation::BuildCarveFootprintOuterRingsWorld(face, params, workerTrace);
-#else
-            const std::vector<std::vector<glm::dvec3>> rings;
-#endif
-            invokeTrace(std::string("footprint_done_rings_") + std::to_string(rings.size()));
+            invokeTrace("before_prism");
+            TopoDS_Shape prism = BuildVerticalPrismOcct(face, zBottom, zTop, params);
+            invokeTrace("after_prism");
+            if (prism.IsNull())
+            {
+                invokeTrace("prism_fail");
+                continue;
+            }
+
             if (aborted())
                 return fail("Structure carve cancelled.");
-            for (const std::vector<glm::dvec3> &ring : rings)
-            {
-                if (aborted())
-                    return fail("Structure carve cancelled.");
-                if (ring.size() < 3)
-                {
-                    invokeTrace("ring_skip_short");
-                    continue;
-                }
-                invokeTrace("before_prism");
-                TopoDS_Shape prism = BuildVerticalPrismOcct(ring, zBottom, zTop);
-                invokeTrace("after_prism");
-                if (prism.IsNull())
-                {
-                    invokeTrace("ring_skip_invalid_prism");
-                    continue;
-                }
-
-                if (aborted())
-                    return fail("Structure carve cancelled.");
-                invokeTrace("before_boolean");
-                BRepAlgoAPI_Cut cutter(currentShape, prism);
-                cutter.Build();
-                if (cutter.HasErrors())
-                    return fail("OCCT boolean difference failed.");
-                invokeTrace("after_boolean");
-                currentShape = cutter.Shape();
-                anyPrismApplied = true;
-            }
+            invokeTrace("before_boolean");
+            BRepAlgoAPI_Cut cutter(currentShape, prism);
+            cutter.Build();
+            if (cutter.HasErrors())
+                return fail("OCCT boolean difference failed.");
+            invokeTrace("after_boolean");
+            currentShape = cutter.Shape();
+            anyPrismApplied = true;
         }
 
         if (!anyPrismApplied)
