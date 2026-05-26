@@ -127,6 +127,7 @@ Guidelines for writing code in this project.
 - If the logs or debugger align with your running theory, *then* proceed to implement the logic fix.
 - Start with a timeline from `session_log.json` or live terminal output, form hypotheses, test those hypotheses by adding more logging/breakpoints if needed, and verify against new runs.
 - Avoid trial-and-error logic patches without log-backed or debugger-backed reasoning.
+- **Record Findings:** Even when using live or interactive debugging, always record your theories, tests, and findings persistently in the relevant `documentation/implementations/` log file. This ensures the reasoning is captured for future reference.
 
 ---
 

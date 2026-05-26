@@ -17,7 +17,7 @@ Before code:
 
 - Clarify expected vs actual behaviour (feature vs bug).
 - Critique the idea: edge cases, at least one alternative.
-- For bugfixes, gather runtime evidence first. Use **interactive debugging** (`lldb`/`gdb`), **live terminal logging** (`std::cout`), or **persistent logging** (`session_log.json`) to verify theories before changing implementation logic.
+- For bugfixes, gather runtime evidence first. Use **interactive debugging** (`lldb`/`gdb`), **live terminal logging** (`std::cout`), or **persistent logging** (`session_log.json`) to verify theories before changing implementation logic. Always record theories and findings from these debugging sessions in the relevant `documentation/implementations/` log file.
 - Scan `documentation/TODO` for the module. Fix small isolated items in the same change; defer large redesigns.
 
 Repeat until problem and approach are clear.
