@@ -26,7 +26,7 @@ When SOLID adds noticeable cost (indirection, virtuals in hot paths, extra alloc
 
 - **TDD:** Write unit tests for new logic before implementation.
 - What edge cases are missed? What existing behaviour could break silently?
-- **Log-First Debugging:** For bug work, use logging to validate the hypothesis from `session_log.json` before changing implementation logic.
+- **Evidence-First Debugging:** For bug work, use interactive debugging (`lldb`), live terminal logging, or `session_log.json` to validate the hypothesis before changing implementation logic.
 - When replacing/unifying code: diff old paths, list every behavioural difference — each needs keep / drop / generalize.
 - Consider at least one alternative; if no clear win, reconsider.
 

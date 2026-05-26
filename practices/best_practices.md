@@ -119,14 +119,14 @@ Guidelines for writing code in this project.
 
 ---
 
-## Debugging Evidence Policy (Log-First Debugging)
+## Debugging Evidence Policy (Log-First & Live Debugging)
 
-- **Log-First Debugging:** Do not attempt to fix an issue by blindly changing implementation logic. Instead, first add targeted logging to `session_log.json` to capture the state, variables, and timings relevant to your theory.
-- If the logs align with your running theory, *then* proceed to implement the logic fix.
-- Treat `session_log.json` as the primary debugging source for runtime behavior and regressions.
-- Start with a timeline from `session_log.json`, form hypotheses, test those hypotheses by adding more logging if needed, and verify against new runs.
-- Use terminal output as secondary context only (build failures, startup crashes, logger initialization failures).
-- Avoid trial-and-error logic patches without log-backed reasoning.
+- **Interactive Runtime Debugging:** For complex state or crashes (e.g., segfaults, memory leaks), prefer running the program inside an interactive debugger (`lldb` or `gdb`) via the terminal. This allows us to step through code and inspect memory without recompiling or littering the code with print statements.
+- **Fast Live Logging:** When interactive debugging is too slow, use fast, temporary `std::cout` or `printf` statements visible in the live terminal. This gives real-time feedback without blocking the render loop with heavy disk I/O.
+- **Persistent Log-First Debugging:** Do not attempt to fix an issue by blindly changing implementation logic. When tracing historical events across frames, first add targeted logging to `session_log.json` to capture the state and timings relevant to your theory.
+- If the logs or debugger align with your running theory, *then* proceed to implement the logic fix.
+- Start with a timeline from `session_log.json` or live terminal output, form hypotheses, test those hypotheses by adding more logging/breakpoints if needed, and verify against new runs.
+- Avoid trial-and-error logic patches without log-backed or debugger-backed reasoning.
 
 ---
 
