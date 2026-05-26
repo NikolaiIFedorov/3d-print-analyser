@@ -2,125 +2,57 @@
 #include "scene/scene.hpp"
 #include "utils/log.hpp"
 
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <algorithm>
-#include <cstdint>
-
-static int ParseVertexIndex(const std::string &token, int vertexCount)
-{
-    std::istringstream ss(token);
-    int idx;
-    ss >> idx;
-
-    if (idx < 0)
-        idx = vertexCount + idx + 1;
-
-    return idx - 1; // convert to 0-based
-}
+#include <RWObj.hxx>
+#include <Poly_Triangulation.hxx>
+#include <BRepBuilderAPI_MakePolygon.hxx>
+#include <BRepBuilderAPI_MakeFace.hxx>
+#include <BRepBuilderAPI_Sewing.hxx>
+#include <ShapeUpgrade_UnifySameDomain.hxx>
+#include <TopoDS.hxx>
+#include <TopoDS_Shape.hxx>
+#include <chrono>
 
 bool OBJImport::Import(const std::string &filePath, Scene *scene, const ImportProgressCallback *progress)
 {
-    ReportImportProgress(progress, "Opening OBJ file...", 0.0f);
-    std::ifstream file(filePath);
-    if (!file.is_open())
-        return LOG_FALSE("Failed to open OBJ file: " + filePath);
+    using Clock = std::chrono::steady_clock;
+    const Clock::time_point tStart = Clock::now();
 
+    ReportImportProgress(progress, "Opening OBJ file...", 0.0f);
     LOG_DESC("Importing OBJ: " + filePath)
 
-    file.seekg(0, std::ios::end);
-    const std::streamoff fileSize = file.tellg();
-    file.seekg(0);
+    Handle(Poly_Triangulation) mesh = RWObj::ReadFile(filePath.c_str());
+    if (mesh.IsNull())
+        return LOG_FALSE("Failed to read OBJ file: " + filePath);
 
-    std::vector<Point *> points;
-    std::vector<Face *> faces;
-
-    std::string line;
-    std::uint64_t lineIndex = 0;
-    while (std::getline(file, line))
+    ReportImportProgress(progress, "Building B-Rep from mesh...", 0.3f);
+    
+    BRepBuilderAPI_Sewing sewer(1e-4);
+    for (int i = 1; i <= mesh->NbTriangles(); ++i)
     {
-        if (progress != nullptr && *progress && fileSize > 0 && (lineIndex++ % 512) == 0)
+        int n1, n2, n3;
+        mesh->Triangle(i).Get(n1, n2, n3);
+        BRepBuilderAPI_MakePolygon poly(mesh->Node(n1), mesh->Node(n2), mesh->Node(n3), Standard_True);
+        if (poly.IsDone())
         {
-            const std::streampos pos = file.tellg();
-            if (pos != std::streampos(-1))
-            {
-                const std::streamoff posOffset = static_cast<std::streamoff>(pos);
-                ReportImportProgress(
-                    progress,
-                    "Reading OBJ geometry...",
-                    MapImportProgress(
-                        std::clamp(static_cast<float>(static_cast<double>(posOffset) / static_cast<double>(fileSize)), 0.0f, 1.0f),
-                        0.05f,
-                        0.85f));
-            }
-        }
-
-        if (line.empty() || line[0] == '#')
-            continue;
-
-        std::istringstream ss(line);
-        std::string prefix;
-        ss >> prefix;
-
-        if (prefix == "v")
-        {
-            double x, y, z;
-            if (!(ss >> x >> y >> z))
-                continue;
-
-            points.push_back(scene->CreatePoint(glm::dvec3(x, y, z)));
-        }
-        else if (prefix == "f")
-        {
-            std::vector<int> vertexIndices;
-            std::string token;
-            while (ss >> token)
-            {
-                // Extract vertex index from formats: v, v/vt, v/vt/vn, v//vn
-                std::string vertPart = token.substr(0, token.find('/'));
-                int idx = ParseVertexIndex(vertPart, static_cast<int>(points.size()));
-
-                if (idx < 0 || idx >= static_cast<int>(points.size()))
-                {
-                    LOG_WARN("OBJ vertex index out of range: " + token)
-                    vertexIndices.clear();
-                    break;
-                }
-                vertexIndices.push_back(idx);
-            }
-
-            if (vertexIndices.size() < 3)
-                continue;
-
-            // Create edge loop around the full polygon
-            std::vector<Edge *> edgeLoop;
-            bool valid = true;
-            for (size_t i = 0; i < vertexIndices.size(); ++i)
-            {
-                Point *p0 = points[vertexIndices[i]];
-                Point *p1 = points[vertexIndices[(i + 1) % vertexIndices.size()]];
-
-                if (p0 == p1)
-                {
-                    valid = false;
-                    break;
-                }
-
-                edgeLoop.push_back(scene->CreateEdge(p0, p1));
-            }
-
-            if (valid && edgeLoop.size() >= 3)
-                faces.push_back(scene->CreateFace({edgeLoop}));
+            BRepBuilderAPI_MakeFace mkFace(poly.Wire());
+            if (mkFace.IsDone())
+                sewer.Add(mkFace.Face());
         }
     }
 
-    ReportImportProgress(progress, "Reading OBJ geometry...", 0.85f);
-    if (!faces.empty())
-    {
-        ReportImportProgress(progress, "Creating OBJ solid...", 0.85f);
-        scene->CreateSolid(faces);
-    }
+    ReportImportProgress(progress, "Sewing faces...", 0.6f);
+    sewer.Perform();
+    TopoDS_Shape sewedShape = sewer.SewedShape();
 
+    ReportImportProgress(progress, "Merging coplanar faces...", 0.8f);
+    ShapeUpgrade_UnifySameDomain unifier(sewedShape, Standard_True, Standard_True, Standard_True);
+    unifier.Build();
+    TopoDS_Shape unifiedShape = unifier.Shape();
+
+    ReportImportProgress(progress, "Populating scene...", 0.9f);
+    Solid *solid = scene->CreateSolid({});
+    scene->PopulateSolidFromOcctShape(solid, unifiedShape);
+
+    ReportImportProgress(progress, "OBJ Import Complete", 1.0f);
     return true;
 }
