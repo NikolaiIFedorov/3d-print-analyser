@@ -5,11 +5,13 @@ struct Face;
 
 struct Curve;
 #include <vector>
+#include <TopoDS_Edge.hxx>
 struct Point;
 
 struct Edge
 {
     std::unordered_set<Face *> dependencies;
+    TopoDS_Edge occtEdge;
     Edge() : startPoint(nullptr), endPoint(nullptr), curve(nullptr) {}
 
     Point *startPoint;

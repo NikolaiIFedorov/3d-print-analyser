@@ -18,6 +18,7 @@
 #include <unordered_map>
 
 #if defined(CAD_USE_CGAL)
+#undef Handle
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/Cartesian_converter.h>
 #include <CGAL/Exact_predicates_exact_constructions_kernel.h>

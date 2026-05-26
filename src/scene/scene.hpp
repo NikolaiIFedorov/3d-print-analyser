@@ -48,10 +48,11 @@ public:
 
     std::deque<Face> faces;
     Face *CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops);
-    Face *CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, const tinynurbs::RationalSurface3d &nurbs);
+    Face *CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, std::unique_ptr<Surface> surf);
 
     std::deque<Solid> solids;
-    Solid *CreateSolid(const std::vector<Face *> &faces);
+    /// When `runTopologyRepairs` is false, keeps imported topology unchanged and only refreshes validity tags.
+    Solid *CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepairs = true);
 
     std::deque<Compound> compounds;
     /// Non-owning references to `Solid`s in this scene. Nulls and unknown pointers skipped;

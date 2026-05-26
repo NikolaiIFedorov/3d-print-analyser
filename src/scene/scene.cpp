@@ -233,10 +233,9 @@ Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &loops)
     return &face;
 }
 
-Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, const tinynurbs::RationalSurface3d &nurbs)
+Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, std::unique_ptr<Surface> surf)
 {
-    faces.emplace_back(edgeLoops, std::make_unique<NurbsSurface>(
-                                      std::make_unique<tinynurbs::RationalSurface3d>(nurbs)));
+    faces.emplace_back(edgeLoops, std::move(surf));
 
     Face &face = faces.back();
 
@@ -254,7 +253,7 @@ Face *Scene::CreateFace(const std::vector<std::vector<Edge *>> &edgeLoops, const
     return &face;
 }
 
-Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
+Solid *Scene::CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepairs)
 {
     solids.emplace_back();
 
@@ -263,6 +262,18 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces)
     solid.faces = faces;
     for (Face *face : faces)
         face->dependency = &solid;
+
+    // Preserve raw imported topology when requested, and for self-intersecting solids; eager
+    // topology "repairs" can otherwise drop/reshape faces before dedicated repair flows run.
+    const GeometryValidity::AppInvalidTag rawTags = GeometryValidity::EvaluateAppInvalidTagsForSolid(solid);
+    if (!runTopologyRepairs || GeometryValidity::Any(rawTags & GeometryValidity::AppInvalidTag::SelfIntersection))
+    {
+        solid.cachedAppInvalidGeometryTags = rawTags;
+        solid.cachedAppInvalidGeometryTagsFresh = true;
+        if constexpr (kLogSceneConstruction)
+            LOG_VOID("Created solid with raw topology (repairs skipped)");
+        return &solid;
+    }
 
     (void)GeometryValidity::TryRepairDegenerateSolidBRep(solid);
     (void)GeometryValidity::TryRepairInconsistentFaceOrientationSolid(solid);
@@ -356,7 +367,11 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
     std::unordered_map<const Point *, Point *> pointMap;
     pointMap.reserve(points.size());
     for (const Point &p : points)
-        pointMap.emplace(&p, out->CreatePoint(p.position));
+    {
+        Point *np = out->CreatePoint(p.position);
+        np->occtVertex = p.occtVertex;
+        pointMap.emplace(&p, np);
+    }
 
     std::unordered_map<const Curve *, Curve *> curveMap;
     curveMap.reserve(curves.size());
@@ -404,7 +419,10 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
             ne = out->CreateEdge(itStart->second, itEnd->second);
         }
         if (ne != nullptr)
+        {
+            ne->occtEdge = e.occtEdge;
             edgeMap.emplace(&e, ne);
+        }
     }
 
     std::unordered_map<const Face *, Face *> faceMap;
@@ -436,11 +454,16 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
             continue;
         Face *nf = nullptr;
         if (const auto *ns = dynamic_cast<const NurbsSurface *>(f.surface.get()))
-            nf = out->CreateFace(newLoops, *ns->nurbs);
+            nf = out->CreateFace(newLoops, std::make_unique<NurbsSurface>(std::make_unique<tinynurbs::RationalSurface3d>(*ns->nurbs)));
+        else if (const auto *os = dynamic_cast<const OcctSurface *>(f.surface.get()))
+            nf = out->CreateFace(newLoops, std::make_unique<OcctSurface>(os->face));
         else
             nf = out->CreateFace(newLoops);
         if (nf != nullptr)
+        {
+            nf->occtFace = f.occtFace;
             faceMap.emplace(&f, nf);
+        }
     }
 
     std::unordered_map<const Solid *, Solid *> solidMap;
@@ -456,6 +479,7 @@ std::unique_ptr<Scene> Scene::Clone(std::unordered_map<const Face *, Face *> *ou
                 newFaces.push_back(it->second);
         }
         Solid *const ns = out->CreateSolid(newFaces);
+        ns->occtShape = s.occtShape;
         solidMap.emplace(&s, ns);
     }
 
@@ -622,25 +646,48 @@ void Scene::MergeCoplanarFaces(
         for (size_t i = 0; i < solid->faces.size(); i++)
         {
             Face *fi = solid->faces[i];
+            if (fi == nullptr || fi->surface == nullptr || fi->loops.empty())
+                continue;
             const std::vector<Face *> neighbors = collectCoplanarNeighbors(fi);
             bool mergedThisFi = false;
 
             for (Face *fj : neighbors)
             {
-                if (fj == nullptr)
+                if (fj == nullptr || fj->surface == nullptr || fj->loops.empty())
                     continue;
 
             // Collect edges from both faces and find shared ones
             std::unordered_set<Edge *> edgesI, edgesJ, shared;
             for (const auto &loop : fi->loops)
                 for (const auto &oe : loop)
-                    edgesI.insert(oe.edge);
+                    if (oe.edge != nullptr)
+                        edgesI.insert(oe.edge);
             for (const auto &loop : fj->loops)
                 for (const auto &oe : loop)
-                    edgesJ.insert(oe.edge);
+                    if (oe.edge != nullptr)
+                        edgesJ.insert(oe.edge);
             for (Edge *e : edgesI)
                 if (edgesJ.count(e))
                     shared.insert(e);
+
+            // Non-manifold protection: only merge across edges exclusively shared by this face pair.
+            // In self-intersection/overlap cases, a shared edge can belong to 3+ faces; disconnecting
+            // it would corrupt neighboring faces and can manifest as dropped faces/open boundaries.
+            bool sharedEdgeOwnedByOtherFaces = false;
+            for (Edge *e : shared)
+            {
+                if (e == nullptr)
+                    continue;
+                if (e->dependencies.size() != 2u ||
+                    e->dependencies.count(fi) == 0u ||
+                    e->dependencies.count(fj) == 0u)
+                {
+                    sharedEdgeOwnedByOtherFaces = true;
+                    break;
+                }
+            }
+            if (sharedEdgeOwnedByOtherFaces)
+                continue;
 
             // Non-shared edges form the merged boundary
             std::vector<Edge *> boundary;
@@ -655,9 +702,13 @@ void Scene::MergeCoplanarFaces(
             std::unordered_map<Point *, std::vector<Edge *>> adj;
             for (Edge *e : boundary)
             {
+                if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+                    continue;
                 adj[e->startPoint].push_back(e);
                 adj[e->endPoint].push_back(e);
             }
+            if (adj.empty())
+                continue;
 
             std::unordered_set<Edge *> used;
             std::vector<std::vector<Edge *>> edgeLoops;
@@ -665,6 +716,8 @@ void Scene::MergeCoplanarFaces(
             for (Edge *startEdge : boundary)
             {
                 if (used.count(startEdge))
+                    continue;
+                if (startEdge == nullptr || startEdge->startPoint == nullptr || startEdge->endPoint == nullptr)
                     continue;
 
                 std::vector<Edge *> loop;
@@ -687,6 +740,8 @@ void Scene::MergeCoplanarFaces(
                     bool found = false;
                     for (Edge *e : adj[next])
                     {
+                        if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+                            continue;
                         if (used.count(e))
                             continue;
                         used.insert(e);
@@ -718,6 +773,8 @@ void Scene::MergeCoplanarFaces(
                 std::vector<glm::dvec3> positions;
                 if (loop.empty())
                     return 0.0;
+                if (loop[0] == nullptr || loop[0]->startPoint == nullptr || loop[0]->endPoint == nullptr)
+                    return 0.0;
 
                 Point *current = loop[0]->startPoint;
                 // Check if first edge connects to second
@@ -725,6 +782,9 @@ void Scene::MergeCoplanarFaces(
                 {
                     Edge *e0 = loop[0];
                     Edge *e1 = loop[1];
+                    if (e0 == nullptr || e1 == nullptr || e0->startPoint == nullptr || e0->endPoint == nullptr ||
+                        e1->startPoint == nullptr || e1->endPoint == nullptr)
+                        return 0.0;
                     if (e0->endPoint == e1->startPoint || e0->endPoint == e1->endPoint)
                         current = e0->startPoint;
                     else
@@ -733,7 +793,11 @@ void Scene::MergeCoplanarFaces(
 
                 for (Edge *e : loop)
                 {
+                    if (e == nullptr || current == nullptr)
+                        return 0.0;
                     positions.push_back(current->position);
+                    if (e->startPoint == nullptr || e->endPoint == nullptr)
+                        return 0.0;
                     current = (e->startPoint == current) ? e->endPoint : e->startPoint;
                 }
 
@@ -762,37 +826,87 @@ void Scene::MergeCoplanarFaces(
             }
 
             // Preserve original normal and plane equation
-            double origD = glm::dot(origNormal, fi->loops[0][0].GetStartPosition());
+            Point *origAnchor = nullptr;
+            for (const auto &loop : fi->loops)
+            {
+                for (const auto &oe : loop)
+                {
+                    if (oe.edge != nullptr && oe.GetStart() != nullptr)
+                    {
+                        origAnchor = oe.GetStart();
+                        break;
+                    }
+                }
+                if (origAnchor != nullptr)
+                    break;
+            }
+            if (origAnchor == nullptr)
+                continue;
+            double origD = glm::dot(origNormal, origAnchor->position);
+
+            // Create merged face
+            Face *merged = CreateFace(edgeLoops);
+            const auto mergedLooksUsable = [merged]() -> bool
+            {
+                if (merged == nullptr || merged->surface == nullptr || !merged->surface->IsPlanar() || merged->loops.empty())
+                    return false;
+                for (const auto &loop : merged->loops)
+                {
+                    if (loop.size() < 3u)
+                        return false;
+                    for (const auto &oe : loop)
+                    {
+                        if (oe.edge == nullptr || oe.GetStart() == nullptr || oe.GetEnd() == nullptr)
+                            return false;
+                    }
+                }
+                return true;
+            }();
+            if (!mergedLooksUsable)
+            {
+                if (merged != nullptr)
+                {
+                    for (auto &loop : merged->loops)
+                        for (auto &oe : loop)
+                            if (oe.edge != nullptr)
+                                oe.edge->dependencies.erase(merged);
+                    merged->loops.clear();
+                    merged->dependency = nullptr;
+                }
+                // Fallback: keep original triangle/coplanar faces unchanged for this pair.
+                continue;
+            }
+            merged->dependency = solid;
+
+            auto &planar = static_cast<PlanarSurface *>(merged->surface.get())->data;
+            planar.normal = origNormal;
+            planar.d = origD;
 
             // Remove old faces from edge dependencies
             for (auto &loop : fi->loops)
                 for (auto &oe : loop)
-                    oe.edge->dependencies.erase(fi);
+                    if (oe.edge != nullptr)
+                        oe.edge->dependencies.erase(fi);
             fi->loops.clear();
             fi->dependency = nullptr;
 
             for (auto &loop : fj->loops)
                 for (auto &oe : loop)
-                    oe.edge->dependencies.erase(fj);
+                    if (oe.edge != nullptr)
+                        oe.edge->dependencies.erase(fj);
             fj->loops.clear();
             fj->dependency = nullptr;
 
             // Disconnect shared (internal) edges entirely
             for (Edge *e : shared)
             {
+                if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
+                    continue;
                 e->startPoint->dependencies.erase(e);
                 e->endPoint->dependencies.erase(e);
                 e->startPoint = nullptr;
                 e->endPoint = nullptr;
             }
-
-            // Create merged face
-            Face *merged = CreateFace(edgeLoops);
-            merged->dependency = solid;
-
-            auto &planar = static_cast<PlanarSurface *>(merged->surface.get())->data;
-            planar.normal = origNormal;
-            planar.d = origD;
 
             // Replace fi with merged, remove fj from solid
             solid->faces[i] = merged;

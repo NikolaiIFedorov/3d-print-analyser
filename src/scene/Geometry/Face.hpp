@@ -4,6 +4,7 @@
 struct Solid;
 
 #include <vector>
+#include <TopoDS_Face.hxx>
 #include "Edge.hpp"
 struct Edge;
 
@@ -21,9 +22,10 @@ public:
 
     std::vector<std::vector<OrientedEdge>> loops;
     std::unique_ptr<Surface> surface;
+    TopoDS_Face occtFace;
 
     Face(std::vector<std::vector<Edge *>> edgePtrs);
-    Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<NurbsSurface> nurbs);
+    Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<Surface> surf);
 
     const Surface &GetSurface() const { return *surface; }
 

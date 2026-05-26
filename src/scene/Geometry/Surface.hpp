@@ -3,6 +3,7 @@
 #include <memory>
 #include <glm/glm.hpp>
 #include <tinynurbs/tinynurbs.h>
+#include <TopoDS_Face.hxx>
 #include "Geometry.hpp"
 
 struct Surface
@@ -11,6 +12,16 @@ struct Surface
     virtual glm::dvec3 GetNormal() const = 0;
     virtual glm::dvec3 GetNormal(double u, double v) const = 0;
     virtual bool IsPlanar() const { return false; }
+};
+
+struct OcctSurface : Surface
+{
+    TopoDS_Face face;
+
+    OcctSurface(const TopoDS_Face& f) : face(f) {}
+
+    glm::dvec3 GetNormal() const override;
+    glm::dvec3 GetNormal(double u, double v) const override;
 };
 
 struct PlanarSurface : Surface

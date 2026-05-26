@@ -1,6 +1,9 @@
 #include "patch.hpp"
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
+#include <BRep_Tool.hxx>
+#include <Poly_Triangulation.hxx>
+#include <TopLoc_Location.hxx>
 
 static void CreatePlaneCoordinateSystem(const glm::dvec3 &normal,
                                         glm::dvec3 &uAxis,
@@ -62,6 +65,106 @@ void Patch::AddFace(const Face *face,
 {
     if (face->dependency != nullptr && !isSolid)
         return;
+
+    // Determine face color: use analysis flaw color if available, else default.
+    glm::vec3 faceColor = Color::GetFace();
+    if (results)
+    {
+        auto itFlat = results->faceFlaws.find(face);
+        if (itFlat != results->faceFlaws.end() && itFlat->second != FaceFlawKind::NONE)
+        {
+            faceColor = glm::vec3(Color::GetFace(itFlat->second));
+        }
+        else
+        {
+            for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
+            {
+                for (const auto &ff : faceFlawList)
+                {
+                    if (ff.face == face)
+                    {
+                        faceColor = glm::vec3(Color::GetFace(ff.flaw));
+                        goto colorResolved;
+                    }
+                }
+            }
+        colorResolved:;
+        }
+    }
+
+    if (!face->occtFace.IsNull())
+    {
+        TopLoc_Location loc;
+        Handle(Poly_Triangulation) triangulation = BRep_Tool::Triangulation(face->occtFace, loc);
+        if (!triangulation.IsNull())
+        {
+            uint32_t baseVertexIndex = vertices.size();
+            
+            // Extract nodes
+            std::vector<glm::dvec3> flatPositions;
+            flatPositions.reserve(triangulation->NbNodes());
+            for (int i = 1; i <= triangulation->NbNodes(); ++i)
+            {
+                gp_Pnt p = triangulation->Node(i).Transformed(loc);
+                flatPositions.push_back(glm::dvec3(p.X(), p.Y(), p.Z()));
+            }
+
+            // Extract normals if available, else fallback
+            bool hasNormals = triangulation->HasNormals();
+            for (int i = 1; i <= triangulation->NbNodes(); ++i)
+            {
+                Vertex v;
+                v.position = glm::vec3(flatPositions[i - 1]);
+                v.color = faceColor;
+                if (hasNormals) {
+                    gp_Dir n = triangulation->Normal(i);
+                    if (face->occtFace.Orientation() == TopAbs_REVERSED) {
+                        n.Reverse();
+                    }
+                    v.normal = glm::vec3(n.X(), n.Y(), n.Z());
+                } else {
+                    v.normal = glm::vec3(face->GetSurface().GetNormal());
+                }
+                vertices.push_back(v);
+            }
+
+            // Extract triangles
+            for (int i = 1; i <= triangulation->NbTriangles(); ++i)
+            {
+                const Poly_Triangle& tri = triangulation->Triangle(i);
+                int n1, n2, n3;
+                tri.Get(n1, n2, n3);
+
+                if (face->occtFace.Orientation() == TopAbs_REVERSED) {
+                    std::swap(n1, n3);
+                }
+
+                uint32_t ia = n1 - 1;
+                uint32_t ib = n2 - 1;
+                uint32_t ic = n3 - 1;
+
+                if (RenderingExperiments::kCullDegeneratePatchTriangles)
+                {
+                    const glm::dvec3 &p0 = flatPositions[ia];
+                    const glm::dvec3 &p1 = flatPositions[ib];
+                    const glm::dvec3 &p2 = flatPositions[ic];
+                    const glm::dvec3 e1 = p1 - p0;
+                    const glm::dvec3 e2 = p2 - p0;
+                    const double crossLen = glm::length(glm::cross(e1, e2));
+                    if (crossLen < RenderingExperiments::kDegeneratePatchMinCrossLen)
+                        continue;
+                }
+
+                indices.push_back(baseVertexIndex + ia);
+                indices.push_back(baseVertexIndex + ib);
+                indices.push_back(baseVertexIndex + ic);
+
+                if (pickOut != nullptr)
+                    pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
+            }
+        }
+        return;
+    }
 
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
 
@@ -174,32 +277,6 @@ void Patch::AddFace(const Face *face,
             dbg += " " + std::to_string(loop.size());
         LOG_WARN(dbg);
         return;
-    }
-
-    // Determine face color: use analysis flaw color if available, else default.
-    glm::vec3 faceColor = Color::GetFace();
-    if (results)
-    {
-        auto itFlat = results->faceFlaws.find(face);
-        if (itFlat != results->faceFlaws.end() && itFlat->second != FaceFlawKind::NONE)
-        {
-            faceColor = glm::vec3(Color::GetFace(itFlat->second));
-        }
-        else
-        {
-            for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
-            {
-                for (const auto &ff : faceFlawList)
-                {
-                    if (ff.face == face)
-                    {
-                        faceColor = glm::vec3(Color::GetFace(ff.flaw));
-                        goto colorResolved;
-                    }
-                }
-            }
-        colorResolved:;
-        }
     }
 
     uint32_t baseVertexIndex = vertices.size();

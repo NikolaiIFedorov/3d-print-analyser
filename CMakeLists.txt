@@ -63,6 +63,7 @@ add_executable(CAD_OpenGL
     src/scene/scene.cpp
     src/scene/Geometry/Curve.cpp
     src/scene/Geometry/Face.cpp
+    src/scene/Geometry/Surface.cpp
     src/logic/Analysis/Analysis.cpp
     src/logic/Analysis/Overhang/Overhang.cpp
     src/logic/Analysis/ThinSection/ThinSection.cpp

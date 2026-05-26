@@ -9,6 +9,7 @@
 
 #if defined(CAD_USE_CGAL)
 
+#undef Handle
 #include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Surface_mesh.h>
 #include <CGAL/Polygon_mesh_processing/corefinement.h>

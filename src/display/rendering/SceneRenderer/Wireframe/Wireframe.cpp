@@ -2,6 +2,10 @@
 #include "rendering/SceneLighting.hpp"
 #include "utils/utils.hpp"
 #include <unordered_map>
+#include <BRep_Tool.hxx>
+#include <Poly_Polygon3D.hxx>
+#include <TopLoc_Location.hxx>
+#include <TColgp_Array1OfPnt.hxx>
 
 namespace
 {
@@ -86,6 +90,28 @@ void Wireframe::AddEdge(const Edge *edge,
     const glm::vec3 color = colorOverride ? *colorOverride : Color::GetEdge();
     const glm::vec3 litNormal =
         isFace ? BrighterAdjacentFaceNormal(edge, SceneLighting::DirectionalLightDirWorld()) : glm::vec3(0.0f);
+
+    if (!edge->occtEdge.IsNull())
+    {
+        TopLoc_Location loc;
+        Handle(Poly_Polygon3D) polygon = BRep_Tool::Polygon3D(edge->occtEdge, loc);
+        if (!polygon.IsNull())
+        {
+            const TColgp_Array1OfPnt& nodes = polygon->Nodes();
+            for (int i = nodes.Lower(); i < nodes.Upper(); ++i)
+            {
+                gp_Pnt p0 = nodes(i).Transformed(loc);
+                gp_Pnt p1 = nodes(i + 1).Transformed(loc);
+                uint32_t baseIndex = vertices.size();
+                vertices.push_back({glm::vec3(p0.X(), p0.Y(), p0.Z()), color, litNormal});
+                vertices.push_back({glm::vec3(p1.X(), p1.Y(), p1.Z()), color, litNormal});
+                indices.push_back(baseIndex);
+                indices.push_back(baseIndex + 1);
+            }
+            return;
+        }
+    }
+
     if (edge->curve == nullptr)
         AddLineEdge(edge, vertices, indices, color, litNormal);
     else

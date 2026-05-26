@@ -5,6 +5,7 @@
 #include "scene/Geometry/Face.hpp"
 #include "scene/Geometry/Edge.hpp"
 #include "scene/Geometry/Point.hpp"
+#include "scene/Geometry/Surface.hpp"
 #include "utils/log.hpp"
 
 // OpenCASCADE includes
@@ -12,51 +13,21 @@
 #include <TopoDS_Shape.hxx>
 #include <TopoDS.hxx>
 #include <TopExp_Explorer.hxx>
+#include <TopExp.hxx>
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepBuilderAPI_Sewing.hxx>
 #include <BRepMesh_IncrementalMesh.hxx>
-#include <Poly_Triangulation.hxx>
+#include <BRepTools_WireExplorer.hxx>
 #include <BRep_Tool.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Edge.hxx>
+#include <TopoDS_Vertex.hxx>
 
 #include <unordered_map>
 #include <vector>
-#include <tuple>
 
-namespace {
 
-struct PointHash {
-    std::size_t operator()(const glm::dvec3& p) const {
-        std::size_t h1 = std::hash<double>{}(p.x);
-        std::size_t h2 = std::hash<double>{}(p.y);
-        std::size_t h3 = std::hash<double>{}(p.z);
-        return h1 ^ (h2 << 1) ^ (h3 << 2);
-    }
-};
-
-struct PointEqual {
-    bool operator()(const glm::dvec3& a, const glm::dvec3& b) const {
-        return a == b;
-    }
-};
-
-struct EdgeKey {
-    Point* a;
-    Point* b;
-    bool operator==(const EdgeKey& other) const {
-        return (a == other.a && b == other.b) || (a == other.b && b == other.a);
-    }
-};
-
-struct EdgeKeyHash {
-    std::size_t operator()(const EdgeKey& k) const {
-        std::size_t h1 = std::hash<Point*>{}(k.a);
-        std::size_t h2 = std::hash<Point*>{}(k.b);
-        return h1 ^ h2;
-    }
-};
-
-} // namespace
 
 Solid *ImportSTEP(Scene *scene, const std::string &filepath)
 {
@@ -105,80 +76,80 @@ Solid *ImportSTEP(Scene *scene, const std::string &filepath)
         fusedShape = sewing.SewedShape();
     }
 
-    // 3. Tessellation
-    // Generate mesh with linear deflection 0.1 and angular deflection 0.5
+    // 3. Tessellation (required for rendering later)
     BRepMesh_IncrementalMesh meshGen(fusedShape, 0.1, false, 0.5, true);
 
-    // 4. Bridge to Scene
-    std::unordered_map<glm::dvec3, Point*, PointHash, PointEqual> pointMap;
-    std::unordered_map<EdgeKey, Edge*, EdgeKeyHash> edgeMap;
+    // 4. Bridge to Scene (B-Rep Translation)
+    std::unordered_map<TopoDS_Shape, Point*> pointMap;
+    std::unordered_map<TopoDS_Shape, Edge*> edgeMap;
     std::vector<Face*> sceneFaces;
 
-    auto getOrCreatePoint = [&](const gp_Pnt& p) -> Point* {
-        glm::dvec3 pos(p.X(), p.Y(), p.Z());
-        auto it = pointMap.find(pos);
+    auto getOrCreatePoint = [&](const TopoDS_Vertex& v) -> Point* {
+        auto it = pointMap.find(v);
         if (it != pointMap.end()) {
             return it->second;
         }
+        gp_Pnt p = BRep_Tool::Pnt(v);
+        glm::dvec3 pos(p.X(), p.Y(), p.Z());
         Point* newPoint = scene->CreatePoint(pos);
-        pointMap[pos] = newPoint;
+        newPoint->occtVertex = v;
+        pointMap[v] = newPoint;
         return newPoint;
     };
 
-    auto getOrCreateEdge = [&](Point* a, Point* b) -> Edge* {
-        EdgeKey key{a, b};
-        auto it = edgeMap.find(key);
+    auto getOrCreateEdge = [&](const TopoDS_Edge& e) -> Edge* {
+        auto it = edgeMap.find(e);
         if (it != edgeMap.end()) {
             return it->second;
         }
-        Edge* newEdge = scene->CreateEdge(a, b);
-        edgeMap[key] = newEdge;
+        TopoDS_Vertex v1, v2;
+        TopExp::Vertices(e, v1, v2);
+        
+        Point* p1 = getOrCreatePoint(v1);
+        Point* p2 = getOrCreatePoint(v2);
+
+        Edge* newEdge = scene->CreateEdge(p1, p2);
+        newEdge->occtEdge = e;
+        edgeMap[e] = newEdge;
         return newEdge;
     };
 
-    for (TopExp_Explorer ex(fusedShape, TopAbs_FACE); ex.More(); ex.Next()) {
-        TopoDS_Face face = TopoDS::Face(ex.Current());
-        TopLoc_Location loc;
-        Handle(Poly_Triangulation) triangulation = BRep_Tool::Triangulation(face, loc);
+    for (TopExp_Explorer exFace(fusedShape, TopAbs_FACE); exFace.More(); exFace.Next()) {
+        TopoDS_Face occtFace = TopoDS::Face(exFace.Current());
         
-        if (triangulation.IsNull()) continue;
+        std::vector<std::vector<Edge*>> loops;
 
-        for (int i = 1; i <= triangulation->NbTriangles(); ++i) {
-            const Poly_Triangle& tri = triangulation->Triangle(i);
-            int n1, n2, n3;
-            tri.Get(n1, n2, n3);
-
-            gp_Pnt p1 = triangulation->Node(n1).Transformed(loc);
-            gp_Pnt p2 = triangulation->Node(n2).Transformed(loc);
-            gp_Pnt p3 = triangulation->Node(n3).Transformed(loc);
-
-            Point* pt1 = getOrCreatePoint(p1);
-            Point* pt2 = getOrCreatePoint(p2);
-            Point* pt3 = getOrCreatePoint(p3);
-
-            if (pt1 == pt2 || pt2 == pt3 || pt3 == pt1) {
-                continue; // Degenerate triangle
+        for (TopExp_Explorer exWire(occtFace, TopAbs_WIRE); exWire.More(); exWire.Next()) {
+            TopoDS_Wire wire = TopoDS::Wire(exWire.Current());
+            std::vector<Edge*> loopEdges;
+            
+            for (BRepTools_WireExplorer exEdge(wire); exEdge.More(); exEdge.Next()) {
+                TopoDS_Edge occtEdge = exEdge.Current();
+                Edge* edge = getOrCreateEdge(occtEdge);
+                loopEdges.push_back(edge);
             }
-
-            Edge* e1 = getOrCreateEdge(pt1, pt2);
-            Edge* e2 = getOrCreateEdge(pt2, pt3);
-            Edge* e3 = getOrCreateEdge(pt3, pt1);
-
-            std::vector<Edge*> loop = {e1, e2, e3};
-            Face* sceneFace = scene->CreateFace({loop});
-            if (sceneFace != nullptr) {
-                sceneFaces.push_back(sceneFace);
+            if (!loopEdges.empty()) {
+                loops.push_back(loopEdges);
             }
+        }
+
+        if (loops.empty()) continue;
+
+        auto surf = std::make_unique<OcctSurface>(occtFace);
+        Face* sceneFace = scene->CreateFace(loops, std::move(surf));
+        if (sceneFace != nullptr) {
+            sceneFace->occtFace = occtFace;
+            sceneFaces.push_back(sceneFace);
         }
     }
 
     if (sceneFaces.empty()) {
-        LOG_ERROR("STEP import resulted in 0 faces after tessellation.");
+        LOG_ERROR("STEP import resulted in 0 faces.");
         return nullptr;
     }
 
-    // Create solid without running topology repairs, to preserve the exact tessellated state
     Solid* solid = scene->CreateSolid(sceneFaces, false);
+    solid->occtShape = fusedShape;
     LOG_INFO("Successfully imported STEP file. Faces: ", sceneFaces.size());
     return solid;
 }

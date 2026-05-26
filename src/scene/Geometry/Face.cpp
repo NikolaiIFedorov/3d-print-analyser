@@ -112,8 +112,8 @@ Face::Face(std::vector<std::vector<Edge *>> edgePtrs)
     static_cast<PlanarSurface *>(surface.get())->data = CalculatePlanarData();
 }
 
-Face::Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<NurbsSurface> nurbs)
-    : surface(std::move(nurbs)), dependency(nullptr)
+Face::Face(std::vector<std::vector<Edge *>> edgePtrs, std::unique_ptr<Surface> surf)
+    : surface(std::move(surf)), dependency(nullptr)
 {
     OrientEdgeLoops(edgePtrs);
 }
