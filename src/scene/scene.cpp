@@ -308,33 +308,35 @@ void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
     std::vector<Face*> sceneFaces;
 
     auto getOrCreatePoint = [&](const TopoDS_Vertex& v) -> Point* {
-        auto it = pointMap.find(v);
+        TopoDS_Shape vFwd = v.Oriented(TopAbs_FORWARD);
+        auto it = pointMap.find(vFwd);
         if (it != pointMap.end()) {
             return it->second;
         }
         gp_Pnt p = BRep_Tool::Pnt(v);
         glm::dvec3 pos(p.X(), p.Y(), p.Z());
         Point* newPoint = this->CreatePoint(pos);
-        newPoint->occtVertex = v;
-        pointMap[v] = newPoint;
+        newPoint->occtVertex = TopoDS::Vertex(vFwd);
+        pointMap[vFwd] = newPoint;
         return newPoint;
     };
 
     auto getOrCreateEdge = [&](const TopoDS_Edge& e) -> Edge* {
-        auto it = edgeMap.find(e);
+        TopoDS_Shape eFwd = e.Oriented(TopAbs_FORWARD);
+        auto it = edgeMap.find(eFwd);
         if (it != edgeMap.end()) {
             return it->second;
         }
         TopoDS_Vertex v1, v2;
-        TopExp::Vertices(e, v1, v2);
+        TopExp::Vertices(TopoDS::Edge(eFwd), v1, v2);
         
         Point* p1 = getOrCreatePoint(v1);
         Point* p2 = getOrCreatePoint(v2);
 
         Edge* newEdge = this->CreateEdge(p1, p2);
         if (newEdge != nullptr) {
-            newEdge->occtEdge = e;
-            edgeMap[e] = newEdge;
+            newEdge->occtEdge = TopoDS::Edge(eFwd);
+            edgeMap[eFwd] = newEdge;
         }
         return newEdge;
     };
