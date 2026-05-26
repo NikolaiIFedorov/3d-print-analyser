@@ -13,6 +13,7 @@
 #include "logic/Analysis/SmallFeature/SmallFeature.hpp"
 #include "logic/Analysis/ThinSection/ThinSection.hpp"
 #include "logic/Import/STLImport.hpp"
+#include "logic/Import/STEPImport.hpp"
 #include "utils/SystemAccent.hpp"
 #include "utils/SystemAppearance.hpp"
 #include "utils/ShutdownStackTrace.hpp"
@@ -54,8 +55,10 @@
 #include "UserTuning.hpp"
 #include "scene/scene.hpp"
 #include "LengthUnit.hpp"
+#include "mapbox/earcut.hpp"
 
 #include <array>
+#include <sstream>
 #include <string>
 
 #include "imgui.h"
@@ -84,6 +87,10 @@ constexpr const char kCalibPlotMeasurementPointsLabel[] = "Plot measurement poin
 }
 
 constexpr int kOpenBoundaryBlameCurveSegments = 16;
+
+bool BuildLoopRingPoints(const std::vector<Edge *> &loop, std::vector<glm::dvec3> &ringOut);
+glm::dvec3 LoopNewellNormal(const std::vector<glm::dvec3> &ring);
+void BuildPlaneBasisFromNormal(const glm::dvec3 &normal, glm::dvec3 &uOut, glm::dvec3 &vOut);
 
 void AppendOpenBoundaryBlameSegment(const glm::dvec3 &a, const glm::dvec3 &b, const glm::vec3 &rgb,
                                     std::vector<Vertex> &verts, std::vector<uint32_t> &indices)
@@ -128,6 +135,68 @@ void AppendOpenBoundaryBlameEdgeGeometry(const Edge *edge, const glm::vec3 &rgb,
         return;
     }
     AppendOpenBoundaryBlameSegment(p0, p1, rgb, verts, indices);
+}
+
+void AppendOpenBoundaryBlameFaceFillGeometry(const std::vector<std::vector<Edge *>> &faceLoops,
+                                             const glm::vec3 &rgb,
+                                             std::vector<Vertex> &verts,
+                                             std::vector<uint32_t> &indices)
+{
+    if (faceLoops.empty())
+        return;
+
+    std::vector<std::vector<glm::dvec3>> rings3d;
+    rings3d.reserve(faceLoops.size());
+    for (const std::vector<Edge *> &loop : faceLoops)
+    {
+        std::vector<glm::dvec3> ring;
+        if (!BuildLoopRingPoints(loop, ring) || ring.size() < 3u)
+            continue;
+        rings3d.push_back(std::move(ring));
+    }
+    if (rings3d.empty())
+        return;
+
+    const glm::dvec3 origin = rings3d.front().front();
+    const glm::dvec3 normal = LoopNewellNormal(rings3d.front());
+    glm::dvec3 uAxis(0.0);
+    glm::dvec3 vAxis(0.0);
+    BuildPlaneBasisFromNormal(normal, uAxis, vAxis);
+
+    using EarcutCoord = std::array<double, 2>;
+    std::vector<std::vector<EarcutCoord>> polygon;
+    polygon.reserve(rings3d.size());
+    std::vector<glm::vec3> flatPositions;
+    flatPositions.reserve(64);
+    for (const std::vector<glm::dvec3> &ring : rings3d)
+    {
+        if (ring.size() < 3u)
+            continue;
+        std::vector<EarcutCoord> ring2d;
+        ring2d.reserve(ring.size());
+        for (const glm::dvec3 &p : ring)
+        {
+            const glm::dvec3 rel = p - origin;
+            ring2d.push_back({glm::dot(rel, uAxis), glm::dot(rel, vAxis)});
+            flatPositions.push_back(glm::vec3(p));
+        }
+        polygon.push_back(std::move(ring2d));
+    }
+    if (polygon.empty())
+        return;
+
+    const std::vector<uint32_t> tri = mapbox::earcut<uint32_t>(polygon);
+    if (tri.size() < 3u)
+        return;
+
+    const uint32_t base = static_cast<uint32_t>(verts.size());
+    const glm::vec3 n = glm::vec3(normal);
+    verts.reserve(verts.size() + flatPositions.size());
+    for (const glm::vec3 &p : flatPositions)
+        verts.push_back({p, rgb, n});
+    indices.reserve(indices.size() + tri.size());
+    for (uint32_t i : tri)
+        indices.push_back(base + i);
 }
 
 void CollectRepairCandidateLinearEdgesForSolid(
@@ -787,10 +856,11 @@ void PruneStandaloneInnerFixCaps(Solid &solid, const std::vector<Face *> &create
 
 bool TryBuildPlanarHullCapLoop(Scene *scene,
                                const std::vector<const Edge *> &boundaryEdges,
-                               std::vector<Edge *> &loopOut)
+                               std::vector<Edge *> &loopOut,
+                               bool allowEdgeCreate = true)
 {
     loopOut.clear();
-    if (scene == nullptr || boundaryEdges.size() < 3u)
+    if (boundaryEdges.size() < 3u)
         return false;
 
     std::vector<Point *> points;
@@ -937,7 +1007,7 @@ bool TryBuildPlanarHullCapLoop(Scene *scene,
             if ((e->startPoint == a && e->endPoint == b) || (e->startPoint == b && e->endPoint == a))
                 return const_cast<Edge *>(e);
         }
-        return scene->CreateEdge(a, b);
+        return (allowEdgeCreate && scene != nullptr) ? scene->CreateEdge(a, b) : nullptr;
     };
 
     loopOut.reserve(ring.size());
@@ -2075,6 +2145,11 @@ void Display::Render()
     renderer.RenderPickHighlightLinesXray(4.0f);
     renderer.RenderCalibHoverSpanLine(5.0f, false);
     renderer.RenderCalibHoverSpanLine(4.0f, true);
+    if (!openBoundaryBlameFaceIndices.empty())
+    {
+        renderer.RenderOpenBoundaryBlameFace(false);
+        renderer.RenderOpenBoundaryBlameFace(true);
+    }
     if (!importOpenBoundaryBlameEdges.empty())
     {
         renderer.RenderOpenBoundaryBlameLine(7.0f, false);
@@ -2333,7 +2408,10 @@ void Display::RunPickNode()
     if (wantPickHighlight)
         RebuildPickHighlightMesh();
     if (wantOpenBoundaryBlame)
+    {
+        RebuildOpenBoundaryBlameFaceGpuMesh();
         RebuildOpenBoundaryBlameLineGpuMesh();
+    }
 
     if (wantPickHighlight || wantOpenBoundaryBlame)
     {
@@ -4875,6 +4953,11 @@ void Display::ProcessDeferredImportIfAny()
                                               {
                                                   result.ok = ThreeMFImport::Import(path, result.importedScene.get(), &importProgress);
                                               }
+                                              else if (result.lower == "step" || result.lower == "stp")
+                                              {
+                                                  Solid* importedSolid = ImportSTEP(result.importedScene.get(), path);
+                                                  result.ok = (importedSolid != nullptr);
+                                              }
                                               else
                                               {
                                                   ReportImportProgress(&importProgress, "Unsupported import format.", 1.0f);
@@ -6173,7 +6256,7 @@ void Display::InitUI()
                                           [this]()
                                           { DoFileImport(); }});
         calibDef.prerequisites.push_back(
-            {"CalibImportClosed", "Closed volume (tools)",
+            {"CalibImportClosed", "Geometry clean (tools)",
              "Required for Structure and calibration picks on faces.",
              Icons::CheckBox(&calibStepImportClosedVolume), false, true, {}});
         calibDef.prerequisites.push_back({"CalibPoint1", "Plot measurement point", "to measure against",
@@ -6470,13 +6553,37 @@ void Display::InitUI()
                 ImGui::SetCursorScreenPos(ImVec2(row0.x, row0.y + errH + pad));
                 if (ImGui::Button("Fix##oobFix"))
                 {
-                    const bool fixed = TryFixOpenBoundaryForActiveScene();
+                    bool fixed = false;
+                    const std::string &code = importOpenBoundaryToolPayload->code;
+                    if (code == "IMPORT_GEOM_OPENBOUNDARY_SELF_INTERSECTION")
+                    {
+                        const bool splitFixed = TryFixSelfIntersectionForActiveScene();
+                        // Avoid destructive fallback: if split fails, do not auto-run open-boundary
+                        // repair in the same click. Keep failure non-mutating for retry/debugging.
+                        if (splitFixed)
+                        {
+                            // Re-check geometry state after split; open-boundary repair may still be needed.
+                            (void)TryFixOpenBoundaryForActiveScene();
+                            fixed = true;
+                        }
+                    }
+                    else if (code == "IMPORT_SELF_INTERSECTION")
+                        fixed = TryFixSelfIntersectionForActiveScene();
+                    else
+                        fixed = TryFixOpenBoundaryForActiveScene();
                     if (!fixed)
                     {
                         importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
-                            std::string("IMPORT_OPEN_BOUNDARY_FIX_FAILED"),
-                            std::string("Fix could not infer a closed linear boundary loop for this mesh. "
-                                        "Try repairing in your CAD tool, then re-import."),
+                            (code == "IMPORT_SELF_INTERSECTION" ||
+                             code == "IMPORT_GEOM_OPENBOUNDARY_SELF_INTERSECTION")
+                                ? std::string("IMPORT_SELF_INTERSECTION_FIX_FAILED")
+                                : std::string("IMPORT_OPEN_BOUNDARY_FIX_FAILED"),
+                            (code == "IMPORT_SELF_INTERSECTION" ||
+                             code == "IMPORT_GEOM_OPENBOUNDARY_SELF_INTERSECTION")
+                                ? std::string("Fix could not split this self-intersection into separate solids. "
+                                              "Try repairing in CAD, then re-import.")
+                                : std::string("Fix could not infer a closed linear boundary loop for this mesh. "
+                                              "Try repairing in your CAD tool, then re-import."),
                             std::string("")});
                         importOpenBoundaryBannerDismissed = false;
                         SyncCalibrateImportPrerequisiteVisibility();
@@ -6599,7 +6706,7 @@ void Display::InitUI()
                                            Icons::CheckBox(&calibStepImport), false, true,
                                            [this]()
                                            { DoFileImport(); }});
-        structDef.prerequisites.push_back({"StructImportClosed", "Closed volume (tools)",
+        structDef.prerequisites.push_back({"StructImportClosed", "Geometry clean (tools)",
                                            "Required before face selection.",
                                            Icons::CheckBox(&calibStepImportClosedVolume), false, true, {}});
 
@@ -7397,6 +7504,165 @@ bool Display::ImportAllowsGeometryDependentTools() const noexcept
            calibStepImportClosedVolume == Icons::StepState::Done;
 }
 
+namespace
+{
+bool SplitSolidIntoFaceConnectedComponents(Scene *scene, Solid *solid, std::vector<Solid *> &outNewSolids)
+{
+    outNewSolids.clear();
+    if (scene == nullptr || solid == nullptr || solid->faces.size() < 2u)
+        return false;
+
+    std::unordered_map<const Face *, int> faceIndex;
+    faceIndex.reserve(solid->faces.size());
+    for (std::size_t i = 0; i < solid->faces.size(); ++i)
+    {
+        Face *f = solid->faces[i];
+        if (f != nullptr)
+            faceIndex[f] = static_cast<int>(i);
+    }
+    if (faceIndex.size() < 2u)
+        return false;
+
+    std::unordered_map<const Edge *, std::vector<int>> edgeFaces;
+    edgeFaces.reserve(solid->faces.size() * 3u + 8u);
+    for (std::size_t i = 0; i < solid->faces.size(); ++i)
+    {
+        Face *f = solid->faces[i];
+        if (f == nullptr)
+            continue;
+        for (const std::vector<OrientedEdge> &loop : f->loops)
+        {
+            for (const OrientedEdge &oe : loop)
+            {
+                if (oe.edge != nullptr)
+                    edgeFaces[oe.edge].push_back(static_cast<int>(i));
+            }
+        }
+    }
+
+    std::vector<std::vector<int>> adjacency(solid->faces.size());
+    for (const auto &kv : edgeFaces)
+    {
+        const std::vector<int> &ids = kv.second;
+        for (std::size_t a = 0; a < ids.size(); ++a)
+        {
+            for (std::size_t b = a + 1u; b < ids.size(); ++b)
+            {
+                const int ia = ids[a];
+                const int ib = ids[b];
+                if (ia >= 0 && ib >= 0 && static_cast<std::size_t>(ia) < adjacency.size() &&
+                    static_cast<std::size_t>(ib) < adjacency.size())
+                {
+                    adjacency[ia].push_back(ib);
+                    adjacency[ib].push_back(ia);
+                }
+            }
+        }
+    }
+
+    std::vector<char> visited(solid->faces.size(), 0);
+    std::vector<std::vector<Face *>> components;
+    for (std::size_t i = 0; i < solid->faces.size(); ++i)
+    {
+        if (visited[i] || solid->faces[i] == nullptr)
+            continue;
+        std::vector<Face *> comp;
+        std::queue<int> q;
+        q.push(static_cast<int>(i));
+        visited[i] = 1;
+        while (!q.empty())
+        {
+            const int idx = q.front();
+            q.pop();
+            Face *f = solid->faces[idx];
+            if (f != nullptr)
+                comp.push_back(f);
+            for (int n : adjacency[idx])
+            {
+                if (n >= 0 && static_cast<std::size_t>(n) < visited.size() && !visited[n])
+                {
+                    visited[n] = 1;
+                    q.push(n);
+                }
+            }
+        }
+        if (!comp.empty())
+            components.push_back(std::move(comp));
+    }
+
+    if (components.size() <= 1u)
+        return false;
+
+    solid->faces = components[0];
+    for (Face *f : solid->faces)
+    {
+        if (f != nullptr)
+            f->dependency = solid;
+    }
+    GeometryValidity::InvalidateSolidAppGeometryValidityCache(*solid);
+    GeometryValidity::RefreshSolidAppGeometryValidityCache(*solid);
+
+    std::vector<Solid *> members;
+    members.reserve(components.size());
+    members.push_back(solid);
+    for (std::size_t ci = 1; ci < components.size(); ++ci)
+    {
+        // Preserve raw topology for split pieces as well; generic solid-repair passes can remove
+        // faces in non-manifold/self-intersection regions and make a failed split look destructive.
+        Solid *ns = scene->CreateSolid(components[ci], false);
+        if (ns != nullptr)
+        {
+            outNewSolids.push_back(ns);
+            members.push_back(ns);
+        }
+    }
+    if (members.size() > 1u)
+        (void)scene->CreateCompound(std::move(members));
+    return !outNewSolids.empty();
+}
+} // namespace
+
+bool Display::TryFixSelfIntersectionForActiveScene()
+{
+    if (scene == nullptr || scene->solids.empty())
+        return false;
+
+    bool anySplit = false;
+    const std::size_t initialSolidCount = scene->solids.size();
+    for (std::size_t i = 0; i < initialSolidCount; ++i)
+    {
+        Solid *solid = &scene->solids[i];
+        if (!solid->cachedAppInvalidGeometryTagsFresh)
+            GeometryValidity::RefreshSolidAppGeometryValidityCache(*solid);
+        if (!GeometryValidity::Any(solid->cachedAppInvalidGeometryTags &
+                                   GeometryValidity::AppInvalidTag::SelfIntersection))
+            continue;
+
+        std::vector<Solid *> createdSplits;
+        if (SplitSolidIntoFaceConnectedComponents(scene, solid, createdSplits))
+            anySplit = true;
+    }
+
+    if (!anySplit)
+        return false;
+
+    for (Solid &solid : scene->solids)
+        GeometryValidity::RefreshSolidAppGeometryValidityCache(solid);
+
+    importOpenBoundaryBannerDismissed = false;
+    RefreshImportClosedVolumeContractFromScene();
+    ClearPickHover();
+    ClearCalibrateFacePicks();
+    ClearStructureFacePick();
+    SyncCalibrateImportPrerequisiteVisibility();
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    MarkGeometryDirtyAll();
+    MarkPickDirty();
+    renderDirty = true;
+    return true;
+}
+
 bool Display::TryFixOpenBoundaryForActiveScene()
 {
     if (scene == nullptr || scene->solids.empty())
@@ -7517,13 +7783,92 @@ void Display::RebuildOpenBoundaryBlameLineGpuMesh()
         for (const Edge *e : importOpenBoundaryBlameEdges)
             AppendOpenBoundaryBlameEdgeGeometry(e, obRgb, openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
     }
-    if (!importOpenBoundaryContextEdges.empty())
-    {
-        const glm::vec3 ctxRgb = glm::vec3(Color::GetAccentSteps(0.55f, 0.95f, 0.65f));
-        for (const Edge *e : importOpenBoundaryContextEdges)
-            AppendOpenBoundaryBlameEdgeGeometry(e, ctxRgb, openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
-    }
     renderer.UploadOpenBoundaryBlameLineMesh(openBoundaryBlameLineVertices, openBoundaryBlameLineIndices);
+}
+
+void Display::RebuildOpenBoundaryBlameFaceGpuMesh()
+{
+    openBoundaryBlameFaceVertices.clear();
+    openBoundaryBlameFaceIndices.clear();
+    if (scene == nullptr || calibStepImportClosedVolume == Icons::StepState::Done)
+    {
+        renderer.UploadOpenBoundaryBlameFaceMesh(openBoundaryBlameFaceVertices, openBoundaryBlameFaceIndices);
+        return;
+    }
+
+    const glm::vec3 obRgb = glm::vec3(Color::GetAccentSteps(0.8f, 1.12f, 0.95f));
+    for (const Solid &solid : scene->solids)
+    {
+        std::vector<const Edge *> boundaryEdges;
+        GeometryValidity::CollectOpenBoundaryEdgesForSolid(solid, boundaryEdges);
+        if (boundaryEdges.empty())
+            continue;
+
+        std::vector<Edge *> repairCandidates;
+        std::size_t skippedNonLinear = 0;
+        CollectRepairCandidateLinearEdgesForSolid(solid, repairCandidates, skippedNonLinear);
+
+        std::vector<std::vector<Edge *>> loopsToCap;
+        if (!repairCandidates.empty())
+        {
+            std::size_t skippedLoops = 0;
+            CollectClosedLinearBoundaryLoops(repairCandidates, loopsToCap, skippedLoops);
+        }
+        if (loopsToCap.empty())
+        {
+            std::vector<Edge *> hullLoop;
+            if (TryBuildPlanarHullCapLoop(scene, boundaryEdges, hullLoop, false))
+                loopsToCap.push_back(std::move(hullLoop));
+        }
+        if (loopsToCap.empty())
+        {
+            std::unordered_set<const Point *> boundaryVertices;
+            boundaryVertices.reserve(boundaryEdges.size() * 2u + 8u);
+            for (const Edge *e : boundaryEdges)
+            {
+                if (e == nullptr)
+                    continue;
+                if (e->startPoint != nullptr)
+                    boundaryVertices.insert(e->startPoint);
+                if (e->endPoint != nullptr)
+                    boundaryVertices.insert(e->endPoint);
+            }
+            std::vector<const Edge *> boundaryPlusContext = boundaryEdges;
+            boundaryPlusContext.reserve(boundaryEdges.size() + 32u);
+            std::unordered_set<const Edge *> seen(boundaryEdges.begin(), boundaryEdges.end());
+            for (Face *face : solid.faces)
+            {
+                if (face == nullptr || face->loops.empty())
+                    continue;
+                for (const std::vector<OrientedEdge> &loop : face->loops)
+                {
+                    for (const OrientedEdge &oe : loop)
+                    {
+                        const Edge *e = oe.edge;
+                        const Point *start = oe.GetStart();
+                        const Point *end = oe.GetEnd();
+                        if (e == nullptr || start == nullptr || end == nullptr || seen.contains(e))
+                            continue;
+                        if (!boundaryVertices.contains(start) || !boundaryVertices.contains(end))
+                            continue;
+                        seen.insert(e);
+                        boundaryPlusContext.push_back(e);
+                    }
+                }
+            }
+            std::vector<Edge *> hullLoop;
+            if (TryBuildPlanarHullCapLoop(scene, boundaryPlusContext, hullLoop, false))
+                loopsToCap.push_back(std::move(hullLoop));
+        }
+        if (loopsToCap.empty())
+            continue;
+
+        const std::vector<std::vector<std::vector<Edge *>>> groupedFaces = GroupCapLoopsIntoFaces(loopsToCap);
+        for (const std::vector<std::vector<Edge *>> &faceLoops : groupedFaces)
+            AppendOpenBoundaryBlameFaceFillGeometry(faceLoops, obRgb, openBoundaryBlameFaceVertices, openBoundaryBlameFaceIndices);
+    }
+
+    renderer.UploadOpenBoundaryBlameFaceMesh(openBoundaryBlameFaceVertices, openBoundaryBlameFaceIndices);
 }
 
 void Display::RebuildImportOpenBoundaryBlameEdges()
@@ -7532,6 +7877,7 @@ void Display::RebuildImportOpenBoundaryBlameEdges()
     importOpenBoundaryContextEdges.clear();
     if (scene == nullptr || calibStepImportClosedVolume == Icons::StepState::Done)
     {
+        RebuildOpenBoundaryBlameFaceGpuMesh();
         RebuildOpenBoundaryBlameLineGpuMesh();
         MarkPickDirty();
         return;
@@ -7585,6 +7931,7 @@ void Display::RebuildImportOpenBoundaryBlameEdges()
             }
         }
     }
+    RebuildOpenBoundaryBlameFaceGpuMesh();
     RebuildOpenBoundaryBlameLineGpuMesh();
     MarkPickDirty();
 }
@@ -7604,6 +7951,14 @@ void Display::RefreshImportClosedVolumeContractFromScene() noexcept
     }
 
     bool anyOpen = false;
+    bool anySelfIntersection = false;
+    std::size_t obSolidsWithOpen = 0;
+    std::size_t obGroupsOpen = 0;
+    std::size_t obGroupsManifoldOpposite = 0;
+    std::size_t obGroupsCount2Same = 0;
+    std::size_t obGroupsCount2NonOpposite = 0;
+    std::size_t obGroups3Plus = 0;
+    std::size_t obHighlightedEdges = 0;
     for (Solid &solid : scene->solids)
     {
         if (!solid.cachedAppInvalidGeometryTagsFresh)
@@ -7611,18 +7966,72 @@ void Display::RefreshImportClosedVolumeContractFromScene() noexcept
         if (Any(solid.cachedAppInvalidGeometryTags & AppInvalidTag::OpenBoundary))
         {
             anyOpen = true;
-            break;
+            ++obSolidsWithOpen;
+        }
+        if (Any(solid.cachedAppInvalidGeometryTags & AppInvalidTag::SelfIntersection))
+            anySelfIntersection = true;
+
+        const GeometryValidity::OpenBoundaryDebugStats dbg =
+            GeometryValidity::CollectOpenBoundaryDebugStatsForSolid(solid);
+        obGroupsOpen += dbg.edgeGroupsOpenBoundary;
+        obGroupsManifoldOpposite += dbg.edgeGroupsManifoldOpposite;
+        obGroupsCount2Same += dbg.edgeGroupsCount2SameDirection;
+        obGroupsCount2NonOpposite += dbg.edgeGroupsCount2NonOpposite;
+        obGroups3Plus += dbg.edgeGroupsNonManifold3Plus;
+        obHighlightedEdges += dbg.highlightedEdgeCount;
+    }
+
+    {
+        std::ostringstream ss;
+        ss << scene->solids.size() << "|" << obSolidsWithOpen << "|" << obGroupsOpen << "|"
+           << obGroupsManifoldOpposite << "|" << obGroupsCount2Same << "|"
+           << obGroupsCount2NonOpposite << "|" << obGroups3Plus << "|" << obHighlightedEdges;
+        const std::string sig = ss.str();
+        if (sig != openBoundaryDiagLastSignature)
+        {
+            openBoundaryDiagLastSignature = sig;
+            auto &sl = SessionLogger::Instance();
+            sl.LogOpenBoundaryDiagnostics(
+                sl.state.lastFilename,
+                scene->solids.size(),
+                obSolidsWithOpen,
+                obGroupsOpen,
+                obGroupsManifoldOpposite,
+                obGroupsCount2Same,
+                obGroupsCount2NonOpposite,
+                obGroups3Plus,
+                obHighlightedEdges);
+            sl.MaybeFlushAfterImport();
         }
     }
 
-    if (anyOpen)
+    if (anyOpen || anySelfIntersection)
     {
         calibStepImportClosedVolume = Icons::StepState::Active;
-        importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
-            std::string("IMPORT_OPEN_BOUNDARY"),
-            std::string("Open boundary — this solid is not a closed volume. Tools that need a watertight mesh "
-                         "stay unavailable until you repair."),
-            std::string("")});
+        if (anyOpen && anySelfIntersection)
+        {
+            importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+                std::string("IMPORT_GEOM_OPENBOUNDARY_SELF_INTERSECTION"),
+                std::string("Open boundary and self-intersection detected. Tools that require clean solids stay "
+                            "unavailable until repaired."),
+                std::string("")});
+        }
+        else if (anyOpen)
+        {
+            importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+                std::string("IMPORT_OPEN_BOUNDARY"),
+                std::string("Open boundary — this solid is not a closed volume. Tools that need a watertight mesh "
+                            "stay unavailable until you repair."),
+                std::string("")});
+        }
+        else
+        {
+            importOpenBoundaryToolPayload.emplace(ToolUserErrorPayload{
+                std::string("IMPORT_SELF_INTERSECTION"),
+                std::string("Self intersection detected — tools that require clean solids stay unavailable until "
+                            "you repair."),
+                std::string("")});
+        }
     }
     else
     {

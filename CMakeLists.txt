@@ -75,6 +75,7 @@ add_executable(CAD_OpenGL
     src/logic/Import/STLImport.cpp
     src/logic/Import/OBJImport.cpp
     src/logic/Import/ThreeMFImport.cpp
+    src/logic/Import/STEPImport.cpp
     include/miniz.c
     include/miniz_tdef.c
     include/miniz_tinfl.c
@@ -179,14 +180,17 @@ if(APPLE)
     )
 endif()
 
-# OpenCASCADE Spike
+# OpenCASCADE Support
 find_package(OpenCASCADE)
 if(OpenCASCADE_FOUND)
     message(STATUS "OpenCASCADE found: ${OpenCASCADE_VERSION}")
-    message(STATUS "OpenCASCADE Libraries: ${OpenCASCADE_LIBRARIES}")
+    target_include_directories(CAD_OpenGL PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(CAD_OpenGL PRIVATE ${OpenCASCADE_LIBRARIES})
+    
+    # Spike executable
     add_executable(occt_spike src/spike/occt_spike.cpp)
     target_include_directories(occt_spike PRIVATE ${OpenCASCADE_INCLUDE_DIR})
     target_link_libraries(occt_spike PRIVATE ${OpenCASCADE_LIBRARIES})
 else()
-    message(STATUS "OpenCASCADE not found. Spike executable will not be built.")
+    message(STATUS "OpenCASCADE not found. STEP import and Spike executable will not be available.")
 endif()
