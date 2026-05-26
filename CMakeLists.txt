@@ -178,3 +178,15 @@ if(APPLE)
         "-framework AppKit"
     )
 endif()
+
+# OpenCASCADE Spike
+find_package(OpenCASCADE)
+if(OpenCASCADE_FOUND)
+    message(STATUS "OpenCASCADE found: ${OpenCASCADE_VERSION}")
+    message(STATUS "OpenCASCADE Libraries: ${OpenCASCADE_LIBRARIES}")
+    add_executable(occt_spike src/spike/occt_spike.cpp)
+    target_include_directories(occt_spike PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(occt_spike PRIVATE ${OpenCASCADE_LIBRARIES})
+else()
+    message(STATUS "OpenCASCADE not found. Spike executable will not be built.")
+endif()
