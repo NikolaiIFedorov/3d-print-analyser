@@ -40,9 +40,7 @@
 #include "CalibCompensation.hpp"
 #include "Structure/StructureTriangulation.hpp"
 #include "GeometryValidity.hpp"
-#if defined(CAD_USE_CGAL)
 #include "Structure/StructureCarve.hpp"
-#endif
 #include <limits>
 #include <chrono>
 #include <functional>
@@ -1154,8 +1152,7 @@ static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer
     }
 }
 
-#if defined(CAD_USE_CGAL)
-// Dedicated queue for Structure staging carve only. A pathological CGAL call can run without
+// Dedicated queue for Structure staging carve only. A pathological OCCT call can run without
 // returning; `Display` holds import/analysis work on `taskRunner` (`std::unique_ptr`). `Display::Shutdown`
 // detaches those workers and **releases** the runner (intentional process-exit leak) so quit never
 // blocks on `join()` when CGAL/analysis is stuck — same policy here via `AbandonStructureCarveTaskRunnerAtShutdown`.
@@ -1175,7 +1172,6 @@ static void AbandonStructureCarveTaskRunnerAtShutdown()
     sStructureCarveRunner->RequestStopClearQueueAndDetachWorkers();
     // Intentional leak: do not delete; detached workers may still touch the runner mutex briefly.
 }
-#endif
 
 static void SetStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer, std::string msg)
 {
@@ -1917,12 +1913,10 @@ void Display::Shutdown()
     SessionLogger::Instance().LogShutdownPhase("display: begin");
     SessionLogger::Instance().LogShutdownPhase("display: ResetStructurePreviewIncrementalState");
     ResetStructurePreviewIncrementalState();
-#if defined(CAD_USE_CGAL)
     SessionLogger::Instance().LogShutdownPhase("display: CancelPendingStructureCarveJob");
     CancelPendingStructureCarveJob();
     SessionLogger::Instance().LogShutdownPhase("display: AbandonStructureCarveTaskRunnerAtShutdown");
     AbandonStructureCarveTaskRunnerAtShutdown();
-#endif
     ShutdownStackTraceLogIfEnabled("mainthread after structure cancel+abandon");
 
     // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
@@ -2211,10 +2205,8 @@ void Display::Render()
             uiStructure->visible = showStructure;
         // Leaving the Structure tool without an explicit Cancel/Accept reverts as if Cancelled.
         // Finalize already cleared staging in those paths, so this is a no-op for them.
-#if defined(CAD_USE_CGAL)
         if (!showStructure)
             CancelPendingStructureCarveJob();
-#endif
         if (!showStructure && IsStructureStagingActive())
             RestoreStructureOriginalScene();
         // Entering Structure with a real model: build the carved staging up-front so the user sees the
@@ -2305,9 +2297,7 @@ void Display::MarkGeometryDirtyAll()
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
-#if defined(CAD_USE_CGAL)
     CancelPendingStructureCarveJob();
-#endif
 
     geometryDirtyAll = true;
     geometryDirtySolids.clear();
@@ -2337,9 +2327,7 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
-#if defined(CAD_USE_CGAL)
     CancelPendingStructureCarveJob();
-#endif
 
     if (!geometryDirtyAll)
     {
@@ -2478,10 +2466,8 @@ void Display::Frame()
 {
     workerFuturePollDeadline.emplace(std::chrono::steady_clock::now() + TaskRunner::kUiAsyncFutureCompletionBudget);
     ProcessDeferredImportIfAny();
-#if defined(CAD_USE_CGAL)
     PollStructureStagingTaskIfReady();
     FlushPendingStructureStagingCarveLaunchIfAny();
-#endif
     ApplyImportProgressSnapshot();
     const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
 
@@ -4027,10 +4013,8 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
     else
     {
         RefreshStructurePreviewForRenderer();
-#if defined(CAD_USE_CGAL)
         if (pendingStructureStagingTask.has_value())
             BeginStructureStagingSession();
-#endif
     }
 }
 
@@ -5012,9 +4996,7 @@ void Display::RebuildFileTabs()
 
             // Switching away from a Structure staging session is treated as Cancel, so the old tab
             // is restored to its pre-carve state before we move focus.
-#if defined(CAD_USE_CGAL)
             CancelPendingStructureCarveJob();
-#endif
             if (IsStructureStagingActive())
                 RestoreStructureOriginalScene();
 
@@ -6900,13 +6882,10 @@ void Display::TickStructurePreviewBuildIfNeeded()
 {
     if (activeTool != ActiveTool::Structure || IsStructureStagingActive())
         return;
-#if defined(CAD_USE_CGAL)
-    // `BuildFaceTriangulationPreview` uses CGAL 2D; the carve worker uses CGAL 3D on another thread.
-    // Running both concurrently has produced UI freezes + repeated CGAL diagnostics — treat as unsafe.
+    // Avoid running preview bake concurrently with the carve worker on another thread.
     if (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
         pendingStructureStagingTask.has_value())
         return;
-#endif
     std::vector<const Face *> workOrder;
     CollectStructurePreviewWorkOrder(workOrder);
     const double inset = static_cast<double>(structureInsetMm);
@@ -6932,7 +6911,6 @@ void Display::RefreshStructurePreviewForRenderer()
         renderer.SetStructurePreviewSegments({});
         return;
     }
-#if defined(CAD_USE_CGAL)
     if (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
         pendingStructureStagingTask.has_value())
     {
@@ -6940,7 +6918,6 @@ void Display::RefreshStructurePreviewForRenderer()
         renderer.SetStructurePreviewSegments({});
         return;
     }
-#endif
 
     std::vector<const Face *> workOrder;
     CollectStructurePreviewWorkOrder(workOrder);
@@ -6956,7 +6933,6 @@ void Display::RefreshStructurePreviewForRenderer()
     renderer.SetStructurePreviewSegments(structurePreviewBakedSegments);
 }
 
-#if defined(CAD_USE_CGAL)
 void Display::CancelPendingStructureCarveJob()
 {
     structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
@@ -7338,33 +7314,10 @@ void Display::BeginStructureStagingSession()
     uiRenderer.MarkDirty();
     renderDirty = true;
 }
-#else
-void Display::BeginStructureStagingSession()
-{
-    if (IsStructureStagingActive())
-        return;
-    if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
-    {
-        LOG_DESC("Structure staging skipped: no active imported tab");
-        return;
-    }
-    if (scene == nullptr || (scene->solids.empty() && scene->faces.empty()))
-    {
-        LOG_DESC("Structure staging skipped: active scene is empty");
-        return;
-    }
-    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
-    structureOptFaceExcludeStep = Icons::StepState::Active;
-    SyncStructureOptionalPrereqRowStyle();
-    LOG_DESC("Structure staging skipped: build is missing CAD_USE_CGAL");
-}
-#endif
 
 void Display::RestoreStructureOriginalScene()
 {
-#if defined(CAD_USE_CGAL)
     CancelPendingStructureCarveJob();
-#endif
     if (!IsStructureStagingActive())
         return;
     if (structureStagingSceneIndex < ownedScenes.size())
@@ -7387,9 +7340,7 @@ void Display::RestoreStructureOriginalScene()
 
 void Display::CommitStructureStagingScene()
 {
-#if defined(CAD_USE_CGAL)
     CancelPendingStructureCarveJob();
-#endif
     if (!IsStructureStagingActive())
         return;
     structureOriginalScene.reset();
@@ -7459,12 +7410,8 @@ void Display::SyncStructurePanelDerivedVisibility()
     const bool activeHasModel =
         scene != nullptr && (!scene->solids.empty() || !scene->faces.empty()) &&
         !pendingImportTabActive;
-#if defined(CAD_USE_CGAL)
     const bool structureCarveBusy = structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
                                     pendingStructureStagingTask.has_value();
-#else
-    const bool structureCarveBusy = false;
-#endif
     const bool importContractNeedsAttention =
         activeHasModel && calibStepImport == Icons::StepState::Done &&
         calibStepImportClosedVolume != Icons::StepState::Done;

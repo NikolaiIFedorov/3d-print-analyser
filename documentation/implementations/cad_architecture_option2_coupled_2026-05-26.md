@@ -22,3 +22,8 @@ The migration was successful. `CAD_OpenGL` now natively holds B-Rep geometry. Th
 **Problem:** The user reported that the Structure tool didn't seem to modify the solid when applied to `occt.stp`.
 **Investigation:** We found that `StructureCarve::TryApplyStructureCarve` was failing silently because `BuildVerticalPrismOcct` returned a null shape. The root cause was that when converting `CAD_OpenGL` loops to OCCT wires, we were calling `w.Reverse()` on inner loops. However, `CAD_OpenGL` already stores inner loops with the correct orientation (CW relative to the CCW outer loop). Reversing them made the faces invalid, causing `BRepOffsetAPI_MakeOffset` to fail.
 **Fix:** Removed `w.Reverse()` in both `StructureCarve.cpp` and `StructureTriangulation.cpp`. Additionally, simplified `StructureCarve.cpp` to pass the `currentUnion` compound directly to `BRepPrimAPI_MakePrism`, avoiding manual iteration and fusion of individual extruded faces.
+
+## Bugfix: Structure carve pipeline disabled after CGAL removal (2026-05-27)
+**Problem:** After the OCCT migration, the Structure tool still showed no carve effect when opened.
+**Root cause:** The async staging/carve worker (`BeginStructureStagingSession`, `LaunchStructureStagingCarveJob`, etc.) remained behind `#if defined(CAD_USE_CGAL)`. With CGAL removed, entering the tool hit a no-op stub that logged "build is missing CAD_USE_CGAL" and never launched a carve job.
+**Fix:** Removed CGAL guards from `display.cpp`, `display.hpp`, and `StructureCarve.hpp` so the existing worker pipeline calls `StructureCarve::TryApplyStructureCarve` (OCCT) unconditionally.
