@@ -8,7 +8,7 @@ description: >-
 
 # CAD_OpenGL — Cross-platform and build
 
-Canonical detail: [practices/best_practices.md](../../../practices/best_practices.md) (Cross-Platform Compatibility).
+Build/Compiler/Paths/Types below are general C++/CMake practice, not CAD_OpenGl-specific (canonical version: the user's global `global_practices.md`, outside this repo). Windowing and Dependencies *are* project-specific — canonical detail: [practices/project_practices.md](../../../practices/project_practices.md) → Build & dependencies.
 
 ## Build (CMake)
 

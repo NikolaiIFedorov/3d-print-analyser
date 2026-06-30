@@ -84,20 +84,20 @@ void SessionLogger::LogAnalysisRun()
 {
     PushEvent("analysis_run", {
                                   {"overhangs", std::to_string(state.overhangs)},
-                                  {"sharp_edges", std::to_string(state.sharpEdges)},
-                                  {"thin_sections", std::to_string(state.thinSections)},
-                                  {"small_features", std::to_string(state.smallFeatures)},
+                                  {"not_enough_space", std::to_string(state.sharpCorner)},
+                                  {"instabilities", std::to_string(state.instabilities)},
+                                  {"layer_differences", std::to_string(state.layerDifferences)},
                                   {"overhang_angle", Fmt(state.overhangAngle)},
-                                  {"sharp_corner_angle", Fmt(state.sharpCornerAngle)},
-                                  {"thin_min_width", Fmt(state.thinMinWidth)},
-                                  {"min_feature_size", Fmt(state.minFeatureSize)},
+                                  {"not_enough_space_threshold", Fmt(state.notEnoughSpaceThreshold)},
+                                  {"instability_min_width", Fmt(state.instabilityMinWidth)},
+                                  {"layer_difference_max_area_delta", Fmt(state.layerDifferenceMaxAreaDelta)},
                                   {"layer_height", Fmt(state.layerHeight)},
                               });
     Log::Session("Analysis: " +
                  std::to_string(state.overhangs) + " overhangs, " +
-                 std::to_string(state.sharpEdges) + " sharp edges, " +
-                 std::to_string(state.thinSections) + " thin sections, " +
-                 std::to_string(state.smallFeatures) + " small features");
+                 std::to_string(state.sharpCorner) + " not-enough-space, " +
+                 std::to_string(state.instabilities) + " instabilities, " +
+                 std::to_string(state.layerDifferences) + " layer differences");
 }
 
 void SessionLogger::LogParamChange(const std::string &param, float value)
@@ -491,14 +491,14 @@ std::vector<std::pair<std::string, std::string>> SessionLogger::BuildFullSession
         {"last_file", "\"" + EscapeStr(s.lastFilename) + "\""},
         {"format", "\"" + s.lastFormat + "\""},
         {"overhang_angle", Fmt(s.overhangAngle)},
-        {"sharp_corner_angle", Fmt(s.sharpCornerAngle)},
-        {"thin_min_width", Fmt(s.thinMinWidth)},
-        {"min_feature_size", Fmt(s.minFeatureSize)},
+        {"not_enough_space_threshold", Fmt(s.notEnoughSpaceThreshold)},
+        {"instability_min_width", Fmt(s.instabilityMinWidth)},
+        {"layer_difference_max_area_delta", Fmt(s.layerDifferenceMaxAreaDelta)},
         {"layer_height", Fmt(s.layerHeight)},
         {"overhangs", std::to_string(s.overhangs)},
-        {"sharp_edges", std::to_string(s.sharpEdges)},
-        {"thin_sections", std::to_string(s.thinSections)},
-        {"small_features", std::to_string(s.smallFeatures)},
+        {"not_enough_space", std::to_string(s.sharpCorner)},
+        {"instabilities", std::to_string(s.instabilities)},
+        {"layer_differences", std::to_string(s.layerDifferences)},
         {"camera_target", "\"" + fmtVec3(s.cameraTarget) + "\""},
         {"camera_ortho_size", Fmt(s.cameraOrthoSize)},
         {"camera_position", "\"" + fmtVec3(s.cameraPosition) + "\""},

@@ -25,16 +25,17 @@ struct SessionState
 
     // Analysis parameters
     float overhangAngle = 45.0f;
-    float sharpCornerAngle = 100.0f;
-    float thinMinWidth = 2.0f;
-    float minFeatureSize = 0.4f;
+    float sharpCornerThreshold = 54.0f;
+    float notEnoughSpaceThreshold = 0.3f;
+    float instabilityMinWidth = 2.0f;
+    float layerDifferenceMaxAreaDelta = 50.0f;
     float layerHeight = 0.2f;
 
     // Flaw counts from the last analysis run
     size_t overhangs = 0;
-    size_t sharpEdges = 0;
-    size_t thinSections = 0;
-    size_t smallFeatures = 0;
+    size_t sharpCorner = 0;
+    size_t instabilities = 0;
+    size_t layerDifferences = 0;
 
     // Camera & viewport (curated repro — filled by `Display::FillSessionReproState`)
     glm::vec3 cameraTarget{0.0f};

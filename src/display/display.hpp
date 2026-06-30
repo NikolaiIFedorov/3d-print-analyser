@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdint>
 #include <atomic>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 #include "utils/utils.hpp"
@@ -110,6 +111,17 @@ public:
     // Call at startup, on ThemeMode change, and on SDL_EVENT_SYSTEM_THEME_CHANGED.
     void ApplyTheme();
 
+    /// Cycles the Structure debug preview stage (D key):
+    ///   0 = cut outline only  1 = notched/no-fillet  2 = all strut candidates  3 = full
+    void ToggleStructureDebugCutOutlineMode();
+
+    /// Toggles the Analysis debug overlay (grave key while Analysis tool active): wireframe of the
+    /// raw sliced cross-section loops every detector operates on, one layer at a time (Up/Down to step).
+    void ToggleAnalysisDebugSlicedView();
+    bool IsAnalysisDebugViewEnabled() const { return analysisDebugViewEnabled; }
+    /// Steps the visible debug layer by `delta` (Up = +1, Down = -1), clamped to the cached layer range.
+    void StepAnalysisDebugLayer(int delta);
+
     /// Non-owning; used to reset finger/trackpad state when SDL event queue is flushed after import.
     void SetInput(Input *input) { inputForGestureSync = input; }
 
@@ -142,13 +154,20 @@ private:
     int16_t windowWidth;
     int16_t windowHeight;
     SDL_Window *InitWindow(int16_t width, int16_t height, const char *title);
-    /// Recompute UI-derived minimum window size (after tool/panel visibility changes).
-    void RefreshUIMinWindowSize();
-    /// Upload Structure preview polylines to the renderer. Recomputes the **work order** (eligible
+    /// Upload Structure preview fill mesh to the renderer. Recomputes the **work order** (eligible
     /// faces minus exclusions) and resets incremental bake state when it changes; heavy per-face
-    /// `BuildFaceTriangulationPreview` runs in `TickStructurePreviewBuildIfNeeded` (after pick rebuild)
+    /// `BuildCutOutlinePreviewLines` runs in `TickStructurePreviewBuildIfNeeded` (after pick rebuild)
     /// capped per frame.
     void RefreshStructurePreviewForRenderer();
+    /// Re-slices every solid and caches the per-solid layer lists (`analysisDebugLayersBySolid`),
+    /// then rebuilds the visible-layer segments. Clears everything when the toggle is off or the
+    /// Analysis tool is not active. Call when geometry, scene, or the toggle changes.
+    void RefreshAnalysisDebugSlicedView();
+    /// Rebuilds `analysisDebugSlicedSegments` from the already-cached `analysisDebugLayersBySolid`
+    /// for the current `analysisDebugLayerIndex` and pushes to the renderer. No re-slicing.
+    void RebuildAnalysisDebugSegmentsForCurrentLayer();
+    /// Sets the Analysis panel header trailing text to "[layer i/N]" (or "[no layers]").
+    void UpdateAnalysisDebugHeaderTrailing();
     /// Structure scene-edit footer: `accepted` commits the staging carve into the active scene; otherwise the
     /// pre-Structure original is restored. Both paths leave the tool.
     void FinalizeStructureSceneToolSession(bool accepted);
@@ -211,9 +230,10 @@ private:
     bool pickDirty = true;
 
     float overhangAngle = 45.0f;
-    float sharpCornerAngle = 100.0f;
-    float minFeatureSize = 0.4f;
-    float thinMinWidth = 2.0f;
+    float sharpCornerThreshold = 54.0f;
+    float notEnoughSpaceThreshold = 54.0f;
+    float instabilityMinWidth = 2.0f;
+    float layerDifferenceMaxAreaDelta = 50.0f;
     float layerHeight = 0.2f;
     /// Structure tool inset distance in millimetres. Drives the CGAL straight-skeleton offset, the
     /// strip-band width, and the fillet radius (1:1). Slider lives in the Structure tool panel;
@@ -327,7 +347,7 @@ private:
         ImVec2 startPos = {};
         ImVec2 navStart = {};
     };
-    FlawResult flawOverhang, flawSharp, flawThin, flawSmall;
+    FlawResult flawOverhang, flawSharpCorner, flawNotEnoughSpace, flawInstability, flawLayerDifference;
     const Scene *analysisUiScene = nullptr;
 
     bool lastVerdictWasPass = false;
@@ -406,6 +426,18 @@ private:
     /// Incremented when a new carve job is issued or when pending work is invalidated; results must match to apply.
     uint64_t structureStagingIssuedJobId = 0;
     StructureCarvePipelinePhase structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
+    /// Denominator (solids to carve) for the current job; numerator updated from the worker thread.
+    uint64_t structureStagingStepsTotal = 0;
+    std::atomic<uint64_t> structureStagingStepsDone{0};
+    /// Fine-grained (within-solid) progress snapshot reported by `StructureCarve::TryApplyStructureCarve`'s
+    /// `progress` callback, gated by jobId so stale callbacks from a cancelled/replaced job are dropped.
+    std::mutex structureProgressMutex;
+    uint64_t structureProgressJobId = 0;
+    std::string latestStructureProgressPhase;
+    float latestStructureProgress01 = -1.0f;
+    bool latestStructureProgressDirty = false;
+    std::string structureProgressPhase;
+    float structureProgress01 = -1.0f;
     const Scene *pendingAnalysisScene = nullptr;
     /// Latest async analysis result awaiting render application (tints / flaw overlay).
     std::optional<AsyncAnalysisResult> pendingAnalysisTint;
@@ -458,6 +490,9 @@ private:
     void PublishImportProgress(uint64_t generation, const ImportProgress &progress);
     void ApplyImportProgressSnapshot();
     void ClearPendingImportProgressSnapshot();
+    void PublishStructureCarveProgress(uint64_t jobId, const ImportProgress &progress);
+    void ApplyStructureProgressSnapshot();
+    void ClearPendingStructureProgressSnapshot();
     [[nodiscard]] std::chrono::milliseconds WorkerFuturePollRemainingMs() const;
     void SetImportProgress(std::string phase, float progress01);
     void SyncToolbarToolVisualState();
@@ -487,6 +522,7 @@ private:
     void SetHoverPick(const Face *face, const Edge *edge, bool rejected = false);
     void RebuildPickHighlightMesh();
     void ScheduleNode(InvalidationNode node);
+    void ProcessPendingToolSwitchIfAny();
     void RunPickNode();
     void RunUiNode();
     void ClearScheduledNodes();
@@ -519,9 +555,12 @@ private:
     /// Returns true when `face` is a candidate for face triangulation under the Structure tool. The
     /// reason string is populated for every rejection (used by the panel hint and click logging).
     bool IsStructureFaceEligible(const Face *face, std::string *outReason = nullptr) const;
-    /// While staging shows the carved mesh, pick hits reference staging `Face*`. Map to the held
-    /// `structureOriginalScene` by plane + centroid so exclusions stay stable across carve topology.
-    const Face *MatchStructureOriginalFaceForStructurePick(const Face *pickedFace) const;
+    /// Rebuilds `structureCarvedToOriginal` by geometric (plane + centroid) match between the
+    /// current carved `scene` and `structureOriginalScene`. Call once whenever a new carve result is
+    /// applied — the matching itself is unavoidably approximate (the cut/unify pipeline keeps no
+    /// provenance), but doing it once per carve instead of per pick/per frame is what makes that cost
+    /// acceptable.
+    void RebuildStructureCarvedToOriginalMap();
 
     const Face *calibFacePoint1 = nullptr;
     const Face *calibFacePoint2 = nullptr;
@@ -532,10 +571,15 @@ private:
     /// `ownedScenes[activeSceneIndex]`. On Cancel we move it back and the staging is discarded; on
     /// Accept we drop it and the staging stays in place. `nullptr` outside the session.
     std::unique_ptr<Scene> structureOriginalScene;
+    /// Maps each eligible carved-result `Face*` (in the current staged `scene`) to the original
+    /// `Face*` it best corresponds to, or omits faces with no original counterpart (new carve
+    /// geometry — strut walls, cut boundaries). Built once per carve by `RebuildStructureCarvedToOriginalMap`;
+    /// picking/hover/tint look this up directly instead of ray-casting or re-matching per frame.
+    std::unordered_map<const Face *, const Face *> structureCarvedToOriginal;
     /// Tab slot the staging is occupying; only meaningful while `structureOriginalScene != nullptr`.
     size_t structureStagingSceneIndex = SIZE_MAX;
     /// Structure tool: opt-out exclusion set keyed on **original** scene faces (held in
-    /// `structureOriginalScene` while staging). Toggle picks map staging hits back to originals.
+    /// `structureOriginalScene` while staging).
     std::unordered_set<const Face *> structureExcludedFaces;
     /// Cache of eligible-face pointers for the current scene. Rebuilt lazily in
     /// `RebuildPickHighlightMesh` when the Structure tool is active so the render loop can apply the
@@ -549,19 +593,46 @@ private:
     /// Set when Structure **Accept** finalizes: the carved mesh is already on screen; the next tool-switch
     /// pass should not call `MarkGeometryDirtyAll` (that would replay a full incremental GPU rebuild).
     bool structureFinalizeCommitSkipGpuFullRebuild = false;
+    /// After Structure Accept, GPU buffers already match the carved scene; the first analysis tint apply
+    /// should recolor only, not force another full incremental rebuild.
+    bool structureAcceptGpuGeometryFresh = false;
 
-    /// Spreads `StructureTriangulation::BuildFaceTriangulationPreview` across frames so CGAL-heavy
+    /// Spreads `StructureTriangulation::BuildCutOutlinePreviewLines` across frames so OCCT-heavy
     /// models do not block the UI thread on a single eligibility refresh. See `TickStructurePreviewBuildIfNeeded`.
     void ResetStructurePreviewIncrementalState();
     void TickStructurePreviewBuildIfNeeded();
     void CollectStructurePreviewWorkOrder(std::vector<const Face *> &out) const;
     bool StructurePreviewBakeSnapshotMatches(const std::vector<const Face *> &sortedFaces, double insetMm) const;
     void AdvanceStructurePreviewBuild(double insetMm);
+    /// Live segments for the given debug stage (0–3).
+    const std::vector<std::pair<glm::vec3, glm::vec3>> &StageSegments(int stage) const;
+    /// Snapshot segments for the given debug stage (survive staging/carve clears).
+    const std::vector<std::pair<glm::vec3, glm::vec3>> &StageSnapshot(int stage) const;
     static constexpr std::size_t kStructurePreviewMaxFacesPerFrame = 8;
     std::vector<const Face *> structurePreviewBakeQueue;
     std::size_t structurePreviewBakeCursor = 0;
-    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewBakedSegments;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewBakedSegments;          // stage 3: full
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewCutOutlineSegments;      // stage 0: base outline
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewNotchedSegments;         // stage 1: notched, no fillet
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewAllCandidatesSegments;   // stage 2: all valid strut pairs
+    std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewStrutQuadSegments;       // stage 4: unclipped quad outlines
+    /// Snapshots survive staging/carve clears so ` keeps working after a carve starts.
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureDebugCutOutlineSnapshot;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureDebugNotchedSnapshot;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureDebugAllCandidatesSnapshot;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureDebugStrutQuadSnapshot;
+    std::vector<std::pair<glm::vec3, glm::vec3>> structureDebugFullSnapshot;
+    /// 0=cut outline  1=no fillet  2=all candidates  3=full  4=strut quads
+    int structureDebugPreviewStage = 0;
     double structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
+
+    /// Analysis debug overlay: steps through one sliced cross-section layer at a time.
+    bool analysisDebugViewEnabled = false;
+    /// Cached per-solid layer lists from the last `RefreshAnalysisDebugSlicedView`, parallel to
+    /// `scene->solids` order; avoids re-slicing on every Up/Down step.
+    std::vector<std::vector<SlicedLayer>> analysisDebugLayersBySolid;
+    int analysisDebugLayerIndex = 0;
+    std::vector<std::pair<glm::vec3, glm::vec3>> analysisDebugSlicedSegments;
 
     /// World-space axis half-length used for clip + axis mesh; `NaN` = not synced yet.
     float lastSyncedAxisWorldHalfExtent = std::numeric_limits<float>::quiet_NaN();
@@ -571,6 +642,9 @@ private:
     void SyncGridLayoutFromSettings();
 
     void PollStructureStagingTaskIfReady();
+    /// Swaps `r.staging` into the active scene (or reports the carve error) once a carve result is ready.
+    /// Shared by the async worker poll path and the synchronous main-thread carve path.
+    void ApplyStructureStagingResult(AsyncStructureStagingResult &&r);
     /// Cancels an in-flight carve job (if any), bumps `structureStagingIssuedJobId`, clears the header busy hint.
     void CancelPendingStructureCarveJob();
     void FlushPendingStructureStagingCarveLaunchIfAny();

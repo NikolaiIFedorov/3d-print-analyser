@@ -13,21 +13,27 @@ struct OrientedEdge
 
     Point *GetStart() const
     {
+        if (edge == nullptr)
+            return nullptr;
         return reversed ? edge->endPoint : edge->startPoint;
     }
 
     Point *GetEnd() const
     {
+        if (edge == nullptr)
+            return nullptr;
         return reversed ? edge->startPoint : edge->endPoint;
     }
 
     glm::dvec3 GetStartPosition() const
     {
-        return GetStart()->position;
+        Point *p = GetStart();
+        return p != nullptr ? p->position : glm::dvec3(0.0);
     }
 
     glm::dvec3 GetEndPosition() const
     {
-        return GetEnd()->position;
+        Point *p = GetEnd();
+        return p != nullptr ? p->position : glm::dvec3(0.0);
     }
 };

@@ -259,6 +259,10 @@ bool OpenGLRenderer::InitializeShaders()
                                   "shaders/line.frag"))
         return false;
 
+    if (!analysisTriShader.LoadFromFiles("shaders/analysis.vert",
+                                         "shaders/analysis.frag"))
+        return false;
+
     return true;
 }
 
@@ -349,6 +353,43 @@ void OpenGLRenderer::Shutdown()
     structurePreviewLineVAO = structurePreviewLineVBO = structurePreviewLineIBO = 0;
     structurePreviewLineIndexCount = 0;
 
+    if (analysisDebugLineVBO)
+        glDeleteBuffers(1, &analysisDebugLineVBO);
+    if (analysisDebugLineVAO)
+        glDeleteVertexArrays(1, &analysisDebugLineVAO);
+    if (analysisDebugLineIBO)
+        glDeleteBuffers(1, &analysisDebugLineIBO);
+    analysisDebugLineVAO = analysisDebugLineVBO = analysisDebugLineIBO = 0;
+    analysisDebugLineIndexCount = 0;
+
+    if (analysisFlawEdgeVBO)
+        glDeleteBuffers(1, &analysisFlawEdgeVBO);
+    if (analysisFlawEdgeVAO)
+        glDeleteVertexArrays(1, &analysisFlawEdgeVAO);
+    if (analysisFlawEdgeIBO)
+        glDeleteBuffers(1, &analysisFlawEdgeIBO);
+    analysisFlawEdgeVAO = analysisFlawEdgeVBO = analysisFlawEdgeIBO = 0;
+    analysisFlawEdgeIndexCount = 0;
+
+    if (analysisDebugTriVBO)
+        glDeleteBuffers(1, &analysisDebugTriVBO);
+    if (analysisDebugTriVAO)
+        glDeleteVertexArrays(1, &analysisDebugTriVAO);
+    if (analysisDebugTriIBO)
+        glDeleteBuffers(1, &analysisDebugTriIBO);
+    analysisDebugTriVAO = analysisDebugTriVBO = analysisDebugTriIBO = 0;
+    analysisDebugTriIndexCount = 0;
+    analysisTriShader.Delete();
+
+    if (overhangOverlayVBO)
+        glDeleteBuffers(1, &overhangOverlayVBO);
+    if (overhangOverlayVAO)
+        glDeleteVertexArrays(1, &overhangOverlayVAO);
+    if (overhangOverlayIBO)
+        glDeleteBuffers(1, &overhangOverlayIBO);
+    overhangOverlayVAO = overhangOverlayVBO = overhangOverlayIBO = 0;
+    overhangOverlayIndexCount = 0;
+
     if (lineVBO)
         glDeleteBuffers(1, &lineVBO);
     if (lineVAO)
@@ -398,6 +439,12 @@ void OpenGLRenderer::SetViewPos(const glm::vec3 &pos)
     viewPos = pos;
     // Headlight: light comes from the camera direction
     lightDir = glm::normalize(viewPos);
+}
+
+void OpenGLRenderer::SetFogRange(float cameraDistance)
+{
+    fogNear = cameraDistance * RenderingExperiments::kDepthCueNearFactor;
+    fogFar = cameraDistance * RenderingExperiments::kDepthCueFarFactor;
 }
 
 void OpenGLRenderer::SetStructureViewSolidTranslucent(bool enabled, uint32_t solidTriangleIndexPrefix,
@@ -457,6 +504,11 @@ void OpenGLRenderer::UploadTriangleMesh(const std::vector<Vertex> &vertices,
                           sizeof(Vertex),
                           (void *)offsetof(Vertex, normal));
     glEnableVertexAttribArray(2);
+
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE,
+                          sizeof(Vertex),
+                          (void *)offsetof(Vertex, faceSize));
+    glEnableVertexAttribArray(3);
 
     glBindVertexArray(0);
     GetGLError();
@@ -761,6 +813,231 @@ void OpenGLRenderer::UploadStructurePreviewLineMesh(const std::vector<Vertex> &v
     GetGLError();
 }
 
+void OpenGLRenderer::UploadAnalysisDebugLineMesh(const std::vector<Vertex> &vertices,
+                                                  const std::vector<uint32_t> &indices)
+{
+    analysisDebugLineIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (analysisDebugLineVAO == 0)
+        glGenVertexArrays(1, &analysisDebugLineVAO);
+
+    glBindVertexArray(analysisDebugLineVAO);
+
+    if (analysisDebugLineVBO == 0)
+        glGenBuffers(1, &analysisDebugLineVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, analysisDebugLineVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (analysisDebugLineIBO == 0)
+        glGenBuffers(1, &analysisDebugLineIBO);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, analysisDebugLineIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadAnalysisFlawEdgeMesh(const std::vector<Vertex> &vertices,
+                                                 const std::vector<uint32_t> &indices)
+{
+    analysisFlawEdgeIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (analysisFlawEdgeVAO == 0)
+        glGenVertexArrays(1, &analysisFlawEdgeVAO);
+    glBindVertexArray(analysisFlawEdgeVAO);
+
+    if (analysisFlawEdgeVBO == 0)
+        glGenBuffers(1, &analysisFlawEdgeVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, analysisFlawEdgeVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (analysisFlawEdgeIBO == 0)
+        glGenBuffers(1, &analysisFlawEdgeIBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, analysisFlawEdgeIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, color));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void *)offsetof(Vertex, normal));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::UploadAnalysisDebugTriMesh(const std::vector<AnalysisTriVertex> &vertices,
+                                                 const std::vector<uint32_t> &indices)
+{
+    analysisDebugTriIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (analysisDebugTriVAO == 0)
+        glGenVertexArrays(1, &analysisDebugTriVAO);
+    glBindVertexArray(analysisDebugTriVAO);
+
+    if (analysisDebugTriVBO == 0)
+        glGenBuffers(1, &analysisDebugTriVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, analysisDebugTriVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(AnalysisTriVertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (analysisDebugTriIBO == 0)
+        glGenBuffers(1, &analysisDebugTriIBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, analysisDebugTriIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(AnalysisTriVertex),
+                          (void *)offsetof(AnalysisTriVertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(AnalysisTriVertex),
+                          (void *)offsetof(AnalysisTriVertex, color));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawAnalysisFlawEdges(float pixelWidth)
+{
+    if (analysisFlawEdgeIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
+    lineShader.SetFloat("uAlpha", 1.0f);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(DepthComparePass());
+    glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+
+    glBindVertexArray(analysisFlawEdgeVAO);
+    glDrawElements(GL_LINES, analysisFlawEdgeIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glDepthMask(GL_TRUE);
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawAnalysisDebugTriangles()
+{
+    if (analysisDebugTriIndexCount == 0)
+        return;
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    analysisTriShader.Use();
+    analysisTriShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    analysisTriShader.SetMat4("uModel", modelMatrix);
+
+    glBindVertexArray(analysisDebugTriVAO);
+    glDrawElements(GL_TRIANGLES, analysisDebugTriIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
+void OpenGLRenderer::UploadOverhangOverlayMesh(const std::vector<AnalysisTriVertex> &vertices,
+                                               const std::vector<uint32_t> &indices)
+{
+    overhangOverlayIndexCount = static_cast<uint32_t>(indices.size());
+
+    if (overhangOverlayVAO == 0)
+        glGenVertexArrays(1, &overhangOverlayVAO);
+    glBindVertexArray(overhangOverlayVAO);
+
+    if (overhangOverlayVBO == 0)
+        glGenBuffers(1, &overhangOverlayVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, overhangOverlayVBO);
+    glBufferData(GL_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(vertices.size() * sizeof(AnalysisTriVertex)),
+                 vertices.empty() ? nullptr : vertices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    if (overhangOverlayIBO == 0)
+        glGenBuffers(1, &overhangOverlayIBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, overhangOverlayIBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 static_cast<GLsizeiptr>(indices.size() * sizeof(uint32_t)),
+                 indices.empty() ? nullptr : indices.data(),
+                 GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(AnalysisTriVertex),
+                          (void *)offsetof(AnalysisTriVertex, position));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(AnalysisTriVertex),
+                          (void *)offsetof(AnalysisTriVertex, color));
+    glEnableVertexAttribArray(1);
+
+    glBindVertexArray(0);
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawOverhangOverlays()
+{
+    if (overhangOverlayIndexCount == 0)
+        return;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1.0f, -1.0f);
+
+    analysisTriShader.Use();
+    analysisTriShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    analysisTriShader.SetMat4("uModel", modelMatrix);
+
+    glBindVertexArray(overhangOverlayVAO);
+    glDrawElements(GL_TRIANGLES, overhangOverlayIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
 void OpenGLRenderer::DrawTriangles()
 {
     // Per-frame draw logs can flood stdout and stall interactive startup/import.
@@ -794,6 +1071,10 @@ void OpenGLRenderer::DrawTriangles()
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     shader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
@@ -802,6 +1083,7 @@ void OpenGLRenderer::DrawTriangles()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     shader.SetFloat("uLightingEnabled", 1.0f);
 
     GLboolean blendWas = GL_FALSE;
@@ -872,6 +1154,10 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     // Light from positive XYZ corner, matching the axis indicator colors
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     // Keep directional lighting readable without washing bright faces enough to hide wire edges.
     shader.SetFloat("uBrightenAmount", SceneLighting::SceneMeshBrightenAmount());
     shader.SetFloat("uBlueMin", 0.0f);
@@ -881,6 +1167,7 @@ void OpenGLRenderer::DrawTrianglesPass(bool writeColor)
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", 1.0f);
     shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
@@ -1034,6 +1321,10 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     shader.SetFloat("uBrightenAmount", 0.85f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
@@ -1042,6 +1333,7 @@ void OpenGLRenderer::DrawPickHighlight(bool xrayOverlay)
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     shader.SetFloat("uLightingEnabled", 1.0f);
     shader.SetFloat("uAlpha", xrayOverlay ? RenderingExperiments::kPickHighlightFaceXrayAlpha : 1.0f);
     shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
@@ -1108,6 +1400,10 @@ void OpenGLRenderer::DrawPickHighlightReject()
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     shader.SetFloat("uBrightenAmount", 0.22f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
@@ -1116,6 +1412,7 @@ void OpenGLRenderer::DrawPickHighlightReject()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", 1.0f);
     shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
@@ -1170,6 +1467,10 @@ void OpenGLRenderer::DrawPickHighlightCalibInvalid()
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     shader.SetFloat("uBrightenAmount", 0.22f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
@@ -1178,6 +1479,7 @@ void OpenGLRenderer::DrawPickHighlightCalibInvalid()
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     // Match reject pass: diffuse was washing poolTint toward white so blend looked like solid paint.
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", RenderingExperiments::kPickHighlightCalibInvalidPoolAlpha);
@@ -1374,6 +1676,10 @@ void OpenGLRenderer::DrawOpenBoundaryBlameFace(bool xrayOverlay)
     shader.SetMat4("uModel", modelMatrix);
     shader.SetVec3("uLightDir", SceneLighting::DirectionalLightDirWorld());
     shader.SetVec3("uViewPos", viewPos);
+    shader.SetVec3("uFogColor", Color::GetBase());
+    shader.SetFloat("uFogNear", fogNear);
+    shader.SetFloat("uFogFar", fogFar);
+    shader.SetFloat("uFogStrength", RenderingExperiments::kDepthCueMaxStrength);
     shader.SetFloat("uBrightenAmount", 0.22f);
     shader.SetFloat("uBlueMin", 0.0f);
     shader.SetFloat("uBlueMax", Color::GetBase().b * 10.0f);
@@ -1382,6 +1688,7 @@ void OpenGLRenderer::DrawOpenBoundaryBlameFace(bool xrayOverlay)
     shader.SetFloat("uGridPlaneFade", 0.0f);
     shader.SetFloat("uGridOpacity", 1.0f);
     shader.SetFloat("uClipZBiasW", RenderingExperiments::ClipZBiasSceneMeshW());
+    shader.SetFloat("uPriorityBiasScale", RenderingExperiments::PriorityBiasScale());
     shader.SetFloat("uLightingEnabled", 0.0f);
     shader.SetFloat("uAlpha", xrayOverlay ? 0.38f : 0.62f);
     shader.SetFloat("uStructureShellBackFaceOpaque", 0.0f);
@@ -1511,7 +1818,6 @@ void OpenGLRenderer::DrawStructurePreviewLines(float pixelWidth, bool xrayOverla
     lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
     lineShader.SetFloat("uClipZBiasW", 0.0f);
     lineShader.SetFloat("uLightingEnabled", 0.0f);
-    // Occluded (through shell) portion reads a touch stronger than hover span x-ray.
     lineShader.SetFloat("uAlpha", xrayOverlay ? 0.62f : 1.0f);
 
     GLboolean blendWas = GL_FALSE;
@@ -1543,6 +1849,76 @@ void OpenGLRenderer::DrawStructurePreviewLines(float pixelWidth, bool xrayOverla
 
     glBindVertexArray(structurePreviewLineVAO);
     glDrawElements(GL_LINES, structurePreviewLineIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+        glDisable(GL_POLYGON_OFFSET_FILL);
+
+    if (xrayOverlay)
+    {
+        glDepthMask(depthMaskWas);
+        if (depthTestWas)
+            glEnable(GL_DEPTH_TEST);
+        else
+            glDisable(GL_DEPTH_TEST);
+        if (!blendWas)
+            glDisable(GL_BLEND);
+    }
+    else
+    {
+        glDepthMask(GL_TRUE);
+    }
+
+    GetGLError();
+}
+
+void OpenGLRenderer::DrawAnalysisDebugLines(float pixelWidth, bool xrayOverlay)
+{
+    if (analysisDebugLineIndexCount == 0)
+        return;
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    lineShader.Use();
+    lineShader.SetMat4("uViewProjection", projectionMatrix * viewMatrix);
+    lineShader.SetMat4("uModel", modelMatrix);
+    lineShader.SetVec2("uViewportSize", glm::vec2(viewport[2], viewport[3]));
+    lineShader.SetFloat("uLineWidth", pixelWidth);
+    lineShader.SetFloat("uWireZNudgeNdc", LineShaderWireZNudgeNdc());
+    lineShader.SetFloat("uClipZBiasW", 0.0f);
+    lineShader.SetFloat("uLightingEnabled", 0.0f);
+    lineShader.SetFloat("uAlpha", xrayOverlay ? 0.62f : 1.0f);
+
+    GLboolean blendWas = GL_FALSE;
+    GLboolean depthTestWas = GL_FALSE;
+    GLboolean depthMaskWas = GL_TRUE;
+    if (xrayOverlay)
+    {
+        glGetBooleanv(GL_BLEND, &blendWas);
+        glGetBooleanv(GL_DEPTH_TEST, &depthTestWas);
+        glGetBooleanv(GL_DEPTH_WRITEMASK, &depthMaskWas);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthCompareBehind());
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(DepthComparePass());
+        glDepthMask(RenderingExperiments::kLineDrawsOmitDepthWrite ? GL_FALSE : GL_TRUE);
+    }
+
+    if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)
+    {
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(0.0f, 1.5f);
+    }
+
+    glBindVertexArray(analysisDebugLineVAO);
+    glDrawElements(GL_LINES, analysisDebugLineIndexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
 
     if (RenderingExperiments::kWireframeLinePolygonOffsetDeeper && !xrayOverlay)

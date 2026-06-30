@@ -94,6 +94,7 @@ private:
     bool InitializeShaders();
     void ResolveAnchors();
     void BuildMesh();
+    void RefreshMinWindowSize();
     TextMetrics ComputeTextMetrics() const;
     static void EmitRoundedRect(std::vector<UIVertex> &vertices, std::vector<uint32_t> &indices,
                                 uint32_t &vertexOffset, float x0, float y0, float x1, float y1,

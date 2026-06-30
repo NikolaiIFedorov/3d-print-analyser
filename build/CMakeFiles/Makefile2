@@ -66,12 +66,22 @@ CMAKE_BINARY_DIR = /Users/nikolnotai/Documents/CAD_OpenGl/build
 all: CMakeFiles/glad.dir/all
 all: CMakeFiles/CAD_OpenGL.dir/all
 all: CMakeFiles/occt_spike.dir/all
+all: CMakeFiles/test_fillet2d.dir/all
+all: CMakeFiles/test_chfi2d.dir/all
+all: CMakeFiles/test_structure_accept.dir/all
+all: CMakeFiles/test_slice_debug.dir/all
+all: CMakeFiles/test_inset_recarve.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
 codegen: CMakeFiles/glad.dir/codegen
 codegen: CMakeFiles/CAD_OpenGL.dir/codegen
 codegen: CMakeFiles/occt_spike.dir/codegen
+codegen: CMakeFiles/test_fillet2d.dir/codegen
+codegen: CMakeFiles/test_chfi2d.dir/codegen
+codegen: CMakeFiles/test_structure_accept.dir/codegen
+codegen: CMakeFiles/test_slice_debug.dir/codegen
+codegen: CMakeFiles/test_inset_recarve.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -82,6 +92,11 @@ preinstall:
 clean: CMakeFiles/glad.dir/clean
 clean: CMakeFiles/CAD_OpenGL.dir/clean
 clean: CMakeFiles/occt_spike.dir/clean
+clean: CMakeFiles/test_fillet2d.dir/clean
+clean: CMakeFiles/test_chfi2d.dir/clean
+clean: CMakeFiles/test_structure_accept.dir/clean
+clean: CMakeFiles/test_slice_debug.dir/clean
+clean: CMakeFiles/test_inset_recarve.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -91,12 +106,12 @@ clean: CMakeFiles/occt_spike.dir/clean
 CMakeFiles/glad.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/glad.dir/build.make CMakeFiles/glad.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/glad.dir/build.make CMakeFiles/glad.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=58,59 "Built target glad"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=50 "Built target glad"
 .PHONY : CMakeFiles/glad.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/glad.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 2
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 1
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/glad.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
 .PHONY : CMakeFiles/glad.dir/rule
@@ -108,7 +123,7 @@ glad: CMakeFiles/glad.dir/rule
 # codegen rule for target.
 CMakeFiles/glad.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/glad.dir/build.make CMakeFiles/glad.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=58,59 "Finished codegen for target glad"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=50 "Finished codegen for target glad"
 .PHONY : CMakeFiles/glad.dir/codegen
 
 # clean rule for target.
@@ -123,12 +138,12 @@ CMakeFiles/glad.dir/clean:
 CMakeFiles/CAD_OpenGL.dir/all: CMakeFiles/glad.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57 "Built target CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49 "Built target CAD_OpenGL"
 .PHONY : CMakeFiles/CAD_OpenGL.dir/all
 
 # Build rule for subdir invocation for target.
 CMakeFiles/CAD_OpenGL.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 59
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 50
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/CAD_OpenGL.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
 .PHONY : CMakeFiles/CAD_OpenGL.dir/rule
@@ -140,7 +155,7 @@ CAD_OpenGL: CMakeFiles/CAD_OpenGL.dir/rule
 # codegen rule for target.
 CMakeFiles/CAD_OpenGL.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57 "Finished codegen for target CAD_OpenGL"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49 "Finished codegen for target CAD_OpenGL"
 .PHONY : CMakeFiles/CAD_OpenGL.dir/codegen
 
 # clean rule for target.
@@ -155,7 +170,7 @@ CMakeFiles/CAD_OpenGL.dir/clean:
 CMakeFiles/occt_spike.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=60,61 "Built target occt_spike"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=51,52 "Built target occt_spike"
 .PHONY : CMakeFiles/occt_spike.dir/all
 
 # Build rule for subdir invocation for target.
@@ -172,13 +187,173 @@ occt_spike: CMakeFiles/occt_spike.dir/rule
 # codegen rule for target.
 CMakeFiles/occt_spike.dir/codegen:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=60,61 "Finished codegen for target occt_spike"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=51,52 "Finished codegen for target occt_spike"
 .PHONY : CMakeFiles/occt_spike.dir/codegen
 
 # clean rule for target.
 CMakeFiles/occt_spike.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/clean
 .PHONY : CMakeFiles/occt_spike.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_fillet2d.dir
+
+# All Build rule for target.
+CMakeFiles/test_fillet2d.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=54,55 "Built target test_fillet2d"
+.PHONY : CMakeFiles/test_fillet2d.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_fillet2d.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 2
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_fillet2d.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_fillet2d.dir/rule
+
+# Convenience name for target.
+test_fillet2d: CMakeFiles/test_fillet2d.dir/rule
+.PHONY : test_fillet2d
+
+# codegen rule for target.
+CMakeFiles/test_fillet2d.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=54,55 "Finished codegen for target test_fillet2d"
+.PHONY : CMakeFiles/test_fillet2d.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_fillet2d.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/clean
+.PHONY : CMakeFiles/test_fillet2d.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_chfi2d.dir
+
+# All Build rule for target.
+CMakeFiles/test_chfi2d.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=53 "Built target test_chfi2d"
+.PHONY : CMakeFiles/test_chfi2d.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_chfi2d.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 1
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_chfi2d.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_chfi2d.dir/rule
+
+# Convenience name for target.
+test_chfi2d: CMakeFiles/test_chfi2d.dir/rule
+.PHONY : test_chfi2d
+
+# codegen rule for target.
+CMakeFiles/test_chfi2d.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=53 "Finished codegen for target test_chfi2d"
+.PHONY : CMakeFiles/test_chfi2d.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_chfi2d.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/clean
+.PHONY : CMakeFiles/test_chfi2d.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_structure_accept.dir
+
+# All Build rule for target.
+CMakeFiles/test_structure_accept.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100 "Built target test_structure_accept"
+.PHONY : CMakeFiles/test_structure_accept.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_structure_accept.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 22
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_structure_accept.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_structure_accept.dir/rule
+
+# Convenience name for target.
+test_structure_accept: CMakeFiles/test_structure_accept.dir/rule
+.PHONY : test_structure_accept
+
+# codegen rule for target.
+CMakeFiles/test_structure_accept.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100 "Finished codegen for target test_structure_accept"
+.PHONY : CMakeFiles/test_structure_accept.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_structure_accept.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/clean
+.PHONY : CMakeFiles/test_structure_accept.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_slice_debug.dir
+
+# All Build rule for target.
+CMakeFiles/test_slice_debug.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=67,68,69,70,71,72,73,74,75,76,77,78 "Built target test_slice_debug"
+.PHONY : CMakeFiles/test_slice_debug.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_slice_debug.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 12
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_slice_debug.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_slice_debug.dir/rule
+
+# Convenience name for target.
+test_slice_debug: CMakeFiles/test_slice_debug.dir/rule
+.PHONY : test_slice_debug
+
+# codegen rule for target.
+CMakeFiles/test_slice_debug.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=67,68,69,70,71,72,73,74,75,76,77,78 "Finished codegen for target test_slice_debug"
+.PHONY : CMakeFiles/test_slice_debug.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_slice_debug.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/clean
+.PHONY : CMakeFiles/test_slice_debug.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/test_inset_recarve.dir
+
+# All Build rule for target.
+CMakeFiles/test_inset_recarve.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=56,57,58,59,60,61,62,63,64,65,66 "Built target test_inset_recarve"
+.PHONY : CMakeFiles/test_inset_recarve.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/test_inset_recarve.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 11
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/test_inset_recarve.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles 0
+.PHONY : CMakeFiles/test_inset_recarve.dir/rule
+
+# Convenience name for target.
+test_inset_recarve: CMakeFiles/test_inset_recarve.dir/rule
+.PHONY : test_inset_recarve
+
+# codegen rule for target.
+CMakeFiles/test_inset_recarve.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/Users/nikolnotai/Documents/CAD_OpenGl/build/CMakeFiles --progress-num=56,57,58,59,60,61,62,63,64,65,66 "Finished codegen for target test_inset_recarve"
+.PHONY : CMakeFiles/test_inset_recarve.dir/codegen
+
+# clean rule for target.
+CMakeFiles/test_inset_recarve.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/clean
+.PHONY : CMakeFiles/test_inset_recarve.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

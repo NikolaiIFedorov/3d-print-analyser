@@ -82,4 +82,4 @@ Also bump **`Last updated:`** at the top of `documentation/TODO` when you change
 - **`cad-feature-workflow`** — implementation and retro; not a substitute for Architecture + TODO.
 - **`cad-architecture-solid-dry`** — vocabulary for principles and tradeoffs sections.
 
-Canonical project habits: [practices/best_practices.md](../../../practices/best_practices.md).
+Canonical project habits: [practices/project_practices.md](../../../practices/project_practices.md).

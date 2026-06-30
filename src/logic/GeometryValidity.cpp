@@ -226,8 +226,7 @@ bool TryRepairSolidBRep(Scene *scene, Solid &solid) noexcept
                     oe.edge->dependencies.erase(face);
             }
         }
-        face->loops.clear();
-        face->dependency = nullptr;
+        face->ClearForRemoval();
     }
     solid.faces.clear();
 

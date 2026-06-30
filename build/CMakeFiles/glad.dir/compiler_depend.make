@@ -93,16 +93,18 @@ CMakeFiles/glad.dir/include/glad/src/glad.c.o: /Users/nikolnotai/Documents/CAD_O
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/signal.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/stdio.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/wait.h \
-  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/ptrcheck.h \
-  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdbool.h \
-  /Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/21/include/ptrcheck.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/21/include/stdbool.h \
+  /Library/Developer/CommandLineTools/usr/lib/clang/21/include/stdint.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/KHR/khrplatform.h \
   /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h
 
 
 /Users/nikolnotai/Documents/CAD_OpenGl/include/glad/include/glad/glad.h:
 
-/Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdbool.h:
+/Library/Developer/CommandLineTools/usr/lib/clang/21/include/stdint.h:
+
+/Library/Developer/CommandLineTools/usr/lib/clang/21/include/ptrcheck.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/stdio.h:
 
@@ -114,13 +116,13 @@ CMakeFiles/glad.dir/include/glad/src/glad.c.o: /Users/nikolnotai/Documents/CAD_O
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_wchar_t.h:
 
+/Library/Developer/CommandLineTools/usr/lib/clang/21/include/stdbool.h:
+
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_uintptr_t.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_uid_t.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_ucontext.h:
-
-/Library/Developer/CommandLineTools/usr/lib/clang/17/include/ptrcheck.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_u_int8_t.h:
 
@@ -257,8 +259,6 @@ CMakeFiles/glad.dir/include/glad/src/glad.c.o: /Users/nikolnotai/Documents/CAD_O
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_off_t.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/stdint.h:
-
-/Library/Developer/CommandLineTools/usr/lib/clang/17/include/stdint.h:
 
 /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/_types/_mode_t.h:
 

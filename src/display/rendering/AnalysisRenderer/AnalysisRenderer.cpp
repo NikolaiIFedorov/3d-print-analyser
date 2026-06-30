@@ -79,9 +79,13 @@ void AnalysisRenderer::SetCamera(Camera &camera)
 
 void AnalysisRenderer::Update(Scene *scene, const AnalysisResults &results)
 {
+    std::vector<AnalysisVertex> triVerts;
+    std::vector<uint32_t> triIndices;
+    GenerateFaceOverlays(scene, results, triVerts, triIndices);
+    UploadTriangles(triVerts, triIndices);
+
     std::vector<AnalysisVertex> lineVerts;
     std::vector<uint32_t> lineIndices;
-    GenerateLayerLines(results, lineVerts, lineIndices);
     UploadLines(lineVerts, lineIndices);
 }
 
@@ -136,6 +140,8 @@ static void TriangulateFace(const Face *face, const glm::vec4 &color,
                             std::vector<AnalysisVertex> &vertices,
                             std::vector<uint32_t> &indices)
 {
+    if (face == nullptr || !face->HasGeometry())
+        return;
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
     glm::dvec3 uAxis, vAxis;
     CreatePlaneCoordinateSystem(faceNormal, uAxis, vAxis);
@@ -234,13 +240,56 @@ static void TriangulateFace(const Face *face, const glm::vec4 &color,
         indices.push_back(baseIndex + idx);
 }
 
+// Renders a polygon that is already flat in XY (e.g. an overhang diff ring at a fixed layer Z).
+// Earcutting directly in XY avoids projecting onto a face plane, which distorts the polygon for
+// curved or non-horizontal faces.
+static void TriangulateHorizontalRing(const std::vector<glm::dvec3> &ring,
+                                      const glm::vec4 &color,
+                                      std::vector<AnalysisVertex> &vertices,
+                                      std::vector<uint32_t> &indices)
+{
+    if (ring.size() < 3)
+        return;
+
+    using Point2D = std::array<double, 2>;
+    std::vector<Point2D> loop2D;
+    loop2D.reserve(ring.size());
+    for (const auto &pt : ring)
+        loop2D.push_back({pt.x, pt.y});
+
+    // Ensure CCW winding for earcut
+    double area = 0.0;
+    for (size_t j = 0; j < loop2D.size(); j++)
+    {
+        size_t k = (j + 1) % loop2D.size();
+        area += loop2D[j][0] * loop2D[k][1] - loop2D[k][0] * loop2D[j][1];
+    }
+
+    std::vector<glm::dvec3> ordered = ring;
+    if (area < 0)
+    {
+        std::reverse(loop2D.begin(), loop2D.end());
+        std::reverse(ordered.begin(), ordered.end());
+    }
+
+    auto triIndices = mapbox::earcut<uint32_t>(std::vector<std::vector<Point2D>>{loop2D});
+    if (triIndices.empty())
+        return;
+
+    uint32_t base = static_cast<uint32_t>(vertices.size());
+    for (const auto &pt : ordered)
+        vertices.push_back({glm::vec3(pt), color});
+    for (uint32_t idx : triIndices)
+        indices.push_back(base + idx);
+}
+
 static void TriangulateClipBoundary(const Face *face,
                                     const std::vector<glm::dvec3> &boundary,
                                     const glm::vec4 &color,
                                     std::vector<AnalysisVertex> &vertices,
                                     std::vector<uint32_t> &indices)
 {
-    if (boundary.size() < 3)
+    if (face == nullptr || !face->HasGeometry() || boundary.size() < 3)
         return;
 
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
@@ -328,6 +377,8 @@ static void TriangulateFaceZClipped(const Face *face, const ZBounds &zb,
                                     std::vector<AnalysisVertex> &vertices,
                                     std::vector<uint32_t> &indices)
 {
+    if (face == nullptr || !face->HasGeometry())
+        return;
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
     glm::dvec3 uAxis, vAxis;
     CreatePlaneCoordinateSystem(faceNormal, uAxis, vAxis);
@@ -436,17 +487,14 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
                                             std::vector<AnalysisVertex> &vertices,
                                             std::vector<uint32_t> &indices) const
 {
-    for (const auto &[face, flaw] : results.faceFlaws)
-    {
-        if (flaw == FaceFlawKind::NONE)
-            continue;
-        TriangulateFace(face, Color::GetFace(flaw), vertices, indices);
-    }
-
     for (const auto &[solid, faceFlaws] : results.faceFlawRanges)
     {
         for (const auto &ff : faceFlaws)
         {
+            if (ff.face == nullptr || !ff.face->HasGeometry())
+                continue;
+            if (ff.flaw == FaceFlawKind::SHARP_CORNER)
+                continue;
             glm::vec4 color = Color::GetFace(ff.flaw);
             if (!ff.clipBoundary.empty())
                 TriangulateClipBoundary(ff.face, ff.clipBoundary, color, vertices, indices);
@@ -517,24 +565,6 @@ void AnalysisRenderer::GenerateFaceOverlays(Scene *scene, const AnalysisResults 
     }
 }
 
-void AnalysisRenderer::GenerateLayerLines(const AnalysisResults &results,
-                                          std::vector<AnalysisVertex> &vertices,
-                                          std::vector<uint32_t> &indices) const
-{
-    for (const auto &[solid, edgeFlaws] : results.edgeFlaws)
-    {
-        for (const auto &ef : edgeFlaws)
-        {
-            glm::vec4 color = Color::GetEdge(ef.flaw);
-            uint32_t base = vertices.size();
-            vertices.push_back({glm::vec3(ef.edge->startPoint->position), color});
-            vertices.push_back({glm::vec3(ef.edge->endPoint->position), color});
-            indices.push_back(base);
-            indices.push_back(base + 1);
-        }
-    }
-}
-
 // -- GL resource management --
 
 void AnalysisRenderer::UploadTriangles(const std::vector<AnalysisVertex> &vertices,
@@ -599,6 +629,33 @@ void AnalysisRenderer::UploadLines(const std::vector<AnalysisVertex> &vertices,
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+}
+
+void AnalysisRenderer::RenderTriangles()
+{
+    if (triangleIndexCount == 0)
+        return;
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1.0f, -1.0f);
+
+    shader.Use();
+    shader.SetMat4("uViewProjection", viewProjection);
+    shader.SetMat4("uModel", glm::mat4(1.0f));
+
+    glBindVertexArray(triangleVAO);
+    glDrawElements(GL_TRIANGLES, triangleIndexCount, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
 }
 
 void AnalysisRenderer::Render()

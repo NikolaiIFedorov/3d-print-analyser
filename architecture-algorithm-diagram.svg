@@ -1,0 +1,305 @@
+<svg viewBox="0 0 2450 1750" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Main loop algorithm — CAD_OpenGL</title>
+<desc>The application's top-level control flow: sleep until woken by a user input event or a worker-thread completion. Resize is a special exception path that bypasses the normal relevance check and renders immediately. Other user events go through relevance checking, then either update UI-local state or a tool's flow (Prerequisites/Selections, then modifying/calculating/hybrid/settings-change). Worker completions bypass UI's relevance check since Scene already knows the work matters; an Operation/Import completion checks success before committing. Everything converges on one state-changed check before rendering and sleeping again.</desc>
+<defs>
+<marker id="arrow2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/>
+</marker>
+</defs>
+<rect x="0" y="0" width="2450" height="1750" fill="#ffffff"/>
+
+<text x="1225" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1a1a1a">Main loop — one continuous cycle, sleep to sleep</text>
+
+<!-- SLEEP -->
+<rect x="925" y="50" width="300" height="48" rx="24" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1075" y="79" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">Sleep until vsync or a wake-up</text>
+
+<line x1="1075" y1="98" x2="1075" y2="133" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+<polygon points="1075,133 1190,193 1075,253 960,193" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1075" y="189" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">What woke</text>
+<text x="1075" y="203" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">it?</text>
+
+<line x1="960" y1="193" x2="510" y2="193" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="650" y="183" font-size="10" fill="#4b5563">user input event</text>
+
+<line x1="1190" y1="193" x2="1700" y2="193" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="1350" y="183" font-size="10" fill="#4b5563">worker-completion wake</text>
+
+<!-- ============== RESIZE EXCEPTION (off the user-event arrow) ============== -->
+<line x1="510" y1="193" x2="510" y2="223" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="510,223 600,263 510,303 420,263" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="510" y="259" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Resize</text>
+<text x="510" y="272" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">event?</text>
+
+<line x1="420" y1="263" x2="220" y2="263" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="260" y="253" font-size="9" fill="#4b5563">yes — exception path</text>
+
+<rect x="60" y="288" width="320" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="220" y="308" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Sync watcher updates viewport,</text>
+<text x="220" y="321" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">camera aspect-ratio, ortho clip bounds</text>
+<text x="220" y="334" text-anchor="middle" font-size="8" fill="#4b5563">— not the normal relevance-checked path</text>
+
+<line x1="220" y1="343" x2="220" y2="368" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<rect x="60" y="368" width="320" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="220" y="388" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Re-resolve anchors: priority-ranked</text>
+<text x="220" y="401" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">collapse, panel layout reflow</text>
+<text x="220" y="414" text-anchor="middle" font-size="8" fill="#4b5563">viewport itself stays fixed size — panels overlay it</text>
+
+<line x1="220" y1="423" x2="220" y2="448" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<rect x="60" y="448" width="320" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="220" y="468" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Push camera matrices to renderer(s);</text>
+<text x="220" y="481" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">render now</text>
+<text x="220" y="494" text-anchor="middle" font-size="8" fill="#4b5563">bypasses the state-changed check below — already rendering</text>
+
+<path d="M 60 510 C 15 510, 15 70, 925 70" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2" marker-end="url(#arrow2)"/>
+<text x="40" y="350" font-size="8.5" fill="#4b5563" transform="rotate(-90 40 350)">loop straight back to sleep — does not</text>
+<text x="55" y="350" font-size="8.5" fill="#4b5563" transform="rotate(-90 55 350)">touch the relevance check or convergence</text>
+
+<line x1="600" y1="263" x2="700" y2="263" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="615" y="253" font-size="9" fill="#4b5563">no</text>
+
+<!-- ============== NORMAL USER EVENT PATH ============== -->
+<rect x="710" y="238" width="300" height="50" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="860" y="268" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">UI checks relevance (the only other gate)</text>
+
+<line x1="860" y1="288" x2="860" y2="323" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="860,323 930,358 860,393 790,358" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="860" y="363" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">Relevant?</text>
+
+<path d="M 790 358 C 650 358, 650 70, 925 70" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2" marker-end="url(#arrow2)"/>
+<text x="660" y="345" font-size="9" fill="#4b5563">no → back to sleep</text>
+
+<line x1="860" y1="393" x2="860" y2="428" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="870" y="418" font-size="9" fill="#4b5563">yes</text>
+
+<polygon points="860,428 960,463 860,498 760,463" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="860" y="458" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">UI-local or</text>
+<text x="860" y="471" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">domain-mutating?</text>
+
+<!-- UI-local leaf -->
+<line x1="760" y1="463" x2="650" y2="463" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="660" y="453" font-size="9" fill="#4b5563">local</text>
+<rect x="460" y="438" width="280" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="600" y="458" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">UI updates itself</text>
+<text x="600" y="471" text-anchor="middle" font-size="8.5" fill="#4b5563">camera, panel layout,</text>
+<text x="600" y="483" text-anchor="middle" font-size="8.5" fill="#4b5563">in-progress selection,</text>
+<text x="600" y="495" text-anchor="middle" font-size="8.5" fill="#4b5563">hover-to-render request</text>
+<circle cx="600" cy="545" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="600" y="549" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="600" y1="518" x2="600" y2="532" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- domain-mutating: Prereqs + Selections gate -->
+<line x1="960" y1="463" x2="1060" y2="463" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="970" y="453" font-size="9" fill="#4b5563">domain</text>
+<rect x="1070" y="438" width="260" height="50" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1200" y="468" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Check Prerequisites + Selections</text>
+
+<line x1="1200" y1="488" x2="1200" y2="523" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="1200,523 1280,558 1200,593 1120,558" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1200" y="563" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Satisfied?</text>
+
+<line x1="1120" y1="558" x2="1020" y2="558" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1025" y="548" font-size="9" fill="#4b5563">no</text>
+<rect x="820" y="533" width="220" height="50" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="930" y="553" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Tool panel shows what's</text>
+<text x="930" y="566" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">missing (required vs optional)</text>
+<circle cx="930" cy="615" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="930" y="619" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="930" y1="583" x2="930" y2="601" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<line x1="1200" y1="593" x2="1200" y2="628" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="1210" y="618" font-size="9" fill="#4b5563">yes</text>
+
+<polygon points="1200,628 1320,693 1200,758 1080,693" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1200" y="688" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Tool shape?</text>
+<text x="1200" y="702" text-anchor="middle" font-size="8" fill="#4b5563">(Tool Panels, see map)</text>
+
+<!-- 4-way fan to tool-shape columns — start points verified on the diamond's own edges -->
+<line x1="1140" y1="725" x2="400" y2="798" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="760" y="775" font-size="8.5" fill="#4b5563">modifying</text>
+<line x1="1180" y1="748" x2="1010" y2="798" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1100" y="788" font-size="8.5" fill="#4b5563">calculating</text>
+<line x1="1220" y1="748" x2="1470" y2="798" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1350" y="788" font-size="8.5" fill="#4b5563">hybrid</text>
+<line x1="1260" y1="725" x2="2010" y2="798" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1660" y="770" font-size="8.5" fill="#4b5563">settings</text>
+
+<!-- ============== MODIFYING band: x=40-860 ============== -->
+<rect x="270" y="800" width="260" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="400" y="820" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Submit/update preview job to</text>
+<text x="400" y="833" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Shared (debounced)</text>
+<text x="400" y="846" text-anchor="middle" font-size="8" fill="#4b5563">Import, Structure, Cut — shows last</text>
+<text x="400" y="857" text-anchor="middle" font-size="8" fill="#4b5563">cached preview meanwhile</text>
+
+<line x1="400" y1="865" x2="400" y2="895" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="400,895 480,935 400,975 320,935" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="400" y="930" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Accept or</text>
+<text x="400" y="943" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Cancel?</text>
+
+<line x1="320" y1="935" x2="220" y2="935" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="225" y="925" font-size="8.5" fill="#4b5563">cancel</text>
+<rect x="80" y="910" width="140" height="45" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="150" y="936" text-anchor="middle" font-size="9" fill="#1a1a1a">Discard preview</text>
+<circle cx="150" cy="995" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="150" y="999" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="150" y1="955" x2="150" y2="982" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<line x1="480" y1="935" x2="570" y2="935" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="490" y="925" font-size="8.5" fill="#4b5563">accept</text>
+<rect x="580" y="895" width="270" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="715" y="915" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Scene submits Operation job</text>
+<text x="715" y="928" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">to Shared — runs async</text>
+<text x="715" y="945" text-anchor="middle" font-size="8.5" fill="#4b5563">→ shows progress bar, updated via</text>
+<text x="715" y="957" text-anchor="middle" font-size="8.5" fill="#4b5563">checkpoint/phase callbacks until the</text>
+<text x="715" y="969" text-anchor="middle" font-size="8.5" fill="#4b5563">worker-completion wake clears it</text>
+<circle cx="715" cy="1015" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="715" y="1019" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="715" y1="975" x2="715" y2="1002" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- ============== CALCULATING band: x=900-1120 ============== -->
+<rect x="900" y="800" width="220" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1010" y="822" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Compute synchronously</text>
+<text x="1010" y="835" text-anchor="middle" font-size="8.5" fill="#4b5563">cheap geometry math — Calibrate</text>
+<text x="1010" y="847" text-anchor="middle" font-size="8.5" fill="#4b5563">no worker thread needed</text>
+
+<line x1="1010" y1="855" x2="1010" y2="880" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<rect x="920" y="880" width="180" height="40" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1010" y="904" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Show copyable results</text>
+<circle cx="1010" cy="955" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="1010" y="959" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="1010" y1="920" x2="1010" y2="942" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- ============== HYBRID band: x=1160-1780 ============== -->
+<rect x="1340" y="800" width="260" height="55" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1470" y="820" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Submit orientation-sweep job</text>
+<text x="1470" y="833" text-anchor="middle" font-size="8.5" fill="#4b5563">reuses Analysis's detectors across</text>
+<text x="1470" y="845" text-anchor="middle" font-size="8.5" fill="#4b5563">candidate bed orientations</text>
+
+<line x1="1470" y1="855" x2="1470" y2="880" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<rect x="1350" y="880" width="240" height="40" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1470" y="904" text-anchor="middle" font-size="9" fill="#1a1a1a">Show recommendation preview</text>
+
+<line x1="1470" y1="920" x2="1470" y2="955" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="1470,955 1540,990 1470,1025 1400,990" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5" stroke-dasharray="4,3"/>
+<text x="1470" y="995" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Accept?</text>
+
+<line x1="1400" y1="990" x2="1340" y2="990" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1345" y="980" font-size="8.5" fill="#4b5563">no</text>
+<circle cx="1310" cy="990" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="1310" y="994" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+
+<line x1="1540" y1="990" x2="1600" y2="990" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1548" y="980" font-size="8.5" fill="#4b5563">yes</text>
+<rect x="1610" y="965" width="260" height="50" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1740" y="985" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Update UI-local build-</text>
+<text x="1740" y="998" text-anchor="middle" font-size="8.5" fill="#4b5563">direction state — no Operation</text>
+<circle cx="1740" cy="1050" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="1740" y="1054" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="1740" y1="1015" x2="1740" y2="1037" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- ============== SETTINGS band: x=1900-2120 ============== -->
+<rect x="1900" y="800" width="220" height="60" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="2010" y="823" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Scene updates + persists</text>
+<text x="2010" y="836" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">the setting</text>
+<text x="2010" y="850" text-anchor="middle" font-size="8" fill="#4b5563">global, or tool-specific on its own panel</text>
+<circle cx="2010" cy="905" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="2010" y="909" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="2010" y1="860" x2="2010" y2="892" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- ============== RIGHT: WORKER WAKE BRANCH ============== -->
+<rect x="1700" y="218" width="370" height="50" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1885" y="241" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1a1a1a">Scene handles directly</text>
+<text x="1885" y="255" text-anchor="middle" font-size="8.5" fill="#4b5563">no UI relevance check — Scene already knows it matters</text>
+
+<line x1="1885" y1="268" x2="1885" y2="303" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="1885,303 1965,343 1885,383 1805,343" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1885" y="339" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Which job</text>
+<text x="1885" y="352" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">completed?</text>
+
+<line x1="1805" y1="343" x2="1700" y2="343" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1610" y="333" font-size="8.5" fill="#4b5563">Operation / Import</text>
+
+<line x1="1700" y1="385" x2="1700" y2="420" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<polygon points="1700,420 1780,460 1700,500 1620,460" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="1700" y="455" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Succeeded?</text>
+
+<line x1="1620" y1="460" x2="1480" y2="460" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1500" y="450" font-size="8.5" fill="#4b5563">no</text>
+<rect x="1260" y="430" width="220" height="60" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1370" y="450" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Progress bar shows error:</text>
+<text x="1370" y="463" text-anchor="middle" font-size="8.5" fill="#4b5563">copyable code + actionable</text>
+<text x="1370" y="475" text-anchor="middle" font-size="8.5" fill="#4b5563">message + optional why</text>
+<circle cx="1370" cy="540" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="1370" y="544" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="1370" y1="490" x2="1370" y2="527" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<line x1="1700" y1="500" x2="1700" y2="535" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="1710" y="525" font-size="8.5" fill="#4b5563">yes</text>
+<rect x="1560" y="535" width="280" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1700" y="555" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Scene commits new `current`,</text>
+<text x="1700" y="568" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">pushes old shape to `history`</text>
+
+<line x1="1700" y1="590" x2="1700" y2="625" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<rect x="1560" y="625" width="280" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1700" y="645" text-anchor="middle" font-size="9.5" font-weight="600" fill="#1a1a1a">Scene submits an Analysis job</text>
+<text x="1700" y="658" text-anchor="middle" font-size="8.5" fill="#4b5563">to Shared — same per-Part slot,</text>
+<text x="1700" y="670" text-anchor="middle" font-size="8.5" fill="#4b5563">naturally sequenced after the commit</text>
+<text x="1700" y="682" text-anchor="middle" font-size="8.5" fill="#4b5563">→ shows progress bar in the meantime</text>
+<circle cx="1700" cy="730" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="1700" y="734" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="1700" y1="690" x2="1700" y2="717" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<line x1="1965" y1="343" x2="2030" y2="343" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="1970" y="333" font-size="8.5" fill="#4b5563">Analysis</text>
+<rect x="1900" y="368" width="240" height="60" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="2020" y="388" text-anchor="middle" font-size="9" font-weight="600" fill="#1a1a1a">Analysis commits its Issues</text>
+<text x="2020" y="401" text-anchor="middle" font-size="8.5" fill="#4b5563">cache for that Part (owned by</text>
+<text x="2020" y="413" text-anchor="middle" font-size="8.5" fill="#4b5563">Analysis, not Part), clears pending flag</text>
+<circle cx="2020" cy="463" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="2020" y="467" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="2020" y1="428" x2="2020" y2="450" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+
+<!-- preview-compute: routed clear around the right edge of the Analysis box (x<=2140) -->
+<path d="M 1965 320 C 2150 320, 2290 320, 2290 495" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<text x="2060" y="310" font-size="8.5" fill="#4b5563">preview-compute</text>
+<rect x="2180" y="500" width="220" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="2290" y="520" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1a1a1a">Update the live-preview /</text>
+<text x="2290" y="533" text-anchor="middle" font-size="8.5" font-weight="600" fill="#1a1a1a">latest-intermediate-result slot</text>
+<text x="2290" y="546" text-anchor="middle" font-size="8" fill="#4b5563">(Shared, owned there — see map)</text>
+<line x1="2290" y1="565" x2="2290" y2="595" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow2)"/>
+<circle cx="2290" cy="610" r="13" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="2290" y="614" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a1a">A</text>
+
+<!-- ============== CONVERGENCE ============== -->
+<rect x="20" y="1180" width="2410" height="170" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="32" y="1198" font-size="11" font-weight="700" fill="#1a1a1a">Every branch above ends at a connector A — converges here, once</text>
+
+<circle cx="250" cy="1250" r="15" fill="#ffffff" stroke="#81c784" stroke-width="1.5"/>
+<text x="250" y="1255" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">A</text>
+<line x1="266" y1="1250" x2="350" y2="1250" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+<polygon points="350,1220 530,1250 350,1280 170,1250" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="350" y="1245" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">UI or Scene state</text>
+<text x="350" y="1259" text-anchor="middle" font-size="10" font-weight="600" fill="#1a1a1a">changed since last frame?</text>
+
+<line x1="530" y1="1250" x2="670" y2="1250" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="570" y="1240" font-size="9" fill="#4b5563">yes</text>
+
+<rect x="680" y="1215" width="560" height="70" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="960" y="1238" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1a1a1a">Render: read Scene + UI camera + live-preview slot,</text>
+<text x="960" y="1252" text-anchor="middle" font-size="10.5" font-weight="600" fill="#1a1a1a">triangulate-if-missing, z-fighting tie-break, draw</text>
+<text x="960" y="1266" text-anchor="middle" font-size="9" fill="#4b5563">bounded time budget per frame — never stutters</text>
+
+<path d="M 350 1220 C 350 1170, 1075 1170, 1075 100" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2" marker-end="url(#arrow2)"/>
+<text x="600" y="1180" font-size="9" fill="#4b5563">no → back to sleep, no redraw</text>
+
+<path d="M 1240 1250 C 1500 1250, 1500 100, 1100 75" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow2)"/>
+<text x="1350" y="1240" font-size="9" fill="#4b5563">loop back to sleep</text>
+
+<text x="32" y="1340" font-size="9" font-style="italic" fill="#4b5563">Companion to architecture-diagram.svg (the ownership map). Same abstraction level as the tool</text>
+<text x="32" y="1353" font-size="9" font-style="italic" fill="#4b5563">algorithms there — decisions and named steps, not literal code. Rendering's own small features</text>
+<text x="32" y="1366" font-size="9" font-style="italic" fill="#4b5563">(z-fighting tie-break, fog) are deliberately left as one line in the Render box — see the ownership</text>
+<text x="32" y="1379" font-size="9" font-style="italic" fill="#4b5563">map for their origin/reasoning, not duplicated here.</text>
+
+</svg>

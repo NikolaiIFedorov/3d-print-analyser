@@ -5,6 +5,7 @@
 #include "utils/log.hpp"
 #include "imgui.h"
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 static constexpr float SPLITTER_HEIGHT = 0.125f; // splitter line thickness in cells
@@ -1015,7 +1016,7 @@ void UIRenderer::ComputeMinGridSize()
 
         float w = 0.0f;
         if (panel.leftAnchor && panel.rightAnchor)
-            w = panel.minWidth.value_or(panel.width.value_or(0.0f));
+            w = panel.minWidth.value_or(panel.width.value_or(panel.box.outerWidth));
         else if (panel.width)
             w = *panel.width;
         else
@@ -1041,7 +1042,7 @@ void UIRenderer::ComputeMinGridSize()
 
         float h = 0.0f;
         if (panel.topAnchor && panel.bottomAnchor)
-            h = panel.minHeight.value_or(panel.height.value_or(0.0f));
+            h = panel.minHeight.value_or(panel.height.value_or(panel.box.outerHeight));
         else if (panel.height)
             h = *panel.height;
         else
@@ -1078,8 +1079,11 @@ void UIRenderer::ComputeMinGridSize()
                     float secW = 2.0f * el.padding + secTextW / grid.cellSizeX;
                     totalWidth += SPLITTER_TOTAL + secW;
                 }
-                if (!panel.rightAnchor && !panel.width)
-                    r.colSpan = totalWidth;
+                // Unlike the real (non-min) layout pass, a right/width-anchored horizontal panel
+                // still needs its full tab content to fit at the window's minimum size — anchoring
+                // only lets it grow beyond content in the normal pass, it never lets it shrink below.
+                if (!panel.minWidth.has_value())
+                    r.colSpan = std::max(r.colSpan, totalWidth);
             }
             else
             {
@@ -1104,14 +1108,26 @@ void UIRenderer::ComputeMinGridSize()
 
 void UIRenderer::BuildMesh()
 {
+    const auto buildMeshStart = std::chrono::steady_clock::now();
+
     ResolveAnchors();
+
+    const double anchorsMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - buildMeshStart).count();
+    if (anchorsMs >= 1.0)
+        LOG_SESSION("Render stage", "buildmesh_resolve_anchors", "ms", anchorsMs);
 
     std::vector<UIVertex> vertices;
     std::vector<uint32_t> indices;
 
     uint32_t vertexOffset = 0;
 
+    const auto metricsStart = std::chrono::steady_clock::now();
     TextMetrics tm = ComputeTextMetrics();
+    const double metricsMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - metricsStart).count();
+    if (metricsMs >= 1.0)
+        LOG_SESSION("Render stage", "buildmesh_text_metrics", "ms", metricsMs);
+
+    const auto emitStart = std::chrono::steady_clock::now();
 
     // Emit background rect for a UIElement.
     auto emitBackground = [&](const UIElement &item, glm::vec4 color)
@@ -1309,10 +1325,16 @@ void UIRenderer::BuildMesh()
         }
     }
 
+    const double emitMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - emitStart).count();
+    if (emitMs >= 1.0)
+        LOG_SESSION("Render stage", "buildmesh_emit_geometry", "ms", emitMs, "vertices", static_cast<int>(vertices.size()));
+
     indexCount = static_cast<uint32_t>(indices.size());
 
     if (indexCount == 0)
         return;
+
+    const auto uploadStart = std::chrono::steady_clock::now();
 
     glBindVertexArray(vao);
 
@@ -1344,6 +1366,21 @@ void UIRenderer::BuildMesh()
 
     glBindVertexArray(0);
     dirty = false;
+
+    const double uploadMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - uploadStart).count();
+    if (uploadMs >= 1.0)
+        LOG_SESSION("Render stage", "buildmesh_gl_upload", "ms", uploadMs);
+}
+
+// Recomputes the window's minimum size from the current panel layout and applies it via SDL.
+// Called only on dirty frames (see Render()), so panel content/visibility changes always keep
+// the OS-enforced minimum in sync without every call site needing to remember to ask for it.
+void UIRenderer::RefreshMinWindowSize()
+{
+    if (!window)
+        return;
+    ComputeMinGridSize();
+    SDL_SetWindowMinimumSize(window, grid.MinWidthPixels(), grid.MinHeightPixels());
 }
 
 void UIRenderer::Render()
@@ -1354,7 +1391,10 @@ void UIRenderer::Render()
     cachedTextImFont = ImGui::GetFont();
 
     if (dirty)
+    {
         BuildMesh();
+        RefreshMinWindowSize();
+    }
 
     if (indexCount == 0)
         return;
@@ -1783,7 +1823,18 @@ void UIRenderer::Render()
                                    trackR);
 
                 const float span = underlineX1 - underlineX0;
-                glm::vec4 ac = Color::GetAccent(2, 1.0f, 1.0f);
+                glm::vec4 ac;
+                if (item.accentProgressNeutral)
+                {
+                    // Dim, non-accent tone: a persistent "done, awaiting review" indicator should not
+                    // read as an active/ongoing operation the way the accent color does.
+                    ac = Color::GetUIText(1);
+                    ac.a *= 0.35f;
+                }
+                else
+                {
+                    ac = Color::GetAccent(2, 1.0f, 1.0f);
+                }
                 float fill01 = -1.0f;
                 if (item.accentProgressDenominator > 0 && item.accentProgressNumerator >= 0)
                     fill01 =
@@ -1795,9 +1846,13 @@ void UIRenderer::Render()
                 {
                     const float w = span * std::clamp(fill01, 0.0f, 1.0f);
                     if (w > 0.5f)
+                    {
+                        const ImDrawFlags corners =
+                            (span - w) < 0.5f ? ImDrawFlags_RoundCornersAll : ImDrawFlags_RoundCornersLeft;
                         pdl->AddRectFilled(ImVec2(underlineX0, stripY0), ImVec2(underlineX0 + w, stripY1),
                                            ImGui::GetColorU32(ImVec4(ac.r, ac.g, ac.b, ac.a)),
-                                           trackR, ImDrawFlags_RoundCornersLeft);
+                                           trackR, corners);
+                    }
                 }
                 else
                 {

@@ -1,0 +1,322 @@
+<svg viewBox="0 0 1700 1800" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Full CAD_OpenGL architecture map</title>
+<desc>Single dense diagram: User events flow into UI, which updates itself or forwards to Scene, the only state-writing layer. Scene submits long work to Shared's worker thread, triggers Analysis, and drives Import/Structure/Orient/Calibrate/Tolerance/Cut, each with its real algorithm steps shown. Rendering reads Scene and UI state reactively and draws.</desc>
+<defs>
+<marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+<path d="M0,0 L7,3 L0,6 Z" fill="#6b7280"/>
+</marker>
+</defs>
+<rect x="0" y="0" width="1700" height="1800" fill="#ffffff"/>
+
+<!-- User -->
+<rect x="720" y="15" width="160" height="50" rx="8" fill="#e8f5e9" stroke="#81c784" stroke-width="1.5"/>
+<text x="800" y="45" text-anchor="middle" font-size="14" font-weight="700" fill="#1a1a1a">User</text>
+<line x1="800" y1="65" x2="800" y2="100" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="808" y="85" font-size="10" fill="#4b5563">event</text>
+
+<!-- UI ZONE -->
+<rect x="20" y="100" width="1660" height="330" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="32" y="118" font-size="13" font-weight="700" fill="#1a1a1a">UI — owns camera, panels, sleeps at vsync</text>
+
+<rect x="50" y="135" width="160" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="130" y="158" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Relevant?</text>
+<text x="130" y="174" text-anchor="middle" font-size="9" fill="#4b5563">drop if not</text>
+
+<rect x="50" y="230" width="160" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="130" y="252" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">UI-local state</text>
+<text x="130" y="266" text-anchor="middle" font-size="9" fill="#4b5563">camera, panels,</text>
+<text x="130" y="278" text-anchor="middle" font-size="9" fill="#4b5563">in-progress selection</text>
+<path d="M 50 260 C 0 260, 0 160, 50 160" fill="none" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+<rect x="250" y="135" width="190" height="160" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="345" y="155" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Resize / Reposition</text>
+<text x="345" y="172" text-anchor="middle" font-size="9" fill="#4b5563">Event-Flow exception:</text>
+<text x="345" y="184" text-anchor="middle" font-size="9" fill="#4b5563">sync watcher, immediate</text>
+<text x="345" y="196" text-anchor="middle" font-size="9" fill="#4b5563">render (avoids 1-frame</text>
+<text x="345" y="208" text-anchor="middle" font-size="9" fill="#4b5563">stretch artifact)</text>
+<text x="345" y="228" text-anchor="middle" font-size="9" fill="#4b5563">Anchor-based layout,</text>
+<text x="345" y="240" text-anchor="middle" font-size="9" fill="#4b5563">priority-ranked collapse.</text>
+<text x="345" y="256" text-anchor="middle" font-size="9" fill="#4b5563">Viewport fixed size —</text>
+<text x="345" y="268" text-anchor="middle" font-size="9" fill="#4b5563">panels overlay, never</text>
+<text x="345" y="280" text-anchor="middle" font-size="9" fill="#4b5563">resize it.</text>
+
+<rect x="475" y="135" width="1175" height="280" rx="6" fill="none" stroke="#9ca3af" stroke-width="1"/>
+<text x="487" y="152" font-size="11" font-weight="700" fill="#1a1a1a">Tool Panels</text>
+
+<rect x="495" y="165" width="190" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="590" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Progress bar</text>
+<text x="590" y="201" text-anchor="middle" font-size="9" fill="#4b5563">checkpoints; on fail,</text>
+<text x="590" y="213" text-anchor="middle" font-size="9" fill="#4b5563">copyable error code</text>
+
+<rect x="710" y="165" width="190" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="805" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Prereqs + Selections</text>
+<text x="805" y="201" text-anchor="middle" font-size="9" fill="#4b5563">required vs optional</text>
+<text x="805" y="213" text-anchor="middle" font-size="9" fill="#4b5563">face/edge picks</text>
+
+<rect x="925" y="165" width="230" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1040" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Modifying shape</text>
+<text x="1040" y="201" text-anchor="middle" font-size="9" fill="#4b5563">preview → Cancel/Accept</text>
+<text x="1040" y="213" text-anchor="middle" font-size="9" fill="#4b5563">Import, Structure, Cut</text>
+
+<rect x="1180" y="165" width="220" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1290" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Calculating shape</text>
+<text x="1290" y="201" text-anchor="middle" font-size="9" fill="#4b5563">read-only → copyable</text>
+<text x="1290" y="213" text-anchor="middle" font-size="9" fill="#4b5563">results — Calibrate</text>
+
+<rect x="1425" y="165" width="200" height="65" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1525" y="187" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Orient — hybrid</text>
+<text x="1525" y="201" text-anchor="middle" font-size="9" fill="#4b5563">calculate, optional</text>
+<text x="1525" y="213" text-anchor="middle" font-size="9" fill="#4b5563">accept (no history)</text>
+
+<rect x="495" y="255" width="290" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="640" y="277" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Hover-to-render</text>
+<text x="640" y="292" text-anchor="middle" font-size="9" fill="#4b5563">UI references a sub-shape → Rendering highlights it</text>
+
+<rect x="820" y="255" width="290" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="965" y="277" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Settings panel</text>
+<text x="965" y="292" text-anchor="middle" font-size="9" fill="#4b5563">global constants; tool-specific ones live on that tool's panel</text>
+
+<line x1="800" y1="430" x2="800" y2="465" stroke="#6b7280" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="812" y="452" font-size="10" fill="#4b5563">domain mutation (only path in)</text>
+
+<!-- SCENE ZONE -->
+<rect x="20" y="465" width="840" height="270" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="32" y="483" font-size="13" font-weight="700" fill="#1a1a1a">Scene — writes a Part's canonical state; orchestrates, doesn't compute</text>
+
+<rect x="50" y="500" width="150" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="125" y="523" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Session</text>
+<text x="125" y="538" text-anchor="middle" font-size="9" fill="#4b5563">owns N Parts</text>
+
+<rect x="230" y="495" width="290" height="160" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="375" y="516" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1a1a">Part</text>
+<text x="375" y="533" text-anchor="middle" font-size="9" fill="#4b5563">current: TopoDS_Shape</text>
+<text x="375" y="547" text-anchor="middle" font-size="9" fill="#4b5563">history[]: undo stack</text>
+<text x="375" y="563" text-anchor="middle" font-size="8.5" font-style="italic" fill="#4b5563">owns only what defines it —</text>
+<text x="375" y="575" text-anchor="middle" font-size="8.5" font-style="italic" fill="#4b5563">no Issues here (see Analysis, below)</text>
+<text x="375" y="592" text-anchor="middle" font-size="9" fill="#4b5563">sub-shapes ref'd by</text>
+<text x="375" y="604" text-anchor="middle" font-size="9" fill="#4b5563">TopoDS_Face value, never raw ptr</text>
+<text x="375" y="622" text-anchor="middle" font-size="9" fill="#4b5563">Operation: new shape only,</text>
+<text x="375" y="634" text-anchor="middle" font-size="9" fill="#4b5563">never mutates in place</text>
+
+<rect x="560" y="495" width="270" height="65" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="695" y="517" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Settings (persisted)</text>
+<text x="695" y="532" text-anchor="middle" font-size="9" fill="#4b5563">tolerance const (~0.001mm),</text>
+<text x="695" y="545" text-anchor="middle" font-size="9" fill="#4b5563">default tool params</text>
+
+<rect x="560" y="580" width="270" height="60" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="695" y="603" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Operation queue</text>
+<text x="695" y="617" text-anchor="middle" font-size="9" fill="#4b5563">submits to Shared →</text>
+
+<text x="40" y="715" font-size="9" font-style="italic" fill="#4b5563">Triggers Analysis automatically after Import or after an Operation commits.</text>
+
+<line x1="200" y1="527" x2="230" y2="527" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow)"/>
+<line x1="560" y1="527" x2="520" y2="527" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2"/>
+<text x="525" y="520" font-size="8" fill="#4b5563">reads</text>
+
+<line x1="830" y1="610" x2="900" y2="610" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+<!-- SHARED ZONE -->
+<rect x="905" y="465" width="430" height="270" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="917" y="483" font-size="13" font-weight="700" fill="#1a1a1a">Shared — worker thread, main never blocks</text>
+
+<rect x="930" y="500" width="170" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1015" y="522" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Task queue</text>
+<text x="1015" y="537" text-anchor="middle" font-size="9" fill="#4b5563">≤1 in-flight per Part</text>
+
+<line x1="1015" y1="555" x2="1015" y2="575" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="930" y="580" width="170" height="55" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1015" y="602" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Worker pool</text>
+<text x="1015" y="617" text-anchor="middle" font-size="9" fill="#4b5563">cooperative cancel</text>
+
+<line x1="1100" y1="607" x2="1135" y2="607" stroke="#6b7280" stroke-width="1.2" marker-end="url(#arrow)"/>
+<rect x="1140" y="555" width="180" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1230" y="578" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Wake + commit</text>
+<text x="1230" y="593" text-anchor="middle" font-size="9" fill="#4b5563">non-blocking poll;</text>
+<text x="1230" y="606" text-anchor="middle" font-size="9" fill="#4b5563">teardown never blocks</text>
+<text x="1230" y="619" text-anchor="middle" font-size="9" fill="#4b5563">main (grace wait→detach)</text>
+
+<path d="M 1230 555 C 1230 480, 700 480, 700 495" fill="none" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2" marker-end="url(#arrow)"/>
+<text x="950" y="478" font-size="8" fill="#4b5563">commits new `current`, clears issuesPending</text>
+
+<rect x="930" y="660" width="390" height="55" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1125" y="682" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Live-preview slot (planned)</text>
+<text x="1125" y="697" text-anchor="middle" font-size="9" fill="#4b5563">phase-level snapshots only — no continuous mid-call animation</text>
+
+<!-- TOOLS ZONE (expanded with real algorithm steps) -->
+<rect x="20" y="755" width="1660" height="695" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="32" y="773" font-size="13" font-weight="700" fill="#1a1a1a">Tools — the Logic layer. Scene invokes and commits; Logic computes. Algorithms below, not just pointers</text>
+
+<!-- Row 1: Analysis, Structure, Calibrate (full algorithms) -->
+<rect x="50" y="800" width="520" height="420" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="310" y="822" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">Analysis — diagnostic, automatic</text>
+<text x="310" y="836" text-anchor="middle" font-size="8.5" font-style="italic" fill="#4b5563">slices once, shared by all 4 detectors below</text>
+
+<text x="65" y="858" font-size="9.5" font-weight="700" fill="#1a1a1a">1. Overhang (extrusion)</text>
+<text x="75" y="871" font-size="8.5" fill="#4b5563">diff(currentLayer, previousLayer) → unsupported region</text>
+<text x="75" y="883" font-size="8.5" fill="#4b5563">threshold: reach distance, not area — far cantilever</text>
+<text x="75" y="895" font-size="8.5" fill="#4b5563">is the failure case, not a big-but-shallow area</text>
+
+<text x="65" y="915" font-size="9.5" font-weight="700" fill="#1a1a1a">2. Layer Difference (shrinkage/warping)</text>
+<text x="75" y="928" font-size="8.5" fill="#4b5563">same diff; threshold = area-delta magnitude</text>
+<text x="75" y="940" font-size="8.5" fill="#4b5563">chains across layers → vertical ribbon (BridgeSurface)</text>
+<text x="75" y="952" font-size="8.5" fill="#4b5563">— warping runs through height, not one face</text>
+
+<text x="65" y="972" font-size="9.5" font-weight="700" fill="#1a1a1a">3. Not Enough Space (reheat + cornering lag)</text>
+<text x="75" y="985" font-size="8.5" fill="#4b5563">risk = loopReheatRisk(perimeter, printSpeed)</text>
+<text x="85" y="997" font-size="8.5" fill="#4b5563">× (1 + cornerDwellBonus)</text>
+<text x="75" y="1009" font-size="8.5" fill="#4b5563">baseline: revisit time vs cooling threshold</text>
+<text x="75" y="1021" font-size="8.5" fill="#4b5563">corner term: turning angle × avgEdgeLength/edgeLength</text>
+<text x="75" y="1033" font-size="8.5" fill="#4b5563">(short edge must be the denominator, or it backwards-</text>
+<text x="75" y="1045" font-size="8.5" fill="#4b5563">favors long edges) — flag tagged to TopoDS_Face at slice time</text>
+
+<text x="65" y="1065" font-size="9.5" font-weight="700" fill="#1a1a1a">4. Instability (motion / Euler buckling)</text>
+<text x="75" y="1078" font-size="8.5" fill="#4b5563">minWidth via convex hull + rotating calipers →</text>
+<text x="75" y="1090" font-size="8.5" fill="#4b5563">existing run-detection / height-width-ratio logic</text>
+<text x="75" y="1102" font-size="8.5" fill="#4b5563">weakest axis fails, not average width</text>
+
+<text x="310" y="1130" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">open items: raw-pointer rework, uncalibrated NES constants, OCCT boolean cost — see analysis-redesign.md</text>
+<text x="310" y="1143" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">Logic tool — owns its own Issues cache, keyed by Part. Same pattern as Rendering's picking index, not Scene's</text>
+
+<rect x="590" y="800" width="520" height="420" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="850" y="822" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">Structure — Operation (removes weight)</text>
+<text x="850" y="836" text-anchor="middle" font-size="8.5" font-style="italic" fill="#4b5563">auto-selects faces, user excludes; carve always vertical — never adds an overhang</text>
+
+<text x="605" y="860" font-size="9.5" fill="#1a1a1a">1. Project face onto its own plane (slanted = tilted, not world XY)</text>
+<text x="605" y="880" font-size="9.5" fill="#1a1a1a">2. Offset by insetMm: outer boundary inward, hole loops outward (untouched)</text>
+<text x="605" y="900" font-size="9.5" fill="#1a1a1a">3. Anchor at each inset-edge midpoint, carrying its inward normal</text>
+<text x="605" y="920" font-size="9.5" fill="#1a1a1a">4. Strut candidates between anchor pairs, validity-filtered</text>
+<text x="605" y="940" font-size="9.5" fill="#1a1a1a">5. Rank pairs: length + normal-alignment + closeness to 45°</text>
+<text x="625" y="956" font-size="8.5" fill="#4b5563">(45° is the mechanically optimal bending→axial angle)</text>
+<text x="605" y="976" font-size="9.5" fill="#1a1a1a">6. Land struts on real walls, fuse, notch OUT of footprint</text>
+<text x="625" y="992" font-size="8.5" fill="#4b5563">(void = footprint − struts, not footprint + struts)</text>
+<text x="605" y="1012" font-size="9.5" fill="#1a1a1a">7. Fillet every corner by insetMm (radius = inset, 1:1)</text>
+<text x="605" y="1032" font-size="9.5" fill="#1a1a1a">8. Weight-aware filter: skin-cost (perimeter×wallThickness) vs</text>
+<text x="625" y="1048" font-size="8.5" fill="#4b5563">pocket area saved — fill back to solid if skin costs more</text>
+<text x="605" y="1068" font-size="9.5" fill="#1a1a1a">9. Cut solid by remaining voids: full Z slab (near-horizontal)</text>
+<text x="625" y="1084" font-size="8.5" fill="#4b5563">or min(face Z)→top (slanted)</text>
+
+<text x="850" y="1112" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">why: bending→axial conversion (truss principle); corners outlast walls by</text>
+<text x="850" y="1125" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">leverage, not material; fillets cut real stress concentration (2-3×)</text>
+
+<rect x="1130" y="800" width="500" height="420" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1380" y="822" text-anchor="middle" font-size="12" font-weight="700" fill="#1a1a1a">Calibrate — read-only, no Operation</text>
+<text x="1380" y="836" text-anchor="middle" font-size="8.5" font-style="italic" fill="#4b5563">automates printer-accuracy tuning; elephant's foot dropped</text>
+
+<text x="1145" y="862" font-size="9.5" fill="#1a1a1a">1. Pick 2 faces: ⊥ build axis (in-plane), ∥ each other</text>
+<text x="1165" y="878" font-size="8.5" fill="#4b5563">(caliper reading only means something between parallel planes)</text>
+<text x="1145" y="900" font-size="9.5" fill="#1a1a1a">2. Classify: Contour or Hole (touches a hole-inner-edge?)</text>
+<text x="1165" y="916" font-size="8.5" fill="#4b5563">can't mix Contour with Hole — conflates 2 error sources</text>
+<text x="1145" y="938" font-size="9.5" fill="#1a1a1a">3. Nominal CAD span = ⊥ distance between the 2 picked planes</text>
+<text x="1145" y="960" font-size="9.5" fill="#1a1a1a">4. User measures the print with calipers, enters the value</text>
+<text x="1145" y="982" font-size="9.5" fill="#1a1a1a">5. Apply correction:</text>
+<text x="1165" y="999" font-size="9" fill="#4b5563">Contour: contourScale = nominal / measured (ratio —</text>
+<text x="1180" y="1013" font-size="8.5" fill="#4b5563">shrinkage scales proportionally with the part)</text>
+<text x="1165" y="1033" font-size="9" fill="#4b5563">Hole: holeRadiusOffsetMm = 0.5×(nominal − measured)</text>
+<text x="1180" y="1047" font-size="8.5" fill="#4b5563">(absolute offset — doesn't scale with diameter)</text>
+
+<text x="1380" y="1075" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">elephant's foot cut: different pick shape (2 edges on 1 cap, not 2 faces)</text>
+<text x="1380" y="1088" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">+ it's fixable after the fact via post-processing, unlike Contour/Hole error</text>
+<text x="1380" y="1105" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">open item: raw-pointer rework in CalibDistanceType.hpp</text>
+
+<!-- Row 2: Import, Orient, Tolerance, Cut -->
+<rect x="50" y="1245" width="385" height="190" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="242" y="1267" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1a1a">Import — not an Operation</text>
+<text x="242" y="1281" text-anchor="middle" font-size="8.5" fill="#4b5563">constructs a new Part directly</text>
+<text x="65" y="1299" font-size="9" fill="#1a1a1a">Formats: STL, OBJ, STEP, 3MF, +scan (PLY?)</text>
+<text x="65" y="1313" font-size="9" fill="#1a1a1a">STEP → native BRep, true curved surfaces</text>
+<text x="65" y="1327" font-size="9" fill="#1a1a1a">STL/OBJ/3MF → facet→sew→unify (flat only)</text>
+<text x="65" y="1347" font-size="9" font-weight="600" fill="#1a1a1a">Planned: optional "attempt curve</text>
+<text x="65" y="1361" font-size="9" font-weight="600" fill="#1a1a1a">reconstruction" toggle (Import's own panel,</text>
+<text x="65" y="1375" font-size="9" font-weight="600" fill="#1a1a1a">like Structure's insetMm)</text>
+<text x="85" y="1389" font-size="8.5" fill="#4b5563">off by default; needs a mesh-to-BRep surface-fit</text>
+<text x="85" y="1401" font-size="8.5" fill="#4b5563">capability that doesn't exist yet — no turnkey OCCT solution</text>
+<text x="242" y="1421" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">→ Part (Scene zone, above)</text>
+
+<rect x="460" y="1245" width="385" height="190" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="652" y="1267" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1a1a">Orient — optimization, hybrid</text>
+<text x="475" y="1291" font-size="9" fill="#1a1a1a">Re-runs Analysis's detectors across</text>
+<text x="475" y="1305" font-size="9" fill="#1a1a1a">candidate bed orientations; recommends/</text>
+<text x="475" y="1319" font-size="9" fill="#1a1a1a">previews whichever minimizes overhang /</text>
+<text x="475" y="1333" font-size="9" fill="#1a1a1a">instability / layer-difference signals</text>
+<text x="475" y="1353" font-size="8.5" fill="#4b5563">Changes build direction, not the shape —</text>
+<text x="475" y="1366" font-size="8.5" fill="#4b5563">open question whether it needs an Operation/</text>
+<text x="475" y="1379" font-size="8.5" fill="#4b5563">history entry, or is purely UI-local state.</text>
+<text x="652" y="1418" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">algorithm deliberately deferred — separate planned feature</text>
+
+<rect x="870" y="1245" width="385" height="190" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1062" y="1267" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1a1a">Tolerance (future)</text>
+<text x="885" y="1291" font-size="9" fill="#1a1a1a">Clearance/fit adjustment between</text>
+<text x="885" y="1305" font-size="9" fill="#1a1a1a">mating parts.</text>
+<text x="885" y="1325" font-size="8.5" fill="#4b5563">Likely scoped to face-tagging — user marks</text>
+<text x="885" y="1338" font-size="8.5" fill="#4b5563">press-fit / smooth-motion-fit faces, tool</text>
+<text x="885" y="1351" font-size="8.5" fill="#4b5563">reasons about the gap needed between them.</text>
+<text x="885" y="1364" font-size="8.5" fill="#4b5563">Lighter than tracking relative Part transforms.</text>
+<text x="885" y="1384" font-size="8.5" fill="#4b5563">3MF's multi-object support: possible future</text>
+<text x="885" y="1397" font-size="8.5" fill="#4b5563">source of relative positioning, if it matters.</text>
+<text x="1062" y="1418" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">not yet designed beyond this</text>
+
+<rect x="1280" y="1245" width="350" height="190" rx="6" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="4,3"/>
+<text x="1455" y="1267" text-anchor="middle" font-size="11" font-weight="700" fill="#1a1a1a">Cut (future)</text>
+<text x="1295" y="1291" font-size="9" fill="#1a1a1a">Divides an oversized part into</text>
+<text x="1295" y="1305" font-size="9" fill="#1a1a1a">printable pieces.</text>
+<text x="1295" y="1325" font-size="8.5" fill="#4b5563">The one tool allowed to suggest an explicit</text>
+<text x="1295" y="1338" font-size="8.5" fill="#4b5563">fix rather than just flagging a problem —</text>
+<text x="1295" y="1351" font-size="8.5" fill="#4b5563">the single exception to "no arbitrary</text>
+<text x="1295" y="1364" font-size="8.5" fill="#4b5563">fix-suggesting" (see out-of-scope list).</text>
+<text x="1455" y="1418" text-anchor="middle" font-size="8" font-style="italic" fill="#4b5563">not yet designed</text>
+
+<line x1="850" y1="640" x2="850" y2="798" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="860" y="730" font-size="8" fill="#4b5563">Operation → queue</text>
+
+<!-- RENDERING ZONE -->
+<rect x="20" y="1480" width="1660" height="260" rx="6" fill="none" stroke="#9ca3af" stroke-width="1" stroke-dasharray="3,3"/>
+<text x="32" y="1498" font-size="13" font-weight="700" fill="#1a1a1a">Rendering — purely reactive, no decisions</text>
+
+<rect x="50" y="1515" width="220" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="160" y="1538" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Triangulation cache</text>
+<text x="160" y="1553" text-anchor="middle" font-size="9" fill="#4b5563">BRepMesh_IncrementalMesh,</text>
+<text x="160" y="1565" text-anchor="middle" font-size="9" fill="#4b5563">lazy on first draw</text>
+<text x="160" y="1580" text-anchor="middle" font-size="9" fill="#4b5563">no separate mesh storage</text>
+
+<rect x="300" y="1515" width="240" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="420" y="1538" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Picking index</text>
+<text x="420" y="1553" text-anchor="middle" font-size="8.5" fill="#4b5563">keyed by Part, owned here — not</text>
+<text x="420" y="1565" text-anchor="middle" font-size="8.5" fill="#4b5563">on Part, same rule as Analysis's</text>
+<text x="420" y="1577" text-anchor="middle" font-size="8.5" fill="#4b5563">Issues cache. Click + hover-to-render.</text>
+
+<rect x="550" y="1515" width="220" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="660" y="1538" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Z-fighting tie-break</text>
+<text x="660" y="1553" text-anchor="middle" font-size="9" fill="#4b5563">within tolerance: smaller</text>
+<text x="660" y="1565" text-anchor="middle" font-size="9" fill="#4b5563">screen-area face wins —</text>
+<text x="660" y="1580" text-anchor="middle" font-size="9" fill="#4b5563">tie-break only, not a sort</text>
+
+<rect x="800" y="1515" width="190" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="895" y="1538" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Fog (depth cue)</text>
+<text x="895" y="1553" text-anchor="middle" font-size="9" fill="#4b5563">perceptual aid, separate</text>
+<text x="895" y="1565" text-anchor="middle" font-size="9" fill="#4b5563">from z-fighting fix</text>
+
+<rect x="1020" y="1515" width="190" height="80" rx="6" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1115" y="1538" text-anchor="middle" font-size="11" font-weight="600" fill="#1a1a1a">Draw</text>
+<text x="1115" y="1553" text-anchor="middle" font-size="9" fill="#4b5563">wakes on vsync,</text>
+<text x="1115" y="1565" text-anchor="middle" font-size="9" fill="#4b5563">bounded time budget</text>
+<text x="1115" y="1580" text-anchor="middle" font-size="9" fill="#4b5563">per frame</text>
+
+<text x="50" y="1620" font-size="9" font-style="italic" fill="#4b5563">Reads (never writes): Scene's current Part state, UI's camera, Shared's live-preview slot. OpenGL stays single-threaded — the multithreading need lives in Shared (CPU/OCCT), not here (GPU draw-call volume is too low to benefit from Vulkan).</text>
+
+<!-- legend -->
+<rect x="1380" y="1515" width="280" height="170" rx="6" fill="#ffffff" stroke="#9ca3af" stroke-width="1"/>
+<text x="1395" y="1535" font-size="11" font-weight="700" fill="#1a1a1a">Legend</text>
+<rect x="1395" y="1545" width="24" height="14" fill="#e8f5e9" stroke="#81c784"/>
+<text x="1428" y="1556" font-size="9" fill="#4b5563">implemented</text>
+<rect x="1395" y="1567" width="24" height="14" fill="#e8f5e9" stroke="#81c784" stroke-dasharray="3,2"/>
+<text x="1428" y="1578" font-size="9" fill="#4b5563">future / deferred</text>
+<line x1="1395" y1="1597" x2="1419" y2="1597" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow)"/>
+<text x="1428" y="1601" font-size="9" fill="#4b5563">control / data flow</text>
+<line x1="1395" y1="1617" x2="1419" y2="1617" stroke="#6b7280" stroke-width="1.2" stroke-dasharray="2,2"/>
+<text x="1428" y="1621" font-size="9" fill="#4b5563">read-only</text>
+<text x="1395" y="1645" font-size="9" font-style="italic" fill="#4b5563">Cross-references ("→ Part",</text>
+<text x="1395" y="1658" font-size="9" font-style="italic" fill="#4b5563">"see Scene zone") point to</text>
+<text x="1395" y="1671" font-size="9" font-style="italic" fill="#4b5563">boxes elsewhere on this same</text>
+<text x="1395" y="1684" font-size="9" font-style="italic" fill="#4b5563">map, to avoid messy long lines.</text>
+
+</svg>

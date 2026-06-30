@@ -90,4 +90,9 @@ set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/glad.dir/DependInfo.cmake"
   "CMakeFiles/CAD_OpenGL.dir/DependInfo.cmake"
   "CMakeFiles/occt_spike.dir/DependInfo.cmake"
+  "CMakeFiles/test_fillet2d.dir/DependInfo.cmake"
+  "CMakeFiles/test_chfi2d.dir/DependInfo.cmake"
+  "CMakeFiles/test_structure_accept.dir/DependInfo.cmake"
+  "CMakeFiles/test_slice_debug.dir/DependInfo.cmake"
+  "CMakeFiles/test_inset_recarve.dir/DependInfo.cmake"
   )

@@ -1,11 +1,15 @@
 #include "Analysis.hpp"
-#include "Analysis/Overhang/Overhang.hpp"
+#include "Analysis/OverhangDetector/OverhangDetector.hpp"
 #include "Analysis/SharpCorner/SharpCorner.hpp"
-#include "Analysis/SmallFeature/SmallFeature.hpp"
-#include "Analysis/ThinSection/ThinSection.hpp"
+#include "Analysis/Instability/Instability.hpp"
+#include "Analysis/LayerDifference/LayerDifference.hpp"
 #include "utils/Slice.hpp"
 #include "utils/log.hpp"
 
+#include <BRepClass3d_SolidClassifier.hxx>
+#include <gp_Pnt.hxx>
+
+#include <algorithm>
 #include <chrono>
 #include <mutex>
 
@@ -13,6 +17,69 @@ namespace
 {
 // Verbose per-pass timing is useful for focused profiling but expensive for normal interactive use.
 inline constexpr bool kLogAnalysisTimingDetails = false;
+
+static bool FaceHasLiveGeometry(const Face *face) noexcept
+{
+    return face != nullptr && face->HasGeometry();
+}
+
+/// Slices `solid` into correctly loop-separated cross-sections once, shared across every
+/// detector for this analysis pass (replaces each detector independently calling
+/// `Slice::Range`/`Slice::At`).
+static std::vector<SlicedLayer> SliceSolidIntoLoops(const Solid &solid, double layerHeight)
+{
+    std::vector<SlicedLayer> layers;
+    if (layerHeight <= 0.0)
+        return layers;
+
+    const ZBounds zb = Slice::GetZBounds(&solid);
+    if (zb.zMax - zb.zMin < layerHeight)
+        return layers;
+
+    // Reused across layers — classifier setup from the solid's topology is the expensive step.
+    BRepClass3d_SolidClassifier classifier(solid.occtShape);
+
+    for (double z = zb.zMin + layerHeight; z < zb.zMax; z += layerHeight)
+    {
+        SlicedLayer layer;
+        layer.z = z;
+        layer.loops = Slice::ExtractLoops(Slice::At(&solid, z));
+
+        // Override nesting-depth isHole with a solid point-in-solid test. The centroid of each
+        // loop's boundary points approximates the interior of what the loop encloses:
+        // — solid interior → the loop is an outer boundary (isHole = false)
+        // — void interior  → the loop bounds a physical hole (isHole = true)
+        // This correctly handles nested solid protrusions (e.g. overhang face sections that
+        // happen to be geometrically inside the base outline), which nesting-depth alone
+        // misclassifies as holes.
+        for (auto &loop : layer.loops)
+        {
+            glm::dvec3 centroid{0.0, 0.0, 0.0};
+            for (const auto &p : loop.ring)
+                centroid += p;
+            centroid /= static_cast<double>(loop.ring.size());
+
+            classifier.Perform(gp_Pnt(centroid.x, centroid.y, centroid.z), 1e-4);
+            const TopAbs_State state = classifier.State();
+            loop.isHole = (state != TopAbs_IN);
+        }
+
+        layers.push_back(std::move(layer));
+    }
+    return layers;
+}
+} // namespace
+
+void PruneDefunctAnalysisResults(AnalysisResults &results, const Scene *scene) noexcept
+{
+    (void)scene;
+    for (auto &entry : results.faceFlawRanges)
+    {
+        auto &flaws = entry.second;
+        flaws.erase(std::remove_if(flaws.begin(), flaws.end(),
+                                   [](const FaceFlaw &ff) { return !FaceHasLiveGeometry(ff.face); }),
+                    flaws.end());
+    }
 }
 
 Analysis &Analysis::Instance()
@@ -21,82 +88,65 @@ Analysis &Analysis::Instance()
     return instance;
 }
 
-void Analysis::AddFaceAnalysis(std::unique_ptr<IFaceAnalysis> analysis)
-{
-    std::lock_guard<std::mutex> lock(pipelineMutex);
-    faceAnalyses.push_back(std::shared_ptr<IFaceAnalysis>(std::move(analysis)));
-}
-
 void Analysis::AddSolidAnalysis(std::unique_ptr<ISolidAnalysis> analysis)
 {
     std::lock_guard<std::mutex> lock(pipelineMutex);
     solidAnalyses.push_back(std::shared_ptr<ISolidAnalysis>(std::move(analysis)));
 }
 
-void Analysis::AddEdgeAnalysis(std::unique_ptr<IEdgeAnalysis> analysis)
+std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid) const
 {
-    std::lock_guard<std::mutex> lock(pipelineMutex);
-    edgeAnalyses.push_back(std::shared_ptr<IEdgeAnalysis>(std::move(analysis)));
-}
-
-FaceFlawKind Analysis::FlawFace(const Face *face) const
-{
-    std::lock_guard<std::mutex> lock(pipelineMutex);
-    for (const auto &analysis : faceAnalyses)
+    std::vector<std::shared_ptr<ISolidAnalysis>> localSolidAnalyses;
+    float layerHeight;
     {
-        auto result = analysis->Analyze(face);
-        if (result.has_value())
-            return result.value();
+        std::lock_guard<std::mutex> lock(pipelineMutex);
+        localSolidAnalyses = solidAnalyses;
+        layerHeight = layerHeightForSlicing;
     }
 
-    return FaceFlawKind::NONE;
-}
-
-std::vector<FaceFlaw> Analysis::FlawSolid(const Solid *solid, std::vector<BridgeSurface> *bridgeSurfaces) const
-{
-    std::lock_guard<std::mutex> lock(pipelineMutex);
-    ZBounds bounds = Slice::GetZBounds(solid);
+    const std::vector<SlicedLayer> layers = SliceSolidIntoLoops(*solid, static_cast<double>(layerHeight));
 
     std::vector<FaceFlaw> allFlaws;
-    for (const auto &analysis : solidAnalyses)
+    for (const auto &analysis : localSolidAnalyses)
     {
-        auto flaws = analysis->Analyze(solid, bounds, bridgeSurfaces);
+        auto flaws = analysis->Analyze(solid, layers);
         allFlaws.insert(allFlaws.end(), flaws.begin(), flaws.end());
     }
     return allFlaws;
 }
 
-std::vector<EdgeFlaw> Analysis::FlawEdges(const Solid *solid) const
+std::vector<SlicedLayer> Analysis::SliceSolidForDebug(const Solid *solid) const
 {
-    std::lock_guard<std::mutex> lock(pipelineMutex);
-    std::vector<EdgeFlaw> allEdgeFlaws;
-    for (const auto &analysis : edgeAnalyses)
+    if (solid == nullptr)
+        return {};
+    float layerHeight;
     {
-        auto flaws = analysis->Analyze(solid);
-        allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
+        std::lock_guard<std::mutex> lock(pipelineMutex);
+        layerHeight = layerHeightForSlicing;
     }
-    return allEdgeFlaws;
+    return SliceSolidIntoLoops(*solid, static_cast<double>(layerHeight));
 }
 
 void Analysis::Clear()
 {
     std::lock_guard<std::mutex> lock(pipelineMutex);
-    faceAnalyses.clear();
     solidAnalyses.clear();
-    edgeAnalyses.clear();
 }
 
-void Analysis::RebuildDefaultAnalyzers(float overhangAngle, float layerHeight, float minFeatureSize, float thinMinWidth,
-                                       float sharpCornerAngle)
+void Analysis::RebuildDefaultAnalyzers(float overhangAngle, float layerHeight, float sharpCornerThreshold,
+                                       float instabilityMinWidth, float layerDifferenceMaxAreaDelta)
 {
     std::lock_guard<std::mutex> lock(pipelineMutex);
-    faceAnalyses.clear();
     solidAnalyses.clear();
-    edgeAnalyses.clear();
-    faceAnalyses.push_back(std::make_shared<Overhang>(static_cast<double>(overhangAngle)));
-    solidAnalyses.push_back(std::make_shared<SmallFeature>(static_cast<double>(layerHeight), static_cast<double>(minFeatureSize)));
-    solidAnalyses.push_back(std::make_shared<ThinSection>(static_cast<double>(layerHeight), static_cast<double>(thinMinWidth)));
-    edgeAnalyses.push_back(std::make_shared<SharpCorner>(static_cast<double>(sharpCornerAngle)));
+    layerHeightForSlicing = layerHeight;
+    solidAnalyses.push_back(std::make_shared<OverhangDetector>(static_cast<double>(layerHeight),
+                                                                static_cast<double>(overhangAngle)));
+    solidAnalyses.push_back(
+        std::make_shared<SharpCorner>(static_cast<double>(layerHeight), static_cast<double>(sharpCornerThreshold)));
+    solidAnalyses.push_back(
+        std::make_shared<Instability>(static_cast<double>(layerHeight), static_cast<double>(instabilityMinWidth)));
+    solidAnalyses.push_back(std::make_shared<LayerDifference>(static_cast<double>(layerHeight),
+                                                               static_cast<double>(layerDifferenceMaxAreaDelta)));
 }
 
 uint64_t Analysis::CountAnalyzeSteps(const Scene *scene) const
@@ -105,34 +155,26 @@ uint64_t Analysis::CountAnalyzeSteps(const Scene *scene) const
         return 0;
 
     size_t nSolidAnalyses = 0;
-    size_t nEdgeAnalyses = 0;
     {
         std::lock_guard<std::mutex> lock(pipelineMutex);
         nSolidAnalyses = solidAnalyses.size();
-        nEdgeAnalyses = edgeAnalyses.size();
     }
 
-    uint64_t faceUnits = 0;
-    for (const Solid &solid : scene->solids)
-        faceUnits += solid.faces.size();
-    faceUnits += scene->faces.size();
+    // One slicing step per solid, plus one analyzing step per (solid, detector) pair.
+    const uint64_t slicingUnits = scene->solids.size();
+    const uint64_t analyzingUnits = scene->solids.size() * static_cast<uint64_t>(nSolidAnalyses);
 
-    const uint64_t solidUnits = scene->solids.size() * static_cast<uint64_t>(nSolidAnalyses);
-    const uint64_t edgeUnits = scene->solids.size() * static_cast<uint64_t>(nEdgeAnalyses);
-
-    return faceUnits + solidUnits + edgeUnits;
+    return slicingUnits + analyzingUnits;
 }
 
 AnalysisResults Analysis::AnalyzeScene(const Scene *scene, const AnalyzeSceneReporter *reporter) const
 {
-    std::vector<std::shared_ptr<IFaceAnalysis>> localFaceAnalyses;
     std::vector<std::shared_ptr<ISolidAnalysis>> localSolidAnalyses;
-    std::vector<std::shared_ptr<IEdgeAnalysis>> localEdgeAnalyses;
+    float layerHeight;
     {
         std::lock_guard<std::mutex> lock(pipelineMutex);
-        localFaceAnalyses = faceAnalyses;
         localSolidAnalyses = solidAnalyses;
-        localEdgeAnalyses = edgeAnalyses;
+        layerHeight = layerHeightForSlicing;
     }
 
     using Clock = std::chrono::steady_clock;
@@ -144,12 +186,9 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene, const AnalyzeSceneRep
     AnalysisResults results;
     const Clock::time_point tSceneStart = Clock::now();
 
-    std::vector<double> faceAnalyzerMs(localFaceAnalyses.size(), 0.0);
     std::vector<double> solidAnalyzerMs(localSolidAnalyses.size(), 0.0);
-    std::vector<double> edgeAnalyzerMs(localEdgeAnalyses.size(), 0.0);
-    double totalFacePassMs = 0.0;
-    double totalSolidPassMs = 0.0;
-    double totalEdgePassMs = 0.0;
+    double totalSlicingMs = 0.0;
+    double totalAnalyzingMs = 0.0;
 
     uint64_t progressStepInScene = 0;
     auto bump = [&](uint32_t phaseId)
@@ -166,55 +205,24 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene, const AnalyzeSceneRep
         const Solid &solid = scene->solids[solidIndex];
         const Clock::time_point tSolidStart = Clock::now();
 
-        const Clock::time_point tFacePassStart = Clock::now();
-        for (const Face *face : solid.faces)
-        {
-            FaceFlawKind faceFlaw = FaceFlawKind::NONE;
-            for (size_t i = 0; i < localFaceAnalyses.size(); ++i)
-            {
-                const Clock::time_point tStart = Clock::now();
-                auto result = localFaceAnalyses[i]->Analyze(face);
-                const Clock::time_point tEnd = Clock::now();
-                faceAnalyzerMs[i] += elapsedMs(tStart, tEnd);
-                if (result.has_value())
-                {
-                    faceFlaw = result.value();
-                    break;
-                }
-            }
-            results.faceFlaws[face] = faceFlaw;
-            bump(AnalysisUiPhase::FacePassesSolidFaces);
-        }
-        totalFacePassMs += elapsedMs(tFacePassStart, Clock::now());
+        const Clock::time_point tSliceStart = Clock::now();
+        const std::vector<SlicedLayer> layers = SliceSolidIntoLoops(solid, static_cast<double>(layerHeight));
+        totalSlicingMs += elapsedMs(tSliceStart, Clock::now());
+        bump(AnalysisUiPhase::Slicing);
 
-        const Clock::time_point tSolidPassStart = Clock::now();
-        ZBounds bounds = Slice::GetZBounds(&solid);
+        const Clock::time_point tAnalyzeStart = Clock::now();
         std::vector<FaceFlaw> allSolidFlaws;
         for (size_t i = 0; i < localSolidAnalyses.size(); ++i)
         {
             const Clock::time_point tStart = Clock::now();
-            auto flaws = localSolidAnalyses[i]->Analyze(&solid, bounds, &results.bridgeSurfaces[&solid]);
+            auto flaws = localSolidAnalyses[i]->Analyze(&solid, layers);
             const Clock::time_point tEnd = Clock::now();
             solidAnalyzerMs[i] += elapsedMs(tStart, tEnd);
             allSolidFlaws.insert(allSolidFlaws.end(), flaws.begin(), flaws.end());
-            bump(AnalysisUiPhase::SolidAnalyzers);
+            bump(AnalysisUiPhase::Analyzing);
         }
         results.faceFlawRanges[&solid] = std::move(allSolidFlaws);
-        totalSolidPassMs += elapsedMs(tSolidPassStart, Clock::now());
-
-        const Clock::time_point tEdgePassStart = Clock::now();
-        std::vector<EdgeFlaw> allEdgeFlaws;
-        for (size_t i = 0; i < localEdgeAnalyses.size(); ++i)
-        {
-            const Clock::time_point tStart = Clock::now();
-            auto flaws = localEdgeAnalyses[i]->Analyze(&solid);
-            const Clock::time_point tEnd = Clock::now();
-            edgeAnalyzerMs[i] += elapsedMs(tStart, tEnd);
-            allEdgeFlaws.insert(allEdgeFlaws.end(), flaws.begin(), flaws.end());
-            bump(AnalysisUiPhase::EdgeAnalyzers);
-        }
-        results.edgeFlaws[&solid] = std::move(allEdgeFlaws);
-        totalEdgePassMs += elapsedMs(tEdgePassStart, Clock::now());
+        totalAnalyzingMs += elapsedMs(tAnalyzeStart, Clock::now());
 
         if constexpr (kLogAnalysisTimingDetails)
         {
@@ -223,38 +231,13 @@ AnalysisResults Analysis::AnalyzeScene(const Scene *scene, const AnalyzeSceneRep
         }
     }
 
-    const Clock::time_point tLooseFaceStart = Clock::now();
-    for (const Face &face : scene->faces)
-    {
-        FaceFlawKind faceFlaw = FaceFlawKind::NONE;
-        for (size_t i = 0; i < localFaceAnalyses.size(); ++i)
-        {
-            const Clock::time_point tStart = Clock::now();
-            auto result = localFaceAnalyses[i]->Analyze(&face);
-            const Clock::time_point tEnd = Clock::now();
-            faceAnalyzerMs[i] += elapsedMs(tStart, tEnd);
-            if (result.has_value())
-            {
-                faceFlaw = result.value();
-                break;
-            }
-        }
-        results.faceFlaws[&face] = faceFlaw;
-        bump(AnalysisUiPhase::FacePassesLooseFaces);
-    }
-    totalFacePassMs += elapsedMs(tLooseFaceStart, Clock::now());
-
     if constexpr (kLogAnalysisTimingDetails)
     {
         const double sceneMs = elapsedMs(tSceneStart, Clock::now());
-        LOG_INFO("Analysis scene totalMs", sceneMs, "solids", scene->solids.size(), "looseFaces", scene->faces.size());
-        LOG_INFO("Analysis stage faceMs", totalFacePassMs, "solidMs", totalSolidPassMs, "edgeMs", totalEdgePassMs);
-        for (size_t i = 0; i < faceAnalyzerMs.size(); ++i)
-            LOG_INFO("Analysis faceAnalyzer", i, "ms", faceAnalyzerMs[i]);
+        LOG_INFO("Analysis scene totalMs", sceneMs, "solids", scene->solids.size());
+        LOG_INFO("Analysis stage slicingMs", totalSlicingMs, "analyzingMs", totalAnalyzingMs);
         for (size_t i = 0; i < solidAnalyzerMs.size(); ++i)
             LOG_INFO("Analysis solidAnalyzer", i, "ms", solidAnalyzerMs[i]);
-        for (size_t i = 0; i < edgeAnalyzerMs.size(); ++i)
-            LOG_INFO("Analysis edgeAnalyzer", i, "ms", edgeAnalyzerMs[i]);
     }
 
     return results;

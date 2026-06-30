@@ -1,6 +1,7 @@
 #include "OpenGLShader.hpp"
 
 #include "utils/log.hpp"
+#include <SDL3/SDL.h>
 
 OpenGLShader::~OpenGLShader()
 {
@@ -12,7 +13,12 @@ std::string OpenGLShader::ReadFile(const std::string &filePath)
     std::ifstream file(filePath);
     if (!file.is_open())
     {
-        return "";
+        // Fall back to path relative to the executable directory
+        const char *base = SDL_GetBasePath();
+        if (base)
+            file.open(std::string(base) + filePath);
+        if (!file.is_open())
+            return "";
     }
 
     std::stringstream buffer;

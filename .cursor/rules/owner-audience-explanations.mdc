@@ -11,7 +11,7 @@ The project owner is **not** doing day-to-day implementation. Treat chat explana
 
 - Prioritize **what happened**, **why** (cause, assumptions, tradeoffs), and **what it means** for the product or workflow — in **plain language**, not a code tour.
 - Skip step-by-step walkthroughs of functions, line numbers, and identifier-heavy narration unless they ask or it is needed to avoid a wrong fix.
-- When they may want detail later, **point to the right place**: e.g. `documentation/`, `practices/best_practices.md`, `Architecture_*.md`, implementation logs under `documentation/implementations/`, or the relevant subsystem path — without pasting large excerpts.
+- When they may want detail later, **point to the right place**: e.g. `docs/architecture.md`, `practices/project_practices.md`, `docs/todo/<target>.md`, or the relevant subsystem path — without pasting large excerpts.
 
 ## When to add more technical detail
 
@@ -21,5 +21,5 @@ The project owner is **not** doing day-to-day implementation. Treat chat explana
 
 ## What this does not change
 
-- **Commits, implementation logs, and PR-style notes** stay as the repo rules require (those are for history and collaborators, not chat tone).
+- **Commits and PR-style notes** stay as the repo rules require (those are for history and collaborators, not chat tone).
 - **Code quality and correctness** are unchanged; only default **user-facing explanation depth** shifts.

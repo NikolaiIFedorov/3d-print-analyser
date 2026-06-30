@@ -55,7 +55,9 @@ public:
     Solid *CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepairs = true);
 
     /// Populates an existing Solid with CAD_OpenGL structs (Faces, Edges, Points) translated from a TopoDS_Shape.
-    void PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape);
+    /// `meshLinearDeflectionMm` controls chord-error for the BRep mesh (default 0.1 mm = import quality).
+    void PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape,
+                                    double meshLinearDeflectionMm = 0.1);
 
     std::deque<Compound> compounds;
     /// Non-owning references to `Solid`s in this scene. Nulls and unknown pointers skipped;

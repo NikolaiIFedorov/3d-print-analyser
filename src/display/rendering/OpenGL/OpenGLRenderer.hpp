@@ -16,6 +16,12 @@
 
 #include "source_location"
 
+struct AnalysisTriVertex
+{
+    glm::vec3 position;
+    glm::vec4 color;
+};
+
 class OpenGLRenderer
 {
 private:
@@ -78,11 +84,36 @@ private:
     GLuint structurePreviewLineIBO = 0;
     uint32_t structurePreviewLineIndexCount = 0;
 
+    GLuint analysisDebugLineVAO = 0;
+    GLuint analysisDebugLineVBO = 0;
+    GLuint analysisDebugLineIBO = 0;
+    uint32_t analysisDebugLineIndexCount = 0;
+
+    GLuint analysisFlawEdgeVAO = 0;
+    GLuint analysisFlawEdgeVBO = 0;
+    GLuint analysisFlawEdgeIBO = 0;
+    uint32_t analysisFlawEdgeIndexCount = 0;
+
+    GLuint analysisDebugTriVAO = 0;
+    GLuint analysisDebugTriVBO = 0;
+    GLuint analysisDebugTriIBO = 0;
+    uint32_t analysisDebugTriIndexCount = 0;
+
+    GLuint overhangOverlayVAO = 0;
+    GLuint overhangOverlayVBO = 0;
+    GLuint overhangOverlayIBO = 0;
+    uint32_t overhangOverlayIndexCount = 0;
+
     glm::mat4 viewMatrix = glm::mat4(1.0f);
     glm::mat4 projectionMatrix = glm::mat4(1.0f);
     glm::mat4 modelMatrix = glm::mat4(1.0f);
     glm::vec3 viewPos = glm::vec3(0.0f);
     glm::vec3 lightDir = glm::vec3(0.0f, 0.0f, 1.0f);
+    /// Depth-cueing fog range, derived from the camera's orbit-pivot distance (`Camera::distance`,
+    /// set by FrameBounds/ResetHomeView to the model's scale) — NOT `orthoSize`/zoom, since
+    /// scroll-zoom doesn't move the camera and shouldn't change how distant geometry fogs.
+    float fogNear = 0.0f;
+    float fogFar = 1.0f;
 
     float lineWidth = 3.0f;
     /// Multiplier on `LineShaderWireZNudgeNdc` for scene wireframe.
@@ -101,6 +132,7 @@ private:
 public:
     OpenGLShader shader;
     OpenGLShader lineShader;
+    OpenGLShader analysisTriShader;
 
     OpenGLRenderer() {};
     OpenGLRenderer(SDL_Window *window);
@@ -120,6 +152,7 @@ public:
     void SetProjectionMatrix(const glm::mat4 &projection);
     void SetModelMatrix(const glm::mat4 &model);
     void SetViewPos(const glm::vec3 &pos);
+    void SetFogRange(float orthoSize);
 
     void UploadTriangleMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateTriangleMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
@@ -134,6 +167,9 @@ public:
     void UploadOpenBoundaryBlameLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadOpenBoundaryBlameFaceMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadStructurePreviewLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadAnalysisDebugLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadAnalysisDebugTriMesh(const std::vector<AnalysisTriVertex> &vertices, const std::vector<uint32_t> &indices);
+    void UploadAnalysisFlawEdgeMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     void UploadLineMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
     bool UpdateLineMeshSubData(const std::vector<Vertex> &vertices, size_t vertexOffset,
                                const std::vector<uint32_t> &indices, size_t indexOffset);
@@ -151,6 +187,12 @@ public:
     void DrawOpenBoundaryBlameLine(float pixelWidth, bool xrayOverlay = false);
     void DrawOpenBoundaryBlameFace(bool xrayOverlay = false);
     void DrawStructurePreviewLines(float pixelWidth, bool xrayOverlay);
+    void DrawAnalysisDebugLines(float pixelWidth, bool xrayOverlay);
+    void DrawAnalysisDebugTriangles();
+    void DrawAnalysisFlawEdges(float pixelWidth);
+
+    void UploadOverhangOverlayMesh(const std::vector<AnalysisTriVertex> &vertices, const std::vector<uint32_t> &indices);
+    void DrawOverhangOverlays();
     void DrawLines();
     /// Draws the first `lineIndexPrefixCount` line indices using depth-behind + blend (translucent shell x-ray edges).
     void DrawSolidWireframePrefixBehindDepth(uint32_t lineIndexPrefixCount);

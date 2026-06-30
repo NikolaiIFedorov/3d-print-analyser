@@ -49,4 +49,15 @@ private:
                          std::vector<uint32_t> &indices,
                          const glm::vec3 &color,
                          const glm::vec3 &litNormal) const;
+
+    void TessellateCurveRecursive(const Curve *curve,
+                                  const glm::dvec3 &start,
+                                  const glm::dvec3 &end,
+                                  double t0, double t1,
+                                  const glm::dvec3 &p0, const glm::dvec3 &p1,
+                                  int depth,
+                                  std::vector<Vertex> &vertices,
+                                  std::vector<uint32_t> &indices,
+                                  const glm::vec3 &color,
+                                  const glm::vec3 &litNormal) const;
 };

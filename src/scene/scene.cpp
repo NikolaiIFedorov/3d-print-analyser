@@ -13,6 +13,9 @@
 #include <TopoDS_Wire.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Vertex.hxx>
+#include <BRepMesh_IncrementalMesh.hxx>
+#include <GeomAPI_ProjectPointOnSurf.hxx>
+#include <Geom_Surface.hxx>
 
 #include <algorithm>
 #include <cmath>
@@ -298,7 +301,8 @@ Solid *Scene::CreateSolid(const std::vector<Face *> &faces, bool runTopologyRepa
     return &solid;
 }
 
-void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
+void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape,
+                                        double meshLinearDeflectionMm)
 {
     if (solid == nullptr || shape.IsNull())
         return;
@@ -333,7 +337,12 @@ void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
         Point* p1 = getOrCreatePoint(v1);
         Point* p2 = getOrCreatePoint(v2);
 
-        Edge* newEdge = this->CreateEdge(p1, p2);
+        // One OCCT edge per scene edge. Do not reuse CreateEdge's endpoint dedup: a circular
+        // hole is often two semicircles between the same vertex pair and must stay distinct.
+        edges.emplace_back(p1, p2);
+        Edge* newEdge = &edges.back();
+        p1->dependencies.insert(newEdge);
+        p2->dependencies.insert(newEdge);
         if (newEdge != nullptr) {
             newEdge->occtEdge = TopoDS::Edge(eFwd);
             edgeMap[eFwd] = newEdge;
@@ -341,15 +350,22 @@ void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
         return newEdge;
     };
 
-    for (TopExp_Explorer exFace(shape, TopAbs_FACE); exFace.More(); exFace.Next()) {
+    static const bool kTopoTrace = []()
+    {
+        const char *e = std::getenv("CAD_STRUCTURE_TOPO_TRACE");
+        return e != nullptr && e[0] != '\0' && !(e[0] == '0' && e[1] == '\0');
+    }();
+
+    int faceIdx = 0;
+    for (TopExp_Explorer exFace(shape, TopAbs_FACE); exFace.More(); exFace.Next(), ++faceIdx) {
         TopoDS_Face occtFace = TopoDS::Face(exFace.Current());
-        
+
         std::vector<std::vector<Edge*>> loops;
 
         for (TopExp_Explorer exWire(occtFace, TopAbs_WIRE); exWire.More(); exWire.Next()) {
             TopoDS_Wire wire = TopoDS::Wire(exWire.Current());
             std::vector<Edge*> loopEdges;
-            
+
             for (BRepTools_WireExplorer exEdge(wire); exEdge.More(); exEdge.Next()) {
                 TopoDS_Edge occtEdge = exEdge.Current();
                 Edge* edge = getOrCreateEdge(occtEdge);
@@ -360,6 +376,38 @@ void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
             if (!loopEdges.empty()) {
                 loops.push_back(loopEdges);
             }
+        }
+
+        if (kTopoTrace)
+        {
+            // For each vertex in this face's wires, project the 3D point onto the face's
+            // surface and record the max deviation. A large deviation means the PCurve-based
+            // trim boundary disagrees with the 3D edge geometry — the visual symptom is the
+            // face mesh not reaching its edge-loop boundary.
+            Handle(Geom_Surface) geomSurf = BRep_Tool::Surface(occtFace);
+            double maxDeviation = 0.0;
+            double maxVtxTol = 0.0;
+            int vtxCount = 0;
+            if (!geomSurf.IsNull())
+            {
+                for (TopExp_Explorer exV(occtFace, TopAbs_VERTEX); exV.More(); exV.Next())
+                {
+                    TopoDS_Vertex v = TopoDS::Vertex(exV.Current());
+                    gp_Pnt p3d = BRep_Tool::Pnt(v);
+                    maxVtxTol = std::max(maxVtxTol, BRep_Tool::Tolerance(v));
+                    ++vtxCount;
+                    GeomAPI_ProjectPointOnSurf proj(p3d, geomSurf);
+                    if (proj.NbPoints() > 0)
+                        maxDeviation = std::max(maxDeviation, proj.LowerDistance());
+                }
+            }
+            std::cerr << "[topo-trace] face=" << faceIdx
+                      << " loops=" << loops.size()
+                      << " face_tol=" << BRep_Tool::Tolerance(occtFace)
+                      << " max_vtx_tol=" << maxVtxTol
+                      << " vtx_count=" << vtxCount
+                      << " max_vtx_surf_deviation=" << maxDeviation
+                      << std::endl;
         }
 
         if (loops.empty()) continue;
@@ -374,6 +422,8 @@ void Scene::PopulateSolidFromOcctShape(Solid *solid, const TopoDS_Shape &shape)
     }
 
     solid->faces = sceneFaces;
+    BRepMesh_IncrementalMesh meshGen(shape, meshLinearDeflectionMm, Standard_False, 0.5, Standard_True);
+    (void)meshGen;
     solid->occtShape = shape;
 }
 
@@ -694,15 +744,37 @@ void Scene::MergeCoplanarFaces(
             LOG_DEBU("Edges: " + std::to_string(totalEdges) + ", shared: " + std::to_string(multiDepEdges));
     }
 
+    auto facePlane = [](const Face *f, glm::dvec3 &outNormal, double &outD) -> bool
+    {
+        if (f == nullptr || f->surface == nullptr || !f->surface->IsPlanar())
+            return false;
+        outNormal = f->GetSurface().GetNormal();
+        const double nLen = glm::length(outNormal);
+        if (!(nLen > 1e-12) || !std::isfinite(outNormal.x))
+            return false;
+        outNormal /= nLen;
+        for (const auto &loop : f->loops)
+        {
+            for (const auto &oe : loop)
+            {
+                if (oe.GetStart() == nullptr)
+                    continue;
+                outD = glm::dot(outNormal, oe.GetStartPosition());
+                return true;
+            }
+        }
+        return false;
+    };
+
     // All coplanar solid neighbors across shared edges (order not guaranteed).
     auto collectCoplanarNeighbors = [&](Face *fi) -> std::vector<Face *>
     {
         std::vector<Face *> out;
         std::unordered_set<Face *> seen;
-        if (!fi->GetSurface().IsPlanar())
+        glm::dvec3 ni{};
+        double di = 0.0;
+        if (!facePlane(fi, ni, di))
             return out;
-        const PlanarData &di = static_cast<const PlanarSurface *>(&fi->GetSurface())->data;
-        const glm::dvec3 ni = glm::normalize(di.normal);
 
         for (const auto &loop : fi->loops)
             for (const auto &oe : loop)
@@ -710,15 +782,15 @@ void Scene::MergeCoplanarFaces(
                 {
                     if (candidate == fi || candidate->dependency != solid)
                         continue;
-                    if (!candidate->GetSurface().IsPlanar())
+                    glm::dvec3 nj{};
+                    double dj = 0.0;
+                    if (!facePlane(candidate, nj, dj))
                         continue;
-                    const PlanarData &dj = static_cast<const PlanarSurface *>(&candidate->GetSurface())->data;
-                    const glm::dvec3 nj = glm::normalize(dj.normal);
                     if (std::abs(glm::dot(ni, nj)) < 1.0 - normalTolerance)
                         continue;
-                    if (maxSignedPlaneDistance(candidate, ni, di.d) > planeTol)
+                    if (maxSignedPlaneDistance(candidate, ni, di) > planeTol)
                         continue;
-                    if (maxSignedPlaneDistance(fi, ni, di.d) > planeTol)
+                    if (maxSignedPlaneDistance(fi, ni, di) > planeTol)
                         continue;
                     if (seen.insert(candidate).second)
                         out.push_back(candidate);
@@ -961,8 +1033,7 @@ void Scene::MergeCoplanarFaces(
                         for (auto &oe : loop)
                             if (oe.edge != nullptr)
                                 oe.edge->dependencies.erase(merged);
-                    merged->loops.clear();
-                    merged->dependency = nullptr;
+                    merged->ClearForRemoval();
                 }
                 // Fallback: keep original triangle/coplanar faces unchanged for this pair.
                 continue;
@@ -978,21 +1049,20 @@ void Scene::MergeCoplanarFaces(
                 for (auto &oe : loop)
                     if (oe.edge != nullptr)
                         oe.edge->dependencies.erase(fi);
-            fi->loops.clear();
-            fi->dependency = nullptr;
+            fi->ClearForRemoval();
 
             for (auto &loop : fj->loops)
                 for (auto &oe : loop)
                     if (oe.edge != nullptr)
                         oe.edge->dependencies.erase(fj);
-            fj->loops.clear();
-            fj->dependency = nullptr;
+            fj->ClearForRemoval();
 
             // Disconnect shared (internal) edges entirely
             for (Edge *e : shared)
             {
                 if (e == nullptr || e->startPoint == nullptr || e->endPoint == nullptr)
                     continue;
+                e->dependencies.clear();
                 e->startPoint->dependencies.erase(e);
                 e->endPoint->dependencies.erase(e);
                 e->startPoint = nullptr;

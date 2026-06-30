@@ -144,6 +144,22 @@ PlanarData Face::CalculatePlanarData()
     return data;
 }
 
+void Face::ClearForRemoval() noexcept
+{
+    for (auto &loop : loops)
+    {
+        for (auto &oe : loop)
+        {
+            if (oe.edge != nullptr)
+                oe.edge->dependencies.erase(this);
+        }
+    }
+    loops.clear();
+    dependency = nullptr;
+    occtFace.Nullify();
+    surface.reset();
+}
+
 bool Face::FlipWindingIfPlanar()
 {
     if (surface == nullptr || !surface->IsPlanar())

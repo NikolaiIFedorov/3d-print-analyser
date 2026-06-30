@@ -29,7 +29,7 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
 
 [[nodiscard]] bool FaceCapParallelBuildDir(const Face *face, const glm::dvec3 &dirUnit)
 {
-    if (face == nullptr || !face->GetSurface().IsPlanar())
+    if (face == nullptr || !face->HasGeometry() || !face->GetSurface().IsPlanar())
         return false;
 
     glm::dvec3 n = glm::normalize(face->GetSurface().GetNormal());
@@ -44,7 +44,7 @@ constexpr double kCapNormalAlignMinAbsDot = 0.985; // ~10° — cap face ∥ bui
 
     auto considerFace = [&](const Face *f)
     {
-        if (f == nullptr)
+        if (f == nullptr || !f->HasGeometry())
             return;
         for (const auto &loop : f->loops)
         {
@@ -115,7 +115,7 @@ void AppendTessellatedStackParallelCapHoleInnerEdges(const Scene &scene, const g
 
     auto addFaceIfCap = [&](const Face *f)
     {
-        if (f == nullptr || !f->GetSurface().IsPlanar())
+        if (f == nullptr || !f->HasGeometry() || !f->GetSurface().IsPlanar())
             return;
         if (!FaceCapParallelBuildDir(f, dirUnit))
             return;
@@ -301,7 +301,7 @@ void AppendTessellatedStackParallelCapHoleInnerEdges(const Scene &scene, const g
 
 bool FaceNormalPerpendicularToBuild(const Face *face, const glm::dvec3 &buildDirWorld)
 {
-    if (face == nullptr || !face->GetSurface().IsPlanar())
+    if (face == nullptr || !face->HasGeometry() || !face->GetSurface().IsPlanar())
         return false;
 
     glm::dvec3 n = glm::normalize(face->GetSurface().GetNormal());
@@ -327,7 +327,7 @@ void RebuildHoleCalibTopology(const Scene &scene, const glm::dvec3 &buildDirWorl
 
     auto scanFace = [&](const Face *f)
     {
-        if (f == nullptr || f->loops.size() < 2 || !f->GetSurface().IsPlanar())
+        if (f == nullptr || !f->HasGeometry() || f->loops.size() < 2 || !f->GetSurface().IsPlanar())
             return;
         // Only caps ∥ build: inner loops on slanted pockets are not “holes in the layer” for slicing;
         // including them falsely tagged oblique cavity walls as `Hole` (hole radius offset).

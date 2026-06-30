@@ -50,9 +50,22 @@ public:
     void RecolorOnly(Scene *scene, const AnalysisResults *results = nullptr);
     void RebuildScope(Scene *scene, const GeometryInvalidationScope &scope, const AnalysisResults *results = nullptr);
 
-    /// Optional Structure-tool preview lines, rebuilt each upload. Phase A keeps the buffer empty;
-    /// Phase B (face triangulation) repopulates it via `Display::RefreshStructurePreviewForRenderer`.
+    /// Optional Structure-tool preview edge loops, rebuilt each upload.
     void SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
+
+    /// Optional Analysis-tool debug overlay: the raw sliced cross-section loops, rebuilt each upload.
+    void SetAnalysisDebugSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments);
+
+    /// Filled layer-diff overlay: earcuts the per-layer RingDifference result and uploads as translucent triangles.
+    void SetAnalysisDebugLayerDiff(const std::vector<std::vector<glm::dvec3>> &rings, float z);
+
+    /// Uploads all overhang clipBoundary polygons from analysis results as flat horizontal overlays.
+    /// Pass nullptr to clear.
+    void SetOverhangOverlays(const AnalysisResults *results);
+
+    /// Extracts SHARP_CORNER edge lines from analysis results and uploads for line rendering.
+    /// Pass nullptr to clear.
+    void SetSharpCornerEdges(const AnalysisResults *results);
 
     /// Per frame: translucent solid shell while Structure view is active (depth prepass + alpha in OpenGLRenderer).
     void SetStructureViewTranslucentSolid(bool enable, float alpha01);
@@ -71,6 +84,14 @@ public:
     void RenderOpenBoundaryBlameLine(float lineWidthPx, bool xrayOverlay = false);
     /// Dedicated mesh from `structurePreviewSegments`; foreground + occluded passes.
     void RenderStructurePreviewLines(float lineWidthPx);
+    /// Dedicated mesh from `analysisDebugSegments`; foreground + occluded passes.
+    void RenderAnalysisDebugLines(float lineWidthPx);
+    /// Filled layer-diff overlay triangles (translucent, depth-read-only).
+    void RenderAnalysisDebugTriangles();
+    /// Flat horizontal overhang region overlays (translucent, depth-read-only).
+    void RenderOverhangOverlays();
+    /// Colored edge lines for SHARP_CORNER sharp corners.
+    void RenderSharpCornerEdges(float lineWidthPx);
     void RenderWireframe();
     /// Second pass: first `packedSolidWireframeIndexCount` line indices (solid wire only), depth-behind shell.
     void RenderSolidWireframeOccludedOverlay();
@@ -125,6 +146,7 @@ private:
     bool UploadChunkSubData(const Solid *solid, const SolidChunk &chunk);
     void UploadAllPacked();
     void CommitStructurePreviewLinesToGpu();
+    void CommitAnalysisDebugLinesToGpu();
     void RebuildPickSegments(Scene *scene);
     void RebuildPickTriangles();
     void AbortIncrementalFullRebuild();
@@ -142,6 +164,8 @@ private:
     std::vector<PickSegment> pickSegments;
 
     std::vector<std::pair<glm::vec3, glm::vec3>> structurePreviewSegments;
+    std::vector<std::pair<glm::vec3, glm::vec3>> analysisDebugSegments;
+    std::vector<std::pair<glm::vec3, glm::vec3>> sharpCornerEdgeSegments;
 
     uint32_t packedSolidPatchIndexCount = 0;
     /// Line indices belonging to solid wireframe chunks only (prefix of packed line IBO); set in `RepackOffsets`.

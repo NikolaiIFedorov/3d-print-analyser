@@ -22,6 +22,7 @@ struct OcctSurface : Surface
 
     glm::dvec3 GetNormal() const override;
     glm::dvec3 GetNormal(double u, double v) const override;
+    bool IsPlanar() const override;
 };
 
 struct PlanarSurface : Surface

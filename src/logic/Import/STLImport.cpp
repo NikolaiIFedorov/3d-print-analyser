@@ -1,5 +1,6 @@
 #include "STLImport.hpp"
 #include "GeometryExperiments.hpp"
+#include "GeometryOps/OcctProgressRelay.hpp"
 #include "GeometryValidity.hpp"
 #include "utils/log.hpp"
 #include "scene/scene.hpp"
@@ -13,6 +14,7 @@
 #include <ShapeUpgrade_UnifySameDomain.hxx>
 #include <TopoDS.hxx>
 #include <TopoDS_Shape.hxx>
+#include <algorithm>
 #include <chrono>
 
 bool STLImport::Import(
@@ -35,9 +37,11 @@ bool STLImport::Import(
     const Clock::time_point tBuildStart = Clock::now();
 
     ReportImportProgress(progress, "Building B-Rep from mesh...", 0.3f);
-    
+
+    const int triangleCount = mesh->NbTriangles();
+    const int triangleProgressStride = std::max(1, triangleCount / 200);
     BRepBuilderAPI_Sewing sewer(1e-4);
-    for (int i = 1; i <= mesh->NbTriangles(); ++i)
+    for (int i = 1; i <= triangleCount; ++i)
     {
         int n1, n2, n3;
         mesh->Triangle(i).Get(n1, n2, n3);
@@ -48,10 +52,16 @@ bool STLImport::Import(
             if (mkFace.IsDone())
                 sewer.Add(mkFace.Face());
         }
+        if (i % triangleProgressStride == 0)
+            ReportImportProgress(progress, "Building B-Rep from mesh...",
+                                  MapImportProgress(static_cast<float>(i) / triangleCount, 0.3f, 0.6f));
     }
 
     ReportImportProgress(progress, "Sewing faces...", 0.6f);
-    sewer.Perform();
+    Handle(GeometryOps::OcctProgressRelay) sewRelay = new GeometryOps::OcctProgressRelay(
+        [&](double localProgress01)
+        { ReportImportProgress(progress, "Sewing faces...", MapImportProgress(static_cast<float>(localProgress01), 0.6f, 0.8f)); });
+    sewer.Perform(sewRelay->Start());
     TopoDS_Shape sewedShape = sewer.SewedShape();
 
     ReportImportProgress(progress, "Merging coplanar faces...", 0.8f);
@@ -62,7 +72,19 @@ bool STLImport::Import(
     TopoDS_Shape unifiedShape = unifier.Shape();
 
     ReportImportProgress(progress, "Generating display mesh...", 0.85f);
-    BRepMesh_IncrementalMesh meshGen(unifiedShape, 0.1, false, 0.5, true);
+    BRepMesh_IncrementalMesh meshGen;
+    meshGen.SetShape(unifiedShape);
+    meshGen.ChangeParameters().Deflection = 0.1;
+    meshGen.ChangeParameters().Relative = false;
+    meshGen.ChangeParameters().Angle = 0.5;
+    meshGen.ChangeParameters().InParallel = true;
+    Handle(GeometryOps::OcctProgressRelay) meshRelay = new GeometryOps::OcctProgressRelay(
+        [&](double localProgress01)
+        {
+            ReportImportProgress(progress, "Generating display mesh...",
+                                  MapImportProgress(static_cast<float>(localProgress01), 0.85f, 0.9f));
+        });
+    meshGen.Perform(meshRelay->Start());
 
     double mergeMs = std::chrono::duration<double, std::milli>(Clock::now() - tBuildStart).count();
 

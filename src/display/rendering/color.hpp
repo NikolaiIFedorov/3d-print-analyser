@@ -144,7 +144,6 @@ struct Color
     }
 
     static glm::vec4 GetFace(FaceFlawKind flaw);
-    static glm::vec4 GetEdge(EdgeFlawKind flaw);
 
 private:
     static constexpr float kBase = 0.1f;

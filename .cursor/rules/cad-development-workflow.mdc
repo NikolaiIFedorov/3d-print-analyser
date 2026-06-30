@@ -1,28 +1,28 @@
 ---
-description: CAD_OpenGL — best_practices workflow, implementation logs, Stage 4, commits
+description: CAD_OpenGL — development workflow, commits
 alwaysApply: true
 ---
 
 # Development workflow (functionality work)
 
-**Canonical sources:** `practices/best_practices.md` (Development Workflow, Mini retrospective) and the skill `.cursor/skills/cad-feature-workflow/SKILL.md`.
+**Canonical sources:** `practices/project_practices.md` and the skill `.cursor/skills/cad-feature-workflow/SKILL.md` (Stage 1 Understand, Stage 2 Implementation checklist, Stage 3 After implementation). There's no separate implementation-log journal in this project — `git commit` messages are the record.
 
 ## When this applies
 
-Use the full four-stage workflow when the task **changes behavior or code** under the product tree: new feature, bugfix, behavior tweak, or non-trivial refactor in `src/`, `include/`, `CMakeLists.txt`, or shaders/assets the app loads.
+Use the full three-stage workflow when the task **changes behavior or code** under the product tree: new feature, bugfix, behavior tweak, or non-trivial refactor in `src/`, `include/`, `CMakeLists.txt`, or shaders/assets the app loads.
 
 ## When to skip or lighten it
 
 - **Read-only:** explaining code, architecture questions, “what does X do?” with no edits.
-- **Explicit opt-out:** the user says e.g. no log, no commit, quick fix only.
+- **Explicit opt-out:** the user says e.g. no commit, quick fix only.
 
 ## What to do (short checklist)
 
-1. **Stage 1–2 early:** Confirm problem/approach; open or create a **running** log under `documentation/implementations/` (append only — one log per theme is fine). Record idea and plan **before or as soon as** implementation starts, then append bugs, attempts, and outcome as you go.
-2. **Stage 3:** Implement using the checklist in `best_practices.md` / the skill (critique, architecture, performance, portability, naming, consistency, DRY, post-implementation diff read).
-3. **Stage 4 before treating work as done:** clean build → quick Stage-3 pass as review → **mini retro** (what worked, what did not, any concrete edit for a skill or `best_practices.md`) → **`git commit`** with a **detailed** message (problem, approach, main files, follow-ups) unless the user asked not to commit → append **outcome** (and optional retro paragraph) to the implementation log.
+1. **Stage 1:** Confirm problem/approach before touching code — see the skill.
+2. **Stage 2:** Implement using the checklist in the skill (critique, architecture, performance, portability, naming, consistency, DRY, post-implementation diff read).
+3. **Stage 3 before treating work as done:** clean build → quick Stage-2 pass as review → **`git commit`** with a **detailed** message (problem, approach, main files, follow-ups) unless the user asked not to commit.
 
-If the change fails mid-flight, log theories and results in the implementation log and either iterate or return to Stage 1 as in `best_practices.md`.
+If the change fails mid-flight, return to Stage 1 and question whether the original approach was correct.
 
 ## Git
 

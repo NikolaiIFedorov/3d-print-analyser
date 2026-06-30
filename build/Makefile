@@ -155,6 +155,71 @@ occt_spike/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/build
 .PHONY : occt_spike/fast
 
+#=============================================================================
+# Target rules for targets named test_fillet2d
+
+# Build rule for target.
+test_fillet2d: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_fillet2d
+.PHONY : test_fillet2d
+
+# fast build rule for target.
+test_fillet2d/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/build
+.PHONY : test_fillet2d/fast
+
+#=============================================================================
+# Target rules for targets named test_chfi2d
+
+# Build rule for target.
+test_chfi2d: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_chfi2d
+.PHONY : test_chfi2d
+
+# fast build rule for target.
+test_chfi2d/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/build
+.PHONY : test_chfi2d/fast
+
+#=============================================================================
+# Target rules for targets named test_structure_accept
+
+# Build rule for target.
+test_structure_accept: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_structure_accept
+.PHONY : test_structure_accept
+
+# fast build rule for target.
+test_structure_accept/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/build
+.PHONY : test_structure_accept/fast
+
+#=============================================================================
+# Target rules for targets named test_slice_debug
+
+# Build rule for target.
+test_slice_debug: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_slice_debug
+.PHONY : test_slice_debug
+
+# fast build rule for target.
+test_slice_debug/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/build
+.PHONY : test_slice_debug/fast
+
+#=============================================================================
+# Target rules for targets named test_inset_recarve
+
+# Build rule for target.
+test_inset_recarve: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_inset_recarve
+.PHONY : test_inset_recarve
+
+# fast build rule for target.
+test_inset_recarve/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/build
+.PHONY : test_inset_recarve/fast
+
 include/glad/src/glad.o: include/glad/src/glad.c.o
 .PHONY : include/glad/src/glad.o
 
@@ -617,6 +682,7 @@ src/display/rendering/SceneRenderer/Patch/patch.o: src/display/rendering/SceneRe
 # target to build an object file
 src/display/rendering/SceneRenderer/Patch/patch.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.o
 .PHONY : src/display/rendering/SceneRenderer/Patch/patch.cpp.o
 
 src/display/rendering/SceneRenderer/Patch/patch.i: src/display/rendering/SceneRenderer/Patch/patch.cpp.i
@@ -625,6 +691,7 @@ src/display/rendering/SceneRenderer/Patch/patch.i: src/display/rendering/SceneRe
 # target to preprocess a source file
 src/display/rendering/SceneRenderer/Patch/patch.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.i
 .PHONY : src/display/rendering/SceneRenderer/Patch/patch.cpp.i
 
 src/display/rendering/SceneRenderer/Patch/patch.s: src/display/rendering/SceneRenderer/Patch/patch.cpp.s
@@ -633,6 +700,7 @@ src/display/rendering/SceneRenderer/Patch/patch.s: src/display/rendering/SceneRe
 # target to generate assembly for a file
 src/display/rendering/SceneRenderer/Patch/patch.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Patch/patch.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/Patch/patch.cpp.s
 
 src/display/rendering/SceneRenderer/SceneRenderer.o: src/display/rendering/SceneRenderer/SceneRenderer.cpp.o
@@ -665,6 +733,7 @@ src/display/rendering/SceneRenderer/Wireframe/Wireframe.o: src/display/rendering
 # target to build an object file
 src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o
 .PHONY : src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.o
 
 src/display/rendering/SceneRenderer/Wireframe/Wireframe.i: src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.i
@@ -673,6 +742,7 @@ src/display/rendering/SceneRenderer/Wireframe/Wireframe.i: src/display/rendering
 # target to preprocess a source file
 src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.i
 .PHONY : src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.i
 
 src/display/rendering/SceneRenderer/Wireframe/Wireframe.s: src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
@@ -681,6 +751,7 @@ src/display/rendering/SceneRenderer/Wireframe/Wireframe.s: src/display/rendering
 # target to generate assembly for a file
 src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 .PHONY : src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp.s
 
 src/display/rendering/UIRenderer/TextRenderer.o: src/display/rendering/UIRenderer/TextRenderer.cpp.o
@@ -809,6 +880,7 @@ src/display/rendering/color.o: src/display/rendering/color.cpp.o
 # target to build an object file
 src/display/rendering/color.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/color.cpp.o
 .PHONY : src/display/rendering/color.cpp.o
 
 src/display/rendering/color.i: src/display/rendering/color.cpp.i
@@ -817,6 +889,7 @@ src/display/rendering/color.i: src/display/rendering/color.cpp.i
 # target to preprocess a source file
 src/display/rendering/color.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/color.cpp.i
 .PHONY : src/display/rendering/color.cpp.i
 
 src/display/rendering/color.s: src/display/rendering/color.cpp.s
@@ -825,6 +898,7 @@ src/display/rendering/color.s: src/display/rendering/color.cpp.s
 # target to generate assembly for a file
 src/display/rendering/color.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/display/rendering/color.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/display/rendering/color.cpp.s
 .PHONY : src/display/rendering/color.cpp.s
 
 src/input/FileImport.o: src/input/FileImport.cpp.o
@@ -881,6 +955,7 @@ src/logic/Analysis/Analysis.o: src/logic/Analysis/Analysis.cpp.o
 # target to build an object file
 src/logic/Analysis/Analysis.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Analysis.cpp.o
 .PHONY : src/logic/Analysis/Analysis.cpp.o
 
 src/logic/Analysis/Analysis.i: src/logic/Analysis/Analysis.cpp.i
@@ -889,6 +964,7 @@ src/logic/Analysis/Analysis.i: src/logic/Analysis/Analysis.cpp.i
 # target to preprocess a source file
 src/logic/Analysis/Analysis.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Analysis.cpp.i
 .PHONY : src/logic/Analysis/Analysis.cpp.i
 
 src/logic/Analysis/Analysis.s: src/logic/Analysis/Analysis.cpp.s
@@ -897,31 +973,89 @@ src/logic/Analysis/Analysis.s: src/logic/Analysis/Analysis.cpp.s
 # target to generate assembly for a file
 src/logic/Analysis/Analysis.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Analysis.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Analysis.cpp.s
 .PHONY : src/logic/Analysis/Analysis.cpp.s
 
-src/logic/Analysis/Overhang/Overhang.o: src/logic/Analysis/Overhang/Overhang.cpp.o
-.PHONY : src/logic/Analysis/Overhang/Overhang.o
+src/logic/Analysis/Instability/Instability.o: src/logic/Analysis/Instability/Instability.cpp.o
+.PHONY : src/logic/Analysis/Instability/Instability.o
 
 # target to build an object file
-src/logic/Analysis/Overhang/Overhang.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.o
-.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.o
+src/logic/Analysis/Instability/Instability.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Instability/Instability.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Instability/Instability.cpp.o
+.PHONY : src/logic/Analysis/Instability/Instability.cpp.o
 
-src/logic/Analysis/Overhang/Overhang.i: src/logic/Analysis/Overhang/Overhang.cpp.i
-.PHONY : src/logic/Analysis/Overhang/Overhang.i
+src/logic/Analysis/Instability/Instability.i: src/logic/Analysis/Instability/Instability.cpp.i
+.PHONY : src/logic/Analysis/Instability/Instability.i
 
 # target to preprocess a source file
-src/logic/Analysis/Overhang/Overhang.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.i
-.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.i
+src/logic/Analysis/Instability/Instability.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Instability/Instability.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Instability/Instability.cpp.i
+.PHONY : src/logic/Analysis/Instability/Instability.cpp.i
 
-src/logic/Analysis/Overhang/Overhang.s: src/logic/Analysis/Overhang/Overhang.cpp.s
-.PHONY : src/logic/Analysis/Overhang/Overhang.s
+src/logic/Analysis/Instability/Instability.s: src/logic/Analysis/Instability/Instability.cpp.s
+.PHONY : src/logic/Analysis/Instability/Instability.s
 
 # target to generate assembly for a file
-src/logic/Analysis/Overhang/Overhang.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Overhang/Overhang.cpp.s
-.PHONY : src/logic/Analysis/Overhang/Overhang.cpp.s
+src/logic/Analysis/Instability/Instability.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/Instability/Instability.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/Instability/Instability.cpp.s
+.PHONY : src/logic/Analysis/Instability/Instability.cpp.s
+
+src/logic/Analysis/LayerDifference/LayerDifference.o: src/logic/Analysis/LayerDifference/LayerDifference.cpp.o
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.o
+
+# target to build an object file
+src/logic/Analysis/LayerDifference/LayerDifference.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.o
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.cpp.o
+
+src/logic/Analysis/LayerDifference/LayerDifference.i: src/logic/Analysis/LayerDifference/LayerDifference.cpp.i
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.i
+
+# target to preprocess a source file
+src/logic/Analysis/LayerDifference/LayerDifference.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.i
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.cpp.i
+
+src/logic/Analysis/LayerDifference/LayerDifference.s: src/logic/Analysis/LayerDifference/LayerDifference.cpp.s
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.s
+
+# target to generate assembly for a file
+src/logic/Analysis/LayerDifference/LayerDifference.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/LayerDifference/LayerDifference.cpp.s
+.PHONY : src/logic/Analysis/LayerDifference/LayerDifference.cpp.s
+
+src/logic/Analysis/OverhangDetector/OverhangDetector.o: src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.o
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.o
+
+# target to build an object file
+src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.o
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.o
+
+src/logic/Analysis/OverhangDetector/OverhangDetector.i: src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.i
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.i
+
+# target to preprocess a source file
+src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.i
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.i
+
+src/logic/Analysis/OverhangDetector/OverhangDetector.s: src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.s
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.s
+
+# target to generate assembly for a file
+src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.s
+.PHONY : src/logic/Analysis/OverhangDetector/OverhangDetector.cpp.s
 
 src/logic/Analysis/SharpCorner/SharpCorner.o: src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
 .PHONY : src/logic/Analysis/SharpCorner/SharpCorner.o
@@ -929,6 +1063,7 @@ src/logic/Analysis/SharpCorner/SharpCorner.o: src/logic/Analysis/SharpCorner/Sha
 # target to build an object file
 src/logic/Analysis/SharpCorner/SharpCorner.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
 .PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.o
 
 src/logic/Analysis/SharpCorner/SharpCorner.i: src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
@@ -937,6 +1072,7 @@ src/logic/Analysis/SharpCorner/SharpCorner.i: src/logic/Analysis/SharpCorner/Sha
 # target to preprocess a source file
 src/logic/Analysis/SharpCorner/SharpCorner.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
 .PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.i
 
 src/logic/Analysis/SharpCorner/SharpCorner.s: src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
@@ -945,55 +1081,35 @@ src/logic/Analysis/SharpCorner/SharpCorner.s: src/logic/Analysis/SharpCorner/Sha
 # target to generate assembly for a file
 src/logic/Analysis/SharpCorner/SharpCorner.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
 .PHONY : src/logic/Analysis/SharpCorner/SharpCorner.cpp.s
 
-src/logic/Analysis/SmallFeature/SmallFeature.o: src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.o
+src/logic/Analysis/utils/LayerDiffUtils.o: src/logic/Analysis/utils/LayerDiffUtils.cpp.o
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.o
 
 # target to build an object file
-src/logic/Analysis/SmallFeature/SmallFeature.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.o
+src/logic/Analysis/utils/LayerDiffUtils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.o
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.cpp.o
 
-src/logic/Analysis/SmallFeature/SmallFeature.i: src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.i
-
-# target to preprocess a source file
-src/logic/Analysis/SmallFeature/SmallFeature.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.i
-
-src/logic/Analysis/SmallFeature/SmallFeature.s: src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.s
-
-# target to generate assembly for a file
-src/logic/Analysis/SmallFeature/SmallFeature.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
-.PHONY : src/logic/Analysis/SmallFeature/SmallFeature.cpp.s
-
-src/logic/Analysis/ThinSection/ThinSection.o: src/logic/Analysis/ThinSection/ThinSection.cpp.o
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.o
-
-# target to build an object file
-src/logic/Analysis/ThinSection/ThinSection.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.o
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.o
-
-src/logic/Analysis/ThinSection/ThinSection.i: src/logic/Analysis/ThinSection/ThinSection.cpp.i
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.i
+src/logic/Analysis/utils/LayerDiffUtils.i: src/logic/Analysis/utils/LayerDiffUtils.cpp.i
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.i
 
 # target to preprocess a source file
-src/logic/Analysis/ThinSection/ThinSection.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.i
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.i
+src/logic/Analysis/utils/LayerDiffUtils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.i
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.cpp.i
 
-src/logic/Analysis/ThinSection/ThinSection.s: src/logic/Analysis/ThinSection/ThinSection.cpp.s
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.s
+src/logic/Analysis/utils/LayerDiffUtils.s: src/logic/Analysis/utils/LayerDiffUtils.cpp.s
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.s
 
 # target to generate assembly for a file
-src/logic/Analysis/ThinSection/ThinSection.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/ThinSection/ThinSection.cpp.s
-.PHONY : src/logic/Analysis/ThinSection/ThinSection.cpp.s
+src/logic/Analysis/utils/LayerDiffUtils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/LayerDiffUtils.cpp.s
+.PHONY : src/logic/Analysis/utils/LayerDiffUtils.cpp.s
 
 src/logic/Analysis/utils/Slice.o: src/logic/Analysis/utils/Slice.cpp.o
 .PHONY : src/logic/Analysis/utils/Slice.o
@@ -1001,6 +1117,8 @@ src/logic/Analysis/utils/Slice.o: src/logic/Analysis/utils/Slice.cpp.o
 # target to build an object file
 src/logic/Analysis/utils/Slice.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/Slice.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Analysis/utils/Slice.cpp.o
 .PHONY : src/logic/Analysis/utils/Slice.cpp.o
 
 src/logic/Analysis/utils/Slice.i: src/logic/Analysis/utils/Slice.cpp.i
@@ -1009,6 +1127,8 @@ src/logic/Analysis/utils/Slice.i: src/logic/Analysis/utils/Slice.cpp.i
 # target to preprocess a source file
 src/logic/Analysis/utils/Slice.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/Slice.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Analysis/utils/Slice.cpp.i
 .PHONY : src/logic/Analysis/utils/Slice.cpp.i
 
 src/logic/Analysis/utils/Slice.s: src/logic/Analysis/utils/Slice.cpp.s
@@ -1017,6 +1137,8 @@ src/logic/Analysis/utils/Slice.s: src/logic/Analysis/utils/Slice.cpp.s
 # target to generate assembly for a file
 src/logic/Analysis/utils/Slice.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Analysis/utils/Slice.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Analysis/utils/Slice.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Analysis/utils/Slice.cpp.s
 .PHONY : src/logic/Analysis/utils/Slice.cpp.s
 
 src/logic/Calibrate/CalibCompensation.o: src/logic/Calibrate/CalibCompensation.cpp.o
@@ -1049,6 +1171,7 @@ src/logic/Calibrate/CalibDistanceType.o: src/logic/Calibrate/CalibDistanceType.c
 # target to build an object file
 src/logic/Calibrate/CalibDistanceType.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Calibrate/CalibDistanceType.cpp.o
 .PHONY : src/logic/Calibrate/CalibDistanceType.cpp.o
 
 src/logic/Calibrate/CalibDistanceType.i: src/logic/Calibrate/CalibDistanceType.cpp.i
@@ -1057,6 +1180,7 @@ src/logic/Calibrate/CalibDistanceType.i: src/logic/Calibrate/CalibDistanceType.c
 # target to preprocess a source file
 src/logic/Calibrate/CalibDistanceType.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Calibrate/CalibDistanceType.cpp.i
 .PHONY : src/logic/Calibrate/CalibDistanceType.cpp.i
 
 src/logic/Calibrate/CalibDistanceType.s: src/logic/Calibrate/CalibDistanceType.cpp.s
@@ -1065,6 +1189,7 @@ src/logic/Calibrate/CalibDistanceType.s: src/logic/Calibrate/CalibDistanceType.c
 # target to generate assembly for a file
 src/logic/Calibrate/CalibDistanceType.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibDistanceType.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Calibrate/CalibDistanceType.cpp.s
 .PHONY : src/logic/Calibrate/CalibDistanceType.cpp.s
 
 src/logic/Calibrate/CalibNominal.o: src/logic/Calibrate/CalibNominal.cpp.o
@@ -1091,12 +1216,237 @@ src/logic/Calibrate/CalibNominal.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Calibrate/CalibNominal.cpp.s
 .PHONY : src/logic/Calibrate/CalibNominal.cpp.s
 
+src/logic/GeometryOps/ConvexHull2D.o: src/logic/GeometryOps/ConvexHull2D.cpp.o
+.PHONY : src/logic/GeometryOps/ConvexHull2D.o
+
+# target to build an object file
+src/logic/GeometryOps/ConvexHull2D.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/ConvexHull2D.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/ConvexHull2D.cpp.o
+.PHONY : src/logic/GeometryOps/ConvexHull2D.cpp.o
+
+src/logic/GeometryOps/ConvexHull2D.i: src/logic/GeometryOps/ConvexHull2D.cpp.i
+.PHONY : src/logic/GeometryOps/ConvexHull2D.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/ConvexHull2D.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/ConvexHull2D.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/ConvexHull2D.cpp.i
+.PHONY : src/logic/GeometryOps/ConvexHull2D.cpp.i
+
+src/logic/GeometryOps/ConvexHull2D.s: src/logic/GeometryOps/ConvexHull2D.cpp.s
+.PHONY : src/logic/GeometryOps/ConvexHull2D.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/ConvexHull2D.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/ConvexHull2D.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/ConvexHull2D.cpp.s
+.PHONY : src/logic/GeometryOps/ConvexHull2D.cpp.s
+
+src/logic/GeometryOps/Fillet2D.o: src/logic/GeometryOps/Fillet2D.cpp.o
+.PHONY : src/logic/GeometryOps/Fillet2D.o
+
+# target to build an object file
+src/logic/GeometryOps/Fillet2D.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Fillet2D.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Fillet2D.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Fillet2D.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Fillet2D.cpp.o
+.PHONY : src/logic/GeometryOps/Fillet2D.cpp.o
+
+src/logic/GeometryOps/Fillet2D.i: src/logic/GeometryOps/Fillet2D.cpp.i
+.PHONY : src/logic/GeometryOps/Fillet2D.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/Fillet2D.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Fillet2D.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Fillet2D.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Fillet2D.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Fillet2D.cpp.i
+.PHONY : src/logic/GeometryOps/Fillet2D.cpp.i
+
+src/logic/GeometryOps/Fillet2D.s: src/logic/GeometryOps/Fillet2D.cpp.s
+.PHONY : src/logic/GeometryOps/Fillet2D.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/Fillet2D.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Fillet2D.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Fillet2D.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Fillet2D.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Fillet2D.cpp.s
+.PHONY : src/logic/GeometryOps/Fillet2D.cpp.s
+
+src/logic/GeometryOps/PlaneProjection.o: src/logic/GeometryOps/PlaneProjection.cpp.o
+.PHONY : src/logic/GeometryOps/PlaneProjection.o
+
+# target to build an object file
+src/logic/GeometryOps/PlaneProjection.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/PlaneProjection.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/PlaneProjection.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/PlaneProjection.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/PlaneProjection.cpp.o
+.PHONY : src/logic/GeometryOps/PlaneProjection.cpp.o
+
+src/logic/GeometryOps/PlaneProjection.i: src/logic/GeometryOps/PlaneProjection.cpp.i
+.PHONY : src/logic/GeometryOps/PlaneProjection.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/PlaneProjection.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/PlaneProjection.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/PlaneProjection.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/PlaneProjection.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/PlaneProjection.cpp.i
+.PHONY : src/logic/GeometryOps/PlaneProjection.cpp.i
+
+src/logic/GeometryOps/PlaneProjection.s: src/logic/GeometryOps/PlaneProjection.cpp.s
+.PHONY : src/logic/GeometryOps/PlaneProjection.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/PlaneProjection.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/PlaneProjection.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/PlaneProjection.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/PlaneProjection.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/PlaneProjection.cpp.s
+.PHONY : src/logic/GeometryOps/PlaneProjection.cpp.s
+
+src/logic/GeometryOps/RingBoolean.o: src/logic/GeometryOps/RingBoolean.cpp.o
+.PHONY : src/logic/GeometryOps/RingBoolean.o
+
+# target to build an object file
+src/logic/GeometryOps/RingBoolean.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingBoolean.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingBoolean.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingBoolean.cpp.o
+.PHONY : src/logic/GeometryOps/RingBoolean.cpp.o
+
+src/logic/GeometryOps/RingBoolean.i: src/logic/GeometryOps/RingBoolean.cpp.i
+.PHONY : src/logic/GeometryOps/RingBoolean.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/RingBoolean.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingBoolean.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingBoolean.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingBoolean.cpp.i
+.PHONY : src/logic/GeometryOps/RingBoolean.cpp.i
+
+src/logic/GeometryOps/RingBoolean.s: src/logic/GeometryOps/RingBoolean.cpp.s
+.PHONY : src/logic/GeometryOps/RingBoolean.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/RingBoolean.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingBoolean.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingBoolean.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingBoolean.cpp.s
+.PHONY : src/logic/GeometryOps/RingBoolean.cpp.s
+
+src/logic/GeometryOps/RingUtils.o: src/logic/GeometryOps/RingUtils.cpp.o
+.PHONY : src/logic/GeometryOps/RingUtils.o
+
+# target to build an object file
+src/logic/GeometryOps/RingUtils.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingUtils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingUtils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingUtils.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/RingUtils.cpp.o
+.PHONY : src/logic/GeometryOps/RingUtils.cpp.o
+
+src/logic/GeometryOps/RingUtils.i: src/logic/GeometryOps/RingUtils.cpp.i
+.PHONY : src/logic/GeometryOps/RingUtils.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/RingUtils.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingUtils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingUtils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingUtils.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/RingUtils.cpp.i
+.PHONY : src/logic/GeometryOps/RingUtils.cpp.i
+
+src/logic/GeometryOps/RingUtils.s: src/logic/GeometryOps/RingUtils.cpp.s
+.PHONY : src/logic/GeometryOps/RingUtils.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/RingUtils.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/RingUtils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/RingUtils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/RingUtils.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/RingUtils.cpp.s
+.PHONY : src/logic/GeometryOps/RingUtils.cpp.s
+
+src/logic/GeometryOps/Topology.o: src/logic/GeometryOps/Topology.cpp.o
+.PHONY : src/logic/GeometryOps/Topology.o
+
+# target to build an object file
+src/logic/GeometryOps/Topology.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Topology.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Topology.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Topology.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Topology.cpp.o
+.PHONY : src/logic/GeometryOps/Topology.cpp.o
+
+src/logic/GeometryOps/Topology.i: src/logic/GeometryOps/Topology.cpp.i
+.PHONY : src/logic/GeometryOps/Topology.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/Topology.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Topology.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Topology.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Topology.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Topology.cpp.i
+.PHONY : src/logic/GeometryOps/Topology.cpp.i
+
+src/logic/GeometryOps/Topology.s: src/logic/GeometryOps/Topology.cpp.s
+.PHONY : src/logic/GeometryOps/Topology.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/Topology.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/Topology.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/Topology.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/Topology.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/Topology.cpp.s
+.PHONY : src/logic/GeometryOps/Topology.cpp.s
+
+src/logic/GeometryOps/WireOps.o: src/logic/GeometryOps/WireOps.cpp.o
+.PHONY : src/logic/GeometryOps/WireOps.o
+
+# target to build an object file
+src/logic/GeometryOps/WireOps.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/WireOps.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/WireOps.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/WireOps.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/WireOps.cpp.o
+.PHONY : src/logic/GeometryOps/WireOps.cpp.o
+
+src/logic/GeometryOps/WireOps.i: src/logic/GeometryOps/WireOps.cpp.i
+.PHONY : src/logic/GeometryOps/WireOps.i
+
+# target to preprocess a source file
+src/logic/GeometryOps/WireOps.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/WireOps.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/WireOps.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/WireOps.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/WireOps.cpp.i
+.PHONY : src/logic/GeometryOps/WireOps.cpp.i
+
+src/logic/GeometryOps/WireOps.s: src/logic/GeometryOps/WireOps.cpp.s
+.PHONY : src/logic/GeometryOps/WireOps.s
+
+# target to generate assembly for a file
+src/logic/GeometryOps/WireOps.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryOps/WireOps.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryOps/WireOps.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryOps/WireOps.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryOps/WireOps.cpp.s
+.PHONY : src/logic/GeometryOps/WireOps.cpp.s
+
 src/logic/GeometryValidity.o: src/logic/GeometryValidity.cpp.o
 .PHONY : src/logic/GeometryValidity.o
 
 # target to build an object file
 src/logic/GeometryValidity.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryValidity.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryValidity.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryValidity.cpp.o
 .PHONY : src/logic/GeometryValidity.cpp.o
 
 src/logic/GeometryValidity.i: src/logic/GeometryValidity.cpp.i
@@ -1105,6 +1455,9 @@ src/logic/GeometryValidity.i: src/logic/GeometryValidity.cpp.i
 # target to preprocess a source file
 src/logic/GeometryValidity.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryValidity.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryValidity.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryValidity.cpp.i
 .PHONY : src/logic/GeometryValidity.cpp.i
 
 src/logic/GeometryValidity.s: src/logic/GeometryValidity.cpp.s
@@ -1113,6 +1466,9 @@ src/logic/GeometryValidity.s: src/logic/GeometryValidity.cpp.s
 # target to generate assembly for a file
 src/logic/GeometryValidity.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/GeometryValidity.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/GeometryValidity.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/GeometryValidity.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/GeometryValidity.cpp.s
 .PHONY : src/logic/GeometryValidity.cpp.s
 
 src/logic/Import/OBJImport.o: src/logic/Import/OBJImport.cpp.o
@@ -1145,6 +1501,9 @@ src/logic/Import/STEPImport.o: src/logic/Import/STEPImport.cpp.o
 # target to build an object file
 src/logic/Import/STEPImport.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Import/STEPImport.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Import/STEPImport.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Import/STEPImport.cpp.o
 .PHONY : src/logic/Import/STEPImport.cpp.o
 
 src/logic/Import/STEPImport.i: src/logic/Import/STEPImport.cpp.i
@@ -1153,6 +1512,9 @@ src/logic/Import/STEPImport.i: src/logic/Import/STEPImport.cpp.i
 # target to preprocess a source file
 src/logic/Import/STEPImport.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Import/STEPImport.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Import/STEPImport.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Import/STEPImport.cpp.i
 .PHONY : src/logic/Import/STEPImport.cpp.i
 
 src/logic/Import/STEPImport.s: src/logic/Import/STEPImport.cpp.s
@@ -1161,6 +1523,9 @@ src/logic/Import/STEPImport.s: src/logic/Import/STEPImport.cpp.s
 # target to generate assembly for a file
 src/logic/Import/STEPImport.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Import/STEPImport.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Import/STEPImport.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/logic/Import/STEPImport.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Import/STEPImport.cpp.s
 .PHONY : src/logic/Import/STEPImport.cpp.s
 
 src/logic/Import/STLImport.o: src/logic/Import/STLImport.cpp.o
@@ -1217,6 +1582,8 @@ src/logic/Structure/StructureCarve.o: src/logic/Structure/StructureCarve.cpp.o
 # target to build an object file
 src/logic/Structure/StructureCarve.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureCarve.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureCarve.cpp.o
 .PHONY : src/logic/Structure/StructureCarve.cpp.o
 
 src/logic/Structure/StructureCarve.i: src/logic/Structure/StructureCarve.cpp.i
@@ -1225,6 +1592,8 @@ src/logic/Structure/StructureCarve.i: src/logic/Structure/StructureCarve.cpp.i
 # target to preprocess a source file
 src/logic/Structure/StructureCarve.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureCarve.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureCarve.cpp.i
 .PHONY : src/logic/Structure/StructureCarve.cpp.i
 
 src/logic/Structure/StructureCarve.s: src/logic/Structure/StructureCarve.cpp.s
@@ -1233,6 +1602,8 @@ src/logic/Structure/StructureCarve.s: src/logic/Structure/StructureCarve.cpp.s
 # target to generate assembly for a file
 src/logic/Structure/StructureCarve.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureCarve.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureCarve.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureCarve.cpp.s
 .PHONY : src/logic/Structure/StructureCarve.cpp.s
 
 src/logic/Structure/StructureTriangulation.o: src/logic/Structure/StructureTriangulation.cpp.o
@@ -1241,6 +1612,8 @@ src/logic/Structure/StructureTriangulation.o: src/logic/Structure/StructureTrian
 # target to build an object file
 src/logic/Structure/StructureTriangulation.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureTriangulation.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureTriangulation.cpp.o
 .PHONY : src/logic/Structure/StructureTriangulation.cpp.o
 
 src/logic/Structure/StructureTriangulation.i: src/logic/Structure/StructureTriangulation.cpp.i
@@ -1249,6 +1622,8 @@ src/logic/Structure/StructureTriangulation.i: src/logic/Structure/StructureTrian
 # target to preprocess a source file
 src/logic/Structure/StructureTriangulation.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureTriangulation.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureTriangulation.cpp.i
 .PHONY : src/logic/Structure/StructureTriangulation.cpp.i
 
 src/logic/Structure/StructureTriangulation.s: src/logic/Structure/StructureTriangulation.cpp.s
@@ -1257,6 +1632,8 @@ src/logic/Structure/StructureTriangulation.s: src/logic/Structure/StructureTrian
 # target to generate assembly for a file
 src/logic/Structure/StructureTriangulation.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/logic/Structure/StructureTriangulation.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/logic/Structure/StructureTriangulation.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/logic/Structure/StructureTriangulation.cpp.s
 .PHONY : src/logic/Structure/StructureTriangulation.cpp.s
 
 src/main.o: src/main.cpp.o
@@ -1289,6 +1666,9 @@ src/scene/Geometry/Curve.o: src/scene/Geometry/Curve.cpp.o
 # target to build an object file
 src/scene/Geometry/Curve.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Curve.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Curve.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Curve.cpp.o
 .PHONY : src/scene/Geometry/Curve.cpp.o
 
 src/scene/Geometry/Curve.i: src/scene/Geometry/Curve.cpp.i
@@ -1297,6 +1677,9 @@ src/scene/Geometry/Curve.i: src/scene/Geometry/Curve.cpp.i
 # target to preprocess a source file
 src/scene/Geometry/Curve.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Curve.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Curve.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Curve.cpp.i
 .PHONY : src/scene/Geometry/Curve.cpp.i
 
 src/scene/Geometry/Curve.s: src/scene/Geometry/Curve.cpp.s
@@ -1305,6 +1688,9 @@ src/scene/Geometry/Curve.s: src/scene/Geometry/Curve.cpp.s
 # target to generate assembly for a file
 src/scene/Geometry/Curve.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Curve.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Curve.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Curve.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Curve.cpp.s
 .PHONY : src/scene/Geometry/Curve.cpp.s
 
 src/scene/Geometry/Face.o: src/scene/Geometry/Face.cpp.o
@@ -1313,6 +1699,9 @@ src/scene/Geometry/Face.o: src/scene/Geometry/Face.cpp.o
 # target to build an object file
 src/scene/Geometry/Face.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Face.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Face.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Face.cpp.o
 .PHONY : src/scene/Geometry/Face.cpp.o
 
 src/scene/Geometry/Face.i: src/scene/Geometry/Face.cpp.i
@@ -1321,6 +1710,9 @@ src/scene/Geometry/Face.i: src/scene/Geometry/Face.cpp.i
 # target to preprocess a source file
 src/scene/Geometry/Face.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Face.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Face.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Face.cpp.i
 .PHONY : src/scene/Geometry/Face.cpp.i
 
 src/scene/Geometry/Face.s: src/scene/Geometry/Face.cpp.s
@@ -1329,6 +1721,9 @@ src/scene/Geometry/Face.s: src/scene/Geometry/Face.cpp.s
 # target to generate assembly for a file
 src/scene/Geometry/Face.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Face.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Face.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Face.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Face.cpp.s
 .PHONY : src/scene/Geometry/Face.cpp.s
 
 src/scene/Geometry/Surface.o: src/scene/Geometry/Surface.cpp.o
@@ -1337,6 +1732,9 @@ src/scene/Geometry/Surface.o: src/scene/Geometry/Surface.cpp.o
 # target to build an object file
 src/scene/Geometry/Surface.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Surface.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Surface.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Surface.cpp.o
 .PHONY : src/scene/Geometry/Surface.cpp.o
 
 src/scene/Geometry/Surface.i: src/scene/Geometry/Surface.cpp.i
@@ -1345,6 +1743,9 @@ src/scene/Geometry/Surface.i: src/scene/Geometry/Surface.cpp.i
 # target to preprocess a source file
 src/scene/Geometry/Surface.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Surface.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Surface.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Surface.cpp.i
 .PHONY : src/scene/Geometry/Surface.cpp.i
 
 src/scene/Geometry/Surface.s: src/scene/Geometry/Surface.cpp.s
@@ -1353,6 +1754,9 @@ src/scene/Geometry/Surface.s: src/scene/Geometry/Surface.cpp.s
 # target to generate assembly for a file
 src/scene/Geometry/Surface.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/Geometry/Surface.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/Geometry/Surface.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/Geometry/Surface.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/Geometry/Surface.cpp.s
 .PHONY : src/scene/Geometry/Surface.cpp.s
 
 src/scene/scene.o: src/scene/scene.cpp.o
@@ -1361,6 +1765,9 @@ src/scene/scene.o: src/scene/scene.cpp.o
 # target to build an object file
 src/scene/scene.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/scene.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/scene.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/scene.cpp.o
 .PHONY : src/scene/scene.cpp.o
 
 src/scene/scene.i: src/scene/scene.cpp.i
@@ -1369,6 +1776,9 @@ src/scene/scene.i: src/scene/scene.cpp.i
 # target to preprocess a source file
 src/scene/scene.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/scene.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/scene.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/scene.cpp.i
 .PHONY : src/scene/scene.cpp.i
 
 src/scene/scene.s: src/scene/scene.cpp.s
@@ -1377,6 +1787,9 @@ src/scene/scene.s: src/scene/scene.cpp.s
 # target to generate assembly for a file
 src/scene/scene.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/scene/scene.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/scene/scene.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/scene/scene.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/scene/scene.cpp.s
 .PHONY : src/scene/scene.cpp.s
 
 src/spike/occt_spike.o: src/spike/occt_spike.cpp.o
@@ -1402,6 +1815,174 @@ src/spike/occt_spike.s: src/spike/occt_spike.cpp.s
 src/spike/occt_spike.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/occt_spike.dir/build.make CMakeFiles/occt_spike.dir/src/spike/occt_spike.cpp.s
 .PHONY : src/spike/occt_spike.cpp.s
+
+src/spike/test_chfi2d.o: src/spike/test_chfi2d.cpp.o
+.PHONY : src/spike/test_chfi2d.o
+
+# target to build an object file
+src/spike/test_chfi2d.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/src/spike/test_chfi2d.cpp.o
+.PHONY : src/spike/test_chfi2d.cpp.o
+
+src/spike/test_chfi2d.i: src/spike/test_chfi2d.cpp.i
+.PHONY : src/spike/test_chfi2d.i
+
+# target to preprocess a source file
+src/spike/test_chfi2d.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/src/spike/test_chfi2d.cpp.i
+.PHONY : src/spike/test_chfi2d.cpp.i
+
+src/spike/test_chfi2d.s: src/spike/test_chfi2d.cpp.s
+.PHONY : src/spike/test_chfi2d.s
+
+# target to generate assembly for a file
+src/spike/test_chfi2d.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_chfi2d.dir/build.make CMakeFiles/test_chfi2d.dir/src/spike/test_chfi2d.cpp.s
+.PHONY : src/spike/test_chfi2d.cpp.s
+
+src/spike/test_fillet2d.o: src/spike/test_fillet2d.cpp.o
+.PHONY : src/spike/test_fillet2d.o
+
+# target to build an object file
+src/spike/test_fillet2d.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/src/spike/test_fillet2d.cpp.o
+.PHONY : src/spike/test_fillet2d.cpp.o
+
+src/spike/test_fillet2d.i: src/spike/test_fillet2d.cpp.i
+.PHONY : src/spike/test_fillet2d.i
+
+# target to preprocess a source file
+src/spike/test_fillet2d.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/src/spike/test_fillet2d.cpp.i
+.PHONY : src/spike/test_fillet2d.cpp.i
+
+src/spike/test_fillet2d.s: src/spike/test_fillet2d.cpp.s
+.PHONY : src/spike/test_fillet2d.s
+
+# target to generate assembly for a file
+src/spike/test_fillet2d.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_fillet2d.dir/build.make CMakeFiles/test_fillet2d.dir/src/spike/test_fillet2d.cpp.s
+.PHONY : src/spike/test_fillet2d.cpp.s
+
+src/spike/test_inset_recarve.o: src/spike/test_inset_recarve.cpp.o
+.PHONY : src/spike/test_inset_recarve.o
+
+# target to build an object file
+src/spike/test_inset_recarve.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/spike/test_inset_recarve.cpp.o
+.PHONY : src/spike/test_inset_recarve.cpp.o
+
+src/spike/test_inset_recarve.i: src/spike/test_inset_recarve.cpp.i
+.PHONY : src/spike/test_inset_recarve.i
+
+# target to preprocess a source file
+src/spike/test_inset_recarve.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/spike/test_inset_recarve.cpp.i
+.PHONY : src/spike/test_inset_recarve.cpp.i
+
+src/spike/test_inset_recarve.s: src/spike/test_inset_recarve.cpp.s
+.PHONY : src/spike/test_inset_recarve.s
+
+# target to generate assembly for a file
+src/spike/test_inset_recarve.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/spike/test_inset_recarve.cpp.s
+.PHONY : src/spike/test_inset_recarve.cpp.s
+
+src/spike/test_slice_debug.o: src/spike/test_slice_debug.cpp.o
+.PHONY : src/spike/test_slice_debug.o
+
+# target to build an object file
+src/spike/test_slice_debug.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/spike/test_slice_debug.cpp.o
+.PHONY : src/spike/test_slice_debug.cpp.o
+
+src/spike/test_slice_debug.i: src/spike/test_slice_debug.cpp.i
+.PHONY : src/spike/test_slice_debug.i
+
+# target to preprocess a source file
+src/spike/test_slice_debug.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/spike/test_slice_debug.cpp.i
+.PHONY : src/spike/test_slice_debug.cpp.i
+
+src/spike/test_slice_debug.s: src/spike/test_slice_debug.cpp.s
+.PHONY : src/spike/test_slice_debug.s
+
+# target to generate assembly for a file
+src/spike/test_slice_debug.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/spike/test_slice_debug.cpp.s
+.PHONY : src/spike/test_slice_debug.cpp.s
+
+src/spike/test_structure_accept.o: src/spike/test_structure_accept.cpp.o
+.PHONY : src/spike/test_structure_accept.o
+
+# target to build an object file
+src/spike/test_structure_accept.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/spike/test_structure_accept.cpp.o
+.PHONY : src/spike/test_structure_accept.cpp.o
+
+src/spike/test_structure_accept.i: src/spike/test_structure_accept.cpp.i
+.PHONY : src/spike/test_structure_accept.i
+
+# target to preprocess a source file
+src/spike/test_structure_accept.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/spike/test_structure_accept.cpp.i
+.PHONY : src/spike/test_structure_accept.cpp.i
+
+src/spike/test_structure_accept.s: src/spike/test_structure_accept.cpp.s
+.PHONY : src/spike/test_structure_accept.s
+
+# target to generate assembly for a file
+src/spike/test_structure_accept.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/spike/test_structure_accept.cpp.s
+.PHONY : src/spike/test_structure_accept.cpp.s
+
+src/utils/AppWakeEvent.o: src/utils/AppWakeEvent.cpp.o
+.PHONY : src/utils/AppWakeEvent.o
+
+# target to build an object file
+src/utils/AppWakeEvent.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/AppWakeEvent.cpp.o
+.PHONY : src/utils/AppWakeEvent.cpp.o
+
+src/utils/AppWakeEvent.i: src/utils/AppWakeEvent.cpp.i
+.PHONY : src/utils/AppWakeEvent.i
+
+# target to preprocess a source file
+src/utils/AppWakeEvent.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/AppWakeEvent.cpp.i
+.PHONY : src/utils/AppWakeEvent.cpp.i
+
+src/utils/AppWakeEvent.s: src/utils/AppWakeEvent.cpp.s
+.PHONY : src/utils/AppWakeEvent.s
+
+# target to generate assembly for a file
+src/utils/AppWakeEvent.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/AppWakeEvent.cpp.s
+.PHONY : src/utils/AppWakeEvent.cpp.s
+
+src/utils/CrashBacktrace.o: src/utils/CrashBacktrace.cpp.o
+.PHONY : src/utils/CrashBacktrace.o
+
+# target to build an object file
+src/utils/CrashBacktrace.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/CrashBacktrace.cpp.o
+.PHONY : src/utils/CrashBacktrace.cpp.o
+
+src/utils/CrashBacktrace.i: src/utils/CrashBacktrace.cpp.i
+.PHONY : src/utils/CrashBacktrace.i
+
+# target to preprocess a source file
+src/utils/CrashBacktrace.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/CrashBacktrace.cpp.i
+.PHONY : src/utils/CrashBacktrace.cpp.i
+
+src/utils/CrashBacktrace.s: src/utils/CrashBacktrace.cpp.s
+.PHONY : src/utils/CrashBacktrace.s
+
+# target to generate assembly for a file
+src/utils/CrashBacktrace.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/CrashBacktrace.cpp.s
+.PHONY : src/utils/CrashBacktrace.cpp.s
 
 src/utils/SessionLogger.o: src/utils/SessionLogger.cpp.o
 .PHONY : src/utils/SessionLogger.o
@@ -1529,6 +2110,9 @@ src/utils/log.o: src/utils/log.cpp.o
 # target to build an object file
 src/utils/log.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/utils/log.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/utils/log.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/utils/log.cpp.o
 .PHONY : src/utils/log.cpp.o
 
 src/utils/log.i: src/utils/log.cpp.i
@@ -1537,6 +2121,9 @@ src/utils/log.i: src/utils/log.cpp.i
 # target to preprocess a source file
 src/utils/log.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/utils/log.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/utils/log.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/utils/log.cpp.i
 .PHONY : src/utils/log.cpp.i
 
 src/utils/log.s: src/utils/log.cpp.s
@@ -1545,6 +2132,9 @@ src/utils/log.s: src/utils/log.cpp.s
 # target to generate assembly for a file
 src/utils/log.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/CAD_OpenGL.dir/build.make CMakeFiles/CAD_OpenGL.dir/src/utils/log.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_structure_accept.dir/build.make CMakeFiles/test_structure_accept.dir/src/utils/log.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_slice_debug.dir/build.make CMakeFiles/test_slice_debug.dir/src/utils/log.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_inset_recarve.dir/build.make CMakeFiles/test_inset_recarve.dir/src/utils/log.cpp.s
 .PHONY : src/utils/log.cpp.s
 
 # Help Target
@@ -1558,6 +2148,11 @@ help:
 	@echo "... CAD_OpenGL"
 	@echo "... glad"
 	@echo "... occt_spike"
+	@echo "... test_chfi2d"
+	@echo "... test_fillet2d"
+	@echo "... test_inset_recarve"
+	@echo "... test_slice_debug"
+	@echo "... test_structure_accept"
 	@echo "... include/glad/src/glad.o"
 	@echo "... include/glad/src/glad.i"
 	@echo "... include/glad/src/glad.s"
@@ -1651,18 +2246,21 @@ help:
 	@echo "... src/logic/Analysis/Analysis.o"
 	@echo "... src/logic/Analysis/Analysis.i"
 	@echo "... src/logic/Analysis/Analysis.s"
-	@echo "... src/logic/Analysis/Overhang/Overhang.o"
-	@echo "... src/logic/Analysis/Overhang/Overhang.i"
-	@echo "... src/logic/Analysis/Overhang/Overhang.s"
+	@echo "... src/logic/Analysis/Instability/Instability.o"
+	@echo "... src/logic/Analysis/Instability/Instability.i"
+	@echo "... src/logic/Analysis/Instability/Instability.s"
+	@echo "... src/logic/Analysis/LayerDifference/LayerDifference.o"
+	@echo "... src/logic/Analysis/LayerDifference/LayerDifference.i"
+	@echo "... src/logic/Analysis/LayerDifference/LayerDifference.s"
+	@echo "... src/logic/Analysis/OverhangDetector/OverhangDetector.o"
+	@echo "... src/logic/Analysis/OverhangDetector/OverhangDetector.i"
+	@echo "... src/logic/Analysis/OverhangDetector/OverhangDetector.s"
 	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.o"
 	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.i"
 	@echo "... src/logic/Analysis/SharpCorner/SharpCorner.s"
-	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.o"
-	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.i"
-	@echo "... src/logic/Analysis/SmallFeature/SmallFeature.s"
-	@echo "... src/logic/Analysis/ThinSection/ThinSection.o"
-	@echo "... src/logic/Analysis/ThinSection/ThinSection.i"
-	@echo "... src/logic/Analysis/ThinSection/ThinSection.s"
+	@echo "... src/logic/Analysis/utils/LayerDiffUtils.o"
+	@echo "... src/logic/Analysis/utils/LayerDiffUtils.i"
+	@echo "... src/logic/Analysis/utils/LayerDiffUtils.s"
 	@echo "... src/logic/Analysis/utils/Slice.o"
 	@echo "... src/logic/Analysis/utils/Slice.i"
 	@echo "... src/logic/Analysis/utils/Slice.s"
@@ -1675,6 +2273,27 @@ help:
 	@echo "... src/logic/Calibrate/CalibNominal.o"
 	@echo "... src/logic/Calibrate/CalibNominal.i"
 	@echo "... src/logic/Calibrate/CalibNominal.s"
+	@echo "... src/logic/GeometryOps/ConvexHull2D.o"
+	@echo "... src/logic/GeometryOps/ConvexHull2D.i"
+	@echo "... src/logic/GeometryOps/ConvexHull2D.s"
+	@echo "... src/logic/GeometryOps/Fillet2D.o"
+	@echo "... src/logic/GeometryOps/Fillet2D.i"
+	@echo "... src/logic/GeometryOps/Fillet2D.s"
+	@echo "... src/logic/GeometryOps/PlaneProjection.o"
+	@echo "... src/logic/GeometryOps/PlaneProjection.i"
+	@echo "... src/logic/GeometryOps/PlaneProjection.s"
+	@echo "... src/logic/GeometryOps/RingBoolean.o"
+	@echo "... src/logic/GeometryOps/RingBoolean.i"
+	@echo "... src/logic/GeometryOps/RingBoolean.s"
+	@echo "... src/logic/GeometryOps/RingUtils.o"
+	@echo "... src/logic/GeometryOps/RingUtils.i"
+	@echo "... src/logic/GeometryOps/RingUtils.s"
+	@echo "... src/logic/GeometryOps/Topology.o"
+	@echo "... src/logic/GeometryOps/Topology.i"
+	@echo "... src/logic/GeometryOps/Topology.s"
+	@echo "... src/logic/GeometryOps/WireOps.o"
+	@echo "... src/logic/GeometryOps/WireOps.i"
+	@echo "... src/logic/GeometryOps/WireOps.s"
 	@echo "... src/logic/GeometryValidity.o"
 	@echo "... src/logic/GeometryValidity.i"
 	@echo "... src/logic/GeometryValidity.s"
@@ -1714,6 +2333,27 @@ help:
 	@echo "... src/spike/occt_spike.o"
 	@echo "... src/spike/occt_spike.i"
 	@echo "... src/spike/occt_spike.s"
+	@echo "... src/spike/test_chfi2d.o"
+	@echo "... src/spike/test_chfi2d.i"
+	@echo "... src/spike/test_chfi2d.s"
+	@echo "... src/spike/test_fillet2d.o"
+	@echo "... src/spike/test_fillet2d.i"
+	@echo "... src/spike/test_fillet2d.s"
+	@echo "... src/spike/test_inset_recarve.o"
+	@echo "... src/spike/test_inset_recarve.i"
+	@echo "... src/spike/test_inset_recarve.s"
+	@echo "... src/spike/test_slice_debug.o"
+	@echo "... src/spike/test_slice_debug.i"
+	@echo "... src/spike/test_slice_debug.s"
+	@echo "... src/spike/test_structure_accept.o"
+	@echo "... src/spike/test_structure_accept.i"
+	@echo "... src/spike/test_structure_accept.s"
+	@echo "... src/utils/AppWakeEvent.o"
+	@echo "... src/utils/AppWakeEvent.i"
+	@echo "... src/utils/AppWakeEvent.s"
+	@echo "... src/utils/CrashBacktrace.o"
+	@echo "... src/utils/CrashBacktrace.i"
+	@echo "... src/utils/CrashBacktrace.s"
 	@echo "... src/utils/SessionLogger.o"
 	@echo "... src/utils/SessionLogger.i"
 	@echo "... src/utils/SessionLogger.s"

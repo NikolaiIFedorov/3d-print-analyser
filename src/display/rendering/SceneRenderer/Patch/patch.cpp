@@ -2,6 +2,11 @@
 #include "RenderingExperiments.hpp"
 #include "utils/log.hpp"
 #include <BRep_Tool.hxx>
+#include <BRepAdaptor_Curve.hxx>
+#include <BRepGProp.hxx>
+#include <GCPnts_QuasiUniformDeflection.hxx>
+#include <GeomAbs_CurveType.hxx>
+#include <GProp_GProps.hxx>
 #include <Poly_Triangulation.hxx>
 #include <TopLoc_Location.hxx>
 
@@ -65,31 +70,29 @@ void Patch::AddFace(const Face *face,
 {
     if (face->dependency != nullptr && !isSolid)
         return;
+    // Orphaned / tombstoned faces (e.g. after OCCT rebuild) must not draw or dereference surface.
+    if (!face->HasGeometry())
+    {
+        if (face->dependency == nullptr)
+            return;
+        return;
+    }
 
-    // Determine face color: use analysis flaw color if available, else default.
     glm::vec3 faceColor = Color::GetFace();
     if (results)
     {
-        auto itFlat = results->faceFlaws.find(face);
-        if (itFlat != results->faceFlaws.end() && itFlat->second != FaceFlawKind::NONE)
+        for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
         {
-            faceColor = glm::vec3(Color::GetFace(itFlat->second));
-        }
-        else
-        {
-            for (const auto &[solid, faceFlawList] : results->faceFlawRanges)
+            for (const auto &ff : faceFlawList)
             {
-                for (const auto &ff : faceFlawList)
+                if (ff.face == face && ff.flaw != FaceFlawKind::NOT_ENOUGH_SPACE && ff.flaw != FaceFlawKind::SHARP_CORNER)
                 {
-                    if (ff.face == face)
-                    {
-                        faceColor = glm::vec3(Color::GetFace(ff.flaw));
-                        goto colorResolved;
-                    }
+                    faceColor = glm::vec3(Color::GetFace(ff.flaw));
+                    goto colorResolved;
                 }
             }
-        colorResolved:;
         }
+    colorResolved:;
     }
 
     if (!face->occtFace.IsNull())
@@ -99,7 +102,11 @@ void Patch::AddFace(const Face *face,
         if (!triangulation.IsNull())
         {
             uint32_t baseVertexIndex = vertices.size();
-            
+
+            GProp_GProps massProps;
+            BRepGProp::SurfaceProperties(face->occtFace, massProps);
+            const float faceSize = static_cast<float>(std::sqrt(std::max(massProps.Mass(), 0.0)));
+
             // Extract nodes
             std::vector<glm::dvec3> flatPositions;
             flatPositions.reserve(triangulation->NbNodes());
@@ -116,6 +123,7 @@ void Patch::AddFace(const Face *face,
                 Vertex v;
                 v.position = glm::vec3(flatPositions[i - 1]);
                 v.color = faceColor;
+                v.faceSize = faceSize;
                 if (hasNormals) {
                     gp_Dir n = triangulation->Normal(i);
                     if (face->occtFace.Orientation() == TopAbs_REVERSED) {
@@ -129,6 +137,7 @@ void Patch::AddFace(const Face *face,
             }
 
             // Extract triangles
+            const int nbNodes = triangulation->NbNodes();
             for (int i = 1; i <= triangulation->NbTriangles(); ++i)
             {
                 const Poly_Triangle& tri = triangulation->Triangle(i);
@@ -139,9 +148,12 @@ void Patch::AddFace(const Face *face,
                     std::swap(n1, n3);
                 }
 
-                uint32_t ia = n1 - 1;
-                uint32_t ib = n2 - 1;
-                uint32_t ic = n3 - 1;
+                if (n1 < 1 || n1 > nbNodes || n2 < 1 || n2 > nbNodes || n3 < 1 || n3 > nbNodes)
+                    continue;
+
+                uint32_t ia = static_cast<uint32_t>(n1 - 1);
+                uint32_t ib = static_cast<uint32_t>(n2 - 1);
+                uint32_t ic = static_cast<uint32_t>(n3 - 1);
 
                 if (RenderingExperiments::kCullDegeneratePatchTriangles)
                 {
@@ -162,8 +174,9 @@ void Patch::AddFace(const Face *face,
                 if (pickOut != nullptr)
                     pickOut->push_back(PickTriangle{face, flatPositions[ia], flatPositions[ib], flatPositions[ic]});
             }
+            return;
         }
-        return;
+        // occtFace set but not meshed yet (e.g. post-boolean rebuild) — fan from loops below.
     }
 
     glm::dvec3 faceNormal = face->GetSurface().GetNormal();
@@ -184,8 +197,12 @@ void Patch::AddFace(const Face *face,
 
         for (const auto &orientedEdge : edgeLoop)
         {
+            if (orientedEdge.edge == nullptr)
+                continue;
             // Edges are already oriented correctly by Face constructor
             const Point *p0 = orientedEdge.GetStart();
+            if (p0 == nullptr)
+                continue;
             const Point *p1 = orientedEdge.GetEnd();
 
             // Set projection origin from first point
@@ -197,7 +214,44 @@ void Patch::AddFace(const Face *face,
 
             if (orientedEdge.edge->curve == nullptr)
             {
-                loopPositions.push_back(p0->position);
+                // For OCCT-backed curved edges (no scene Curve object): tessellate the
+                // underlying OCCT edge geometry at the same chord tolerance the wireframe
+                // uses, so the earcut boundary matches the wireframe exactly.
+                bool occtCurvePushed = false;
+                if (!orientedEdge.edge->occtEdge.IsNull())
+                {
+                    BRepAdaptor_Curve adaptor(orientedEdge.edge->occtEdge);
+                    if (adaptor.GetType() != GeomAbs_Line)
+                    {
+                        constexpr double kEarCutChordTolMm = 0.1;
+                        GCPnts_QuasiUniformDeflection disc(adaptor, kEarCutChordTolMm);
+                        if (disc.IsDone() && disc.NbPoints() >= 2)
+                        {
+                            std::vector<glm::dvec3> pts;
+                            pts.reserve(static_cast<size_t>(disc.NbPoints()));
+                            for (int k = 1; k <= disc.NbPoints(); ++k)
+                            {
+                                const gp_Pnt gp = disc.Value(k);
+                                pts.push_back(glm::dvec3(gp.X(), gp.Y(), gp.Z()));
+                            }
+                            // Align orientation with the oriented edge (p0 is the start).
+                            if (p0 != nullptr && !pts.empty())
+                            {
+                                const glm::dvec3 &front = pts.front();
+                                const glm::dvec3 &back = pts.back();
+                                const glm::dvec3 &start = p0->position;
+                                if (glm::length(back - start) < glm::length(front - start))
+                                    std::reverse(pts.begin(), pts.end());
+                            }
+                            // Push all but the last (next edge's start == this edge's end).
+                            for (size_t k = 0; k + 1 < pts.size(); ++k)
+                                loopPositions.push_back(pts[k]);
+                            occtCurvePushed = true;
+                        }
+                    }
+                }
+                if (!occtCurvePushed)
+                    loopPositions.push_back(p0->position);
             }
             else
             {
@@ -230,6 +284,8 @@ void Patch::AddFace(const Face *face,
     if (polygon.empty())
         return;
 
+    double outerLoopArea = 0.0;
+
     // Ensure consistent winding for earcut: outer loop CCW, inner loops CW
     {
         auto signedArea2D = [](const std::vector<Point2D> &loop) -> double
@@ -242,6 +298,8 @@ void Patch::AddFace(const Face *face,
             }
             return area;
         };
+
+        outerLoopArea = std::abs(signedArea2D(polygon[0])) * 0.5;
 
         // Outer loop (index 0) should be CCW (positive signed area)
         if (signedArea2D(polygon[0]) < 0)
@@ -280,6 +338,7 @@ void Patch::AddFace(const Face *face,
     }
 
     uint32_t baseVertexIndex = vertices.size();
+    const float faceSize = static_cast<float>(std::sqrt(outerLoopArea));
 
     for (const auto &loopPositions : allLoopPositions)
     {
@@ -289,6 +348,7 @@ void Patch::AddFace(const Face *face,
             v.position = glm::vec3(pos);
             v.color = faceColor;
             v.normal = glm::vec3(faceNormal);
+            v.faceSize = faceSize;
 
             vertices.push_back(v);
         }

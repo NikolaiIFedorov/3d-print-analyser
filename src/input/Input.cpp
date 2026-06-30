@@ -1,11 +1,13 @@
 #include "Input.hpp"
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
+#include "utils/log.hpp"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_touch.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 
 namespace
@@ -482,12 +484,25 @@ bool Input::processEvent(const SDL_Event &event)
             display->MarkBug();
             break;
         }
+        if (event.key.scancode == SDL_SCANCODE_GRAVE && !event.key.repeat)
+        {
+            if (display->activeTool == Display::ActiveTool::Structure)
+                display->ToggleStructureDebugCutOutlineMode();
+            else if (display->activeTool == Display::ActiveTool::Analysis)
+                display->ToggleAnalysisDebugSlicedView();
+            else
+            {
+                UIRenderer *ui = display->GetUIRenderer();
+                ui->SetDebugLayout(!ui->GetDebugLayout());
+            }
+            break;
+        }
         if (io.WantCaptureKeyboard)
             break;
-        if (event.key.scancode == SDL_SCANCODE_GRAVE)
+        if ((event.key.scancode == SDL_SCANCODE_UP || event.key.scancode == SDL_SCANCODE_DOWN) &&
+            display->activeTool == Display::ActiveTool::Analysis && display->IsAnalysisDebugViewEnabled())
         {
-            UIRenderer *ui = display->GetUIRenderer();
-            ui->SetDebugLayout(!ui->GetDebugLayout());
+            display->StepAnalysisDebugLayer(event.key.scancode == SDL_SCANCODE_UP ? 1 : -1);
             break;
         }
         if (event.key.scancode == SDL_SCANCODE_SPACE)
@@ -530,7 +545,14 @@ bool Input::handleEvents()
     const Sint32 timeoutMs = io.WantTextInput      ? 50
                              : io.WantCaptureMouse ? 16
                                                    : -1;
-    if (!SDL_WaitEventTimeout(&event, timeoutMs))
+    const auto waitStart = std::chrono::steady_clock::now();
+    const bool gotEvent = SDL_WaitEventTimeout(&event, timeoutMs);
+    if (gotEvent && event.type >= SDL_EVENT_USER)
+    {
+        const double waitMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - waitStart).count();
+        LOG_SESSION("AppWakeEvent", "custom wake event received", "afterMs", waitMs);
+    }
+    if (!gotEvent)
     {
         display->renderDirty = true;
         return true;
@@ -539,11 +561,22 @@ bool Input::handleEvents()
     if (!processEvent(event))
         return false;
 
+    // Diagnostic only: counts how many additional events get drained in this single
+    // handleEvents() call (only one Frame()/Render() runs after all of them are processed).
+    // Checking whether a backlog accumulated during the blocking wait above explains the
+    // occasional ~580ms ui_render stall — large drains would mean many event handlers (each
+    // potentially marking UI/pick state dirty) all firing before a single downstream render.
+    int drainedEventCount = 1;
     while (SDL_PollEvent(&event))
     {
+        ++drainedEventCount;
+        if (event.type >= SDL_EVENT_USER)
+            LOG_SESSION("AppWakeEvent", "custom wake event received (drained)", "drainIndex", drainedEventCount);
         if (!processEvent(event))
             return false;
     }
+    if (drainedEventCount >= 10)
+        LOG_SESSION("Render stage", "event_drain_count", "count", drainedEventCount);
 
     for (const SDL_Event &we : pendingMouseWheel)
     {

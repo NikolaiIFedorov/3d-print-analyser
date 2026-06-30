@@ -65,6 +65,33 @@ inline float ClipZBiasAxesW()
     return kReverseZDepth ? -kClipZBiasAxesW : kClipZBiasAxesW;
 }
 
+// --- Per-face screen-space-adaptive z-fighting fix: `basic.vert` biases each vertex toward the
+//     camera by `uPriorityBiasScale * pos.w / faceSize`, where `faceSize` is the sqrt of the
+//     face's world-space area (a static per-face attribute, computed once at mesh build time —
+//     never recomputed on camera navigation). Because the bias is scaled by `pos.w` before the
+//     perspective divide (same trick as ClipZBiasSceneMeshW), the resulting screen-space pixel
+//     offset stays consistent regardless of distance/zoom — so smaller-on-screen coplanar faces
+//     (e.g. Structure Carve cut faces) reliably win z-fighting against the larger face they sit on.
+inline constexpr float kPriorityBiasScale = 6.0e-5f;
+
+inline float PriorityBiasScale()
+{
+    // Sign convention is the OPPOSITE of ClipZBiasSceneMeshW(): a positive value here must pull
+    // geometry CLOSER to the camera, not push it away.
+    return kReverseZDepth ? kPriorityBiasScale : -kPriorityBiasScale;
+}
+
+// --- Depth cueing: `basic.frag` tints distant faces toward the background color. The fog
+//     near/far range is derived from `Camera::distance` (the orbit pivot distance, set by
+//     FrameBounds/ResetHomeView to the model's actual scale) rather than `orthoSize`.
+//     `orthoSize` is purely a projection zoom factor — `Zoom()` changes it without moving the
+//     camera, so tying fog range to it made scroll-zooming in shrink the fog range while real
+//     eye-to-vertex distances stayed fixed, fogging things MORE when zoomed in (backwards).
+//     `distance` only changes when the view is reframed, so fog stays tied to the model's scale.
+inline constexpr float kDepthCueNearFactor = 0.6f;
+inline constexpr float kDepthCueFarFactor = 1.8f;
+inline constexpr float kDepthCueMaxStrength = 0.35f;
+
 // --- Theory #2b: `GL_POLYGON_OFFSET_FILL` on wireframe / pick-highlight *line* draws (GS emits
 //     filled tris). Default off — trial did not materially change ghosting; set true to re-test.
 inline constexpr bool kWireframeLinePolygonOffsetDeeper = false;
@@ -84,6 +111,12 @@ inline constexpr int kCalibrateRejectHoverGrayUiDepthLight = 5;
 /// When true, dim every non-parallel face while waiting for Calibrate point 2. Default off — blocked state is
 /// hover-only (darker neutral gray on the face under the cursor).
 inline constexpr bool kCalibrateSecondPickDrawInvalidFacePool = false;
+
+/// Structure: hovering a face the tool will carve **by default** (not user-excluded) must not look
+/// like hovering a user-excluded face — same neutral UI gray treatment as the Calibrate reject hover.
+/// The accent tint is reserved for faces the user actively excluded (kept uncarved).
+inline constexpr int kStructureDefaultHoverGrayUiDepthDark = 1;
+inline constexpr int kStructureDefaultHoverGrayUiDepthLight = 5;
 
 /// Used only when `kCalibrateSecondPickDrawInvalidFacePool` is true (full-model invalid veil).
 inline constexpr float kPickHighlightCalibInvalidPoolAlpha = 0.28f;

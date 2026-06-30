@@ -1,251 +1,66 @@
-# Best Practices
+# Project Practices
 
-Guidelines for writing code in this project.
+What's specific to CAD_OpenGl. General engineering principles (SOLID, DRY, critique, TDD process shape, first-principles theorizing) live in the global `global_practices.md`, loaded automatically via `~/.claude/CLAUDE.md` — this file holds only what that global default can't know: this project's chosen tools, conventions, and file locations. If something here just restates a generic practice, it's been cut on purpose, not omitted by accident.
+
+---
+
+## `docs/architecture.md` is normative
+
+The general principle ("written design docs are normative") lives in `global_practices.md` #process. The CAD_OpenGl-specific instantiation: the doc is `docs/architecture.md`, and it covers Invariants, each tool's Algorithm, and Validation's Types & fixes. A change that contradicts one of those needs an explicit decision — fix the code, or revise the doc with reasoning — not a silent override.
 
 ---
 
 ## Policy-Skill Sync
 
-- When `practices/best_practices.md` changes, run the `sync-skills-from-best-practices` skill to align project skills with the updated policy.
+- When `practices/project_practices.md` changes, run the `sync-skills-from-best-practices` skill to align `.cursor/skills/*` with the updated policy.
 
 ---
 
-## SOLID Principles
+## Testing — Catch2
 
-> **Performance takes priority.** When applying SOLID principles introduces a noticeable performance cost (extra indirection, virtual dispatch in hot paths, unnecessary allocations), prioritize performance over architectural purity.
-
-### Single Responsibility Principle (SRP)
-- Each class should have one reason to change.
-- Separate rendering, input handling, scene management, and business logic into distinct classes.
-- Keep shaders, geometry, and display concerns in their own modules.
-
-### Open/Closed Principle (OCP)
-- Design classes to be extended without modifying existing code.
-- Use abstract base classes or interfaces for renderable objects, input handlers, and geometry types.
-- Prefer virtual methods or templates over switch/if-else chains on type tags.
-
-### Liskov Substitution Principle (LSP)
-- Derived classes must be usable wherever their base class is expected without altering correctness.
-- Do not override methods in ways that violate the base class contract.
-- Avoid narrowing preconditions or widening postconditions in subclasses.
-
-### Interface Segregation Principle (ISP)
-- Keep interfaces small and focused — clients should not depend on methods they don't use.
-- Split fat interfaces (e.g., a single `IRenderable` with both 2D and 3D methods) into smaller ones.
-
-### Dependency Inversion Principle (DIP)
-- High-level modules (scene logic, analysis) should not depend on low-level modules (OpenGL calls, GLFW).
-- Depend on abstractions (interfaces/abstract classes), not concrete implementations.
-- Inject dependencies through constructors or factory functions rather than creating them internally.
+- **Catch2**, as a separate test executable/target — never compiled into the shipping app binary. Run via CTest (`ctest`), a distinct step after `cmake --build .`, not triggered automatically by the build itself.
+- Test the actual OCCT-touching logic (Structure's carve, Validation's heal/recheck, Analysis's detectors) against **real OCCT calls** — it's local and deterministic, so there's no flakiness/cost to avoid, and a mock would only assert what you already assumed instead of verifying the geometry kernel actually did the right thing.
+- Reserve hand-rolled fakes for **orchestration/sequencing logic** — e.g. does Scene commit only after a worker job succeeds, does Analysis get submitted only after a commit. Catch2 has no built-in mocking; reach for GoogleMock alongside it only if hand-rolled fakes stop being enough.
+- Tests assert what `docs/architecture.md` already documents. If a test would assert something the doc doesn't say, the doc is incomplete — update it before or alongside the test.
+- Some invariants belong in the type system instead of a test — stronger, since violating them won't compile rather than just being caught at test time (e.g. `Part`'s mutators private with `Scene` as the only friend, an Operation's signature shape enforcing "always returns a new shape"). Prefer that where possible before reaching for a runtime test.
 
 ---
 
-## Performance Considerations
+## Debugging
 
-### Memory
-- Prefer stack allocation and value types over heap allocation when object lifetime is bounded.
-- Use `std::unique_ptr` for owning heap resources; avoid raw `new`/`delete`.
-- Reserve container capacity (`std::vector::reserve`) when the size is known or estimable.
-- Avoid unnecessary copies — pass large objects by `const&` or move them with `std::move`.
-
-### Rendering
-- Batch draw calls — minimize OpenGL state changes between draws.
-- Use Vertex Array Objects (VAOs) and Vertex Buffer Objects (VBOs); avoid immediate-mode rendering.
-- Upload geometry to the GPU once; update only when the data actually changes.
-- Keep shader uniform updates outside tight loops where possible.
-
-### Computation
-- Prefer algorithms from `<algorithm>` over hand-written loops.
-- Avoid per-frame heap allocations in the render/update loop — reuse buffers.
-- Profile before optimizing; use instruments or similar tools to find real bottlenecks.
-- Use `constexpr` and compile-time evaluation where applicable (C++23 features are available).
-
-### Data Layout
-- Prefer contiguous containers (`std::vector`) over node-based ones (`std::list`, `std::map`) for cache friendliness.
-- Consider data-oriented design (struct-of-arrays) for hot paths with many entities.
+- For complex state or crashes, prefer an interactive debugger (`lldb`/`gdb`) over print statements.
+- For fast iteration, temporary `std::cout`/`printf` in the live terminal.
+- For tracing historical events across frames, add targeted logging to `session_log.json` first and verify the hypothesis against it before changing implementation logic — don't patch logic by trial and error.
 
 ---
 
-## Cross-Platform Compatibility
+## Build & dependencies
 
-### Build System
-- Use CMake as the single source of truth for builds — do not rely on IDE-specific project files.
-- Specify minimum CMake and compiler versions in `CMakeLists.txt`.
-- Use generator expressions and target properties instead of global flags (`target_compile_options` over `add_compile_options`).
-
-### Compiler & Language
-- Target C++23 (`-std=c++23`) but avoid compiler-specific extensions (`__attribute__`, `__declspec`) unless wrapped behind a macro.
-- Treat warnings as errors in CI (`-Werror` / `/WX`). At minimum, compile with `-Wall -Wextra`.
-- Do not rely on undefined or implementation-defined behavior (strict aliasing, signed overflow, uninitialized reads).
-
-### File System & Paths
-- Use `std::filesystem` for path manipulation — never hard-code path separators.
-- Use forward slashes in CMake paths; they work on all platforms.
-- Load assets (shaders, textures) relative to the executable or a configurable base directory, not absolute paths.
-
-### Windowing & Graphics
-- Access windowing through GLFW — do not call platform-native APIs directly.
-- Load OpenGL functions through GLAD; do not assume any function pointer is available at link time.
-- Query OpenGL capabilities at runtime before using extensions or features beyond the core profile.
-
-### Dependencies
-- Keep third-party libraries in `include/` with their version number in the directory name.
-- Document required system libraries (e.g., Cocoa, IOKit on macOS) in CMake so they resolve automatically.
-- Prefer header-only or source-bundled libraries to reduce external build dependencies.
-
-### Types & Portability
-- Use fixed-width types (`int32_t`, `uint32_t`) when binary layout matters (file formats, GPU buffers).
-- Use `size_t` for container sizes and loop indices tied to container sizes.
-- Do not assume `sizeof(long)` or pointer size — they differ between platforms.
+- CMake is the single source of truth for builds — no IDE-specific project files.
+- Windowing through GLFW, OpenGL functions loaded through GLAD — never platform-native window APIs directly.
+- Vertex Array/Buffer Objects for geometry upload, batched draw calls, no immediate-mode rendering.
+- Third-party libraries live under `include/<name>-<version>/`, version number in the directory name.
+- C++23, no CGAL (removed — OCCT covers everything CGAL used to).
 
 ---
 
-## Test-Driven Development (TDD)
+## Threading
 
-- Write tests for new functionality *before* writing the implementation. (Yes, unit testing is highly encouraged in C++!).
-- This ensures the implementation is correct, testable, and verifiable from the start.
-- When fixing a bug, write a failing test that reproduces the bug before attempting to fix it.
-- Design classes and functions to be testable (e.g., use dependency injection and avoid hidden global state).
-
----
-
-## Pre-Implementation Critique
-
-- Before writing code, briefly question the approach: what edge cases does it miss? What existing behavior could it silently break?
-- When replacing or unifying existing code, diff the old paths side-by-side and list every behavioral difference. Each difference needs an explicit decision: keep, drop, or generalize.
-- Consider at least one alternative approach. If the chosen approach has no clear advantage over the alternative, it may not be the right one.
-- For bug fixes, verify the problem against `session_log.json` before implementing. Use concrete log evidence (event order, state snapshots, timings) to anchor the hypothesis.
-- This is not about blocking progress — a few minutes of scrutiny prevents hours of debugging.
-
----
-
-## Debugging Evidence Policy (Log-First & Live Debugging)
-
-- **Interactive Runtime Debugging:** For complex state or crashes (e.g., segfaults, memory leaks), prefer running the program inside an interactive debugger (`lldb` or `gdb`) via the terminal. This allows us to step through code and inspect memory without recompiling or littering the code with print statements.
-- **Fast Live Logging:** When interactive debugging is too slow, use fast, temporary `std::cout` or `printf` statements visible in the live terminal. This gives real-time feedback without blocking the render loop with heavy disk I/O.
-- **Persistent Log-First Debugging:** Do not attempt to fix an issue by blindly changing implementation logic. When tracing historical events across frames, first add targeted logging to `session_log.json` to capture the state and timings relevant to your theory.
-- If the logs or debugger align with your running theory, *then* proceed to implement the logic fix.
-- Start with a timeline from `session_log.json` or live terminal output, form hypotheses, test those hypotheses by adding more logging/breakpoints if needed, and verify against new runs.
-- Avoid trial-and-error logic patches without log-backed or debugger-backed reasoning.
-- **Record Findings:** Even when using live or interactive debugging, always record your theories, tests, and findings persistently in the relevant `documentation/implementations/` log file. This ensures the reasoning is captured for future reference.
-
----
-
-## DRY (Don't Repeat Yourself)
-
-- When the same computation or pattern appears in 2+ places, extract it into a shared helper.
-- Copy-pasting a block and tweaking it is a signal to extract a function parameterized by the differences.
-- For tree or hierarchical data structures, use recursive traversal instead of hardcoding a fixed depth. Hardcoded depth leads to duplicated per-level logic that silently diverges.
-- When unifying special-cased code paths into one, explicitly list every distinct behavior the old paths handled. Missing a case (e.g., a header splitter that was implicit in a type check) causes silent regressions.
-
----
-
-## Post-Implementation Review
-
-- After a feature or change compiles and works correctly, re-read the diff before considering it done.
-- Look for: duplicated blocks that can be extracted, magic numbers that should be constants, inconsistent naming, and leftover dead code.
-- If the new code introduces a pattern that already exists elsewhere in a different form, unify both into one shared implementation.
-- This step is cheap when the code is fresh in mind and expensive when revisited months later.
-
----
-
-## Mini retrospective
-
-**When:** After a successful implementation that involved meaningful debugging effort (for example: multiple failed theories, multiple patch attempts, or a bug that was not fixed on the first try). For quick fixes that are solved cleanly in one attempt, a full mini retro is optional.
-
-Spend a few minutes on a **mini retro** while context is still warm. This is not a full team ceremony — it is a short capture of learning for you and for future sessions (including agent-assisted work).
-
-- **What worked well** — Which approaches, docs (`documentation/`, implementation logs), tools, or **Cursor skills** actually helped? What would you repeat next time?
-- **What did not work** — Wrong assumptions, rabbit holes, missing context, unclear requirements, or friction in the codebase or workflow.
-- **What triggered the bug** — Record the concrete trigger and root cause (state transition, ordering issue, data shape, timing/threading interaction, assumption violation). Note the earliest log evidence that exposed it.
-- **How to improve skills or this file** — If a skill was misleading, too vague, or missing a step, note a concrete edit to that skill or rule. If these best practices missed something important (a checklist item, a workflow gap), **update this file** in the same spirit: short bullets, no bloat.
-
-Optional: append a one-paragraph “retro” to the relevant implementation log in `documentation/implementations/` so the next person (or future you) inherits the lesson without re-learning it.
-
----
-
-## Consistency
-
-- When a pattern or approach is established for one piece of functionality, related code should follow the same approach.
-- Deviations are acceptable when justified by a concrete reason (e.g., performance), not by convenience.
-
----
-
-## Threading and Ownership
-
-- The main thread owns UI, input handling, navigation, render scheduling, GLFW event polling, and OpenGL calls.
-- Worker threads are for heavy compute, parsing/import, and other background jobs that do not touch OpenGL/GLFW state directly.
-- Workers return results through explicit handoff points (queues/messages/futures); the main thread validates and applies results.
-- Do not mutate scene/UI state concurrently from workers; keep ownership boundaries explicit.
-- For async paths, align with `documentation/Architecture_UIThreadAndWorkers.md` and `documentation/Architecture_AsyncWorkRoadmap.md`.
+Main thread owns UI/input/render scheduling/OpenGL calls; each Logic tool gets its own worker queue, not a shared pool — see `docs/architecture.md` → Architecture Layers → Shared for the full reasoning and the per-tool-queue algorithm. Don't restate that here; it'll drift from the canonical version.
 
 ---
 
 ## Naming
 
-- Prefer concise names, qualified just enough to disambiguate within the surrounding context.
-- Place the qualifying part at the beginning of the name (e.g., `patchIndices`, `wireframeIndices`, `surfaceNormals`).
-- Avoid redundant context — if a variable lives inside a `Wireframe` class, name it `indices` rather than `wireframeIndices`.
-- Use camelCase for variables and functions, PascalCase for types and classes.
+- Concise names, qualified just enough to disambiguate within the surrounding context; qualifier goes at the front (`patchIndices`, not `indicesPatch`).
+- Avoid redundant context — inside a `Wireframe` class, `indices`, not `wireframeIndices`.
+- camelCase for variables/functions, PascalCase for types/classes.
 
 ---
 
-## Development Workflow
+## Where things live
 
-This workflow applies whenever a change to functionality is requested — whether a new feature, a bug fix, or a behavioural adjustment.
-
-### Stage 1 — Understand the Problem
-
-Before any code changes:
-- **Question the idea.** Clarify what the expected vs. actual behaviour is. This catches cases where a feature is mistaken for a bug, or where the problem context is misunderstood.
-- **Critique the idea.** Identify oversights, edge cases, and at least one alternative approach.
-- **Ground it in evidence.** For bug work, inspect `session_log.json` first. Practice **log-first debugging**: add targeted logging to verify your hypothesis before touching the implementation logic.
-- **Scan the TODO.** Check the relevant section of `documentation/TODO` for the module being touched. Small, isolated items (remove a duplicate call, extract a constant, fix a naming inconsistency) should be addressed in the same change. Larger items (replace a singleton, redesign an interface) are noted but left for a dedicated task.
-- **Goal:** Both sides fully understand the problem and the proposed solution before anything is implemented.
-
-Repeat Stage 1 until there is shared, clear understanding of the problem and approach.
-
-### Stage 2 — Documentation
-
-Before implementing, check `documentation/implementations/` for an existing log of this problem or idea.
-
-- **If a log exists:** Read it for context — prior attempts, bugs hit, and outcomes.
-- **If no log exists:** Create one. Each log is a running record (append, never overwrite) and should capture:
-  - **Idea** — what is being changed and why
-  - **Test plan / Tests written** — what tests are added or modified to verify the functionality
-  - **Implementation plan** — the chosen approach
-  - **Bugs encountered** — issues that arose during implementation
-  - **Patch attempts** — theories tried and whether they worked
-  - **Outcome** — final result and any lingering considerations
-
-### Stage 3 — Implementation
-
-Apply the following checklist when writing or changing code:
-
-1. **Write tests first (TDD)** — write unit tests for the new functionality or a failing test for a bug before implementing the logic.
-2. **Critique the approach first** — identify edge cases, silent behaviour changes, and at least one alternative.
-3. **Check architecture** — does the change respect SRP and DIP? Is it in the right module (`display/`, `scene/`, `input/`, `logic/`)? For **async jobs, `TaskRunner`, or CGAL** touched from display/input paths, align with `documentation/Architecture_UIThreadAndWorkers.md` and the phased plan `documentation/Architecture_AsyncWorkRoadmap.md` (main thread polls; workers own heavy work).
-4. **Check performance** — are there unnecessary allocations, copies, or per-frame heap allocations? Are OpenGL calls batched?
-5. **Check portability** — are paths handled with `std::filesystem`? Are there platform-specific assumptions?
-6. **Check naming** — camelCase/PascalCase conventions, concise and unambiguous.
-7. **Check consistency** — does the new code match existing patterns in the codebase?
-8. **Check DRY** — is any logic duplicated? Could a helper or recursive approach replace copy-pasted blocks?
-9. **Post-implementation review** — re-read the diff. Remove dead code, extract duplicates, unify divergent patterns.
-
-When a trade-off arises between SOLID purity and performance, choose performance and explain why.
-
-### Stage 4 — Post-Implementation
-
-**If it works:**
-- Verify the build passes cleanly.
-- Run through the Stage 3 checklist as a review pass.
-- If the change required meaningful debugging effort (not fixed in one clean attempt), run the **mini retrospective** (see [Mini retrospective](#mini-retrospective)): what worked, what did not, what triggered the bug, and whether any **skills** or **this file** deserve a small update.
-- Commit the code to maintain a consistent version history.
-- Update the implementation log in `documentation/implementations/` with the outcome (and optionally the retro notes).
-
-**If it does not work:**
-- Log the failure and any theories in the implementation log.
-- Propose theories as to why it does not work; test each one against `session_log.json` evidence.
-- If all theories are exhausted without resolution, return to Stage 1 — treat it as a fresh problem and question whether the original approach was correct.
-
-The cycle then repeats from Stage 1.
+- `docs/architecture.md` — normative domain decisions and algorithms (see above).
+- `docs/todo/<target>.md` — per-target known issues; check before touching a module, written/refreshed by `/audit`.
+- `session_log.json` — runtime event/state log for debugging (see Debugging above).
+- There is currently no separate implementation-log journal (an older `documentation/implementations/` convention referenced by past commit messages no longer exists in this tree) — git commit messages are the record of what changed and why.

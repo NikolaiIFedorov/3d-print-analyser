@@ -79,6 +79,62 @@ namespace Icons
         };
     }
 
+    // --- NotEnoughSpace ---
+    // V rotated 45° CW: apex points bottom-right, wings extend left and upward.
+    // Reads as a corner angle rather than the letter 'v' — corners are central to this
+    // detector's scoring (sharp corner x short edge = reheat risk).
+    // Derived by rotating (−r,−r),(0,+r),(+r,−r) by 45° CW then scaling by 1/√2
+    // to keep all points within ±r: gives (−r,0),(+0.5r,+0.5r),(0,−r).
+    inline DrawFn NotEnoughSpace(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float cx = std::round(x + s);
+            float cy = std::round(midY);
+            float r = std::round(s * 0.70f);
+            ImVec2 pts[3] = {
+                ImVec2(cx - r, cy),                   // left wing
+                ImVec2(cx + r * 0.5f, cy + r * 0.5f), // apex (bottom-right)
+                ImVec2(cx, cy - r),                   // top wing
+            };
+            dl->AddPolyline(pts, 3, col, 0, stroke);
+        };
+    }
+
+    // --- Instability ---
+    // Single filled horizontal bar — solid thin cross-section of material, liable to topple.
+    // Width spans the full slot; height is small to convey thinness.
+    inline DrawFn Instability(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float cx = x + s;
+            float r = std::round(s * 0.70f);
+            float barH = std::max(1.5f, std::round(r * 0.28f)); // half-height of the bar
+            dl->AddRectFilled(ImVec2(cx - r, midY - barH), ImVec2(cx + r, midY + barH), col);
+        };
+    }
+
+    // --- LayerDifference ---
+    // Circle outline — placeholder glyph pending a warping-specific redesign.
+    inline DrawFn LayerDifference(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
+    {
+        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
+        {
+            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
+            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
+            float cx = x + s;
+            float stroke = std::max(0.8f, s * STROKE_RATIO);
+            float r = s * 0.58f; // circle radius — slightly inset from slot edge
+            dl->AddCircle(ImVec2(cx, midY), r, col, 0, stroke);
+        };
+    }
+
     // --- SharpCorner ---
     // V rotated 45° CW: apex points bottom-right, wings extend left and upward.
     // Reads as a corner angle rather than the letter 'v'.
@@ -100,37 +156,6 @@ namespace Icons
                 ImVec2(cx, cy - r),                   // top wing
             };
             dl->AddPolyline(pts, 3, col, 0, stroke);
-        };
-    }
-
-    // --- ThinSection ---
-    // Single filled horizontal bar — solid thin cross-section of material.
-    // Width spans the full slot; height is small to convey thinness.
-    inline DrawFn ThinSection(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
-    {
-        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
-        {
-            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
-            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx = x + s;
-            float r = std::round(s * 0.70f);
-            float barH = std::max(1.5f, std::round(r * 0.28f)); // half-height of the bar
-            dl->AddRectFilled(ImVec2(cx - r, midY - barH), ImVec2(cx + r, midY + barH), col);
-        };
-    }
-
-    // --- SmallFeature ---
-    // Circle outline — represents a small hole or pinhole feature.
-    inline DrawFn SmallFeature(glm::vec4 color = {0, 0, 0, 0}, int textDepth = 1)
-    {
-        return [color, textDepth](ImDrawList *dl, float x, float midY, float s)
-        {
-            glm::vec4 tc = color.a > 0.0f ? color : Color::GetUIText(textDepth);
-            ImU32 col = ImGui::GetColorU32(ImVec4(tc.r, tc.g, tc.b, tc.a));
-            float cx = x + s;
-            float stroke = std::max(0.8f, s * STROKE_RATIO);
-            float r = s * 0.58f; // circle radius — slightly inset from slot edge
-            dl->AddCircle(ImVec2(cx, midY), r, col, 0, stroke);
         };
     }
 

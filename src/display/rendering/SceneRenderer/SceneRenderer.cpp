@@ -6,10 +6,154 @@
 #include "utils/log.hpp"
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 
 namespace
 {
 using Clock = std::chrono::steady_clock;
+
+// -- Z-clipped face overlay helpers --
+
+static void OverlayPlaneCoordinateSystem(const glm::dvec3 &normal,
+                                         glm::dvec3 &uAxis, glm::dvec3 &vAxis)
+{
+    glm::dvec3 arb = (std::abs(normal.x) < 0.9) ? glm::dvec3(1, 0, 0) : glm::dvec3(0, 1, 0);
+    uAxis = glm::normalize(glm::cross(normal, arb));
+    vAxis = glm::normalize(glm::cross(normal, uAxis));
+}
+
+static glm::dvec2 OverlayProjectPoint(const glm::dvec3 &pt, const glm::dvec3 &origin,
+                                       const glm::dvec3 &u, const glm::dvec3 &v)
+{
+    glm::dvec3 rel = pt - origin;
+    return {glm::dot(rel, u), glm::dot(rel, v)};
+}
+
+static std::vector<glm::dvec3> OverlayTessellateCurve(const Curve *curve,
+                                                        const glm::dvec3 &start,
+                                                        const glm::dvec3 &end,
+                                                        int segments)
+{
+    std::vector<glm::dvec3> pts;
+    if (!curve)
+    {
+        pts.push_back(start);
+        pts.push_back(end);
+        return pts;
+    }
+    for (int i = 0; i <= segments; i++)
+        pts.push_back(curve->Evaluate((double)i / segments, start, end));
+    return pts;
+}
+
+static std::vector<glm::dvec3> OverlayClipLoopByZ(const std::vector<glm::dvec3> &loop,
+                                                    double zPlane, bool keepAbove)
+{
+    std::vector<glm::dvec3> out;
+    if (loop.empty()) return out;
+    auto inside = [&](const glm::dvec3 &p) {
+        return keepAbove ? p.z >= zPlane - 1e-10 : p.z <= zPlane + 1e-10;
+    };
+    for (size_t i = 0; i < loop.size(); i++)
+    {
+        const glm::dvec3 &curr = loop[i];
+        const glm::dvec3 &next = loop[(i + 1) % loop.size()];
+        bool cIn = inside(curr), nIn = inside(next);
+        if (cIn) out.push_back(curr);
+        if (cIn != nIn)
+        {
+            double dz = next.z - curr.z;
+            if (std::abs(dz) > 1e-14)
+            {
+                double t = (zPlane - curr.z) / dz;
+                out.push_back(curr + t * (next - curr));
+            }
+        }
+    }
+    return out;
+}
+
+static void OverlayTriangulateFaceZClipped(const Face *face, const ZBounds &zb,
+                                            const glm::vec4 &color,
+                                            std::vector<AnalysisTriVertex> &vertices,
+                                            std::vector<uint32_t> &indices)
+{
+    if (!face || !face->HasGeometry()) return;
+
+    glm::dvec3 uAxis, vAxis;
+    OverlayPlaneCoordinateSystem(face->GetSurface().GetNormal(), uAxis, vAxis);
+
+    using Point2D = std::array<double, 2>;
+    std::vector<std::vector<Point2D>> polygon;
+    std::vector<std::vector<glm::dvec3>> allPositions;
+    glm::dvec3 origin(0, 0, 0);
+    bool originSet = false;
+
+    for (const auto &edgeLoop : face->loops)
+    {
+        std::vector<glm::dvec3> loopPos;
+        for (const auto &oe : edgeLoop)
+        {
+            const Point *p0 = oe.GetStart();
+            if (!originSet) { origin = p0->position; originSet = true; }
+            if (!oe.edge->curve)
+            {
+                loopPos.push_back(p0->position);
+            }
+            else
+            {
+                auto tess = OverlayTessellateCurve(oe.edge->curve,
+                                                    oe.GetStartPosition(), oe.GetEndPosition(), 16);
+                for (size_t j = 0; j + 1 < tess.size(); j++)
+                    loopPos.push_back(tess[j]);
+            }
+        }
+        loopPos = OverlayClipLoopByZ(loopPos, zb.zMin, true);
+        loopPos = OverlayClipLoopByZ(loopPos, zb.zMax, false);
+        if (loopPos.size() < 3) continue;
+
+        std::vector<Point2D> loop2D;
+        for (const auto &pos : loopPos)
+        {
+            auto p2 = OverlayProjectPoint(pos, origin, uAxis, vAxis);
+            loop2D.push_back({p2.x, p2.y});
+        }
+        allPositions.push_back(loopPos);
+        polygon.push_back(loop2D);
+    }
+
+    if (polygon.empty()) return;
+
+    // Consistent winding: outer CCW, inner CW
+    auto signedArea = [](const std::vector<Point2D> &l) {
+        double a = 0;
+        for (size_t j = 0; j < l.size(); j++) {
+            size_t k = (j + 1) % l.size();
+            a += l[j][0] * l[k][1] - l[k][0] * l[j][1];
+        }
+        return a;
+    };
+    if (signedArea(polygon[0]) < 0) {
+        std::reverse(polygon[0].begin(), polygon[0].end());
+        std::reverse(allPositions[0].begin(), allPositions[0].end());
+    }
+    for (size_t li = 1; li < polygon.size(); li++) {
+        if (signedArea(polygon[li]) > 0) {
+            std::reverse(polygon[li].begin(), polygon[li].end());
+            std::reverse(allPositions[li].begin(), allPositions[li].end());
+        }
+    }
+
+    auto triIdx = mapbox::earcut<uint32_t>(polygon);
+    if (triIdx.empty()) return;
+
+    uint32_t base = static_cast<uint32_t>(vertices.size());
+    for (const auto &lp : allPositions)
+        for (const auto &pos : lp)
+            vertices.push_back({glm::vec3(pos), color});
+    for (uint32_t idx : triIdx)
+        indices.push_back(base + idx);
+}
 
 inline double MsSince(const Clock::time_point &start)
 {
@@ -54,10 +198,13 @@ static void AppendPreviewLineSegments(const std::vector<std::pair<glm::vec3, glm
 void SceneRenderer::SetStructurePreviewSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
 {
     structurePreviewSegments = std::move(segments);
-    // Push immediately so out-of-band updates (hover toggle, slider drag, eligibility recalc) make
-    // it to the GPU without waiting for a scene rebuild. The other commit sites (in `RebuildAll`,
-    // `RebuildScope`, `UploadMainMesh`) still cover scene-geometry-driven uploads.
     CommitStructurePreviewLinesToGpu();
+}
+
+void SceneRenderer::SetAnalysisDebugSegments(std::vector<std::pair<glm::vec3, glm::vec3>> segments)
+{
+    analysisDebugSegments = std::move(segments);
+    CommitAnalysisDebugLinesToGpu();
 }
 
 void SceneRenderer::SetStructureViewTranslucentSolid(bool enable, float alpha01)
@@ -304,6 +451,7 @@ void SceneRenderer::RebuildSolids(Scene *scene, const std::unordered_set<const S
             }
         }
         CommitStructurePreviewLinesToGpu();
+        CommitAnalysisDebugLinesToGpu();
     }
 
     RebuildPickTriangles();
@@ -408,6 +556,7 @@ void SceneRenderer::RecolorOnly(Scene *scene, const AnalysisResults *results)
     RebuildPickTriangles();
     RebuildPickSegments(scene);
     CommitStructurePreviewLinesToGpu();
+    CommitAnalysisDebugLinesToGpu();
 }
 
 void SceneRenderer::RebuildLoose(Scene *scene, const AnalysisResults *results)
@@ -544,6 +693,7 @@ void SceneRenderer::UploadAllPacked()
     packedUploaded = true;
 
     CommitStructurePreviewLinesToGpu();
+    CommitAnalysisDebugLinesToGpu();
 }
 
 void SceneRenderer::CommitStructurePreviewLinesToGpu()
@@ -554,6 +704,16 @@ void SceneRenderer::CommitStructurePreviewLinesToGpu()
     const glm::vec3 accentRgb(accentRgba.x, accentRgba.y, accentRgba.z);
     AppendPreviewLineSegments(structurePreviewSegments, accentRgb, verts, idx);
     renderer.UploadStructurePreviewLineMesh(verts, idx);
+}
+
+void SceneRenderer::CommitAnalysisDebugLinesToGpu()
+{
+    std::vector<Vertex> verts;
+    std::vector<uint32_t> idx;
+    const glm::vec4 accentRgba = Color::GetAccent(1, 1.0f);
+    const glm::vec3 accentRgb(accentRgba.x, accentRgba.y, accentRgba.z);
+    AppendPreviewLineSegments(analysisDebugSegments, accentRgb, verts, idx);
+    renderer.UploadAnalysisDebugLineMesh(verts, idx);
 }
 
 void SceneRenderer::RebuildPickSegments(Scene *scene)
@@ -670,6 +830,7 @@ void SceneRenderer::SetCamera(Camera &camera)
         ProjectionDepthMode::EffectiveProjection(camera.GetProjectionMatrix()));
     renderer.SetModelMatrix(glm::mat4(1.0f));
     renderer.SetViewPos(camera.GetPosition());
+    renderer.SetFogRange(camera.distance);
     // Snapped principal views make front/back edges nearly overlap on screen; an extra forward
     // wire nudge can pull genuinely hidden edges through thin faces.
     renderer.SetWireframeDepthNudgeScale(camera.IsPrincipalAxisView() ? 0.0f : 1.0f);
@@ -698,6 +859,120 @@ void SceneRenderer::RenderStructurePreviewLines(float lineWidthPx)
 {
     renderer.DrawStructurePreviewLines(lineWidthPx, false);
     renderer.DrawStructurePreviewLines(std::max(1.0f, lineWidthPx - 1.25f), true);
+}
+
+void SceneRenderer::RenderAnalysisDebugLines(float lineWidthPx)
+{
+    renderer.DrawAnalysisDebugLines(lineWidthPx, false);
+    renderer.DrawAnalysisDebugLines(std::max(1.0f, lineWidthPx - 1.25f), true);
+}
+
+void SceneRenderer::SetAnalysisDebugLayerDiff(const std::vector<std::vector<glm::dvec3>> &rings, float z)
+{
+    using Point2D = std::array<double, 2>;
+    static constexpr glm::vec4 kDiffColor{1.0f, 0.35f, 0.1f, 0.40f};
+
+    std::vector<AnalysisTriVertex> verts;
+    std::vector<uint32_t> indices;
+
+    for (const auto &ring : rings)
+    {
+        if (ring.size() < 3)
+            continue;
+
+        std::vector<Point2D> loop2D;
+        loop2D.reserve(ring.size());
+        for (const auto &p : ring)
+            loop2D.push_back({p.x, p.y});
+
+        // Enforce CCW winding for earcut
+        double area = 0.0;
+        for (size_t j = 0; j < loop2D.size(); j++)
+        {
+            size_t k = (j + 1) % loop2D.size();
+            area += loop2D[j][0] * loop2D[k][1] - loop2D[k][0] * loop2D[j][1];
+        }
+        std::vector<glm::dvec3> ordered = ring;
+        if (area < 0.0)
+        {
+            std::reverse(loop2D.begin(), loop2D.end());
+            std::reverse(ordered.begin(), ordered.end());
+        }
+
+        std::vector<std::vector<Point2D>> polygon{loop2D};
+        auto tri = mapbox::earcut<uint32_t>(polygon);
+        if (tri.empty())
+            continue;
+
+        const uint32_t base = static_cast<uint32_t>(verts.size());
+        for (const auto &p : ordered)
+            verts.push_back({glm::vec3(p.x, p.y, static_cast<float>(z)), kDiffColor});
+        for (uint32_t idx : tri)
+            indices.push_back(base + idx);
+    }
+
+    renderer.UploadAnalysisDebugTriMesh(verts, indices);
+}
+
+void SceneRenderer::RenderAnalysisDebugTriangles()
+{
+    renderer.DrawAnalysisDebugTriangles();
+}
+
+void SceneRenderer::SetOverhangOverlays(const AnalysisResults *results)
+{
+    std::vector<AnalysisTriVertex> verts;
+    std::vector<uint32_t> indices;
+
+    if (results)
+    {
+        const glm::vec4 color = Color::GetFace(FaceFlawKind::OVERHANG);
+        for (const auto &[solid, flaws] : results->faceFlawRanges)
+        {
+            for (const auto &ff : flaws)
+            {
+                if (ff.flaw != FaceFlawKind::OVERHANG || !ff.face || !ff.face->HasGeometry())
+                    continue;
+                OverlayTriangulateFaceZClipped(ff.face, ff.bounds, color, verts, indices);
+            }
+        }
+    }
+
+    renderer.UploadOverhangOverlayMesh(verts, indices);
+}
+
+void SceneRenderer::RenderOverhangOverlays()
+{
+    renderer.DrawOverhangOverlays();
+}
+
+void SceneRenderer::SetSharpCornerEdges(const AnalysisResults *results)
+{
+    sharpCornerEdgeSegments.clear();
+    if (results)
+    {
+        for (const auto &[solid, flaws] : results->faceFlawRanges)
+        {
+            for (const auto &ff : flaws)
+            {
+                if (ff.flaw != FaceFlawKind::SHARP_CORNER || ff.clipBoundary.size() != 2)
+                    continue;
+                sharpCornerEdgeSegments.push_back({glm::vec3(ff.clipBoundary[0]),
+                                                      glm::vec3(ff.clipBoundary[1])});
+            }
+        }
+    }
+
+    const glm::vec3 color = glm::vec3(Color::GetFace(FaceFlawKind::SHARP_CORNER));
+    std::vector<Vertex> verts;
+    std::vector<uint32_t> indices;
+    AppendPreviewLineSegments(sharpCornerEdgeSegments, color, verts, indices);
+    renderer.UploadAnalysisFlawEdgeMesh(verts, indices);
+}
+
+void SceneRenderer::RenderSharpCornerEdges(float lineWidthPx)
+{
+    renderer.DrawAnalysisFlawEdges(lineWidthPx);
 }
 
 void SceneRenderer::Shutdown()

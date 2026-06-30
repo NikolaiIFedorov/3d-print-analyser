@@ -1,5 +1,7 @@
 #pragma once
 
+#include "AppWakeEvent.hpp"
+
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -205,7 +207,12 @@ public:
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             jobQueue.emplace([task]()
-                             { (*task)(); });
+                             {
+                                 (*task)();
+                                 // Wake a blocked main-thread SDL_WaitEventTimeout so Frame() notices
+                                 // this result via TryTake() without waiting for real user input.
+                                 AppWakeEvent::Push();
+                             });
         }
         queueCv.notify_one();
         return TaskHandle<T>(std::move(fut), std::move(cancelFlag));

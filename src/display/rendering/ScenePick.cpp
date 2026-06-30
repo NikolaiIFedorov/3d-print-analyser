@@ -3,7 +3,9 @@
 #include "ProjectionDepthMode.hpp"
 #include "ViewportDepthExperiments.hpp"
 #include "rendering/Camera/camera.hpp"
+#include "utils/log.hpp"
 
+#include <chrono>
 #include <cmath>
 #include <limits>
 
@@ -88,6 +90,8 @@ const Face *PickClosestFace(const std::vector<PickTriangle> &triangles, glm::dve
     }
     rayDir /= dirLen;
 
+    const auto pickFaceStart = std::chrono::steady_clock::now();
+
     double bestT = std::numeric_limits<double>::infinity();
     const Face *bestFace = nullptr;
 
@@ -120,6 +124,11 @@ const Face *PickClosestFace(const std::vector<PickTriangle> &triangles, glm::dve
     }
     if (outRayT != nullptr)
         *outRayT = bestFace != nullptr ? bestT : 0.0;
+
+    const double pickFaceMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pickFaceStart).count();
+    if (pickFaceMs >= 1.0)
+        LOG_SESSION("Render stage", "pick_face_scan", "ms", pickFaceMs, "triangles", static_cast<int>(triangles.size()));
+
     return bestFace;
 }
 
@@ -241,6 +250,8 @@ const Edge *PickClosestEdgeAlongRay(const std::vector<PickSegment> &segments, gl
     }
     rayDir /= dirLen;
 
+    const auto pickEdgeStart = std::chrono::steady_clock::now();
+
     const Edge *bestEdge = nullptr;
     double bestDistSq = std::numeric_limits<double>::infinity();
     double bestRayT = 0.0;
@@ -268,6 +279,11 @@ const Edge *PickClosestEdgeAlongRay(const std::vector<PickSegment> &segments, gl
         *outRayT = bestEdge != nullptr ? bestRayT : 0.0;
     if (outDistSq != nullptr)
         *outDistSq = bestEdge != nullptr ? bestDistSq : std::numeric_limits<double>::infinity();
+
+    const double pickEdgeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - pickEdgeStart).count();
+    if (pickEdgeMs >= 1.0)
+        LOG_SESSION("Render stage", "pick_edge_scan", "ms", pickEdgeMs, "segments", static_cast<int>(segments.size()));
+
     return bestEdge;
 }
 

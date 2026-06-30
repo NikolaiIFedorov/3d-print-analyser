@@ -7,14 +7,10 @@
 enum class FaceFlawKind
 {
     OVERHANG,
-    THIN_SECTION,
-    SMALL_FEATURE,
+    NOT_ENOUGH_SPACE,
+    INSTABILITY,
+    LAYER_DIFFERENCE,
     STRINGING,
-    NONE,
-};
-
-enum class EdgeFlawKind
-{
     SHARP_CORNER,
     NONE,
 };
@@ -40,6 +36,23 @@ struct Triangle
     glm::dvec3 a, b, c;
 };
 
+/// A single closed boundary loop extracted from a layer's cross-section by `Slice::ExtractLoops`,
+/// correctly separated from any other disjoint loops/islands present at the same Z.
+struct SliceLoop
+{
+    std::vector<glm::dvec3> ring;       // ordered, closed (no duplicate closing vertex)
+    std::vector<const Face *> edgeFaces; // edgeFaces[i] = face owning the edge ring[i] -> ring[(i+1)%n]
+    bool isHole = false;                // true if nested inside another loop's ring
+};
+
+/// One layer's correctly-separated cross-section, shared across all detectors so each solid is
+/// only sliced once per analysis pass instead of every detector re-slicing independently.
+struct SlicedLayer
+{
+    double z = 0.0;
+    std::vector<SliceLoop> loops;
+};
+
 struct Layer
 {
     std::vector<Segment> segments;
@@ -53,13 +66,6 @@ struct Layer
 class Edge;
 class Face;
 class Solid;
-
-struct EdgeFlaw
-{
-    const Edge *edge;
-    EdgeFlawKind flaw;
-    ZBounds bounds;
-};
 
 struct FaceFlaw
 {
@@ -77,8 +83,10 @@ struct BridgeSurface
 
 struct AnalysisResults
 {
-    std::unordered_map<const Face *, FaceFlawKind> faceFlaws;
     std::unordered_map<const Solid *, std::vector<FaceFlaw>> faceFlawRanges;
-    std::unordered_map<const Solid *, std::vector<EdgeFlaw>> edgeFlaws;
     std::unordered_map<const Solid *, std::vector<BridgeSurface>> bridgeSurfaces;
 };
+
+class Scene;
+/// Drops face/edge entries that no longer have geometry (e.g. tombstones after OCCT rebuild).
+void PruneDefunctAnalysisResults(AnalysisResults &results, const Scene *scene) noexcept;

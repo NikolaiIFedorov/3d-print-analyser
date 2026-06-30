@@ -42,7 +42,9 @@ add_executable(CAD_OpenGL
     src/utils/SessionLogger.cpp
     src/logic/GeometryValidity.cpp
     src/utils/ShutdownStackTrace.cpp
+    src/utils/CrashBacktrace.cpp
     src/utils/Settings.cpp
+    src/utils/AppWakeEvent.cpp
     src/display/rendering/OpenGL/shaders/OpenGLShader.cpp
     src/display/rendering/OpenGL/OpenGLRenderer.cpp
     src/display/rendering/SceneRenderer/SceneRenderer.cpp
@@ -65,11 +67,12 @@ add_executable(CAD_OpenGL
     src/scene/Geometry/Face.cpp
     src/scene/Geometry/Surface.cpp
     src/logic/Analysis/Analysis.cpp
-    src/logic/Analysis/Overhang/Overhang.cpp
-    src/logic/Analysis/ThinSection/ThinSection.cpp
+    src/logic/Analysis/OverhangDetector/OverhangDetector.cpp
     src/logic/Analysis/SharpCorner/SharpCorner.cpp
-    src/logic/Analysis/SmallFeature/SmallFeature.cpp
+    src/logic/Analysis/Instability/Instability.cpp
+    src/logic/Analysis/LayerDifference/LayerDifference.cpp
     src/logic/Analysis/utils/Slice.cpp
+    src/logic/Analysis/utils/LayerDiffUtils.cpp
     src/logic/Calibrate/CalibDistanceType.cpp
     src/logic/Calibrate/CalibNominal.cpp
     src/logic/Calibrate/CalibCompensation.cpp
@@ -79,6 +82,13 @@ add_executable(CAD_OpenGL
     src/logic/Import/STEPImport.cpp
     src/logic/Structure/StructureTriangulation.cpp
     src/logic/Structure/StructureCarve.cpp
+    src/logic/GeometryOps/RingUtils.cpp
+    src/logic/GeometryOps/Topology.cpp
+    src/logic/GeometryOps/WireOps.cpp
+    src/logic/GeometryOps/Fillet2D.cpp
+    src/logic/GeometryOps/PlaneProjection.cpp
+    src/logic/GeometryOps/ConvexHull2D.cpp
+    src/logic/GeometryOps/RingBoolean.cpp
     include/miniz.c
     include/miniz_tdef.c
     include/miniz_tinfl.c
@@ -115,6 +125,12 @@ add_custom_command(TARGET CAD_OpenGL POST_BUILD
 add_custom_command(TARGET CAD_OpenGL POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/src/display/rendering/UIRenderer/shaders
+        ${CMAKE_BINARY_DIR}/shaders
+)
+
+add_custom_command(TARGET CAD_OpenGL POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/src/display/rendering/AnalysisRenderer/shaders
         ${CMAKE_BINARY_DIR}/shaders
 )
 
@@ -167,6 +183,121 @@ if(OpenCASCADE_FOUND)
     add_executable(occt_spike src/spike/occt_spike.cpp)
     target_include_directories(occt_spike PRIVATE ${OpenCASCADE_INCLUDE_DIR})
     target_link_libraries(occt_spike PRIVATE ${OpenCASCADE_LIBRARIES})
+
+    add_executable(test_fillet2d src/spike/test_fillet2d.cpp)
+    target_include_directories(test_fillet2d PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(test_fillet2d PRIVATE ${OpenCASCADE_LIBRARIES})
+
+    add_executable(test_chfi2d src/spike/test_chfi2d.cpp)
+    target_include_directories(test_chfi2d PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(test_chfi2d PRIVATE ${OpenCASCADE_LIBRARIES})
+
+    add_executable(test_structure_accept
+        src/spike/test_structure_accept.cpp
+        src/logic/Import/STEPImport.cpp
+        src/scene/scene.cpp
+        src/scene/Geometry/Curve.cpp
+        src/scene/Geometry/Face.cpp
+        src/scene/Geometry/Surface.cpp
+        src/logic/GeometryValidity.cpp
+        src/logic/Analysis/Analysis.cpp
+        src/logic/Analysis/OverhangDetector/OverhangDetector.cpp
+        src/logic/Analysis/SharpCorner/SharpCorner.cpp
+        src/logic/Analysis/Instability/Instability.cpp
+        src/logic/Analysis/LayerDifference/LayerDifference.cpp
+        src/logic/Analysis/utils/Slice.cpp
+        src/logic/Analysis/utils/LayerDiffUtils.cpp
+        src/logic/Structure/StructureCarve.cpp
+        src/logic/Structure/StructureTriangulation.cpp
+        src/logic/GeometryOps/RingUtils.cpp
+        src/logic/GeometryOps/Topology.cpp
+        src/logic/GeometryOps/WireOps.cpp
+        src/logic/GeometryOps/Fillet2D.cpp
+        src/logic/GeometryOps/PlaneProjection.cpp
+        src/logic/GeometryOps/ConvexHull2D.cpp
+        src/logic/GeometryOps/RingBoolean.cpp
+        src/logic/Calibrate/CalibDistanceType.cpp
+        src/display/rendering/SceneRenderer/Patch/patch.cpp
+        src/display/rendering/SceneRenderer/Wireframe/Wireframe.cpp
+        src/display/rendering/color.cpp
+        src/utils/log.cpp
+    )
+    target_include_directories(test_structure_accept PRIVATE
+        ${OpenCASCADE_INCLUDE_DIR}
+        ${CMAKE_SOURCE_DIR}/include/glad/include
+        ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/logic
+        ${CMAKE_SOURCE_DIR}/src/display
+        ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
+        ${CMAKE_SOURCE_DIR}/src/scene
+        ${CMAKE_SOURCE_DIR}/src/scene/Geometry
+    )
+    target_link_libraries(test_structure_accept PRIVATE ${OpenCASCADE_LIBRARIES})
+
+    add_executable(test_slice_debug
+        src/spike/test_slice_debug.cpp
+        src/logic/Import/STEPImport.cpp
+        src/scene/scene.cpp
+        src/scene/Geometry/Curve.cpp
+        src/scene/Geometry/Face.cpp
+        src/scene/Geometry/Surface.cpp
+        src/logic/GeometryValidity.cpp
+        src/logic/Analysis/utils/Slice.cpp
+        src/logic/GeometryOps/RingUtils.cpp
+        src/logic/GeometryOps/RingBoolean.cpp
+        src/logic/GeometryOps/Topology.cpp
+        src/logic/GeometryOps/WireOps.cpp
+        src/logic/GeometryOps/Fillet2D.cpp
+        src/logic/GeometryOps/PlaneProjection.cpp
+        src/utils/log.cpp
+    )
+    target_include_directories(test_slice_debug PRIVATE
+        ${OpenCASCADE_INCLUDE_DIR}
+        ${CMAKE_SOURCE_DIR}/include/glad/include
+        ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/logic
+        ${CMAKE_SOURCE_DIR}/src/display
+        ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
+        ${CMAKE_SOURCE_DIR}/src/scene
+        ${CMAKE_SOURCE_DIR}/src/scene/Geometry
+    )
+    target_link_libraries(test_slice_debug PRIVATE ${OpenCASCADE_LIBRARIES})
+
+    add_executable(test_inset_recarve
+        src/spike/test_inset_recarve.cpp
+        src/logic/Import/STEPImport.cpp
+        src/scene/scene.cpp
+        src/scene/Geometry/Curve.cpp
+        src/scene/Geometry/Face.cpp
+        src/scene/Geometry/Surface.cpp
+        src/logic/GeometryValidity.cpp
+        src/logic/Structure/StructureCarve.cpp
+        src/logic/Structure/StructureTriangulation.cpp
+        src/logic/GeometryOps/RingUtils.cpp
+        src/logic/GeometryOps/Topology.cpp
+        src/logic/GeometryOps/WireOps.cpp
+        src/logic/GeometryOps/Fillet2D.cpp
+        src/logic/GeometryOps/PlaneProjection.cpp
+        src/utils/log.cpp
+    )
+    target_include_directories(test_inset_recarve PRIVATE
+        ${OpenCASCADE_INCLUDE_DIR}
+        ${CMAKE_SOURCE_DIR}/include/glad/include
+        ${CMAKE_SOURCE_DIR}/include/earcut.hpp-2.2.4/include/mapbox
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/logic
+        ${CMAKE_SOURCE_DIR}/src/display
+        ${CMAKE_SOURCE_DIR}/src/display/rendering/SceneRenderer
+        ${CMAKE_SOURCE_DIR}/src/scene
+        ${CMAKE_SOURCE_DIR}/src/scene/Geometry
+    )
+    target_link_libraries(test_inset_recarve PRIVATE ${OpenCASCADE_LIBRARIES})
 else()
     message(STATUS "OpenCASCADE not found. STEP import and Spike executable will not be available.")
 endif()
+

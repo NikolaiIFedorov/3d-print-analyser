@@ -3,15 +3,14 @@
 #include "rendering/color.hpp"
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include "rendering/UIRenderer/UIStyle.hpp"
 #include "rendering/UIRenderer/Icons.hpp"
 #include "rendering/UIRenderer/ToolPanel.hpp"
 #include "rendering/UIRenderer/ToolUserErrorFeedback.hpp"
 #include "logic/Analysis/Analysis.hpp"
-#include "logic/Analysis/Overhang/Overhang.hpp"
-#include "logic/Analysis/SharpCorner/SharpCorner.hpp"
-#include "logic/Analysis/SmallFeature/SmallFeature.hpp"
-#include "logic/Analysis/ThinSection/ThinSection.hpp"
+#include "logic/Analysis/utils/LayerDiffUtils.hpp"
+#include "logic/GeometryOps/RingBoolean.hpp"
 #include "logic/Import/STLImport.hpp"
 #include "logic/Import/STEPImport.hpp"
 #include "utils/SystemAccent.hpp"
@@ -33,6 +32,7 @@
 #include "input/Input.hpp"
 #include "rendering/ScenePick.hpp"
 #include "Geometry/Curve.hpp"
+#include "GeometryOps/RingUtils.hpp"
 #include "Geometry/Edge.hpp"
 #include "Geometry/Point.hpp"
 #include "CalibNominal.hpp"
@@ -45,6 +45,8 @@
 #include <chrono>
 #include <functional>
 #include <string_view>
+#include "utils/log.hpp"
+#include "utils/AppWakeEvent.hpp"
 
 #include "ProjectionDepthMode.hpp"
 #include "ViewportDepthExperiments.hpp"
@@ -844,8 +846,7 @@ void PruneStandaloneInnerFixCaps(Solid &solid, const std::vector<Face *> &create
                     oe.edge->dependencies.erase(f);
             }
         }
-        f->loops.clear();
-        f->dependency = nullptr;
+        f->ClearForRemoval();
     }
     solid.faces.erase(std::remove_if(solid.faces.begin(), solid.faces.end(),
                                      [&](Face *f) { return f != nullptr && removeSet.contains(f); }),
@@ -1152,27 +1153,6 @@ static void ClearStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer
     }
 }
 
-// Dedicated queue for Structure staging carve only. A pathological OCCT call can run without
-// returning; `Display` holds import/analysis work on `taskRunner` (`std::unique_ptr`). `Display::Shutdown`
-// detaches those workers and **releases** the runner (intentional process-exit leak) so quit never
-// blocks on `join()` when CGAL/analysis is stuck — same policy here via `AbandonStructureCarveTaskRunnerAtShutdown`.
-static TaskRunner *sStructureCarveRunner = nullptr;
-
-[[nodiscard]] static TaskRunner &StructureCarveTaskRunner()
-{
-    if (sStructureCarveRunner == nullptr)
-        sStructureCarveRunner = new TaskRunner(1);
-    return *sStructureCarveRunner;
-}
-
-static void AbandonStructureCarveTaskRunnerAtShutdown()
-{
-    if (sStructureCarveRunner == nullptr)
-        return;
-    sStructureCarveRunner->RequestStopClearQueueAndDetachWorkers();
-    // Intentional leak: do not delete; detached workers may still touch the runner mutex briefly.
-}
-
 static void SetStructurePanelHeaderTrailing(RootPanel *uiStructure, UIRenderer &uiRenderer, std::string msg)
 {
     if (!uiStructure || !uiStructure->header.has_value())
@@ -1381,14 +1361,10 @@ const char *AnalysisWorkerPhaseTitle(uint32_t phaseId)
 {
     switch (phaseId)
     {
-    case AnalysisUiPhase::FacePassesSolidFaces:
-        return "Analysing solid faces...";
-    case AnalysisUiPhase::FacePassesLooseFaces:
-        return "Analysing loose faces...";
-    case AnalysisUiPhase::SolidAnalyzers:
+    case AnalysisUiPhase::Slicing:
+        return "Slicing model...";
+    case AnalysisUiPhase::Analyzing:
         return "Analysing solid mesh...";
-    case AnalysisUiPhase::EdgeAnalyzers:
-        return "Analysing edges...";
     default:
         return "Analysing model...";
     }
@@ -1507,7 +1483,7 @@ bool CalibSecondPickAcceptsHit(const Face *slot1Face, const Edge *slot1Edge,
 
 bool AccumulateFaceViewDirection(glm::dvec3 &sum, const Face *face)
 {
-    if (face == nullptr || face->loops.empty())
+    if (face == nullptr || !face->HasGeometry())
         return false;
 
     glm::dvec3 normal = face->GetSurface().GetNormal();
@@ -1827,6 +1803,7 @@ Display::Display(int16_t width, int16_t height, const char *title) : window(Init
     uiRenderer.SetBodyImFont(bodyFont);
     uiRenderer.SetHeavyImFont(heavyFont);
 
+    AppWakeEvent::RegisterEventType();
     taskRunner = std::make_unique<TaskRunner>();
 
     InitUI();
@@ -1915,13 +1892,11 @@ void Display::Shutdown()
     ResetStructurePreviewIncrementalState();
     SessionLogger::Instance().LogShutdownPhase("display: CancelPendingStructureCarveJob");
     CancelPendingStructureCarveJob();
-    SessionLogger::Instance().LogShutdownPhase("display: AbandonStructureCarveTaskRunnerAtShutdown");
-    AbandonStructureCarveTaskRunnerAtShutdown();
-    ShutdownStackTraceLogIfEnabled("mainthread after structure cancel+abandon");
+    ShutdownStackTraceLogIfEnabled("mainthread after structure cancel");
 
     // Import/analysis workers can be stuck inside CGAL or analysis; `~TaskRunner` would join() forever.
     // Drop task handles (non-blocking abandon of in-flight futures), drain + detach workers, then
-    // leak the runner — same family of policy as `StructureCarveTaskRunner` (never join stuck work).
+    // leak the runner.
     SessionLogger::Instance().LogShutdownPhase("display: mainThreadPipeline.Clear");
     mainThreadPipeline.Clear();
     if (pendingImportTask.has_value())
@@ -1991,9 +1966,9 @@ void Display::LoadSettings()
 
     // Analysis
     overhangAngle = loaded.overhangAngle;
-    sharpCornerAngle = loaded.sharpCornerAngle;
-    minFeatureSize = loaded.minFeatureSize;
-    thinMinWidth = loaded.thinMinWidth;
+    sharpCornerThreshold = loaded.sharpCornerThreshold;
+    instabilityMinWidth = loaded.instabilityMinWidth;
+    layerDifferenceMaxAreaDelta = loaded.layerDifferenceMaxAreaDelta;
     layerHeight = loaded.layerHeight;
 
     // Appearance
@@ -2041,9 +2016,9 @@ void Display::LoadSettings()
 void Display::SaveSettings()
 {
     settings.overhangAngle = overhangAngle;
-    settings.sharpCornerAngle = sharpCornerAngle;
-    settings.minFeatureSize = minFeatureSize;
-    settings.thinMinWidth = thinMinWidth;
+    settings.sharpCornerThreshold = sharpCornerThreshold;
+    settings.instabilityMinWidth = instabilityMinWidth;
+    settings.layerDifferenceMaxAreaDelta = layerDifferenceMaxAreaDelta;
     settings.layerHeight = layerHeight;
     settings.accentHue = settingsAccentHue;
     settings.accentSat = settingsAccentSat;
@@ -2059,7 +2034,8 @@ void Display::SaveSettings()
 void Display::RebuildAnalysis()
 {
     // One critical section inside Analysis (clear + default analyzers) — avoids nested locks on the pipeline mutex.
-    Analysis::Instance().RebuildDefaultAnalyzers(overhangAngle, layerHeight, minFeatureSize, thinMinWidth, sharpCornerAngle);
+    Analysis::Instance().RebuildDefaultAnalyzers(overhangAngle, layerHeight, sharpCornerThreshold,
+                                                 instabilityMinWidth, layerDifferenceMaxAreaDelta);
 }
 
 void Display::UpdateCamera()
@@ -2070,6 +2046,7 @@ void Display::UpdateCamera()
 
 void Display::Render()
 {
+    const auto renderStart = std::chrono::steady_clock::now();
     auto bg = Color::GetBase();
     glClearColor(bg.r, bg.g, bg.b, 1.0f);
     if (RenderingExperiments::kReverseZDepth)
@@ -2090,6 +2067,11 @@ void Display::Render()
         activeTool == ActiveTool::Structure && uiStructure != nullptr && uiStructure->visible;
     const bool structurePreviewStrutsVisible =
         structureUiActive && scene != nullptr && !scene->solids.empty();
+
+    const bool analysisUiActive =
+        activeTool == ActiveTool::Analysis && uiAnalysis != nullptr && uiAnalysis->visible;
+    const bool analysisDebugLinesVisible =
+        analysisUiActive && analysisDebugViewEnabled && scene != nullptr && !scene->solids.empty();
 
     // Face culling applies only to filled triangles (patches + pick highlight), not grid/lines.
     glDisable(GL_CULL_FACE);
@@ -2120,10 +2102,17 @@ void Display::Render()
     glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP); // stop writing before lines
     if (!RenderingExperiments::kDebugSkipSceneWireframe)
         renderer.RenderWireframe();
-    // Structure preview lines: Phase B fills the buffer (face triangulation overlay); Phase A leaves it empty.
+    // Structure preview lines: foreground pass with pick highlights; x-ray pass after grid.
     if (structurePreviewStrutsVisible)
         renderer.RenderStructurePreviewLines(5.25f);
-
+    // Analysis debug overlay: raw sliced cross-section loops, same draw ordering as Structure preview.
+    if (analysisDebugLinesVisible)
+    {
+        renderer.RenderAnalysisDebugLines(5.25f);
+        renderer.RenderAnalysisDebugTriangles();
+    }
+    if (analysisUiActive)
+        renderer.RenderSharpCornerEdges(5.25f);
     // Calibrate: thick accent lines for committed edge picks (and any other pick-highlight lines).
     renderer.RenderPickHighlightLines(6.0f);
 
@@ -2182,6 +2171,10 @@ void Display::Render()
         }
     }
 
+    const double sceneDrawMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - renderStart).count();
+    if (sceneDrawMs >= 1.0)
+        LOG_SESSION("Render stage", "scene_draw", "ms", sceneDrawMs);
+
     // Start ImGui frame
     if (pendingFileTabsRebuild)
     {
@@ -2189,65 +2182,83 @@ void Display::Render()
         RebuildFileTabs();
     }
 
-    if (pendingToolSwitch)
-    {
-        pendingToolSwitch = false;
-        ClearPickHover();
-        ClearCalibrateFacePicks();
-        ClearStructureFacePick();
-        uiRenderer.MarkDirty();
-        const bool showAnalysis = (activeTool == ActiveTool::Analysis);
-        const bool showCalibrate = (activeTool == ActiveTool::Calibrate);
-        const bool showStructure = (activeTool == ActiveTool::Structure);
-        uiAnalysis->visible = showAnalysis;
-        uiCalibrate->visible = showCalibrate;
-        if (uiStructure)
-            uiStructure->visible = showStructure;
-        // Leaving the Structure tool without an explicit Cancel/Accept reverts as if Cancelled.
-        // Finalize already cleared staging in those paths, so this is a no-op for them.
-        if (!showStructure)
-            CancelPendingStructureCarveJob();
-        if (!showStructure && IsStructureStagingActive())
-            RestoreStructureOriginalScene();
-        // Entering Structure with a real model: build the carved staging up-front so the user sees the
-        // live carve right away.
-        if (showStructure)
-            BeginStructureStagingSession();
-        RefreshStructurePreviewForRenderer();
-        const bool skipHeavyGeomForStructureCommit = structureFinalizeCommitSkipGpuFullRebuild;
-        if (structureFinalizeCommitSkipGpuFullRebuild)
-            structureFinalizeCommitSkipGpuFullRebuild = false;
-
-        if (analysisEnabled != showAnalysis)
-        {
-            analysisEnabled = showAnalysis;
-            UpdateScene();
-        }
-        else if (!skipHeavyGeomForStructureCommit)
-            MarkGeometryDirtyAll();
-        else
-        {
-            // Accept dropped only `structureOriginalScene`; GPU buffers already match the carved scene.
-            MarkPickDirty();
-            MarkStyleDirty();
-        }
-        uiRenderer.MarkDirty();
-        SyncToolbarToolVisualState();
-        RefreshUIMinWindowSize();
-        SyncStructurePanelDerivedVisibility();
-    }
-
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
+    const auto uiStart = std::chrono::steady_clock::now();
     uiRenderer.Render();
+    const double uiMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - uiStart).count();
+    if (uiMs >= 1.0)
+        LOG_SESSION("Render stage", "ui_render", "ms", uiMs);
 
     // Finish ImGui frame
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
+    const auto swapStart = std::chrono::steady_clock::now();
     SDL_GL_SwapWindow(window);
+    const double swapMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - swapStart).count();
+    if (swapMs >= 1.0)
+        LOG_SESSION("Render stage", "swap_window", "ms", swapMs);
+}
+
+void Display::ProcessPendingToolSwitchIfAny()
+{
+    if (!pendingToolSwitch)
+        return;
+    pendingToolSwitch = false;
+    ClearPickHover();
+    ClearCalibrateFacePicks();
+    ClearStructureFacePick();
+    uiRenderer.MarkDirty();
+    const bool showAnalysis = (activeTool == ActiveTool::Analysis);
+    const bool showCalibrate = (activeTool == ActiveTool::Calibrate);
+    const bool showStructure = (activeTool == ActiveTool::Structure);
+    uiAnalysis->visible = showAnalysis;
+    uiCalibrate->visible = showCalibrate;
+    if (uiStructure)
+        uiStructure->visible = showStructure;
+    // Leaving the Structure tool without an explicit Cancel/Accept reverts as if Cancelled.
+    // Finalize already cleared staging in those paths, so this is a no-op for them.
+    if (!showStructure)
+        CancelPendingStructureCarveJob();
+    if (!showStructure && IsStructureStagingActive())
+        RestoreStructureOriginalScene();
+    RefreshStructurePreviewForRenderer();
+    RefreshAnalysisDebugSlicedView();
+    const bool skipHeavyGeomForStructureCommit = structureFinalizeCommitSkipGpuFullRebuild;
+    if (structureFinalizeCommitSkipGpuFullRebuild)
+        structureFinalizeCommitSkipGpuFullRebuild = false;
+
+    if (analysisEnabled != showAnalysis)
+    {
+        analysisEnabled = showAnalysis;
+        if (skipHeavyGeomForStructureCommit)
+        {
+            // Structure Accept: carved mesh is already on screen — re-queue analysis only.
+            // Do not MarkStyleDirty here: that would run RecolorOnly before async analysis
+            // returns (structureAcceptGpuGeometryFresh is only honored when hasAnalysisThisFrame).
+            structureAcceptGpuGeometryFresh = true;
+            pendingAnalysisAfterGeometryRebuild = true;
+            MarkPickDirty();
+        }
+        else
+            UpdateScene();
+    }
+    else if (!skipHeavyGeomForStructureCommit)
+        MarkGeometryDirtyAll();
+    else
+        MarkPickDirty();
+    // Entering Structure with a real model: build the carved staging up-front so the user sees the
+    // live carve right away. Must run after `MarkGeometryDirtyAll()` — that path calls
+    // `CancelPendingStructureCarveJob()`, which would reset `LaunchPending` and leave the panel
+    // stuck on "Preparing carve…" if we scheduled staging first.
+    if (showStructure)
+        BeginStructureStagingSession();
+    uiRenderer.MarkDirty();
+    SyncToolbarToolVisualState();
+    SyncStructurePanelDerivedVisibility();
 }
 
 void Display::UpdateScene()
@@ -2297,6 +2308,8 @@ void Display::MarkGeometryDirtyAll()
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
 
+
+    structureAcceptGpuGeometryFresh = false;
     CancelPendingStructureCarveJob();
 
     geometryDirtyAll = true;
@@ -2326,6 +2339,7 @@ void Display::MarkGeometryDirtySolid(const Solid *solid)
     activeAnalysisTintIdentityForRebuild = 0;
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
+
 
     CancelPendingStructureCarveJob();
 
@@ -2451,6 +2465,7 @@ void Display::PollPendingAnalysisTaskIfReady()
     if (analysisReady->ok && !analysisReady->cancelled && analysisReady->scene == scene &&
         analysisReady->requestId == analysisRequestId)
     {
+        PruneDefunctAnalysisResults(analysisReady->results, scene);
         pendingAnalysisTint = std::move(*analysisReady);
         TryMarkAnalysisTintStepOnce(readyRequestId);
         styleDirty = true;
@@ -2465,16 +2480,30 @@ void Display::PollPendingAnalysisTaskIfReady()
 void Display::Frame()
 {
     workerFuturePollDeadline.emplace(std::chrono::steady_clock::now() + TaskRunner::kUiAsyncFutureCompletionBudget);
+    ProcessPendingToolSwitchIfAny();
     ProcessDeferredImportIfAny();
     PollStructureStagingTaskIfReady();
     FlushPendingStructureStagingCarveLaunchIfAny();
     ApplyImportProgressSnapshot();
+    ApplyStructureProgressSnapshot();
     const bool ranMainThreadApplyTask = mainThreadPipeline.Process(1.5);
+    // The pipeline is budgeted, so a single AppWakeEvent::Push() from the worker that originally
+    // enqueued this work only guarantees one Frame() tick. If steps are still queued, re-arm the
+    // wake event so the blocking SDL_WaitEventTimeout doesn't strand the remaining steps until a
+    // real input event happens to arrive (e.g. import results sitting unapplied with no nudge).
+    //
+    // A pipeline step that just finished (e.g. import's UpdateScene()) can also set
+    // geometryDirtyAll/styleDirty/pickDirty as a side effect. The rebuild block below is gated on
+    // `!ranMainThreadApplyTask` so it never runs in the same tick as pipeline work, deferring the
+    // actual GPU upload to the next Frame(). Without re-arming here too, that next tick never
+    // arrives until a real input event happens to nudge the loop — leaving the new geometry
+    // flagged dirty but never uploaded.
+    if (mainThreadPipeline.HasPending() ||
+        (ranMainThreadApplyTask && (geometryDirtyAll || !geometryDirtySolids.empty() || styleDirty || pickDirty)))
+        AppWakeEvent::Push();
 
     const float axisH = SyncViewportAxisForDepthClip();
     ApplyOrthoClipFromViewBounds(camera, scene, axisH);
-
-    const bool cameraMovedForPick = cameraDirty;
 
     // Always sync projection + view to GPU: `ApplyOrthoClipFromViewBounds` updates near/far
     // every frame from the current view matrix; previously we only pushed matrices when
@@ -2536,11 +2565,12 @@ void Display::Frame()
         if (analysisEnabled && pendingAnalysisTint.has_value() && pendingAnalysisTint->scene == scene &&
             styleDirty)
         {
+            PruneDefunctAnalysisResults(pendingAnalysisTint->results, scene);
             activeAnalysisTintForRebuild.emplace(std::move(pendingAnalysisTint->results));
             activeAnalysisTintIdentityForRebuild = pendingAnalysisTint->requestId;
             pendingAnalysisTint.reset();
             hasAnalysisThisFrame = true;
-            if (!geometryDirtyAll && geometryDirtySolids.empty())
+            if (!geometryDirtyAll && geometryDirtySolids.empty() && !structureAcceptGpuGeometryFresh)
                 geometryDirtyAll = true;
         }
         else
@@ -2575,18 +2605,29 @@ void Display::Frame()
             activeAnalysisTintForRebuild.has_value() ? activeAnalysisTintIdentityForRebuild : 0;
 
         if (geometryDirtyAll || !geometryDirtySolids.empty())
+        {
             RefreshStructurePreviewForRenderer();
+            RefreshAnalysisDebugSlicedView();
+        }
 
         if (geometryDirtyAll)
         {
             geometryRebuildComplete =
                 renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
             InvalidationExec(InvalidationNode::Geometry);
+            // Force a draw this tick regardless of completion: if incomplete there's more to
+            // come next tick; if this is the completing tick, this is the frame that must
+            // actually show the now-finished geometry (renderDirty may otherwise already be
+            // false from an earlier tick's Render() call, silently skipping the final draw).
+            renderDirty = true;
             if (!geometryRebuildComplete)
             {
                 // Keep scheduling geometry work until incremental rebuild completes.
-                renderDirty = true;
                 pickDirty = true;
+                // Rebuild is time-budgeted across frames; re-arm the wake event so the
+                // blocking SDL_WaitEventTimeout doesn't strand the remaining chunks until a
+                // real input event arrives.
+                AppWakeEvent::Push();
             }
         }
         else if (!geometryDirtySolids.empty())
@@ -2596,7 +2637,15 @@ void Display::Frame()
         }
         else if (styleDirty)
         {
-            if (hasAnalysisThisFrame)
+            if (structureAcceptGpuGeometryFresh)
+            {
+                // Post-Accept: keep existing GPU mesh until fresh analysis tint arrives.
+                // RecolorOnly / RebuildAllIncremental can re-triangulate annulus tops and crash.
+                if (hasAnalysisThisFrame)
+                    structureAcceptGpuGeometryFresh = false;
+                InvalidationExec(InvalidationNode::Style);
+            }
+            else if (hasAnalysisThisFrame)
             {
                 // Applying fresh analysis often changes rendered topology enough to force
                 // a full rebuild. Route through the same incremental path to avoid a hitch.
@@ -2604,10 +2653,16 @@ void Display::Frame()
                 geometryRebuildComplete =
                     renderer.RebuildAllIncremental(scene, activeTintPtr, 2.5, activeTintId);
                 InvalidationExec(InvalidationNode::Geometry);
+                // Force a draw this tick regardless of completion — see comment on the other
+                // RebuildAllIncremental call site above.
+                renderDirty = true;
                 if (!geometryRebuildComplete)
                 {
-                    renderDirty = true;
                     pickDirty = true;
+                    // Rebuild is time-budgeted across frames; re-arm the wake event so the
+                    // blocking SDL_WaitEventTimeout doesn't strand the remaining chunks until a
+                    // real input event arrives.
+                    AppWakeEvent::Push();
                 }
             }
             else
@@ -2732,65 +2787,32 @@ void Display::Frame()
         {
             AnalysisResults &results = *activeAnalysisTintForRebuild;
             InvalidationExec(InvalidationNode::Analysis);
-            // Count flaws per type and push to UI
-            size_t thinSections = 0, smallFeatures = 0, sharpEdges = 0;
 
-            // Count overhang regions as connected components of adjacent overhang faces
-            // Skip defunct faces (loops cleared by MergeCoplanarFaces)
+            // Collect faces per flaw kind for BFS grouping — every detector now populates
+            // faceFlawRanges uniformly (no separate per-face or per-edge flaw maps anymore).
             std::unordered_set<const Face *> overhangFaces;
-            for (const auto &[face, kind] : results.faceFlaws)
-            {
-                if (kind == FaceFlawKind::OVERHANG && !face->loops.empty())
-                    overhangFaces.insert(face);
-            }
-
-            size_t overhangs = 0;
-            std::unordered_set<const Face *> visited;
-            for (const Face *seed : overhangFaces)
-            {
-                if (visited.count(seed))
-                    continue;
-                overhangs++;
-                std::queue<const Face *> bfs;
-                bfs.push(seed);
-                visited.insert(seed);
-                while (!bfs.empty())
-                {
-                    const Face *current = bfs.front();
-                    bfs.pop();
-                    for (const auto &loop : current->loops)
-                    {
-                        for (const auto &oe : loop)
-                        {
-                            for (Face *neighbor : oe.edge->dependencies)
-                            {
-                                if (overhangFaces.count(neighbor) && !visited.count(neighbor))
-                                {
-                                    visited.insert(neighbor);
-                                    bfs.push(neighbor);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Collect thin-section and small-feature faces for BFS grouping
-            std::unordered_set<const Face *> thinSectionFaces;
-            std::unordered_set<const Face *> smallFeatureFaces;
+            std::unordered_set<const Face *> sharpCornerFaces;
+            std::unordered_set<const Face *> instabilityFaces;
+            std::unordered_set<const Face *> layerDifferenceFaces;
             for (const auto &[solid, flaws] : results.faceFlawRanges)
             {
                 for (const auto &ff : flaws)
                 {
+                    if (ff.face == nullptr || !ff.face->HasGeometry())
+                        continue;
                     switch (ff.flaw)
                     {
-                    case FaceFlawKind::THIN_SECTION:
-                        if (ff.face && !ff.face->loops.empty())
-                            thinSectionFaces.insert(ff.face);
+                    case FaceFlawKind::OVERHANG:
+                        overhangFaces.insert(ff.face);
                         break;
-                    case FaceFlawKind::SMALL_FEATURE:
-                        if (ff.face && !ff.face->loops.empty())
-                            smallFeatureFaces.insert(ff.face);
+                    case FaceFlawKind::SHARP_CORNER:
+                        sharpCornerFaces.insert(ff.face);
+                        break;
+                    case FaceFlawKind::INSTABILITY:
+                        instabilityFaces.insert(ff.face);
+                        break;
+                    case FaceFlawKind::LAYER_DIFFERENCE:
+                        layerDifferenceFaces.insert(ff.face);
                         break;
                     default:
                         break;
@@ -2798,14 +2820,17 @@ void Display::Frame()
                 }
             }
 
-            // Count connected components of adjacent thin-section faces
+            // Count connected components of adjacent same-kind flawed faces (one flaw "region"
+            // may span several adjacent faces).
+            auto countComponents = [](const std::unordered_set<const Face *> &faces) -> size_t
             {
+                size_t count = 0;
                 std::unordered_set<const Face *> visited;
-                for (const Face *seed : thinSectionFaces)
+                for (const Face *seed : faces)
                 {
                     if (visited.count(seed))
                         continue;
-                    thinSections++;
+                    count++;
                     std::queue<const Face *> bfs;
                     bfs.push(seed);
                     visited.insert(seed);
@@ -2817,9 +2842,13 @@ void Display::Frame()
                         {
                             for (const auto &oe : loop)
                             {
+                                if (oe.edge == nullptr)
+                                    continue;
                                 for (Face *neighbor : oe.edge->dependencies)
                                 {
-                                    if (thinSectionFaces.count(neighbor) && !visited.count(neighbor))
+                                    if (neighbor == nullptr || !neighbor->HasGeometry())
+                                        continue;
+                                    if (faces.count(neighbor) && !visited.count(neighbor))
                                     {
                                         visited.insert(neighbor);
                                         bfs.push(neighbor);
@@ -2829,48 +2858,13 @@ void Display::Frame()
                         }
                     }
                 }
-            }
+                return count;
+            };
 
-            // Count connected components of adjacent small-feature faces
-            {
-                std::unordered_set<const Face *> visited;
-                for (const Face *seed : smallFeatureFaces)
-                {
-                    if (visited.count(seed))
-                        continue;
-                    smallFeatures++;
-                    std::queue<const Face *> bfs;
-                    bfs.push(seed);
-                    visited.insert(seed);
-                    while (!bfs.empty())
-                    {
-                        const Face *current = bfs.front();
-                        bfs.pop();
-                        for (const auto &loop : current->loops)
-                        {
-                            for (const auto &oe : loop)
-                            {
-                                for (Face *neighbor : oe.edge->dependencies)
-                                {
-                                    if (smallFeatureFaces.count(neighbor) && !visited.count(neighbor))
-                                    {
-                                        visited.insert(neighbor);
-                                        bfs.push(neighbor);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            for (const auto &[solid, edgeVec] : results.edgeFlaws)
-            {
-                for (const auto &e : edgeVec)
-                {
-                    if (e.flaw == EdgeFlawKind::SHARP_CORNER)
-                        sharpEdges++;
-                }
-            }
+            size_t overhangs = countComponents(overhangFaces);
+            size_t sharpCornerCount = countComponents(sharpCornerFaces);
+            size_t instabilityCount = countComponents(instabilityFaces);
+            size_t layerDifferenceCount = countComponents(layerDifferenceFaces);
 
             // Compute 3D bounding boxes per flaw category for click-to-frame
             auto expandBounds = [](glm::vec3 &bMin, glm::vec3 &bMax, const glm::dvec3 &p)
@@ -2881,74 +2875,57 @@ void Display::Frame()
             };
             auto expandFaceBounds = [&](glm::vec3 &bMin, glm::vec3 &bMax, const Face *face)
             {
+                if (face == nullptr || !face->HasGeometry())
+                    return;
                 for (const auto &loop : face->loops)
+                {
                     for (const auto &oe : loop)
                     {
-                        expandBounds(bMin, bMax, oe.edge->startPoint->position);
-                        expandBounds(bMin, bMax, oe.edge->endPoint->position);
+                        if (oe.edge == nullptr || oe.GetStart() == nullptr || oe.GetEnd() == nullptr)
+                            continue;
+                        expandBounds(bMin, bMax, oe.GetStart()->position);
+                        expandBounds(bMin, bMax, oe.GetEnd()->position);
                     }
+                }
             };
 
             constexpr float INF = std::numeric_limits<float>::max();
             glm::vec3 overhangMin(INF), overhangMax(-INF);
-            glm::vec3 thinMin(INF), thinMax(-INF);
-            glm::vec3 smallMin(INF), smallMax(-INF);
-            glm::vec3 sharpMin(INF), sharpMax(-INF);
+            glm::vec3 sharpCornerMin(INF), sharpCornerMax(-INF);
+            glm::vec3 instabilityMin(INF), instabilityMax(-INF);
+            glm::vec3 layerDifferenceMin(INF), layerDifferenceMax(-INF);
             glm::dvec3 overhangViewDir(0.0);
-            glm::dvec3 thinViewDir(0.0);
-            glm::dvec3 smallViewDir(0.0);
-            glm::dvec3 sharpViewDir(0.0);
+            glm::dvec3 notEnoughSpaceViewDir(0.0);
+            glm::dvec3 instabilityViewDir(0.0);
+            glm::dvec3 layerDifferenceViewDir(0.0);
 
-            // Overhang face bounds
-            for (const Face *face : overhangFaces)
+            auto accumulateBounds = [&](const std::unordered_set<const Face *> &faces, glm::vec3 &bMin,
+                                        glm::vec3 &bMax, glm::dvec3 &viewDir)
             {
-                expandFaceBounds(overhangMin, overhangMax, face);
-                AccumulateFaceViewDirection(overhangViewDir, face);
-            }
-
-            // Thin section / small feature bounds from faceFlawRanges
-            for (const auto &[solid, flaws] : results.faceFlawRanges)
-            {
-                for (const auto &ff : flaws)
+                for (const Face *face : faces)
                 {
-                    if (ff.flaw == FaceFlawKind::THIN_SECTION && ff.face)
-                    {
-                        expandFaceBounds(thinMin, thinMax, ff.face);
-                        AccumulateFaceViewDirection(thinViewDir, ff.face);
-                    }
-                    else if (ff.flaw == FaceFlawKind::SMALL_FEATURE && ff.face)
-                    {
-                        expandFaceBounds(smallMin, smallMax, ff.face);
-                        AccumulateFaceViewDirection(smallViewDir, ff.face);
-                    }
+                    expandFaceBounds(bMin, bMax, face);
+                    AccumulateFaceViewDirection(viewDir, face);
                 }
-            }
-
-            // Sharp edge bounds
-            for (const auto &[solid, edgeVec] : results.edgeFlaws)
-            {
-                for (const auto &e : edgeVec)
-                {
-                    if (e.flaw == EdgeFlawKind::SHARP_CORNER && e.edge)
-                    {
-                        expandBounds(sharpMin, sharpMax, e.edge->startPoint->position);
-                        expandBounds(sharpMin, sharpMax, e.edge->endPoint->position);
-                        for (const Face *face : e.edge->dependencies)
-                            AccumulateFaceViewDirection(sharpViewDir, face);
-                    }
-                }
-            }
+            };
+            accumulateBounds(overhangFaces, overhangMin, overhangMax, overhangViewDir);
+            accumulateBounds(sharpCornerFaces, sharpCornerMin, sharpCornerMax, notEnoughSpaceViewDir);
+            accumulateBounds(instabilityFaces, instabilityMin, instabilityMax, instabilityViewDir);
+            accumulateBounds(layerDifferenceFaces, layerDifferenceMin, layerDifferenceMax, layerDifferenceViewDir);
 
             // Bright versions of flaw colors for UI text
             glm::vec4 overhangColor = glm::vec4(Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                                 Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f);
-            glm::vec4 thinColor = glm::vec4(Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
-                                            Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f);
-            glm::vec4 edgeColor = glm::vec4(Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
-                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
-                                            Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f);
+            glm::vec4 sharpCornerColor = glm::vec4(Color::GetFace(FaceFlawKind::SHARP_CORNER).r + 0.4f,
+                                                      Color::GetFace(FaceFlawKind::SHARP_CORNER).g + 0.3f,
+                                                      Color::GetFace(FaceFlawKind::SHARP_CORNER).b + 0.15f, 1.0f);
+            glm::vec4 instabilityColor = glm::vec4(Color::GetFace(FaceFlawKind::INSTABILITY).r + 0.4f,
+                                                   Color::GetFace(FaceFlawKind::INSTABILITY).g + 0.25f,
+                                                   Color::GetFace(FaceFlawKind::INSTABILITY).b + 0.15f, 1.0f);
+            glm::vec4 layerDifferenceColor = glm::vec4(Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).r + 0.3f,
+                                                       Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).g + 0.15f,
+                                                       Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).b + 0.4f, 1.0f);
 
             auto makeFrameCallback = [this](glm::vec3 bMin, glm::vec3 bMax,
                                             std::optional<glm::vec3> cameraBackDirection) -> std::function<void()>
@@ -2970,26 +2947,29 @@ void Display::Frame()
             flawOverhang.count = overhangs;
             flawOverhang.frameCallback =
                 makeFrameCallback(overhangMin, overhangMax, NormalizeViewDirection(overhangViewDir));
-            flawSharp.count = sharpEdges;
-            flawSharp.frameCallback = makeFrameCallback(sharpMin, sharpMax, NormalizeViewDirection(sharpViewDir));
-            flawThin.count = thinSections;
-            flawThin.frameCallback = makeFrameCallback(thinMin, thinMax, NormalizeViewDirection(thinViewDir));
-            flawSmall.count = smallFeatures;
-            flawSmall.frameCallback = makeFrameCallback(smallMin, smallMax, NormalizeViewDirection(smallViewDir));
+            flawSharpCorner.count = sharpCornerCount;
+            flawSharpCorner.frameCallback = makeFrameCallback(sharpCornerMin, sharpCornerMax,
+                                                                  NormalizeViewDirection(notEnoughSpaceViewDir));
+            flawInstability.count = instabilityCount;
+            flawInstability.frameCallback =
+                makeFrameCallback(instabilityMin, instabilityMax, NormalizeViewDirection(instabilityViewDir));
+            flawLayerDifference.count = layerDifferenceCount;
+            flawLayerDifference.frameCallback = makeFrameCallback(layerDifferenceMin, layerDifferenceMax,
+                                                                   NormalizeViewDirection(layerDifferenceViewDir));
 
             // Log analysis results to session
             {
                 auto &sl = SessionLogger::Instance();
                 sl.state.overhangs = overhangs;
-                sl.state.sharpEdges = sharpEdges;
-                sl.state.thinSections = thinSections;
-                sl.state.smallFeatures = smallFeatures;
+                sl.state.sharpCorner = sharpCornerCount;
+                sl.state.instabilities = instabilityCount;
+                sl.state.layerDifferences = layerDifferenceCount;
                 sl.LogAnalysisRun();
             }
 
             // Two-tier verdict
-            bool hasVisual = (overhangs > 0) || (thinSections > 0);
-            bool hasPrecision = (smallFeatures > 0) || (sharpEdges > 0);
+            bool hasVisual = (overhangs > 0) || (instabilityCount > 0);
+            bool hasPrecision = (sharpCornerCount > 0) || (layerDifferenceCount > 0);
 
             glm::vec4 passColor = glm::vec4(0.4f, 0.8f, 0.4f, 1.0f);
             glm::vec4 failColor = glm::vec4(0.9f, 0.4f, 0.4f, 1.0f);
@@ -3012,14 +2992,20 @@ void Display::Frame()
 
                 for (const auto &face : scene->faces)
                 {
+                    if (!face.HasGeometry())
+                        continue;
                     totalLoops += face.loops.size();
                     for (const auto &loop : face.loops)
+                    {
                         for (const auto &oe : loop)
                         {
-                            const auto &p = oe.edge->startPoint->position;
+                            if (oe.edge == nullptr || oe.edge->startPoint == nullptr)
+                                continue;
+                            const glm::dvec3 &p = oe.edge->startPoint->position;
                             modelMin = glm::min(modelMin, p);
                             modelMax = glm::max(modelMax, p);
                         }
+                    }
                 }
 
                 double height = modelMax.z - modelMin.z;
@@ -3095,9 +3081,9 @@ void Display::Frame()
             {
                 lastVerdictWasPass = false;
                 flawOverhang = {};
-                flawSharp = {};
-                flawThin = {};
-                flawSmall = {};
+                flawSharpCorner = {};
+                flawInstability = {};
+                flawLayerDifference = {};
                 if (uiVerdict)
                     uiVerdict->values = {};
             }
@@ -3118,12 +3104,15 @@ void Display::Frame()
             if (activeAnalysisTintForRebuild.has_value())
             {
                 lastCommittedAnalysisForRecolor = std::move(*activeAnalysisTintForRebuild);
+                PruneDefunctAnalysisResults(*lastCommittedAnalysisForRecolor, scene);
                 activeAnalysisTintForRebuild.reset();
+                renderer.SetSharpCornerEdges(&*lastCommittedAnalysisForRecolor);
             }
             else
             {
                 lastCommittedAnalysisForRecolor.reset();
                 activeAnalysisTintForRebuild.reset();
+                renderer.SetSharpCornerEdges(nullptr);
             }
             activeAnalysisTintIdentityForRebuild = 0;
         }
@@ -3138,12 +3127,12 @@ void Display::Frame()
         ClearScheduledNodes();
     }
 
-    if (cameraMovedForPick)
-    {
-        float mx, my;
-        SDL_GetMouseState(&mx, &my);
-        UpdatePickHover(mx, my);
-    }
+    // Hover picking runs from input events (mouse motion when not navigating, and on
+    // RMB/MMB release) rather than here. Re-running it on every camera-moved frame was
+    // re-triggering the brute-force pick-triangle scan on every pan/orbit/zoom frame,
+    // including trackpad gestures and scroll-wheel zoom which bypass the motion handler's
+    // nav-drag guard. Hover may go briefly stale mid-gesture; it refreshes on the next
+    // real mouse-motion event or nav release.
 
     if (importBusy || pendingImportTask.has_value())
         renderDirty = true;
@@ -3339,6 +3328,35 @@ void Display::RebuildPickHighlightMesh()
         }
     };
 
+    // Structure eligibility tint: one normal per face so internal mesh diagonals don't read as lines.
+    // `srcTris` defaults to the currently rendered mesh, but the Structure tool overlays the
+    // *original* (uncarved) face footprint on top of the carved preview while staging — see below.
+    auto appendFaceTrisSurfaceNormal = [&](const Face *face, float accentDepthSteps, float satMult,
+                                            const std::vector<PickTriangle> &srcTris)
+    {
+        if (face == nullptr || face->surface == nullptr)
+            return;
+        const glm::vec3 accent = glm::vec3(Color::GetAccentSteps(accentDepthSteps, 1.0f, satMult));
+        glm::vec3 n = glm::vec3(face->surface->GetNormal());
+        const float nLen = glm::length(n);
+        if (nLen > 1e-6f)
+            n /= nLen;
+        else
+            n = glm::vec3(0.0f, 0.0f, 1.0f);
+        for (const PickTriangle &tri : srcTris)
+        {
+            if (tri.face != face)
+                continue;
+            pickHighlightVertices.push_back({glm::vec3(tri.v0), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v1), accent, n});
+            pickHighlightVertices.push_back({glm::vec3(tri.v2), accent, n});
+            pickHighlightIndices.push_back(nextVert);
+            pickHighlightIndices.push_back(nextVert + 1);
+            pickHighlightIndices.push_back(nextVert + 2);
+            nextVert += 3;
+        }
+    };
+
     // Face-only committed picks get the face tint. Edge-snapped picks store the owning face for
     // geometry logic but drawing both reads as "face selected" (hover already suppresses face fill
     // when hoverPickEdge is set — mirror that for committed calibEdgePoint1/2).
@@ -3347,37 +3365,54 @@ void Display::RebuildPickHighlightMesh()
     if (calibFacePoint2 != nullptr && calibEdgePoint2 == nullptr)
         appendFaceTris(calibFacePoint2, 1.0f, 0.72f);
 
-    // Structure tool (opt-out model): every eligible face that is **not** in the exclusion set is
-    // shown with a faint accent tint. While staging shows the carved mesh, exclusions are keyed on
-    // original-scene faces — map each pick hit back through `MatchStructureOriginalFaceForStructurePick`.
+    // Structure tool (opt-out model): the tool carves every eligible face by default — that's its
+    // decision, not the user's, so it stays unmarked. Only faces the user has actively **excluded**
+    // (kept uncarved) are "selected" and get a faint accent tint. While staging shows the carved
+    // mesh, exclusions are keyed on original-scene faces — look each carved face up in the
+    // precomputed `structureCarvedToOriginal` map (built once per carve, not re-matched per
+    // pick/per frame). Faces with no entry are new carve-only geometry (strut walls, cut
+    // boundaries) and are never user-excludable, so they never tint.
     //
     // The hovered face is skipped here — `appendFaceTris(hoverDraw, …)` below paints it brighter.
     if (activeTool == ActiveTool::Structure)
     {
+        const bool staging = IsStructureStagingActive();
+
         // Rebuild the eligibility cache lazily here: this method runs whenever pick geometry or
         // hover state changes, which dominates the cases where the eligible set could have shifted.
+        // While staging, a carved fragment's *own* size/span is not the right eligibility test — a
+        // strut top or leftover sliver can be far smaller than `kMinFaceSpanMm` even though it
+        // belongs to a perfectly eligible original panel — so membership in
+        // `structureCarvedToOriginal` (built from the *original* face's eligibility) is what counts.
         const std::unordered_set<const Face *> previousEligible = structureEligibleFacesCache;
         structureEligibleFacesCache.clear();
         for (const PickTriangle &tri : tris)
         {
             if (tri.face == nullptr || structureEligibleFacesCache.count(tri.face) > 0)
                 continue;
-            if (IsStructureFaceEligible(tri.face))
+            const bool isCandidate = staging ? structureCarvedToOriginal.count(tri.face) > 0
+                                              : IsStructureFaceEligible(tri.face);
+            if (isCandidate)
                 structureEligibleFacesCache.insert(tri.face);
         }
         for (const Face *f : structureEligibleFacesCache)
         {
             const Face *canonical = f;
-            if (IsStructureStagingActive() && structureOriginalScene != nullptr)
-                canonical = MatchStructureOriginalFaceForStructurePick(f);
-            if (canonical != nullptr && structureExcludedFaces.count(canonical) > 0)
+            if (staging)
+            {
+                auto it = structureCarvedToOriginal.find(f);
+                if (it == structureCarvedToOriginal.end())
+                    continue;
+                canonical = it->second;
+            }
+            if (structureExcludedFaces.count(canonical) == 0)
                 continue;
             if (f == hoverPickFace)
                 continue;
-            appendFaceTris(f, 0.35f, 0.45f);
+            appendFaceTrisSurfaceNormal(f, 0.35f, 0.45f, tris);
         }
         // Only re-emit the triangulation preview lines when the eligible set actually shifted —
-        // hover-only updates don't change which faces feed `BuildFaceTriangulationPreview`, so
+        // hover-only updates don't change which faces feed `BuildCutOutlinePreviewLines`, so
         // skipping in that case avoids per-frame GPU re-uploads of the preview mesh.
         if (previousEligible != structureEligibleFacesCache)
             RefreshStructurePreviewForRenderer();
@@ -3689,26 +3724,29 @@ Display::CalibPickHit Display::PickCalibrateAtPixel(float pixelX, float pixelY) 
 
     const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
     const double layerMm = static_cast<double>(layerHeight);
-    if (!CalibrateDistance::FaceInFirstLayerSlab(out.face, scene, layerMm, calibBuildDir) ||
-        !CalibrateDistance::FaceIsLayerCapParallelBuild(out.face, calibBuildDir))
-        return out;
+    const bool capForEdgeSnap =
+        CalibrateDistance::FaceInFirstLayerSlab(out.face, scene, layerMm, calibBuildDir) &&
+        CalibrateDistance::FaceIsLayerCapParallelBuild(out.face, calibBuildDir);
 
-    thread_local std::vector<PickSegment> faceSegScratch;
-    faceSegScratch.clear();
-    for (const PickSegment &ps : renderer.GetPickSegments())
+    if (capForEdgeSnap)
     {
-        if (ps.edge != nullptr && CalibrateNominal::EdgeBelongsToFace(ps.edge, out.face))
-            faceSegScratch.push_back(ps);
+        thread_local std::vector<PickSegment> faceSegScratch;
+        faceSegScratch.clear();
+        for (const PickSegment &ps : renderer.GetPickSegments())
+        {
+            if (ps.edge != nullptr && CalibrateNominal::EdgeBelongsToFace(ps.edge, out.face))
+                faceSegScratch.push_back(ps);
+        }
+        if (!faceSegScratch.empty())
+        {
+            double rayT = 0.0;
+            double distSq = 0.0;
+            const Edge *edgeHit = ScenePick::PickClosestEdgeAlongRay(faceSegScratch, ro, rd, kCalibEdgePickMaxDistSqMm,
+                                                                     &rayT, &distSq);
+            if (edgeHit != nullptr)
+                out.edge = edgeHit;
+        }
     }
-    if (faceSegScratch.empty())
-        return out;
-
-    double rayT = 0.0;
-    double distSq = 0.0;
-    const Edge *edgeHit = ScenePick::PickClosestEdgeAlongRay(faceSegScratch, ro, rd, kCalibEdgePickMaxDistSqMm,
-                                                             &rayT, &distSq);
-    if (edgeHit != nullptr)
-        out.edge = edgeHit;
     return out;
 }
 
@@ -3733,11 +3771,7 @@ void Display::UpdatePickHover(float pixelX, float pixelY)
     if (activeTool == ActiveTool::Structure)
     {
         const StructurePickHit structHit = PickStructureAtPixel(pixelX, pixelY);
-        // Clickability feedback is deliberately suppressed at this stage: every hovered face,
-        // eligible or not, just gets the standard "you're pointing at this" gradient. Click
-        // commits only fire on eligible faces (gate inside `TryCommitStructureFacePick`), so the
-        // distinction lives at click-time, not in the hover render.
-        SetHoverPick(structHit.face, nullptr, false);
+        SetHoverPick(structHit.face, nullptr, structHit.face != nullptr && !structHit.eligible);
         return;
     }
 
@@ -3828,15 +3862,14 @@ namespace
 {
 
 // Minimum upward-component for a face to be eligible for triangulation. Anything below this is
-// considered side-facing / downward — vertical extrusion would not produce a printable triangle
-// pattern that supports the upper material. See documentation/implementations/
-// structure_face_triangulation_2026-05-11.md.
-constexpr double kStructureMinUpComponent = 0.3;
+// considered side-facing / downward — the XY footprint projection collapses. Slanted upward faces
+// are included: inset runs on the face plane, then the footprint is projected to XY and carved with
+// a vertical prism. See documentation/implementations/structure_face_triangulation_2026-05-11.md.
+constexpr double kStructureMinUpComponent = StructureTriangulation::kMinUpComponent;
 
 // Coarse lower bound on the face's world-space span. Faces smaller than this cannot host even a
-// single inset-with-strip, so picking them up just to immediately reject is pointless. Phase B2 will
-// refine this against the actual user-chosen inset distance.
-constexpr double kStructureMinFaceSpanMm = 1.5;
+// single inset-with-strip, so picking them up just to immediately reject is pointless.
+constexpr double kStructureMinFaceSpanMm = StructureTriangulation::kMinFaceSpanMm;
 
 double StructureFaceMaxSpanMm(const Face *face)
 {
@@ -3855,6 +3888,28 @@ double StructureFaceMaxSpanMm(const Face *face)
     }
     const glm::dvec3 ext = mx - mn;
     return std::max({ext.x, ext.y, ext.z});
+}
+
+double StructureFaceMaxProjectedSpanXyMm(const Face *face)
+{
+    if (face == nullptr || face->loops.empty())
+        return 0.0;
+    double minX = std::numeric_limits<double>::max();
+    double maxX = -std::numeric_limits<double>::max();
+    double minY = std::numeric_limits<double>::max();
+    double maxY = -std::numeric_limits<double>::max();
+    for (const auto &loop : face->loops)
+    {
+        for (const OrientedEdge &oe : loop)
+        {
+            const glm::dvec3 p = oe.GetStartPosition();
+            minX = std::min(minX, p.x);
+            maxX = std::max(maxX, p.x);
+            minY = std::min(minY, p.y);
+            maxY = std::max(maxY, p.y);
+        }
+    }
+    return std::max(maxX - minX, maxY - minY);
 }
 
 glm::dvec3 StructureFaceCentroidWorld(const Face *face)
@@ -3890,15 +3945,15 @@ bool Display::IsStructureFaceEligible(const Face *face, std::string *outReason) 
         setReason("Face is not planar — only flat faces can be triangulated.");
         return false;
     }
-    if (face->loops.size() != 1)
+    if (face->loops.empty())
     {
-        setReason("Face has internal holes — multi-loop faces are not yet supported.");
+        setReason("Face has no boundary loops.");
         return false;
     }
     const glm::dvec3 n = face->surface->GetNormal();
     if (n.z < kStructureMinUpComponent)
     {
-        setReason("Face does not point upward enough — vertical extrusion would not be printable.");
+        setReason("Face is too vertical — the XY footprint would collapse.");
         return false;
     }
     if (StructureFaceMaxSpanMm(face) < kStructureMinFaceSpanMm)
@@ -3906,57 +3961,136 @@ bool Display::IsStructureFaceEligible(const Face *face, std::string *outReason) 
         setReason("Face is too small to triangulate.");
         return false;
     }
+    if (StructureFaceMaxProjectedSpanXyMm(face) < kStructureMinFaceSpanMm)
+    {
+        setReason("Face is too narrow when projected onto the build plane.");
+        return false;
+    }
     setReason("");
     return true;
 }
 
-const Face *Display::MatchStructureOriginalFaceForStructurePick(const Face *pickedFace) const
+namespace
 {
-    const Scene *ref = structureOriginalScene.get();
-    if (pickedFace == nullptr || ref == nullptr || pickedFace->surface == nullptr)
-        return nullptr;
+/// True when `worldPoint` lies on `face`'s plane (within `planeTolM`) and inside its outer loop
+/// (minus holes), projected into the face's own 2D basis. Used to attribute a carved fragment's
+/// centroid back to the original face it came from: cutting only ever removes material, so a
+/// fragment's centroid is always inside the original footprint it was cut from, no matter how far
+/// it ends up from that face's overall centroid (centroid-distance matching breaks down badly on
+/// lattice/strut patterns, where most fragments sit far from the panel's center).
+/// Unsigned distance from `worldPoint` to `face`'s plane, or a negative value if `face` has no
+/// usable plane. Two parallel panels at different heights can share a normal but must never be
+/// matched to each other — plane distance alone already disambiguates that case, and disambiguates
+/// it far more reliably than the 2D footprint test below (which can misfire on slivers whose
+/// centroid lands exactly on a polygon edge).
+double PlaneDistanceToFace(const Face *face, const glm::dvec3 &worldPoint)
+{
+    if (face == nullptr || face->surface == nullptr || face->loops.empty() || face->loops[0].empty())
+        return -1.0;
+    glm::dvec3 n = face->surface->GetNormal();
+    const double nLen = glm::length(n);
+    if (nLen < 1e-12)
+        return -1.0;
+    n /= nLen;
+    const glm::dvec3 outer0 = face->loops[0][0].GetStartPosition();
+    return std::abs(glm::dot(worldPoint - outer0, n));
+}
 
-    const glm::dvec3 pPick = StructureFaceCentroidWorld(pickedFace);
-    glm::dvec3 nPick = pickedFace->surface->GetNormal();
-    const double nPickLen = glm::length(nPick);
-    if (nPickLen < 1e-12)
-        return nullptr;
-    nPick /= nPickLen;
+/// True when `worldPoint`, already known to lie on `face`'s plane, projects inside its outer loop
+/// (minus holes). Only used to break ties between multiple eligible faces sharing the same plane —
+/// see `PlaneDistanceToFace`.
+bool FaceContainsPointPlanar(const Face *face, const glm::dvec3 &worldPoint)
+{
+    if (face == nullptr || face->surface == nullptr || face->loops.empty())
+        return false;
+    glm::dvec3 n = face->surface->GetNormal();
+    const double nLen = glm::length(n);
+    if (nLen < 1e-12)
+        return false;
+    n /= nLen;
 
-    constexpr double kNormDotMin = 0.992;
-    const Face *best = nullptr;
-    double bestD2 = std::numeric_limits<double>::infinity();
-
-    for (const Face &cand : ref->faces)
+    // `loops[0]` is not reliably the outer boundary — STEP topology can store rings in either
+    // order, and a slanted face's largest-area ring (the true outer) can land at any index.
+    // `ClassifyOuterAndHoles` picks outer by area instead of trusting position 0.
+    std::vector<std::vector<glm::dvec3>> rings;
+    rings.reserve(face->loops.size());
+    for (const auto &loop : face->loops)
     {
-        const Face *cf = &cand;
-        if (!IsStructureFaceEligible(cf))
-            continue;
-        if (cf->surface == nullptr)
-            continue;
-        glm::dvec3 nC = cf->surface->GetNormal();
-        const double nCLen = glm::length(nC);
-        if (nCLen < 1e-12)
-            continue;
-        nC /= nCLen;
-        if (glm::dot(nPick, nC) < kNormDotMin)
-            continue;
-
-        const glm::dvec3 pC = StructureFaceCentroidWorld(cf);
-        const glm::dvec3 d = pPick - pC;
-        const double d2 = glm::dot(d, d);
-        const double spanMm = std::max(StructureFaceMaxSpanMm(cf), StructureFaceMaxSpanMm(pickedFace));
-        const double tolMm = std::max(2.0, spanMm * 0.08);
-        const double tolM = tolMm / 1000.0;
-        if (d2 > tolM * tolM)
-            continue;
-        if (d2 < bestD2)
-        {
-            bestD2 = d2;
-            best = cf;
-        }
+        std::vector<glm::dvec3> ring;
+        ring.reserve(loop.size());
+        for (const OrientedEdge &oe : loop)
+            ring.push_back(oe.GetStartPosition());
+        rings.push_back(std::move(ring));
     }
-    return best;
+    std::vector<glm::dvec3> outer;
+    std::vector<std::vector<glm::dvec3>> holes;
+    GeometryOps::ClassifyOuterAndHoles(rings, n, outer, holes);
+    if (outer.size() < 3)
+        return false;
+
+    glm::dvec3 u, v;
+    GeometryOps::BuildPlanarBasis(n, u, v);
+    const glm::dvec2 p2(glm::dot(worldPoint, u), glm::dot(worldPoint, v));
+    return GeometryOps::InsideFootprintPlanar(p2, outer, holes, u, v);
+}
+} // namespace
+
+void Display::RebuildStructureCarvedToOriginalMap()
+{
+    structureCarvedToOriginal.clear();
+    if (!structureOriginalScene || scene == nullptr)
+        return;
+
+    constexpr double kPlaneTolM = 0.001; // 1mm: carving never moves material off-plane.
+    size_t candidateCount = 0;
+    size_t originalEligibleCount = 0;
+    for (const Face &of : structureOriginalScene->faces)
+        if (of.surface != nullptr && IsStructureFaceEligible(&of))
+            ++originalEligibleCount;
+    for (Face &cf : scene->faces)
+    {
+        // Deliberately not gated on `IsStructureFaceEligible(&cf)`: a carved fragment (strut top,
+        // leftover sliver) is routinely smaller than `kMinFaceSpanMm` even though it belongs to a
+        // perfectly eligible original panel. Only the *original* candidate's eligibility matters.
+        if (cf.dependency == nullptr || cf.surface == nullptr)
+            continue;
+        ++candidateCount;
+        const glm::dvec3 pC = StructureFaceCentroidWorld(&cf);
+
+        // Primary key is plane distance, not the 2D footprint test: cutting never moves material
+        // off-plane, so the correct original face is reliably whichever eligible candidate's plane
+        // is closest — this is robust where the polygon test (loop winding/ordering, point landing
+        // exactly on an edge for thin slivers) is not. The footprint test only breaks a genuine tie
+        // between two eligible faces that share the same plane.
+        std::vector<const Face *> onPlane;
+        for (const Face &of : structureOriginalScene->faces)
+        {
+            if (of.surface == nullptr || !IsStructureFaceEligible(&of))
+                continue;
+            const double dist = PlaneDistanceToFace(&of, pC);
+            if (dist >= 0.0 && dist <= kPlaneTolM)
+                onPlane.push_back(&of);
+        }
+        const Face *match = nullptr;
+        if (onPlane.size() == 1)
+            match = onPlane.front();
+        else if (onPlane.size() > 1)
+        {
+            for (const Face *of : onPlane)
+                if (FaceContainsPointPlanar(of, pC))
+                {
+                    match = of;
+                    break;
+                }
+            if (match == nullptr)
+                match = onPlane.front();
+        }
+        if (match != nullptr)
+            structureCarvedToOriginal.emplace(&cf, match);
+    }
+    LOG_SESSION("Structure carve->original map", "candidates=" + std::to_string(candidateCount),
+             "original_eligible=" + std::to_string(originalEligibleCount),
+             "matched=" + std::to_string(structureCarvedToOriginal.size()));
 }
 
 Display::StructurePickHit Display::PickStructureAtPixel(float pixelX, float pixelY) const
@@ -3969,7 +4103,13 @@ Display::StructurePickHit Display::PickStructureAtPixel(float pixelX, float pixe
     out.face = ScenePick::PickClosestFace(renderer.GetPickTriangles(), ro, rd, PickFilter::Faces);
     if (out.face == nullptr)
         return out;
-    out.eligible = IsStructureFaceEligible(out.face, &out.ineligibleReason);
+    // While staging, the hit is a carved fragment (a strut top, a leftover sliver, …) which can be
+    // far smaller than `kMinFaceSpanMm` even though it belongs to a perfectly eligible original
+    // panel — eligibility must be "does this map to an original panel", not the fragment's own size.
+    if (IsStructureStagingActive())
+        out.eligible = structureCarvedToOriginal.count(out.face) > 0;
+    else
+        out.eligible = IsStructureFaceEligible(out.face, &out.ineligibleReason);
     return out;
 }
 
@@ -3985,6 +4125,10 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
     if (GetActivePickFilter() == PickFilter::None)
         return;
     const StructurePickHit hit = PickStructureAtPixel(pixelX, pixelY);
+    LOG_SESSION("Structure click",
+             "face=" + std::to_string(reinterpret_cast<uintptr_t>(static_cast<const void *>(hit.face))),
+             "eligible=" + std::to_string(hit.eligible),
+             "staging=" + std::to_string(IsStructureStagingActive()));
     if (hit.face == nullptr)
         return;
     if (!hit.eligible)
@@ -3993,14 +4137,23 @@ void Display::TryCommitStructureFacePick(float pixelX, float pixelY)
         return;
     }
 
+    // Pre-carve, `hit.face` is already an original face. While staging, resolve the carved-result
+    // hit through the precomputed map; carve-only geometry (struts, cut boundaries) has no entry
+    // and isn't a valid toggle target.
     const Face *toggleFace = hit.face;
     if (IsStructureStagingActive())
     {
-        toggleFace = MatchStructureOriginalFaceForStructurePick(hit.face);
-        if (toggleFace == nullptr)
+        auto it = structureCarvedToOriginal.find(hit.face);
+        if (it == structureCarvedToOriginal.end())
+        {
+            LOG_SESSION("Structure click: rejected, hit.face not in carvedToOriginal map");
             return;
+        }
+        toggleFace = it->second;
     }
-
+    LOG_SESSION("Structure toggle",
+             "toggleFace=" + std::to_string(reinterpret_cast<uintptr_t>(static_cast<const void *>(toggleFace))),
+             "wasExcluded=" + std::to_string(structureExcludedFaces.count(toggleFace) > 0));
     if (structureExcludedFaces.count(toggleFace) > 0)
         structureExcludedFaces.erase(toggleFace);
     else
@@ -4038,11 +4191,12 @@ void Display::RefreshCalibWorkflow()
         return;
     }
     const glm::dvec3 calibBuildDir = CalibrateDistance::DefaultCalibrateBuildDirection();
-    std::unordered_set<const Edge *> layerHoleInnerEdges;
-    GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
     const double layerMm = static_cast<double>(layerHeight);
     const Face *f1 = ResolveCalibFaceForWorkflow(calibFacePoint1, calibEdgePoint1);
     const Face *f2 = ResolveCalibFaceForWorkflow(calibFacePoint2, calibEdgePoint2);
+    std::unordered_set<const Edge *> layerHoleInnerEdges;
+    if (CalibSlotHasPick(calibFacePoint1, calibEdgePoint1) || CalibSlotHasPick(calibFacePoint2, calibEdgePoint2))
+        GatherCalibLayerHoleInnerEdges(scene, calibBuildDir, layerHoleInnerEdges);
 
     const bool elephantFootEdges =
         calibFacePoint1 != nullptr && calibFacePoint1 == calibFacePoint2 && calibEdgePoint1 != nullptr &&
@@ -4313,9 +4467,9 @@ void Display::FillSessionReproState(SessionState &s) const
     }
 
     s.overhangAngle = overhangAngle;
-    s.sharpCornerAngle = sharpCornerAngle;
-    s.thinMinWidth = thinMinWidth;
-    s.minFeatureSize = minFeatureSize;
+    s.sharpCornerThreshold = sharpCornerThreshold;
+    s.instabilityMinWidth = instabilityMinWidth;
+    s.layerDifferenceMaxAreaDelta = layerDifferenceMaxAreaDelta;
     s.layerHeight = layerHeight;
 
     s.cameraTarget = camera.target;
@@ -4413,6 +4567,51 @@ void Display::SetImportProgress(std::string phase, float progress01)
     importProgress01 =
         (progress01 >= 0.0f && progress01 <= 1.0f) ? std::clamp(progress01, 0.0f, 1.0f) : -1.0f;
     uiRenderer.MarkDirty();
+}
+
+void Display::PublishStructureCarveProgress(uint64_t jobId, const ImportProgress &progress)
+{
+    std::lock_guard<std::mutex> lock(structureProgressMutex);
+    if (jobId != structureProgressJobId)
+        return;
+
+    latestStructureProgressPhase = progress.phase;
+    latestStructureProgress01 = progress.progress01;
+    latestStructureProgressDirty = true;
+}
+
+void Display::ApplyStructureProgressSnapshot()
+{
+    std::string phase;
+    float progress01 = -1.0f;
+    {
+        std::unique_lock<std::mutex> lock(structureProgressMutex, std::try_to_lock);
+        if (!lock.owns_lock())
+            return;
+        if (!latestStructureProgressDirty)
+            return;
+
+        phase = latestStructureProgressPhase;
+        progress01 = latestStructureProgress01;
+        latestStructureProgressDirty = false;
+    }
+
+    structureProgressPhase = std::move(phase);
+    structureProgress01 =
+        (progress01 >= 0.0f && progress01 <= 1.0f) ? std::clamp(progress01, 0.0f, 1.0f) : -1.0f;
+    uiRenderer.MarkDirty();
+}
+
+void Display::ClearPendingStructureProgressSnapshot()
+{
+    std::unique_lock<std::mutex> lock(structureProgressMutex, std::try_to_lock);
+    if (!lock.owns_lock())
+        return;
+    latestStructureProgressPhase.clear();
+    latestStructureProgress01 = -1.0f;
+    latestStructureProgressDirty = false;
+    structureProgressPhase.clear();
+    structureProgress01 = -1.0f;
 }
 
 void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork, bool ranMainThreadApplyTask)
@@ -4610,9 +4809,9 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
     }
 
     if (uiResult)
-        setVisible(uiResult, activeHasModel && analysisUiScene == scene && !analysisPipelineWaiting);
+        setVisible(uiResult, activeHasModel && analysisUiScene == scene);
     if (uiVerdict)
-        setVisible(uiVerdict, activeHasModel && analysisUiScene == scene && !analysisPipelineWaiting);
+        setVisible(uiVerdict, activeHasModel && analysisUiScene == scene);
 
     // Import progress lives in the Files bar tab; keep Calibrate panel unobstructed during import.
     const bool calibrateBusy =
@@ -4631,6 +4830,38 @@ void Display::RefreshToolProcessingCards(bool hasModel, bool geometryOrStyleWork
                     importBusy ? ImportProgressLabel(importPhase, importProgress01) : "Refreshing calibration...");
             if (!importBusy && uiCalibrateProcessing->accentProgress01 < 0.0f)
                 setFloat(uiCalibrateProcessing->accentProgress01, 0.75f);
+        }
+    }
+
+    const bool structureCarveBusy =
+        activeHasModel && (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
+                           pendingStructureStagingTask.has_value());
+    if (uiStructure && uiStructure->header.has_value())
+    {
+        Paragraph *hpara = &uiStructure->header->para;
+        const bool show = structureCarveBusy && uiStructure->visible;
+        setBool(hpara->accentProgressBar, show);
+        const uint64_t solidsTotal = structureStagingStepsTotal;
+        const uint64_t solidsDone =
+            std::min(structureStagingStepsDone.load(std::memory_order_relaxed), std::max<uint64_t>(solidsTotal, 1));
+        if (show && structureProgress01 >= 0.0f)
+        {
+            // Fine-grained within-solid progress (per-face carve + unify/rebuild checkpoints) from
+            // StructureCarve::TryApplyStructureCarve, blended with the already-finished solid count
+            // so multi-solid jobs still read as one continuous bar across solids.
+            clearAccentCounts(hpara);
+            const float perSolidSpan = solidsTotal > 0 ? 1.0f / static_cast<float>(solidsTotal) : 1.0f;
+            const float overall = (static_cast<float>(solidsDone) + structureProgress01) * perSolidSpan;
+            setFloat(hpara->accentProgress01, std::clamp(overall, 0.0f, 1.0f));
+        }
+        else if (show && solidsTotal > 0)
+        {
+            setAccentCounts(hpara, static_cast<int64_t>(solidsDone), static_cast<int64_t>(solidsTotal));
+        }
+        else
+        {
+            clearAccentCounts(hpara);
+            setFloat(hpara->accentProgress01, -1.0f); // indeterminate fallback
         }
     }
 
@@ -4741,9 +4972,9 @@ void Display::ProcessDeferredImportIfAny()
                                            analysisUiScene = nullptr;
                                            lastVerdictWasPass = false;
                                            flawOverhang = {};
-                                           flawSharp = {};
-                                           flawThin = {};
-                                           flawSmall = {};
+                                           flawSharpCorner = {};
+                                           flawInstability = {};
+                                           flawLayerDifference = {};
                                            if (uiVerdict)
                                                uiVerdict->values.clear();
                                            skipAnalysisForNextGeometryRebuild = true;
@@ -4957,6 +5188,10 @@ void Display::ProcessDeferredImportIfAny()
                                               result.importerMs = std::chrono::duration<double, std::milli>(Clock::now() - tImporterStart).count();
                                               if (!result.ok)
                                                   result.importedScene.reset();
+                                              // This runs on the worker thread; wake the blocked main loop so
+                                              // ProcessDeferredImportIfAny() notices the ready result without
+                                              // waiting for an unrelated input event.
+                                              AppWakeEvent::Push();
                                               return result;
                                           });
 }
@@ -4967,6 +5202,7 @@ void Display::DoFileImport()
                                {
                                    deferredImportPath = path;
                                    renderDirty = true;
+                                   AppWakeEvent::Push();
                                });
 }
 
@@ -5103,7 +5339,6 @@ void Display::RebuildFileTabs()
 void Display::InitUI()
 {
     float toolbarWidth = 2.0f;
-    float sidebarWidth = 10.0f;
 
     // ── Settings panel (left column: persistent app settings) ───────────────
     // Sections (Appearance, Viewport, Navigation) are populated further below.
@@ -5155,8 +5390,8 @@ void Display::InitUI()
                         UpdateScene();
                     }
                     SyncToolbarToolVisualState();
+                    uiRenderer.MarkDirty();
                     renderDirty = true;
-                    RefreshUIMinWindowSize();
                     return;
                 }
                 activeTool = ActiveTool::Analysis;
@@ -5180,8 +5415,8 @@ void Display::InitUI()
                     ClearPickHover();
                     ClearCalibrateFacePicks();
                     SyncToolbarToolVisualState();
+                    uiRenderer.MarkDirty();
                     renderDirty = true;
-                    RefreshUIMinWindowSize();
                     return;
                 }
                 activeTool = ActiveTool::Calibrate;
@@ -5208,8 +5443,8 @@ void Display::InitUI()
                     RefreshStructurePreviewForRenderer();
                     MarkGeometryDirtyAll();
                     SyncToolbarToolVisualState();
+                    uiRenderer.MarkDirty();
                     renderDirty = true;
-                    RefreshUIMinWindowSize();
                     return;
                 }
                 activeTool = ActiveTool::Structure;
@@ -5230,7 +5465,6 @@ void Display::InitUI()
     filesDef.leftAnchor = PanelAnchor{uiToolbar, PanelAnchor::Right};
     filesDef.rightAnchor = PanelAnchor{nullptr, PanelAnchor::Right};
     filesDef.topAnchor = PanelAnchor{nullptr, PanelAnchor::Top};
-    filesDef.minWidth = sidebarWidth;
     filesDef.header = Header{"Files", 1.0f, 2};
     uiFiles = &uiRenderer.AddPanel(filesDef);
     RebuildFileTabs();
@@ -5608,13 +5842,19 @@ void Display::InitUI()
             {
                 auto &sl = SessionLogger::Instance();
                 sl.state.overhangAngle = this->overhangAngle;
-                sl.state.sharpCornerAngle = this->sharpCornerAngle;
-                sl.state.thinMinWidth = this->thinMinWidth;
-                sl.state.minFeatureSize = this->minFeatureSize;
+                sl.state.sharpCornerThreshold = this->sharpCornerThreshold;
+                sl.state.instabilityMinWidth = this->instabilityMinWidth;
+                sl.state.layerDifferenceMaxAreaDelta = this->layerDifferenceMaxAreaDelta;
                 sl.state.layerHeight = this->layerHeight;
                 sl.LogParamChange(std::string(dragId + 2), param);
                 RebuildAnalysis();
-                UpdateScene();
+                // Only trigger the analysis rerun on commit (mouse release or Enter). Calling
+                // UpdateScene() on every drag frame launches a new async analysis task each frame,
+                // which hides uiResult while the task runs and kills ImGui focus on the DragFloat.
+                // MarkStyleDirty (not UpdateScene) is correct here: geometry hasn't changed, only
+                // the analysis classification thresholds changed, so only a recolor is needed.
+                if (committedEdit)
+                    MarkStyleDirty();
             }
             UIStyle::PopInputStyle();
         };
@@ -5623,34 +5863,34 @@ void Display::InitUI()
     glm::vec4 overhangColor = {Color::GetFace(FaceFlawKind::OVERHANG).r + 0.4f,
                                Color::GetFace(FaceFlawKind::OVERHANG).g + 0.2f,
                                Color::GetFace(FaceFlawKind::OVERHANG).b + 0.2f, 1.0f};
-    glm::vec4 thinColor = {Color::GetFace(FaceFlawKind::THIN_SECTION).r + 0.4f,
-                           Color::GetFace(FaceFlawKind::THIN_SECTION).g + 0.3f,
-                           Color::GetFace(FaceFlawKind::THIN_SECTION).b + 0.15f, 1.0f};
-    glm::vec4 smallColor = {Color::GetFace(FaceFlawKind::SMALL_FEATURE).r + 0.4f,
-                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).g + 0.4f,
-                            Color::GetFace(FaceFlawKind::SMALL_FEATURE).b + 0.2f, 1.0f};
-    glm::vec4 edgeColor = {Color::GetEdge(EdgeFlawKind::SHARP_CORNER).r + 0.3f,
-                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).g + 0.1f,
-                           Color::GetEdge(EdgeFlawKind::SHARP_CORNER).b + 0.1f, 1.0f};
+    glm::vec4 sharpCornerColor = {Color::GetFace(FaceFlawKind::SHARP_CORNER).r + 0.4f,
+                                     Color::GetFace(FaceFlawKind::SHARP_CORNER).g + 0.4f,
+                                     Color::GetFace(FaceFlawKind::SHARP_CORNER).b + 0.2f, 1.0f};
+    glm::vec4 instabilityColor = {Color::GetFace(FaceFlawKind::INSTABILITY).r + 0.4f,
+                                  Color::GetFace(FaceFlawKind::INSTABILITY).g + 0.3f,
+                                  Color::GetFace(FaceFlawKind::INSTABILITY).b + 0.15f, 1.0f};
+    glm::vec4 layerDifferenceColor = {Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).r + 0.3f,
+                                      Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).g + 0.15f,
+                                      Color::GetFace(FaceFlawKind::LAYER_DIFFERENCE).b + 0.4f, 1.0f};
     makeFlawRow(uiResult->values.emplace_back(), overhangColor,
                 Icons::Overhang(overhangColor),
                 " overhang", "s", &Display::flawOverhang,
                 overhangAngle, 0.5f, 0.0f, 90.0f, "\u00b0", "##overhang", "90", false, true);
 
-    makeFlawRow(uiResult->values.emplace_back(), edgeColor,
-                Icons::SharpCorner(edgeColor),
-                " sharp edge", "s", &Display::flawSharp,
-                sharpCornerAngle, 0.5f, 0.0f, 180.0f, "\u00b0", "##sharp", "180", false, true);
+    makeFlawRow(uiResult->values.emplace_back(), sharpCornerColor,
+                Icons::SharpCorner(sharpCornerColor),
+                " sharp corner", "s", &Display::flawSharpCorner,
+                sharpCornerThreshold, 1.0f, 0.0f, 180.0f, "°", "##sharpcorner", "54°", false, true);
 
-    makeFlawRow(uiResult->values.emplace_back(), thinColor,
-                Icons::ThinSection(thinColor),
-                " thin section", "s", &Display::flawThin,
-                thinMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##thinsection", "2.0", true, false);
+    makeFlawRow(uiResult->values.emplace_back(), instabilityColor,
+                Icons::Instability(instabilityColor),
+                " instability", "s", &Display::flawInstability,
+                instabilityMinWidth, 0.05f, 0.1f, 50.0f, "mm", "##instability", "2.0", true, false);
 
-    makeFlawRow(uiResult->values.emplace_back(), smallColor,
-                Icons::SmallFeature(smallColor),
-                " small feature", "s", &Display::flawSmall,
-                minFeatureSize, 0.05f, 0.1f, 50.0f, "mm", "##smallfeature", "10.0", true, false);
+    makeFlawRow(uiResult->values.emplace_back(), layerDifferenceColor,
+                Icons::LayerDifference(layerDifferenceColor),
+                " layer difference", "s", &Display::flawLayerDifference,
+                layerDifferenceMaxAreaDelta, 1.0f, 1.0f, 500.0f, "mm\u00b2", "##layerdifference", "50", false, false);
 
     uiAnalysisProcessing = &uiAnalysis->AddParagraph("Processing");
     uiAnalysisProcessing->visible = false;
@@ -6707,7 +6947,34 @@ void Display::InitUI()
                                 uiRenderer.MarkDirty();
                             }});
 
-        structDef.hasSceneEditFooter = true;
+        structDef.parameters.reserve(1);
+        {
+            ParameterDef &p = structDef.parameters.emplace_back();
+            p.id = "StructInset";
+            makeSettingsDrag(p.line, "Inset", structureInsetMm, 0.05f, 0.5f, 5.0f, "%.1f mm",
+                             "##structinset",
+                             [this]()
+                             {
+                                 if (IsStructureStagingActive())
+                                 {
+                                     CancelPendingStructureCarveJob();
+                                     structureCarvePipelinePhase =
+                                         StructureCarvePipelinePhase::LaunchPending;
+                                     SyncStructurePanelDerivedVisibility();
+                                     uiRenderer.MarkDirty();
+                                     renderDirty = true;
+                                 }
+                                 else
+                                 {
+                                     BeginStructureStagingSession();
+                                 }
+                             });
+        }
+
+        // hasSceneEditFooter stays false here: BuildToolPanel() would append the footer as the panel's
+        // last child immediately, but HoverHint/ToolError are added afterward (below) and
+        // would end up stacked beneath it. The footer paragraph is built manually after those instead, so
+        // Cancel/Accept always render as the true last (bottom-most) row in the panel.
         structDef.sceneEditFooter.id = "StructSceneEditFooter";
         structDef.sceneEditFooter.line.getMinContentWidthPx = [settingsBodyFont]() -> float
         {
@@ -6741,9 +7008,10 @@ void Display::InitUI()
         structPanel.topAnchor = PanelAnchor{uiFiles, PanelAnchor::Bottom};
         uiStructure = &uiRenderer.AddPanel(structPanel);
 
-        // Reserve root slots for HoverHint + tool error **before** any `FindSection` pointers are taken,
-        // so `AddParagraph` does not reallocate `children` and invalidate cached `Paragraph*`/`Section*`.
-        uiStructure->children.reserve(uiStructure->children.size() + 2);
+        // Reserve root slots for HoverHint + tool error + footer **before** any `FindSection`
+        // pointers are taken, so `AddParagraph` does not reallocate `children` and invalidate cached
+        // `Paragraph*`/`Section*`.
+        uiStructure->children.reserve(uiStructure->children.size() + 3);
 
         // Allocate the hover-hint paragraph FIRST so subsequent bindings into `uiStructure->children`
         // are stable. `BuildToolPanel` reserves capacity for exactly the structural children it knows
@@ -6787,6 +7055,12 @@ void Display::InitUI()
             };
         }
 
+        // Footer is appended last so Cancel/Accept always render at the bottom of the panel,
+        // below HoverHint/ToolError.
+        structPara_SceneEditFooter = &uiStructure->AddParagraph(structDef.sceneEditFooter.id);
+        structPara_SceneEditFooter->values.reserve(1);
+        structPara_SceneEditFooter->values.push_back(structDef.sceneEditFooter.line);
+
         if (Section *structPrereqs = FindSection(*uiStructure, "Prerequisites");
             structPrereqs != nullptr && !structPrereqs->children.empty())
         {
@@ -6805,20 +7079,10 @@ void Display::InitUI()
                 }
             }
         }
-        for (auto &ch : uiStructure->children)
-        {
-            if (Paragraph *pp = std::get_if<Paragraph>(&ch); pp != nullptr && pp->id == "StructSceneEditFooter")
-            {
-                structPara_SceneEditFooter = pp;
-                break;
-            }
-        }
-
         SyncStructurePanelDerivedVisibility();
     }
 
     SyncToolbarToolVisualState();
-    RefreshUIMinWindowSize();
 }
 
 void Display::ResetStructurePreviewIncrementalState()
@@ -6826,6 +7090,15 @@ void Display::ResetStructurePreviewIncrementalState()
     structurePreviewBakeQueue.clear();
     structurePreviewBakeCursor = 0;
     structurePreviewBakedSegments.clear();
+    structurePreviewCutOutlineSegments.clear();
+    structurePreviewNotchedSegments.clear();
+    structurePreviewAllCandidatesSegments.clear();
+    structurePreviewStrutQuadSegments.clear();
+    structureDebugCutOutlineSnapshot.clear();
+    structureDebugNotchedSnapshot.clear();
+    structureDebugAllCandidatesSnapshot.clear();
+    structureDebugStrutQuadSnapshot.clear();
+    structureDebugFullSnapshot.clear();
     structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
 }
 
@@ -6868,14 +7141,87 @@ void Display::AdvanceStructurePreviewBuild(double insetMm)
     params.minFeatureMm = 1.5;
     const std::size_t end =
         std::min(n, structurePreviewBakeCursor + kStructurePreviewMaxFacesPerFrame);
-    structurePreviewBakedSegments.reserve(structurePreviewBakedSegments.size() + (end - structurePreviewBakeCursor) * 8);
     for (std::size_t i = structurePreviewBakeCursor; i < end; ++i)
     {
         const Face *f = structurePreviewBakeQueue[i];
-        auto segs = StructureTriangulation::BuildFaceTriangulationPreview(f, params);
-        structurePreviewBakedSegments.insert(structurePreviewBakedSegments.end(), segs.begin(), segs.end());
+
+        // Stage 0: base cut outline (no notches, no fillets).
+        auto segs = StructureTriangulation::BuildCutOutlinePreviewLines(f, params);
+        StructureTriangulation::AppendPreviewLineSegments(segs, structurePreviewCutOutlineSegments);
+
+        // Stage 1: notched outline without ChFi2d fillets (rectangular strut corners).
+        {
+            auto notchedSegs = StructureTriangulation::BuildNotchedCutOutlinePreviewLines(f, params);
+            StructureTriangulation::AppendPreviewLineSegments(notchedSegs, structurePreviewNotchedSegments);
+        }
+
+        // Stage 2: all valid strut centerlines before best-pair selection + base outline.
+        StructureTriangulation::AppendPreviewLineSegments(segs, structurePreviewAllCandidatesSegments);
+        {
+            auto allCands = StructureTriangulation::BuildAllStrutCandidatePreviewLines(f, params);
+            StructureTriangulation::AppendPreviewLineSegments(allCands, structurePreviewAllCandidatesSegments);
+        }
+
+        // Stage 4: unclipped strut quad outlines (debug — shows endpoints, miter, full extent).
+        {
+            auto quadSegs = StructureTriangulation::BuildStrutQuadPreviewLines(f, params);
+            StructureTriangulation::AppendPreviewLineSegments(quadSegs, structurePreviewStrutQuadSegments);
+        }
+
+        // Stage 3: full preview — cut outline + strut rails + anchor markers.
+        StructureTriangulation::AppendPreviewLineSegments(segs, structurePreviewBakedSegments);
+        const auto strutRails = StructureTriangulation::BuildStrutRailPreviewLines(f, params);
+        StructureTriangulation::AppendPreviewLineSegments(strutRails, structurePreviewBakedSegments);
+
+        const auto anchors = StructureTriangulation::BuildStrutAnchorPreviewPoints(f, params);
+        const float armLen = static_cast<float>(insetMm * 0.2f);
+        for (const auto &a : anchors)
+        {
+            structurePreviewBakedSegments.push_back(
+                {a.pos + glm::vec3(-armLen, 0.0f, 0.0f),
+                 a.pos + glm::vec3( armLen, 0.0f, 0.0f)});
+            structurePreviewBakedSegments.push_back(
+                {a.pos + glm::vec3(0.0f, -armLen, 0.0f),
+                 a.pos + glm::vec3(0.0f,  armLen, 0.0f)});
+            structurePreviewBakedSegments.push_back(
+                {a.pos,
+                 a.pos + glm::vec3(a.N.x, a.N.y, 0.0f) * armLen * 1.5f});
+        }
     }
     structurePreviewBakeCursor = end;
+    if (structurePreviewBakeCursor >= structurePreviewBakeQueue.size())
+    {
+        structureDebugCutOutlineSnapshot      = structurePreviewCutOutlineSegments;
+        structureDebugNotchedSnapshot         = structurePreviewNotchedSegments;
+        structureDebugAllCandidatesSnapshot   = structurePreviewAllCandidatesSegments;
+        structureDebugStrutQuadSnapshot       = structurePreviewStrutQuadSegments;
+        structureDebugFullSnapshot            = structurePreviewBakedSegments;
+    }
+}
+
+const std::vector<std::pair<glm::vec3, glm::vec3>> &Display::StageSegments(int stage) const
+{
+    switch (stage)
+    {
+    case 0:  return structurePreviewCutOutlineSegments;
+    case 1:  return structurePreviewNotchedSegments;
+    case 2:  return structurePreviewAllCandidatesSegments;
+    case 4:  return structurePreviewStrutQuadSegments;
+    default: return structurePreviewBakedSegments;
+    }
+}
+
+const std::vector<std::pair<glm::vec3, glm::vec3>> &Display::StageSnapshot(int stage) const
+{
+    switch (stage)
+    {
+    case 0:  return structureDebugCutOutlineSnapshot;
+    case 1:  return structureDebugNotchedSnapshot;
+    case 2:  return structureDebugAllCandidatesSnapshot;
+    case 3:  return structureDebugFullSnapshot;
+    case 4:  return structureDebugStrutQuadSnapshot;
+    default: return structurePreviewBakedSegments;
+    }
 }
 
 void Display::TickStructurePreviewBuildIfNeeded()
@@ -6895,26 +7241,48 @@ void Display::TickStructurePreviewBuildIfNeeded()
         structurePreviewBakeInsetMm = inset;
         structurePreviewBakeCursor = 0;
         structurePreviewBakedSegments.clear();
+        structurePreviewCutOutlineSegments.clear();
+        structurePreviewNotchedSegments.clear();
+        structurePreviewAllCandidatesSegments.clear();
+        structurePreviewStrutQuadSegments.clear();
     }
     if (structurePreviewBakeCursor >= structurePreviewBakeQueue.size())
         return;
     AdvanceStructurePreviewBuild(inset);
-    renderer.SetStructurePreviewSegments(structurePreviewBakedSegments);
+    renderer.SetStructurePreviewSegments(StageSegments(structureDebugPreviewStage));
     renderDirty = true;
+    // Bake is capped per frame; re-arm the wake event while work remains so the blocking
+    // SDL_WaitEventTimeout doesn't strand the rest of the bake until a real input event arrives.
+    if (structurePreviewBakeCursor < structurePreviewBakeQueue.size())
+        AppWakeEvent::Push();
 }
 
 void Display::RefreshStructurePreviewForRenderer()
 {
     if (activeTool != ActiveTool::Structure || IsStructureStagingActive())
     {
-        ResetStructurePreviewIncrementalState();
+        structurePreviewBakeQueue.clear();
+        structurePreviewBakeCursor = 0;
+        structurePreviewBakedSegments.clear();
+        structurePreviewCutOutlineSegments.clear();
+        structurePreviewNotchedSegments.clear();
+        structurePreviewAllCandidatesSegments.clear();
+        structurePreviewStrutQuadSegments.clear();
+        structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
         renderer.SetStructurePreviewSegments({});
         return;
     }
     if (structureCarvePipelinePhase != StructureCarvePipelinePhase::Idle ||
         pendingStructureStagingTask.has_value())
     {
-        ResetStructurePreviewIncrementalState();
+        structurePreviewBakeQueue.clear();
+        structurePreviewBakeCursor = 0;
+        structurePreviewBakedSegments.clear();
+        structurePreviewCutOutlineSegments.clear();
+        structurePreviewNotchedSegments.clear();
+        structurePreviewAllCandidatesSegments.clear();
+        structurePreviewStrutQuadSegments.clear();
+        structurePreviewBakeInsetMm = std::numeric_limits<double>::quiet_NaN();
         renderer.SetStructurePreviewSegments({});
         return;
     }
@@ -6928,9 +7296,164 @@ void Display::RefreshStructurePreviewForRenderer()
         structurePreviewBakeInsetMm = inset;
         structurePreviewBakeCursor = 0;
         structurePreviewBakedSegments.clear();
+        structurePreviewCutOutlineSegments.clear();
+        structurePreviewNotchedSegments.clear();
+        structurePreviewAllCandidatesSegments.clear();
+        structurePreviewStrutQuadSegments.clear();
     }
 
-    renderer.SetStructurePreviewSegments(structurePreviewBakedSegments);
+    while (structurePreviewBakeCursor < structurePreviewBakeQueue.size())
+        AdvanceStructurePreviewBuild(inset);
+
+    renderer.SetStructurePreviewSegments(StageSegments(structureDebugPreviewStage));
+}
+
+void Display::ToggleStructureDebugCutOutlineMode()
+{
+    // Stages: 0=cut outline, 1=no fillet, 2=all candidates, 3=full, 4=strut quads
+    // Stage 4 uses value 4 in StageSegments/Snapshot but cycles as position 4 in [0..4].
+    static const int kStageOrder[5] = {0, 1, 2, 3, 4};
+    static const char *const kLabels[5] = {
+        " [cut outline]", " [no fillet]", " [all candidates]", " [full]", " [strut quads]"};
+    const int pos = [&]() -> int {
+        for (int i = 0; i < 5; ++i)
+            if (kStageOrder[i] == structureDebugPreviewStage) return i;
+        return 3;
+    }();
+    const int nextPos = (pos + 1) % 5;
+    structureDebugPreviewStage = kStageOrder[nextPos];
+    SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, kLabels[nextPos]);
+    uiRenderer.MarkDirty();
+    // Push snapshot directly — do NOT call RefreshStructurePreviewForRenderer (clears live
+    // segments when staging is active). Snapshots survive the carve phase.
+    renderer.SetStructurePreviewSegments(StageSnapshot(structureDebugPreviewStage));
+    renderDirty = true;
+}
+
+void Display::RefreshAnalysisDebugSlicedView()
+{
+    if (!analysisDebugViewEnabled || activeTool != ActiveTool::Analysis || scene == nullptr)
+    {
+        analysisDebugLayersBySolid.clear();
+        analysisDebugLayerIndex = 0;
+        analysisDebugSlicedSegments.clear();
+        renderer.SetAnalysisDebugSegments({});
+        renderer.SetAnalysisDebugLayerDiff({}, 0.0f);
+        return;
+    }
+
+    analysisDebugLayersBySolid.clear();
+    analysisDebugLayersBySolid.reserve(scene->solids.size());
+    for (const Solid &solid : scene->solids)
+        analysisDebugLayersBySolid.push_back(Analysis::Instance().SliceSolidForDebug(&solid));
+
+    size_t maxLayerCount = 0;
+    for (const auto &layers : analysisDebugLayersBySolid)
+        maxLayerCount = std::max(maxLayerCount, layers.size());
+    if (maxLayerCount == 0)
+        analysisDebugLayerIndex = 0;
+    else
+        analysisDebugLayerIndex =
+            std::clamp(analysisDebugLayerIndex, 0, static_cast<int>(maxLayerCount) - 1);
+
+    RebuildAnalysisDebugSegmentsForCurrentLayer();
+    UpdateAnalysisDebugHeaderTrailing();
+}
+
+void Display::RebuildAnalysisDebugSegmentsForCurrentLayer()
+{
+    analysisDebugSlicedSegments.clear();
+    std::vector<std::vector<glm::dvec3>> diffRings;
+    float diffZ = 0.0f;
+
+    for (const auto &layers : analysisDebugLayersBySolid)
+    {
+        const size_t idx = static_cast<size_t>(analysisDebugLayerIndex);
+        if (analysisDebugLayerIndex < 0 || idx >= layers.size())
+            continue;
+        const SlicedLayer &layer = layers[idx];
+        for (const SliceLoop &loop : layer.loops)
+        {
+            const size_t n = loop.ring.size();
+            for (size_t i = 0; i < n; ++i)
+            {
+                const glm::dvec3 &a = loop.ring[i];
+                const glm::dvec3 &b = loop.ring[(i + 1) % n];
+                analysisDebugSlicedSegments.emplace_back(glm::vec3(a), glm::vec3(b));
+            }
+        }
+
+        if (idx > 0)
+        {
+            const SlicedLayer &prev = layers[idx - 1];
+            const SlicedLayer &curr = layers[idx];
+            diffZ = static_cast<float>(curr.z);
+
+            auto currRings = LayerDiffUtils::ToClassifiedRings(curr.loops);
+            auto prevRings = LayerDiffUtils::ToClassifiedRings(prev.loops);
+            for (auto &r : currRings) r.isHole = false;
+            for (auto &r : prevRings) r.isHole = false;
+            const auto diff = GeometryOps::RingDifference(currRings, prevRings, curr.z, 0.05);
+
+            for (const auto &cr : diff)
+            {
+                if (!cr.isHole && cr.ring.size() >= 3)
+                    diffRings.push_back(cr.ring);
+            }
+        }
+    }
+
+    renderer.SetAnalysisDebugSegments(analysisDebugSlicedSegments);
+    renderer.SetAnalysisDebugLayerDiff(diffRings, diffZ);
+}
+
+void Display::UpdateAnalysisDebugHeaderTrailing()
+{
+    if (!analysisDebugViewEnabled)
+    {
+        ClearStructurePanelHeaderTrailing(uiAnalysis, uiRenderer);
+        return;
+    }
+    size_t maxLayerCount = 0;
+    for (const auto &layers : analysisDebugLayersBySolid)
+        maxLayerCount = std::max(maxLayerCount, layers.size());
+    if (maxLayerCount == 0)
+    {
+        SetStructurePanelHeaderTrailing(uiAnalysis, uiRenderer, " [no layers]");
+        return;
+    }
+    SetStructurePanelHeaderTrailing(
+        uiAnalysis, uiRenderer,
+        " [layer " + std::to_string(analysisDebugLayerIndex + 1) + "/" + std::to_string(maxLayerCount) + "]");
+}
+
+void Display::ToggleAnalysisDebugSlicedView()
+{
+    analysisDebugViewEnabled = !analysisDebugViewEnabled;
+    if (analysisDebugViewEnabled)
+        analysisDebugLayerIndex = 0;
+    uiRenderer.MarkDirty();
+    RefreshAnalysisDebugSlicedView();
+    renderDirty = true;
+}
+
+void Display::StepAnalysisDebugLayer(int delta)
+{
+    if (!analysisDebugViewEnabled || activeTool != ActiveTool::Analysis)
+        return;
+    size_t maxLayerCount = 0;
+    for (const auto &layers : analysisDebugLayersBySolid)
+        maxLayerCount = std::max(maxLayerCount, layers.size());
+    if (maxLayerCount == 0)
+        return;
+    const int newIndex = std::clamp(analysisDebugLayerIndex + delta, 0, static_cast<int>(maxLayerCount) - 1);
+    if (newIndex == analysisDebugLayerIndex)
+        return;
+    analysisDebugLayerIndex = newIndex;
+    RebuildAnalysisDebugSegmentsForCurrentLayer();
+    UpdateAnalysisDebugHeaderTrailing();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
 }
 
 void Display::CancelPendingStructureCarveJob()
@@ -6938,10 +7461,14 @@ void Display::CancelPendingStructureCarveJob()
     structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
     structureToolError.reset();
     if (!pendingStructureStagingTask.has_value())
+    {
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
         return;
+    }
     pendingStructureStagingTask->RequestCancel();
     pendingStructureStagingTask.reset();
     ++structureStagingIssuedJobId;
+    ClearPendingStructureProgressSnapshot();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
     SyncStructurePanelDerivedVisibility();
     uiRenderer.MarkDirty();
@@ -6979,6 +7506,7 @@ void Display::PollStructureStagingTaskIfReady()
         // Worker packaged_task threw; do not leave the panel stuck on "Carving…".
         pendingStructureStagingTask.reset();
         structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
+        ClearPendingStructureProgressSnapshot();
         SessionLogger::Instance().LogStructureStagingWorkerException();
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
         structureToolError =
@@ -6993,6 +7521,16 @@ void Display::PollStructureStagingTaskIfReady()
     if (!ready.has_value())
         return;
 
+    AsyncStructureStagingResult r = std::move(*ready);
+    pendingStructureStagingTask.reset();
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
+    ClearPendingStructureProgressSnapshot();
+
+    ApplyStructureStagingResult(std::move(r));
+}
+
+void Display::ApplyStructureStagingResult(AsyncStructureStagingResult &&r)
+{
     struct FlushSessionAfterStructurePollScope
     {
         ~FlushSessionAfterStructurePollScope()
@@ -7000,10 +7538,6 @@ void Display::PollStructureStagingTaskIfReady()
             SessionLogger::Instance().MaybeFlushAfterStructurePoll();
         }
     } flushSessionAfterStructurePollScope;
-
-    AsyncStructureStagingResult r = std::move(*ready);
-    pendingStructureStagingTask.reset();
-    structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
 
     SessionLogger::Instance().LogStructureStagingWorkerResult(r.jobId, structureStagingIssuedJobId, r.cancelled,
                                                               r.carvedSolids, r.carveAttempts, static_cast<bool>(r.staging),
@@ -7080,11 +7614,18 @@ void Display::PollStructureStagingTaskIfReady()
     LOG_DESC("Structure staging: carved solids", std::to_string(r.carvedSolids), "of",
              std::to_string(r.carveAttempts));
 
-    structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
+    // Only capture the original on the first carve; on re-carves (inset changed while staging
+    // is already active) the slot already holds the true original — overwriting it with the
+    // previously carved scene would corrupt the base for every subsequent re-carve.
+    if (!structureOriginalScene)
+        structureOriginalScene = std::move(ownedScenes[activeSceneIndex]);
     structureStagingSceneIndex = activeSceneIndex;
     ownedScenes[activeSceneIndex] = std::move(r.staging);
     scene = ownedScenes[activeSceneIndex].get();
     analysisUiScene = scene;
+    // Every carve (including re-carves on inset change) produces new Face* identities, so the
+    // carved-to-original lineage map must be rebuilt every time, not just on first capture.
+    RebuildStructureCarvedToOriginalMap();
 
     if (!r.firstErr.empty())
     {
@@ -7115,6 +7656,8 @@ void Display::PollStructureStagingTaskIfReady()
 
 void Display::FlushPendingStructureStagingCarveLaunchIfAny()
 {
+    if (StructureTriangulation::StructureStopsAtCutOutline())
+        return;
     if (structureCarvePipelinePhase != StructureCarvePipelinePhase::LaunchPending)
         return;
     structureCarvePipelinePhase = StructureCarvePipelinePhase::Idle;
@@ -7126,8 +7669,6 @@ void Display::FlushPendingStructureStagingCarveLaunchIfAny()
         renderDirty = true;
         return;
     }
-    if (IsStructureStagingActive())
-        return;
     if (activeSceneIndex == SIZE_MAX || activeSceneIndex >= ownedScenes.size())
     {
         ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
@@ -7149,8 +7690,13 @@ void Display::FlushPendingStructureStagingCarveLaunchIfAny()
 
 void Display::LaunchStructureStagingCarveJob()
 {
+    if (StructureTriangulation::StructureStopsAtCutOutline())
+        return;
     std::unordered_map<const Face *, Face *> structureFaceCloneRemap;
-    std::unique_ptr<Scene> staging = scene->Clone(&structureFaceCloneRemap);
+    // Always carve from the original unmodified scene so that re-carves with a changed inset
+    // don't stack on top of a previously carved staging scene.
+    Scene *baseScene = structureOriginalScene ? structureOriginalScene.get() : scene;
+    std::unique_ptr<Scene> staging = baseScene->Clone(&structureFaceCloneRemap);
     if (!staging)
     {
         LOG_WARN("Structure staging: scene clone failed");
@@ -7179,6 +7725,10 @@ void Display::LaunchStructureStagingCarveJob()
     params.minFeatureMm = 1.5;
 
     std::unordered_map<Solid *, std::vector<const Face *>> bySolid;
+    // Excluded-but-eligible faces of each carved solid: passed through to the carve so the post-cut
+    // unify pass doesn't merge their untouched geometry into a carved neighbor (see
+    // `TryApplyStructureCarve`'s `keepFaces` doc).
+    std::unordered_map<Solid *, std::vector<const Face *>> excludedBySolid;
     size_t eligibleCount = 0;
     for (Face &f : staging->faces)
     {
@@ -7187,105 +7737,144 @@ void Display::LaunchStructureStagingCarveJob()
         if (!IsStructureFaceEligible(&f))
             continue;
         if (stagingCarveExcluded.count(&f) > 0)
+        {
+            excludedBySolid[f.dependency].push_back(&f);
             continue;
+        }
         bySolid[f.dependency].push_back(&f);
         ++eligibleCount;
     }
     LOG_DESC("Structure staging: eligible faces", std::to_string(eligibleCount), "across solids",
              std::to_string(bySolid.size()));
 
+    // `eligibleCount == 0` alone doesn't mean an error — the user may have excluded every eligible
+    // face, which is a valid state (nothing left to cut, show the model untouched). Only bail when
+    // there are no eligible faces at all, excluded or not.
+    if (eligibleCount == 0 && excludedBySolid.empty())
+    {
+        ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+        structureToolError = MapStructureCarveRawToUserError(
+            "No eligible upward planar faces found for Structure carve.");
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
+
+    // Bake debug snapshots from the pre-carve faces now, before staging clears the live segments.
+    // This lets ` cycle through debug stages even after the carve completes.
+    {
+        structureDebugCutOutlineSnapshot.clear();
+        structureDebugNotchedSnapshot.clear();
+        structureDebugAllCandidatesSnapshot.clear();
+        structureDebugStrutQuadSnapshot.clear();
+        structureDebugFullSnapshot.clear();
+        for (const auto &[solid, faces] : bySolid)
+        {
+            for (const Face *f : faces)
+            {
+                auto outline = StructureTriangulation::BuildCutOutlinePreviewLines(f, params);
+                StructureTriangulation::AppendPreviewLineSegments(outline, structureDebugCutOutlineSnapshot);
+
+                auto notched = StructureTriangulation::BuildNotchedCutOutlinePreviewLines(f, params);
+                StructureTriangulation::AppendPreviewLineSegments(notched, structureDebugNotchedSnapshot);
+
+                StructureTriangulation::AppendPreviewLineSegments(outline, structureDebugAllCandidatesSnapshot);
+                auto allCands = StructureTriangulation::BuildAllStrutCandidatePreviewLines(f, params);
+                StructureTriangulation::AppendPreviewLineSegments(allCands, structureDebugAllCandidatesSnapshot);
+
+                auto quadSegs = StructureTriangulation::BuildStrutQuadPreviewLines(f, params);
+                StructureTriangulation::AppendPreviewLineSegments(quadSegs, structureDebugStrutQuadSnapshot);
+
+                StructureTriangulation::AppendPreviewLineSegments(outline, structureDebugFullSnapshot);
+                auto rails = StructureTriangulation::BuildStrutRailPreviewLines(f, params);
+                StructureTriangulation::AppendPreviewLineSegments(rails, structureDebugFullSnapshot);
+            }
+        }
+    }
+
     const uint64_t jobId = ++structureStagingIssuedJobId;
     const size_t targetSceneIndex = activeSceneIndex;
     const size_t solidCarveGroups = bySolid.size();
+    structureStagingStepsTotal = solidCarveGroups;
+    structureStagingStepsDone.store(0, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(structureProgressMutex);
+        structureProgressJobId = jobId;
+        latestStructureProgressPhase.clear();
+        latestStructureProgress01 = -1.0f;
+        latestStructureProgressDirty = false;
+    }
+    structureProgressPhase.clear();
+    structureProgress01 = -1.0f;
 
     structureToolError.reset();
-    SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Carving…");
     SyncStructurePanelDerivedVisibility();
     uiRenderer.MarkDirty();
     renderDirty = true;
 
-    pendingStructureStagingTask = StructureCarveTaskRunner().Submit(
-        [jobId, targetSceneIndex, bySolid = std::move(bySolid), params,
-         staging = std::move(staging)](const TaskRunner::CancellationToken &token) mutable -> AsyncStructureStagingResult
+    SessionLogger::Instance().LogStructureStagingJobSubmitted(jobId, targetSceneIndex, solidCarveGroups,
+                                                               eligibleCount);
+
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::Carving;
+    pendingStructureStagingTask = taskRunner->Submit(
+        [this, jobId, targetSceneIndex, staging = std::move(staging), bySolid = std::move(bySolid),
+         excludedBySolid = std::move(excludedBySolid),
+         params](const TaskRunner::CancellationToken &) mutable -> AsyncStructureStagingResult
         {
             AsyncStructureStagingResult out;
             out.jobId = jobId;
             out.targetSceneIndex = targetSceneIndex;
             out.staging = std::move(staging);
-            if (!out.staging)
-                return out;
-
-            ShutdownStackTraceLogIfEnabled("structure-worker: job entered");
-            SessionLogger::Instance().LogStructureStagingWorkerStarted(jobId);
-
-            size_t carvedSolids = 0;
-            size_t carveAttempts = 0;
-            std::string firstErr;
-            size_t solidLaneIndex = 0;
-            for (auto &entry : bySolid)
+            if (out.staging)
             {
-                if (token.IsCancellationRequested())
+                SessionLogger::Instance().LogStructureStagingWorkerStarted(jobId);
+
+                size_t carvedSolids = 0;
+                size_t carveAttempts = 0;
+                std::string firstErr;
+                size_t solidLaneIndex = 0;
+                for (auto &entry : bySolid)
                 {
-                    ShutdownStackTraceLogIfEnabled("structure-worker: cancel between solids");
-                    out.cancelled = true;
-                    return out;
-                }
-                ++carveAttempts;
-                SessionLogger::Instance().LogStructureStagingWorkerSolidBegin(
-                    jobId, solidLaneIndex,
-                    static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<void *>(entry.first))),
-                    entry.second.size());
-                const std::function<bool()> shouldAbort = [&token]()
-                { return token.IsCancellationRequested(); };
-                std::string err;
-                const std::function<void(const std::string &)> carvePhaseTrace =
-                    [jobId](const std::string &phase)
-                {
-                    SessionLogger::Instance().LogStructureStagingWorkerCarvePhase(jobId, phase);
-                };
-                const bool tryOk = StructureCarve::TryApplyStructureCarve(
-                    out.staging.get(), entry.first, entry.second, params, &err, &shouldAbort, &carvePhaseTrace);
-                SessionLogger::Instance().LogStructureStagingWorkerSolidEnd(jobId, solidLaneIndex, tryOk);
-                if (tryOk)
-                    ++carvedSolids;
-                else
-                {
-                    ShutdownStackTraceLogIfEnabled("structure-worker: TryApplyStructureCarve returned false");
-                    if (token.IsCancellationRequested())
+                    ++carveAttempts;
+                    SessionLogger::Instance().LogStructureStagingWorkerSolidBegin(
+                        jobId, solidLaneIndex,
+                        static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<void *>(entry.first))),
+                        entry.second.size());
+                    std::string err;
+                    const std::function<void(const std::string &)> carvePhaseTrace =
+                        [jobId](const std::string &phase)
                     {
-                        ShutdownStackTraceLogIfEnabled("structure-worker: cancel after TryApply failed");
-                        out.cancelled = true;
-                        return out;
-                    }
-                    if (firstErr.empty() && !err.empty())
+                        SessionLogger::Instance().LogStructureStagingWorkerCarvePhase(jobId, phase);
+                    };
+                    const ImportProgressCallback carveProgress = [this, jobId](const ImportProgress &p)
+                    {
+                        PublishStructureCarveProgress(jobId, p);
+                    };
+                    static const std::vector<const Face *> kNoKeepFaces;
+                    auto keepIt = excludedBySolid.find(entry.first);
+                    const bool tryOk = StructureCarve::TryApplyStructureCarve(
+                        out.staging.get(), entry.first, entry.second, params, &err, nullptr, &carvePhaseTrace,
+                        &carveProgress, keepIt != excludedBySolid.end() ? keepIt->second : kNoKeepFaces);
+                    SessionLogger::Instance().LogStructureStagingWorkerSolidEnd(jobId, solidLaneIndex, tryOk);
+                    if (tryOk)
+                        ++carvedSolids;
+                    else if (firstErr.empty() && !err.empty())
                         firstErr = err;
+                    ++solidLaneIndex;
+                    structureStagingStepsDone.store(solidLaneIndex, std::memory_order_relaxed);
                 }
-                ++solidLaneIndex;
+
+                out.carvedSolids = carvedSolids;
+                out.carveAttempts = carveAttempts;
+                if (carveAttempts > 0 && carvedSolids < carveAttempts && !firstErr.empty())
+                    out.firstErr = (carvedSolids == 0) ? std::move(firstErr) : (std::string("Partial: ") + firstErr);
+
+                SessionLogger::Instance().LogStructureStagingWorkerPackagingResult(
+                    jobId, carvedSolids, carveAttempts, !out.firstErr.empty());
             }
-
-            out.carvedSolids = carvedSolids;
-            out.carveAttempts = carveAttempts;
-
-            if (carveAttempts > 0 && carvedSolids < carveAttempts && !firstErr.empty())
-            {
-                if (carvedSolids == 0)
-                    out.firstErr = std::move(firstErr);
-                else
-                    out.firstErr = std::string("Partial: ") + firstErr;
-
-                // Do not LOG_WARN from the worker: `future` is not ready until this lambda returns, so a
-                // blocked `cout` keeps the UI on "Carving…" long after CGAL has already printed to stderr.
-                // Main thread logs when applying the result (`PollStructureStagingTaskIfReady`).
-            }
-            SessionLogger::Instance().LogStructureStagingWorkerPackagingResult(
-                jobId, carvedSolids, carveAttempts, !out.firstErr.empty());
-            ShutdownStackTraceLogIfEnabled("structure-worker: job complete (returning result)");
             return out;
         });
-    structureCarvePipelinePhase = StructureCarvePipelinePhase::Carving;
-    SessionLogger::Instance().LogStructureStagingJobSubmitted(jobId, targetSceneIndex, solidCarveGroups,
-                                                               eligibleCount);
-    SessionLogger::Instance().MaybeFlushAfterStructurePoll();
 }
 
 void Display::BeginStructureStagingSession()
@@ -7308,6 +7897,15 @@ void Display::BeginStructureStagingSession()
 
     CancelPendingStructureCarveJob();
 
+    if (StructureTriangulation::StructureStopsAtCutOutline())
+    {
+        LOG_DESC("Structure: cut-outline preview only (strip/fillet/carve disabled)");
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
+
     structureCarvePipelinePhase = StructureCarvePipelinePhase::LaunchPending;
     SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Preparing carve…");
     SyncStructurePanelDerivedVisibility();
@@ -7327,6 +7925,7 @@ void Display::RestoreStructureOriginalScene()
             scene = ownedScenes[structureStagingSceneIndex].get();
     }
     structureOriginalScene.reset();
+    structureCarvedToOriginal.clear();
     structureStagingSceneIndex = SIZE_MAX;
     analysisUiScene = scene;
     StructureTriangulation::ClearBakeCache();
@@ -7343,8 +7942,13 @@ void Display::CommitStructureStagingScene()
     CancelPendingStructureCarveJob();
     if (!IsStructureStagingActive())
         return;
-    structureOriginalScene.reset();
+    // Exclusion picks reference faces in `structureOriginalScene`; drop them before destroying it.
+    structureExcludedFaces.clear();
+    structureEligibleFacesCache.clear();
+    StructureTriangulation::ClearBakeCache();
     structureStagingSceneIndex = SIZE_MAX;
+    structureOriginalScene.reset();
+    structureCarvedToOriginal.clear();
     // Commit destroys the held original; `analysisUiScene` may still point at that scene — fix before any use.
     if (pendingAnalysisTask.has_value())
     {
@@ -7357,18 +7961,16 @@ void Display::CommitStructureStagingScene()
     activeAnalysisTintIdentityForRebuild = 0;
     lastCommittedAnalysisForRecolor.reset();
     analysisRequestId++;
+
     lastVerdictWasPass = false;
     flawOverhang = {};
-    flawSharp = {};
-    flawThin = {};
-    flawSmall = {};
+    flawSharpCorner = {};
+    flawInstability = {};
+    flawLayerDifference = {};
     if (uiVerdict)
         uiVerdict->values.clear();
     analysisUiScene = scene;
 
-    StructureTriangulation::ClearBakeCache();
-    structureExcludedFaces.clear();
-    structureEligibleFacesCache.clear();
     ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
     structureToolError.reset();
     structureOptFaceExcludeStep = Icons::StepState::Active;
@@ -7379,8 +7981,28 @@ void Display::RebuildStructureStagingScene()
 {
     if (!IsStructureStagingActive())
         return;
-    RestoreStructureOriginalScene();
-    BeginStructureStagingSession();
+    // Re-carve in place, without going through `RestoreStructureOriginalScene()` +
+    // `BeginStructureStagingSession()`: that round-trip briefly nulls `structureOriginalScene` (so
+    // `IsStructureStagingActive()` reads false) until the next carve completes, and any face pick
+    // that lands in that window resolves against the wrong branch in `TryCommitStructureFacePick`,
+    // corrupting `structureExcludedFaces` with pointers that never match the ones already stored.
+    // `LaunchStructureStagingCarveJob` already clones fresh from `structureOriginalScene` on every
+    // call, so it's safe to re-launch directly and keep `structureOriginalScene` — and the `Face*`
+    // identities `structureExcludedFaces`/`structureCarvedToOriginal` key on — intact throughout.
+    CancelPendingStructureCarveJob();
+    ClearStructurePanelHeaderTrailing(uiStructure, uiRenderer);
+    if (StructureTriangulation::StructureStopsAtCutOutline())
+    {
+        SyncStructurePanelDerivedVisibility();
+        uiRenderer.MarkDirty();
+        renderDirty = true;
+        return;
+    }
+    structureCarvePipelinePhase = StructureCarvePipelinePhase::LaunchPending;
+    SetStructurePanelHeaderTrailing(uiStructure, uiRenderer, "Preparing carve…");
+    SyncStructurePanelDerivedVisibility();
+    uiRenderer.MarkDirty();
+    renderDirty = true;
     MarkPickDirty();
 }
 
@@ -7423,9 +8045,10 @@ void Display::SyncStructurePanelDerivedVisibility()
         structPara_Import->visible = !activeHasModel;
     if (structPara_ImportClosed)
         structPara_ImportClosed->visible = importContractNeedsAttention;
+    const bool cutOutlineOnly = StructureTriangulation::StructureStopsAtCutOutline();
     if (structPara_SceneEditFooter)
-        structPara_SceneEditFooter->visible =
-            activeHasModel && !structureCarveBusy && !importContractNeedsAttention;
+        structPara_SceneEditFooter->visible = activeHasModel && !structureCarveBusy &&
+                                              !importContractNeedsAttention && !cutOutlineOnly;
     const bool showStructureToolError =
         activeHasModel && structureToolError.has_value() && (activeTool == ActiveTool::Structure);
     if (structPara_ToolError)
@@ -8018,11 +8641,3 @@ void Display::SyncStructureOptionalPrereqRowStyle()
         structPara_OptionalFaceExclude->values[1].textDepth = arm ? 1 : 0;
 }
 
-void Display::RefreshUIMinWindowSize()
-{
-    if (!window)
-        return;
-    uiRenderer.ComputeMinGridSize();
-    const auto &grid = uiRenderer.GetGrid();
-    SDL_SetWindowMinimumSize(window, grid.MinWidthPixels(), grid.MinHeightPixels());
-}

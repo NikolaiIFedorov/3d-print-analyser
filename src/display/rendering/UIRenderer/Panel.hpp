@@ -180,6 +180,9 @@ struct Paragraph : UIElement
     /// Determinate numerator / denominator (\(0\le num \le den\)); `denominator <= 0` means use `accentProgress01`.
     int64_t accentProgressNumerator = -1;
     int64_t accentProgressDenominator = -1;
+    /// When true, the fill renders in a dim neutral tone instead of the accent color — for a
+    /// "done, awaiting review" state that stays on screen rather than a transient in-progress fill.
+    bool accentProgressNeutral = false;
     bool dimFill = false;   // draws a subtle neutral fill over the full paragraph background
     bool selected = false;  // draws a persistent accent tint over the full paragraph background
     std::function<void(ImDrawList *, float, float, float, float)> leadingDraw; // optional full-height leading slot (x0,y0,x1,y1)

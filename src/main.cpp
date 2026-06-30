@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <iostream>
 #include <optional>
 #include "map"
@@ -9,6 +10,8 @@
 #include "utils/log.hpp"
 #include "utils/SessionLogger.hpp"
 #include "utils/ShutdownStackTrace.hpp"
+#include "utils/CrashBacktrace.hpp"
+#include <chrono>
 
 SDL_Window *window = nullptr;
 std::optional<Display> display;
@@ -88,6 +91,8 @@ RunType type = WINDOW;
 
 int main()
 {
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+    InstallCrashBacktraceIfEnabled();
     if (type == TEST)
     {
     }
@@ -103,9 +108,19 @@ int main()
 
         Log::SetVerbosity(LogVerbosity::NORMAL);
         display->Frame();
+        // Diagnostic only: flags real idle pauses (mouse/input stayed quiet) so we can correlate
+        // them against the next render's timing and check whether a GPU power-state wake stall
+        // (driver clocks down during idle, first GL call after resuming stalls) explains the
+        // occasional one-off ui_render spike seen in profiling.
+        auto lastFrameAt = std::chrono::steady_clock::now();
         while (input->handleEvents())
         {
+            const auto now = std::chrono::steady_clock::now();
+            const double idleGapMs = std::chrono::duration<double, std::milli>(now - lastFrameAt).count();
+            if (idleGapMs >= 500.0)
+                LOG_SESSION("Render stage", "idle_gap", "ms", idleGapMs);
             display->Frame();
+            lastFrameAt = std::chrono::steady_clock::now();
         }
 
         Shutdown();

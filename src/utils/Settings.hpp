@@ -13,9 +13,10 @@ struct Settings
 {
     // Analysis
     float overhangAngle = 45.0f;
-    float sharpCornerAngle = 100.0f;
-    float minFeatureSize = 0.4f;
-    float thinMinWidth = 2.0f;
+    float sharpCornerThreshold = 54.0f;
+    float notEnoughSpaceThreshold = 0.3f;
+    float instabilityMinWidth = 2.0f;
+    float layerDifferenceMaxAreaDelta = 50.0f;
     float layerHeight = 0.2f;
 
     // Appearance
@@ -69,9 +70,10 @@ struct Settings
         };
 
         writeFloat("overhangAngle", overhangAngle);
-        writeFloat("sharpCornerAngle", sharpCornerAngle);
-        writeFloat("minFeatureSize", minFeatureSize);
-        writeFloat("thinMinWidth", thinMinWidth);
+        writeFloat("sharpCornerThreshold", sharpCornerThreshold);
+        writeFloat("notEnoughSpaceThreshold", notEnoughSpaceThreshold);
+        writeFloat("instabilityMinWidth", instabilityMinWidth);
+        writeFloat("layerDifferenceMaxAreaDelta", layerDifferenceMaxAreaDelta);
         writeFloat("layerHeight", layerHeight);
         writeFloat("accentHue", accentHue);
         writeFloat("accentSat", accentSat);
@@ -118,9 +120,10 @@ struct Settings
         };
 
         readFloat("overhangAngle", overhangAngle);
-        readFloat("sharpCornerAngle", sharpCornerAngle);
-        readFloat("minFeatureSize", minFeatureSize);
-        readFloat("thinMinWidth", thinMinWidth);
+        readFloat("sharpCornerThreshold", sharpCornerThreshold);
+        readFloat("notEnoughSpaceThreshold", notEnoughSpaceThreshold);
+        readFloat("instabilityMinWidth", instabilityMinWidth);
+        readFloat("layerDifferenceMaxAreaDelta", layerDifferenceMaxAreaDelta);
         readFloat("layerHeight", layerHeight);
         readFloat("accentHue", accentHue);
         readFloat("accentSat", accentSat);
