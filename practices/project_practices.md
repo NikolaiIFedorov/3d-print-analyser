@@ -41,12 +41,15 @@ The general principle ("written design docs are normative") lives in `global_pra
 - Vertex Array/Buffer Objects for geometry upload, batched draw calls, no immediate-mode rendering.
 - Third-party libraries live under `include/<name>-<version>/`, version number in the directory name.
 - C++23, no CGAL (removed — OCCT covers everything CGAL used to).
+- **TBB** (Intel Threading Building Blocks) — not yet added; needed for intra-tool parallelism. Add via `find_package(TBB REQUIRED)` and link `TBB::tbb`.
 
 ---
 
 ## Threading
 
-Main thread owns UI/input/render scheduling/OpenGL calls; each Logic tool gets its own worker queue, not a shared pool — see `docs/architecture.md` → Architecture Layers → Shared for the full reasoning and the per-tool-queue algorithm. Don't restate that here; it'll drift from the canonical version.
+Main thread owns UI/input/render scheduling/OpenGL calls; each Logic tool gets its own worker queue, not a shared pool — see `docs/architecture.md` → Architecture Layers → Shared for the full reasoning, the per-tool-queue algorithm, and the modifying-vs-read-only OCCT parallelism model.
+
+**TBB** is the threading primitive for intra-tool parallelism (`tbb::task_group`, `tbb::parallel_for`). It is a new dependency — not yet in CMakeLists.txt. Don't restate the threading design here; it'll drift from the canonical version in `docs/architecture.md`.
 
 ---
 
