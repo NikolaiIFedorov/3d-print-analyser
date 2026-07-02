@@ -9,7 +9,7 @@ description: >-
 
 # CAD_OpenGL — Feature development workflow
 
-General process (theorize-first, TDD shape, critique) lives in the user's global `global_practices.md` (outside this repo, loaded automatically in Claude Code sessions; not visible to Cursor). This skill is the project-specific, Cursor-visible equivalent — see [practices/project_practices.md](../../../practices/project_practices.md) for this project's actual tools/conventions (Catch2, `docs/architecture.md`, `docs/todo/`, `session_log.json`). Project agents also get this via `.cursor/rules/cad-development-workflow.mdc` (`alwaysApply`).
+General process (theorize-first, TDD shape, critique) lives in the user's global `global_implementing_practices.md` and `global_documenting_practices.md` (outside this repo, loaded automatically in Claude Code sessions; not visible to Cursor). This skill is the project-specific, Cursor-visible equivalent — see [practices/project_practices.md](../../../practices/project_practices.md) for this project's actual tools/conventions (Catch2, `docs/architecture.md`, `docs/todo/`, `session_log.json`). Project agents also get this via `.cursor/rules/cad-development-workflow.mdc` (`alwaysApply`).
 
 There's no separate implementation-log journal in this project (an older `documentation/implementations/` convention is gone) — git commit messages are the record of what changed and why.
 

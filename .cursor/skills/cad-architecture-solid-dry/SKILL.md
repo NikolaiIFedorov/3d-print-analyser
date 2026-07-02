@@ -8,7 +8,7 @@ description: >-
 
 # CAD_OpenGL — Architecture, SOLID, DRY, critique
 
-SOLID/DRY/critique/consistency below are general engineering practice (canonical version: the user's global `global_practices.md`, outside this repo, not visible to Cursor) — this skill's bullets are self-contained for Cursor sessions. The thread-ownership guardrail *is* project-specific — canonical detail there is [docs/architecture.md](../../../docs/architecture.md) → Architecture Layers → Shared, not restated in full below.
+SOLID/DRY/critique/consistency below are general engineering practice (canonical version: the user's global `global_implementing_practices.md`, outside this repo, not visible to Cursor) — this skill's bullets are self-contained for Cursor sessions. The thread-ownership guardrail *is* project-specific — canonical detail there is [docs/architecture.md](../../../docs/architecture.md) → Architecture Layers → Shared, not restated in full below.
 
 ## Performance vs SOLID
 

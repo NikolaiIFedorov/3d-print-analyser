@@ -21,7 +21,7 @@ Goal: keep `.cursor/skills/*/SKILL.md` aligned with best-practice policy without
 Use this default mapping, then expand only if needed:
 
 - ``docs/architecture.md` is normative``, `Debugging` -> `cad-feature-workflow/SKILL.md`
-- `Threading` -> `cad-architecture-solid-dry/SKILL.md` (thread-ownership guardrail section only — SOLID/DRY/critique/consistency there are general practice, not policy synced from this file; canonical for those is the user's global `global_practices.md`, outside this repo)
+- `Threading` -> `cad-architecture-solid-dry/SKILL.md` (thread-ownership guardrail section only — SOLID/DRY/critique/consistency there are general practice, not policy synced from this file; canonical for those is the user's global `global_implementing_practices.md`, outside this repo)
 - `Build & dependencies` (Rendering bullets) -> `cad-cpp-performance-opengl/SKILL.md`
 - `Build & dependencies` (Windowing/Dependencies bullets) -> `cad-cross-platform-cmake/SKILL.md`
 - `Naming` -> `cad-naming-style/SKILL.md`

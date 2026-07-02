@@ -8,7 +8,7 @@ description: >-
 
 # CAD_OpenGL — C++ and OpenGL performance
 
-Memory/Computation/Data layout below are general C++ practice, not CAD_OpenGl-specific (canonical version: the user's global `global_practices.md`, outside this repo). Rendering *is* project-specific — canonical detail: [practices/project_practices.md](../../../practices/project_practices.md) → Build & dependencies.
+Memory/Computation/Data layout below are general C++ practice, not CAD_OpenGl-specific (canonical version: the user's global `global_implementing_practices.md`, outside this repo). Rendering *is* project-specific — canonical detail: [practices/project_practices.md](../../../practices/project_practices.md) → Build & dependencies.
 
 ## Memory
 

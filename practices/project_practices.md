@@ -1,12 +1,12 @@
 # Project Practices
 
-What's specific to CAD_OpenGl. General engineering principles (SOLID, DRY, critique, TDD process shape, first-principles theorizing) live in the global `global_practices.md`, loaded automatically via `~/.claude/CLAUDE.md` — this file holds only what that global default can't know: this project's chosen tools, conventions, and file locations. If something here just restates a generic practice, it's been cut on purpose, not omitted by accident.
+What's specific to CAD_OpenGl. General engineering principles (SOLID, DRY, critique, TDD process shape, first-principles theorizing) live in the global `global_implementing_practices.md` and `global_documenting_practices.md`, loaded automatically via `~/.claude/CLAUDE.md` — this file holds only what those global defaults can't know: this project's chosen tools, conventions, and file locations. If something here just restates a generic practice, it's been cut on purpose, not omitted by accident.
 
 ---
 
 ## `docs/architecture.md` is normative
 
-The general principle ("written design docs are normative") lives in `global_practices.md` #process. The CAD_OpenGl-specific instantiation: the doc is `docs/architecture.md`, and it covers Invariants, each tool's Algorithm, and Validation's Types & fixes. A change that contradicts one of those needs an explicit decision — fix the code, or revise the doc with reasoning — not a silent override.
+The general principle ("written design docs are normative") lives in `global_documenting_practices.md` #process. The CAD_OpenGl-specific instantiation: the doc is `docs/architecture.md`, and it covers Invariants, each tool's Algorithm, and Validation's Types & fixes. A change that contradicts one of those needs an explicit decision — fix the code, or revise the doc with reasoning — not a silent override.
 
 ---
 

@@ -8,7 +8,7 @@ description: >-
 
 # CAD_OpenGL — Naming and consistency
 
-Naming *is* project-specific — canonical detail: [practices/project_practices.md](../../../practices/project_practices.md) → Naming. Consistency below is general practice (canonical version: the user's global `global_practices.md`, outside this repo).
+Naming *is* project-specific — canonical detail: [practices/project_practices.md](../../../practices/project_practices.md) → Naming. Consistency below is general practice (canonical version: the user's global `global_implementing_practices.md`, outside this repo).
 
 ## Naming
 
