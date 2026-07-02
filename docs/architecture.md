@@ -44,7 +44,7 @@ This document defines the domain model, the reasoning behind each decision, and 
 
 ## Product
 
-A 3D printing analyzer and toolset for FDM users who print functional parts and iterate often. Stays on the model side — not a slicer, doesn't need to know about specific printers.
+**Temper** is a 3D printing analyzer and toolset for FDM users who print functional parts and iterate often. Stays on the model side — not a slicer, doesn't need to know about specific printers.
 
 The app addresses the gap between "I have a CAD model" and "It will print successfully." It diagnoses problems grounded in FDM physics, and provides tools to fix them.
 
@@ -294,12 +294,12 @@ On failure, an Operation reports one standard shape, not invented per-tool:
 - A short actionable **message** — what the user can do about it.
 - An optional longer **why**, shown if there's room.
 
-Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty). See Tools → Import.
+Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
 
 **Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
 
 ### Settings
-Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.). The only thing in the app that persists across restarts — Sessions/Parts don't have a project-file format, since there's no need for one yet at this app's current scope. Same underlying persisted store either way, surfaced in two places:
+Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope. The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store — everything else about a Part (Issues, in-progress tool state, the rest of `history`) still doesn't survive a restart. Settings' own store, same underlying mechanism either way, is surfaced in two places:
 - **Global** — most settings, on a general settings surface.
 - **Tool-specific** (Structure's `insetMm`, `wallThicknessMm`, Analysis's `buildVolumeXY`) — on that tool's own panel instead, for better discoverability.
 
@@ -447,6 +447,8 @@ Not an Operation — it has no prior Part to act on. Constructs a brand-new Part
 3. That only recovers flat faces — a tessellated cylinder stays a faceted prism. Reconstructing curved faces (fitting NURBS curves/surfaces to the tessellation) would recover that precision, but no surface-fitting step exists yet — an unimplemented future enhancement, not a current capability (see Background → Future & deferred for why it's still open).
 
 **Hand-off to Analysis.** A freshly imported Part has no prior Issues cache, so on a successful commit Scene opens the Analysis panel and immediately submits a run for the new Part — a deliberate exception to Analysis's user-triggered rule (see [Analysis](#analysis)). This is safe specifically because Analysis is read-only and diagnostic: there's no Accept gate to skip, unlike a Modifying tool. It doesn't generalize to Structure or Split, which still require an explicit Accept no matter how their panel was opened.
+
+**Reading back an exported original.** A `tempered.stp` file (written by Export, see Background → Future & deferred) has an embedded pre-Operation original that seeds the new Part's `history` with that one entry instead of starting empty — Undo reaches back to the true original even after a save → close → reopen round-trip. Everything else about Import proceeds as normal; the embedded data is just extra STEP-comment content any other STEP reader already ignores.
 
 ### Analysis
 Diagnostic. Runs when the user triggers it — except immediately after Import, which triggers a run automatically as part of handing the new Part off for review (see [Import](#import)) — computing its per-Part Issues cache (see [Data → Issue](#issue)). Full derivation and uncalibrated constants: [analysis-redesign.md](todo/analysis-redesign.md).
@@ -659,7 +661,7 @@ Most realistic same-Part tool pairs aren't parallelism candidates anyway: Analys
 **Future tools** — not designed yet; it'll be a while before either is picked up:
 - **Tolerance** — clearance/fit adjustment between mating parts. Likely scoped to face-tagging (user marks press-fit/smooth-motion-fit faces) rather than full assembly modeling, lighter-weight than tracking relative Part transforms. 3MF's multi-object support could be a future source of relative positioning if that ever matters.
 - **Cut** — divides an oversized part into printable pieces. The one tool that would be allowed to suggest an explicit fix rather than just flag a problem.
-- **Export** — writes the final geometry out, mirroring Import's formats, and triggers an Analysis run first (see Tools → Import → Hand-off to Analysis for the same read-only-triggers-are-safe reasoning). Open question: whether an unresolved Issue blocks the write or is only an advisory warning.
+- **Export** — writes the final geometry out, mirroring Import's formats, and triggers an Analysis run first (see Tools → Import → Hand-off to Analysis for the same read-only-triggers-are-safe reasoning). For STEP output, also embeds the Part's pre-Operation original shape (`history`'s first entry, see [Data → Part](#part)) inside a standard STEP comment block — a fully spec-conformant `.step` file any STEP reader opens normally, written with a `tempered.stp` extension so Temper itself recognizes it and can round-trip Undo history through it. STL output (`.stl`, no `tempered.stl` variant) carries no such payload: STL has no comment mechanism to embed it in, and isn't precise enough to make a lossless original worth preserving through it anyway. Open question: whether an unresolved Issue blocks the write or is only an advisory warning.
 
 **Deferred:**
 - **Orient** — not yet implemented. Re-runs Analysis's detectors across candidate bed orientations, recommends/previews whichever minimizes overhang/instability/layer-difference signals; changes build direction, not the shape. The orientation-search itself (how candidates are generated/scored beyond reusing Analysis's detectors) isn't designed. Open question whether accepting a recommendation needs an Operation/history entry, or is purely UI-local state like Calibrate's build-direction vector.
