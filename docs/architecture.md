@@ -2,9 +2,9 @@
 
 This document defines the domain model, the reasoning behind each decision, and the algorithms that follow from it. Coding conventions and practices (not domain algorithms) live in `practices/project_practices.md`.
 
-**How to read this doc** — two entry points, depending on your familiarity with the codebase:
-- **New to the architecture:** [Product](#product), then [How We Solve It](#how-we-solve-it) — a narrative walk through a real workflow, showing how each problem in FDM printing maps to a tool or architectural decision — then [Architecture at a glance](#architecture-at-a-glance) as a summary of all the pieces.
-- **Already familiar:** [Event Flow](#event-flow) for runtime sequencing, then [Data](#data) and [Architecture Layers](#architecture-layers) for the deep dives into each component.
+**How to read this doc** — written as one continuous narrative, front to back, for a reader with no prior exposure to this codebase: [Product](#product) and [How We Solve It](#how-we-solve-it) introduce the problem and the tools that solve it, [Architecture at a glance](#architecture-at-a-glance) previews every piece in one screen, and [Event Flow](#event-flow) onward builds up the runtime mechanics, data model, and each layer's responsibilities the same way.
+
+Already know this codebase? [Architecture at a glance](#architecture-at-a-glance) doubles as an index — its bullets link straight into the section that covers each piece, so you can jump in without re-reading the narrative build-up.
 
 ## Glossary
 
@@ -57,9 +57,9 @@ This document defines the domain model, the reasoning behind each decision, and 
 
 ## Product
 
-**Temper** is a 3D printing analyzer and toolset for FDM users who print functional parts and iterate often. Stays on the model side — not a slicer, doesn't need to know about specific printers.
+You start with a CAD (Computer-Aided Design) model. Getting it to actually print doesn't happen just because it looks correct on screen — overhangs, warping, thin sections that reheat before they cool, and a footprint too large for the bed are all real failure modes an FDM (Fused Deposition Modeling, the layer-by-layer melted-filament printing process) machine runs into, and none of them show up in a CAD viewport.
 
-The app addresses the gap between "I have a CAD model" and "It will print successfully." It diagnoses problems grounded in FDM physics, and provides tools to fix them.
+**Temper** closes that gap between "I have a CAD model" and "it will print successfully." It's a 3D printing analyzer and toolset for FDM users who print functional parts and iterate often, diagnosing problems grounded in FDM physics and providing tools to fix them. It stays on the model side — not a slicer, doesn't need to know about specific printers.
 
 ---
 
@@ -69,9 +69,9 @@ Here's how these tools fit together in a real workflow. Each section introduces 
 
 ### Getting the model in
 
-**Problem:** STL and OBJ files are just triangle meshes — you lose any curved surfaces that were in the original design. STEP files preserve those curves, but they need healing (closing gaps, fixing topology) before slicing and analysis.
+**Problem:** STL and OBJ files (common mesh export formats) store only flat triangles — you lose any curved surfaces that were in the original design. STEP files preserve those curves as real geometry instead of a mesh, but they need healing (closing gaps, fixing topology) before slicing and analysis.
 
-**Solution:** The **Import** tool handles this. It reads STL, OBJ, STEP, and 3MF formats. For STEP, curved surfaces come through as real OCCT shapes — no precision loss. For mesh formats, it reconstructs what flat faces it can (merging coplanar triangles); a future enhancement will attempt to reconstruct NURBS curves from tessellated edges, recovering more precision from mesh inputs. Then **Validation** checks the result and repairs any gaps or orientation issues.
+**Solution:** The **Import** tool handles this. It reads STL, OBJ, STEP, and 3MF (a newer mesh format that can bundle multiple objects and materials in one file) formats. For STEP, curved surfaces come through as real OCCT (Open CASCADE Technology, the geometry kernel this app is built on) shapes — no precision loss. For mesh formats, it reconstructs what flat faces it can (merging coplanar triangles); a future enhancement will attempt to reconstruct NURBS curves (the math behind smooth curved CAD surfaces) from tessellated edges, recovering more precision from mesh inputs. Then **Validation** checks the result and repairs any gaps or orientation issues.
 
 **Architecture introduced:** Import tool.
 
@@ -133,7 +133,12 @@ You can also use the **Orient** tool (not yet implemented) to search across cand
 
 ## Event Flow
 
-The main thread sleeps at vsync — it isn't spinning a frame loop when nothing's happening. UI is the only layer that listens for input events; a worker-completion wake is a second, separate way the loop wakes, handled directly by Scene with no relevance check, since Scene already knows the work it submitted matters. At a glance:
+Most interactive apps run a continuous loop — read input, update, render, repeat, dozens of times a second, whether or not anything actually changed. This app instead sleeps the main thread until something worth reacting to happens, handles it, and goes back to sleep. Two distinct things can wake it:
+
+1. **User input** — the user did something (moved the camera, clicked a button, entered a value). UI is the only layer that listens for these events, and it's also the one that decides whether a given event is actually relevant to anything — one that wouldn't change any state does nothing further.
+2. **A worker job finishing** — a background tool computation (an Import, an Analysis run, a Structure operation) completes. Scene — the layer that owns a Part's canonical state, previewed in [Architecture at a glance](#architecture-at-a-glance) and covered fully in [Architecture Layers → Scene](#scene) — handles this wake directly, with no relevance check first, because Scene submitted that job itself and already knows the result matters.
+
+Both paths converge on the same question before anything is drawn: has anything actually changed since the last frame? If not, the thread sleeps again without rendering. If so, it renders once — synced to the display's refresh via **vsync**, so it never draws more than once per refresh, avoiding tearing and wasted draws — then sleeps again. At a glance:
 
 ```mermaid
 flowchart LR
@@ -235,46 +240,50 @@ flowchart TD
     Render --> Sleep
 ```
 
-This lets UI handle its own presentation without routing every camera nudge through Scene, while still funneling all domain mutations through one writer, and keeps the main thread idle whenever nothing has actually changed.
+This lets UI handle its own presentation (camera, panel layout, hover) without routing every nudge through Scene, while still funneling every domain mutation through Scene as the one writer — and keeps the main thread idle whenever nothing has actually changed.
 
 ### Resizing
-A window resize doesn't go through the normal relevance-check-then-update path: an OS-level event watcher intercepts `SDL_EVENT_WINDOW_RESIZED` synchronously and updates state immediately, including an immediate render call, rather than waiting for the next reactive wake.
+A window resize is a deliberate exception to the wake-and-check path above: instead of going through UI's relevance check, an OS-level event watcher intercepts `SDL_EVENT_WINDOW_RESIZED` synchronously and updates state — including rendering — immediately, rather than waiting for the next reactive wake.
 
 This is justified, not a shortcut — deferring to the next polled frame would show a stretched or stale frame for one visible frame during an interactive resize drag, a real artifact, not just a layering nicety being skipped for convenience.
 
-- The viewport update uses physical pixels for HiDPI/Retina correctness, while logical size still drives camera/UI math.
+- The viewport update uses physical pixels for HiDPI (high pixel-density displays, e.g. Retina) correctness, while logical size still drives camera/UI math.
 - The viewport itself stays a fixed size regardless of panel layout — panels overlay it rather than resizing it, since visual stability of the 3D view matters more than reclaiming screen space when a panel collapses.
 
 ### Tool panel shapes
-- **Write** — modifies a Part's `current`:
-  - **Modifying** (Structure, future Cut, and Import — which creates a Part instead of modifying one, but follows the same shape) — preview the result, then Cancel/Accept; only Accept commits. Accept is disabled while any Operation is already in-flight for that Part: the preview was computed against the current `current`, and if another Operation commits first, that preview is stale — the submitted job would run against the wrong shape and silently discard the in-flight result.
-- **Read-only** — `current` untouched:
-  - **Diagnostic** (Analysis) — submits a job to its worker queue, shows a progress bar, commits its Issues cache when done.
-  - **Calculating** (Calibrate) — ends in copyable results instead of an accept step.
-  - **Hybrid** (Orient) — calculates a recommendation, but an Accept step changes UI-local build-direction state rather than committing an Operation.
+Every tool panel needs its required inputs selected before it can do anything — the diagram above calls this the Prerequisites + Selections gate: if something required is still missing, the panel just shows what's needed (required vs. optional) and waits. Once satisfied, what happens next depends on the tool's *shape* — four patterns, each suited to a different kind of tool:
 
-A settings change isn't part of this classification — it skips this machinery entirely. It mutates domain state (so it's not UI-local), but there's nothing to select and no preview to show, so it doesn't belong behind the Prerequisites + Selections gate either. It's its own direct path: Scene updates and persists the value.
+- **Write** — modifies a Part's `current` (its live geometry, see [Data → Part](#part)):
+  - **Modifying** (Structure, future Cut, and Import — which creates a Part instead of modifying one, but follows the same shape) — preview the result, then Cancel or Accept; only Accept actually commits. Accept is disabled while another Operation is already in-flight for that Part: the preview was computed against `current` as it stood at preview time, and if a different Operation commits first, that preview is now stale — accepting it would run the submitted job against the wrong shape and silently discard the in-flight result.
+- **Read-only** — `current` stays untouched:
+  - **Diagnostic** (Analysis) — submits a job to its worker queue, shows a progress bar, and commits its own Issues cache once done (see [Data → Issue](#issue)).
+  - **Calculating** (Calibrate) — ends in copyable results instead of an accept step; there's nothing to commit.
+  - **Hybrid** (Orient) — calculates a recommendation, but its Accept step only changes UI-local build-direction state, not an Operation — nothing is committed to the Part.
+
+A settings change isn't part of this classification at all — it skips the gate entirely. It does mutate domain state (so it isn't purely UI-local), but there's nothing to select and no preview to show, so the Prerequisites + Selections gate doesn't apply either. It's its own direct path: Scene updates and persists the value immediately.
 
 ### Live preview
-**Phase-level snapshots** — showing the shape as of the last completed checkpoint while the next phase computes — work well: a checkpointed operation (Structure's carve) produces a real, valid intermediate `TopoDS_Shape` at each phase boundary, and `TopoDS_Shape` value semantics make it cheap to hand a copy back to the main thread mid-operation.
+While a long-running Operation (see [Data → Operation](#operation)) is still computing, what should the viewport show in the meantime? Two different answers were considered.
 
-- This needs one small addition to Shared: a future only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases. Shared owns that slot (see Invariants); Scene/Rendering only read it.
+**Phase-level snapshots** — showing the shape as of the last completed checkpoint while the next phase computes — work well: a checkpointed operation (one broken into stages with a real, valid shape at each stage boundary — Structure's carve is built this way) produces a genuine intermediate `TopoDS_Shape` at each phase boundary. OCCT shapes are cheap to copy (a handle increment, not a deep copy — see [Shared → Intra-tool parallelism](#shared)), so handing one back to the main thread mid-operation costs almost nothing.
+
+- This needs one small addition to Shared: a future (the usual way a worker hands back a result) only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases instead. Shared owns that slot (see Invariants); Scene/Rendering only read it.
 - The slot is protected by a mutex — the worker holds it briefly to write a new shape handle at each phase boundary; the render thread holds it briefly to copy the handle once per frame. Contention is negligible since writes happen only at phase boundaries.
 
-**Continuous frame-by-frame animation** of a single OCCT call in progress is not achievable on any graphics API: `BRepAlgoAPI_*` calls are atomic black boxes with no mid-call hook, because there's no valid shape to expose until the call returns. This isn't a rendering limitation to solve — the data doesn't exist.
+**Continuous frame-by-frame animation** of a single OCCT call in progress isn't achievable on any graphics API: an OCCT boolean or fillet call is an atomic black box with no mid-call hook — there's no valid shape to expose until the call returns, because the shape doesn't exist in any partial form before then. This isn't a rendering limitation waiting to be solved; the data to render simply isn't there yet.
 
-- Not a reason to consider Vulkan either: the actual constraint here was never render-thread parallelism (this app draws a handful of Parts with cached triangulation — nowhere near the draw-call volume where Vulkan's multithreaded command recording pays off), and a graphics-API swap wouldn't expose OCCT's internal call state regardless.
+- This isn't a reason to consider Vulkan either: the actual bottleneck here was never render-thread parallelism (this app draws a handful of Parts with cached triangulation — nowhere near the draw-call volume where Vulkan's multithreaded command recording pays off), and switching graphics APIs wouldn't expose OCCT's internal call state regardless.
 
 ### Worker-completion handling
-An Operation/Import completion checks **success and validity** before committing anything. Failure — whether the algorithm errored, or it ran clean but produced an invalid shape that couldn't be healed (see [Validation](#validation)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state.
+When an Operation or Import job finishes, Scene checks **success and validity** before committing anything. Failure — whether the algorithm errored outright, or it ran clean but produced an invalid shape that Validation couldn't heal (see [Validation](#validation)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state behind.
 
-On success, Scene commits the new shape. If this was an Import, Scene also opens the Analysis panel and submits an Analysis run for the new Part immediately (see [Import](#import)) — the one case where Analysis runs without the user separately triggering it. Otherwise, Analysis exposes its own Issues cache directly rather than handing anything back to Scene, per the Logic layer's split above, and runs only when the user triggers it. A live-preview-slot update from an in-progress preview job follows the same no-relevance-check path, since it's also Scene-initiated work completing, not user input.
+On success, Scene commits the new shape as the Part's `current`. If this was an Import, Scene also opens the Analysis panel and submits an Analysis run for the new Part immediately (see [Import](#import)) — the one case where Analysis runs without the user separately triggering it. Otherwise, Analysis exposes its own Issues cache directly rather than handing anything back to Scene (see [Architecture Layers → Logic](#logic) for why Analysis's result path differs from an Operation's), and runs only when the user triggers it. A live-preview-slot update from an in-progress preview job follows this same no-relevance-check path, since it's also Scene-initiated work completing, not user input.
 
 ---
 
 ## Data
 
-Each entity below is defined by what it owns — nothing more. Cross-cutting rules that span entities are in [Invariants](#invariants) at the end, not repeated per-entity.
+Event Flow used several names — Part, Operation, Issue, `current` — without fully defining them; here's what each actually is. Each entity below is defined by what it owns and nothing more; cross-cutting rules that span more than one entity are gathered in [Invariants](#invariants) at the end instead of being repeated per-entity.
 
 ### Session
 The workspace. Owns one or more Parts, processed independently.
@@ -286,12 +295,12 @@ The thing the user wants to print. Owns only what defines it:
 - `TopoDS_Shape current` — the live geometry
 - `vector<TopoDS_Shape> history` — undo stack, per-Part (cheap: OCCT shapes share underlying data)
 
-`TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
+`TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex — a solid decomposed into its constituent faces, edges, and vertices) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
 
 **Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
 
 ### Issue
-A specific problem, located on a Part by `TopoDS_Face` value (never a raw pointer) — a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool (Build Volume links to Split) — clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Owned by **Analysis**, a Logic tool — not Part (see [Invariants](#invariants) for why). A per-Part cache (`vector<Issue>` + a pending flag + a stale flag):
+An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer) — a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool (Build Volume links to Split) — clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues — not Part (see [Invariants](#invariants) for why). Concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
 
 - On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
 - **Pending** drives the UI progress bar while an Analysis job runs.
@@ -331,6 +340,8 @@ Persisted constants the user can tune (the tolerance constant, default tool para
 ---
 
 ## Architecture Layers
+
+Event Flow described *when* things happen; this section describes *who* does each part of the work. The app splits into five layers, each with one clear job and one clear boundary on what it's allowed to touch — Scene orchestrates, Logic computes, UI listens and displays, Rendering draws, and Shared runs the actual worker threads underneath all of them.
 
 ### Scene
 Owns Session and the operation queue. The only layer that writes to a Part's canonical state (`current`/`history`) — Part itself holds that data (see [Data → Part](#part)), Scene is the sole gatekeeper for changing it.
@@ -396,7 +407,7 @@ Between a commit and the user re-running Analysis, the Issues cache is empty and
 Packing splits into two phases, the same isolation principle Intra-tool parallelism uses for read-only OCCT work: do the slow part on a private copy nobody else can see, and only touch shared state for the fast, bounded part.
 
 - **Pack** — the background thread builds the new chunk's vertex/index data into its own private staging buffer, plain CPU memory the GPU and render thread never touch. No synchronization needed here at all, for the same reason a read-only OCCT job is safe on a copied handle: nothing else can observe a private copy mid-write.
-- **Publish** — once packing is complete, the background thread copies the staged data into the actual persistent-mapped VBO chunk in one bounded bulk copy. This is the only step that needs the fence: `glFenceSync` after draw calls marks when the GPU started reading a half; the main thread checks the fence and signals the background thread (via a condition variable) when that half is safe to overwrite. Because publish is a straight memory copy — no packing logic, no variable-cost work — its duration scales with data size alone, so it isn't the part of the pipeline that risks running long.
+- **Publish** — once packing is complete, the background thread copies the staged data into the actual persistent-mapped VBO (Vertex Buffer Object — a GPU-resident geometry buffer) chunk in one bounded bulk copy. This is the only step that needs the fence: `glFenceSync` after draw calls marks when the GPU started reading a half; the main thread checks the fence and signals the background thread (via a condition variable) when that half is safe to overwrite. Because publish is a straight memory copy — no packing logic, no variable-cost work — its duration scales with data size alone, so it isn't the part of the pipeline that risks running long.
 - Dirty-tracking: a per-Part dirty set (`geometryDirtySolids`) drives targeted partial updates (only the affected chunk is rewritten); a `geometryDirtyAll` flag triggers a full repack and is set only when the chunk layout changes (a Part added, removed, or its mesh size crosses a boundary).
 
 **Z-fighting.** The actual symptom is chaotic flicker: when two faces are this close in depth, which one wins the depth test can resolve inconsistently per-pixel or per-frame as the camera moves, reading as visual noise rather than a clean edge — not a clean, consistent "one face disappears." This app hits the precondition often: small faces nested inside or coplanar with a larger host face (a classified sub-face, a Structure preview overlay).
@@ -410,7 +421,7 @@ The fix: when two faces are within the tolerance constant's depth range of each 
 The tolerance grid is culled unless it's actually resolvable: below roughly one line per two screen pixels (the Nyquist limit for a line pattern), it reads as aliasing noise, not a scale reference. It only draws once the camera is zoomed in close enough to clear that threshold — in practice, far past the zoom level where the bed grid itself is still legible — so it needs no separate logic to track what the user's looking at; the visibility check alone puts it wherever they've zoomed in.
 
 ### Shared
-Logic work runs on worker threads, isolated **per tool** — not one shared pool. The main thread owns UI and rendering and never blocks.
+Shared is what actually runs Logic's computations — every "submit a job" mentioned above ends up here. Logic work runs on worker threads, isolated **per tool** — not one shared pool. The main thread owns UI and rendering and never blocks.
 
 Each tool owns its own queue and worker(s), not only because OCCT can hang (rare — effectively a bug on OCCT's own side when it happens), but because a tool's own algorithm can too — a bug or pathological case in one tool's code must not be able to starve another tool's queue. Structure's carve runs on its own isolated runner precisely for this reason: a stuck case there would otherwise starve Import/Analysis's shared queue, a real precedent, not a hypothetical one. This generalizes that pattern to every tool instead of leaving it a one-off special case.
 
@@ -437,7 +448,7 @@ Not all OCCT operations have the same thread-safety constraints. The distinction
 
 The safety mechanism for read-only parallelism: copy the `TopoDS_Shape` handle once per worker thread before dispatching, on a single thread. `TopoDS_Shape` copies are O(1) — a handle increment, no geometry duplication. After dispatch, each thread holds its own handle with no concurrent reference-count manipulation.
 
-**TBB** (`tbb::task_group`, `tbb::parallel_for`) is the threading primitive for intra-tool parallelism — not `std::async`. Analysis can be triggered repeatedly across a session, so raw thread creation per run compounds; TBB's thread pool reuses threads across runs. Use `tbb::task_group` for fan-outs (Analysis's detectors), `tbb::parallel_for` for range parallelism (slice layer ranges). Not `tbb::flow::graph` — the DAGs involved are at most two levels deep and don't warrant it.
+**TBB** (Threading Building Blocks, `tbb::task_group`/`tbb::parallel_for`) is the threading primitive for intra-tool parallelism — not `std::async`. Analysis can be triggered repeatedly across a session, so raw thread creation per run compounds; TBB's thread pool reuses threads across runs. Use `tbb::task_group` for fan-outs (Analysis's detectors), `tbb::parallel_for` for range parallelism (slice layer ranges). Not `tbb::flow::graph` — the DAGs involved are at most two levels deep and don't warrant it.
 
 Analysis is the primary beneficiary: the slice step runs sequentially on the OCCT thread (or in parallel across layer ranges with pre-copied handles), then hands off raw geometry (plain 2D point arrays — no OCCT) to four detector threads via `tbb::task_group`. Structure's pipeline is mostly modifying OCCT operations and gains little from this model currently.
 
@@ -452,7 +463,7 @@ Not an Operation — it has no prior Part to act on. Constructs a brand-new Part
 
 **Algorithm:**
 
-1. **STEP** imports as native BRep via `STEPControl_Reader` — true curved surfaces, no conversion needed.
+1. **STEP** imports as native BRep (Boundary Representation — a solid stored as its bounding faces/edges, not a mesh) via `STEPControl_Reader` — true curved surfaces, no conversion needed.
 2. **STL/OBJ/3MF** go through facet → sew → unify:
    - One planar face per triangle (`BRepBuilderAPI_MakeFace`).
    - Sewn into a shell (`BRepBuilderAPI_Sewing`).
