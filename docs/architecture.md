@@ -6,7 +6,20 @@ This document defines the domain model, the reasoning behind each decision, and 
 - **New to the architecture:** [Product](#product), then [How We Solve It](#how-we-solve-it) — a narrative walk through a real workflow, showing how each problem in FDM printing maps to a tool or architectural decision — then [Architecture at a glance](#architecture-at-a-glance) as a summary of all the pieces.
 - **Already familiar:** [Event Flow](#event-flow) for runtime sequencing, then [Data](#data) and [Architecture Layers](#architecture-layers) for the deep dives into each component.
 
+## Glossary
+
+- **FDM** — Fused Deposition Modeling, the 3D printing process this app targets: melted filament extruded layer by layer.
+- **CAD** — Computer-Aided Design; the 3D model a user starts from.
+- **OCCT** — Open CASCADE Technology, the geometry kernel this app builds on. Everything under `TopoDS_*` (`TopoDS_Shape`, `TopoDS_Face`, etc.) is an OCCT type.
+- **BRep** — Boundary Representation, the way OCCT stores a solid: as its bounding faces/edges/vertices, not a mesh.
+- **NURBS** — Non-Uniform Rational B-Splines, the math behind curved CAD surfaces (as opposed to flat, triangulated ones).
+- **STEP / STL / OBJ / 3MF** — the file formats Import reads and Export writes. STEP preserves curved BRep surfaces; STL/OBJ/3MF are triangle meshes with no curve information (see [Import](#import)).
+- **VBO** — Vertex Buffer Object, an OpenGL buffer holding geometry data on the GPU.
+- **TBB** — Threading Building Blocks, the threading library used for intra-tool parallelism (see [Shared](#shared)).
+- **HiDPI** — high pixel-density displays (e.g. Retina), where physical pixels and logical UI units diverge.
+
 ## Contents
+- [Glossary](#glossary)
 - [Product](#product)
 - [How We Solve It](#how-we-solve-it)
 - [Architecture at a glance](#architecture-at-a-glance)
