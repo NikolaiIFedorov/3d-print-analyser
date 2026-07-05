@@ -4,9 +4,9 @@ What's specific to CAD_OpenGl. General engineering principles (SOLID, DRY, criti
 
 ---
 
-## `docs/architecture.md` is normative
+## `docs/product.md` and `docs/architecture.md` are normative
 
-The general principle ("written design docs are normative") lives in `global_documenting_practices.md` #process. The CAD_OpenGl-specific instantiation: the doc is `docs/architecture.md`, and it covers Invariants, each tool's Algorithm, and Validation's Types & fixes. A change that contradicts one of those needs an explicit decision — fix the code, or revise the doc with reasoning — not a silent override.
+The general principle ("written design docs are normative") lives in `global_documenting_practices.md` #process. The CAD_OpenGl-specific instantiation: `docs/product.md` covers what Temper is, who it's for, and what's explicitly out of scope; `docs/architecture.md` covers Invariants, each tool's Algorithm, and Validation's Types & fixes. A change that contradicts either needs an explicit decision — fix the code, or revise the doc with reasoning — not a silent override.
 
 ---
 
@@ -63,6 +63,7 @@ Main thread owns UI/input/render scheduling/OpenGL calls; each Logic tool gets i
 
 ## Where things live
 
+- `docs/product.md` — normative product scope and intent (see above).
 - `docs/architecture.md` — normative domain decisions and algorithms (see above).
 - `docs/todo/<target>.md` — per-target known issues; check before touching a module, written/refreshed by `/audit`.
 - `session_log.json` — runtime event/state log for debugging (see Debugging above).

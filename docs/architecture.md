@@ -1,8 +1,8 @@
 # Architecture
 
-This document defines the domain model, the reasoning behind each decision, and the algorithms that follow from it. Coding conventions and practices (not domain algorithms) live in `practices/project_practices.md`.
+This document defines the domain model, the reasoning behind each decision, and the algorithms that follow from it. Coding conventions and practices (not domain algorithms) live in `practices/project_practices.md`. What Temper is, who it's for, and how its tools fit into an FDM workflow — the product-level context this doc assumes — lives in [product.md](product.md).
 
-**How to read this doc** — written as one continuous narrative, front to back, for a reader with no prior exposure to this codebase: [Product](#product) and [How We Solve It](#how-we-solve-it) introduce the problem and the tools that solve it, [Architecture at a glance](#architecture-at-a-glance) previews every piece in one screen, and [Event Flow](#event-flow) onward builds up the runtime mechanics, data model, and each layer's responsibilities the same way.
+**How to read this doc** — written as one continuous narrative, front to back, for a reader who already knows what Temper does (see [product.md](product.md)) but not this codebase: [Architecture at a glance](#architecture-at-a-glance) previews every piece in one screen, and [Event Flow](#event-flow) onward builds up the runtime mechanics, data model, and each layer's responsibilities.
 
 Already know this codebase? [Architecture at a glance](#architecture-at-a-glance) doubles as an index — its bullets link straight into the section that covers each piece, so you can jump in without re-reading the narrative build-up.
 
@@ -20,8 +20,6 @@ Already know this codebase? [Architecture at a glance](#architecture-at-a-glance
 
 ## Contents
 - [Glossary](#glossary)
-- [Product](#product)
-- [How We Solve It](#how-we-solve-it)
 - [Architecture at a glance](#architecture-at-a-glance)
 - [Event Flow](#event-flow)
   - [Resizing](#resizing)
@@ -50,88 +48,25 @@ Already know this codebase? [Architecture at a glance](#architecture-at-a-glance
 - [Background](#background)
   - [Rejected approaches](#rejected-approaches)
   - [Future & deferred](#future--deferred)
-  - [Out of scope](#out-of-scope)
   - [Diagram maintenance](#diagram-maintenance)
-
----
-
-## Product
-
-You start with a CAD (Computer-Aided Design) model. Getting it to actually print doesn't happen just because it looks correct on screen — overhangs, warping, thin sections that reheat before they cool, and a footprint too large for the bed are all real failure modes an FDM (Fused Deposition Modeling, the layer-by-layer melted-filament printing process) machine runs into, and none of them show up in a CAD viewport.
-
-**Temper** closes that gap between "I have a CAD model" and "it will print successfully." It's a 3D printing analyzer and toolset for FDM users who print functional parts and iterate often, diagnosing problems grounded in FDM physics and providing tools to fix them. It stays on the model side — not a slicer, doesn't need to know about specific printers.
-
----
-
-## How We Solve It
-
-Here's how these tools fit together in a real workflow. Each section introduces the architecture pieces needed to understand that problem.
-
-### Getting the model in
-
-**Problem:** STL and OBJ files (common mesh export formats) store only flat triangles — you lose any curved surfaces that were in the original design. STEP files preserve those curves as real geometry instead of a mesh, but they need healing (closing gaps, fixing topology) before slicing and analysis.
-
-**Solution:** The **Import** tool handles this. It reads STL, OBJ, STEP, and 3MF (a newer mesh format that can bundle multiple objects and materials in one file) formats. For STEP, curved surfaces come through as real OCCT (Open CASCADE Technology, the geometry kernel this app is built on) shapes — no precision loss. For mesh formats, it reconstructs what flat faces it can (merging coplanar triangles); a future enhancement will attempt to reconstruct NURBS curves (the math behind smooth curved CAD surfaces) from tessellated edges, recovering more precision from mesh inputs. Then **Validation** checks the result and repairs any gaps or orientation issues.
-
-**Architecture introduced:** Import tool.
-
-### The model is too big to print
-
-**Problem:** Your part is larger than the printer's bed. Printing it in pieces requires splitting it intelligently — you want to minimize layer-count increases and stress concentrations at split boundaries.
-
-**Solution:** Analysis's Build Volume detector catches this the same way it catches any other printability problem — comparing the part against the printer's build volume — and links directly to the **Split** tool (not yet implemented), which will divide the model into printable pieces.
-
-**Architecture introduced:** Analysis's Build Volume detector, Split tool.
-
-### Print fails unexpectedly
-
-**Problem:** You print the first version and it fails — unexpected overhang, a thin corner that warps, or a section that's too narrow. These failure modes have physical causes (printer physics, not arbitrary rules), but you need to know where they are on your model to fix them intelligently.
-
-**Solution:** The **Analysis** tool runs a suite of detectors (Overhang, Not Enough Space, Instability, Layer Difference) across your part. Each detector is tied to a specific physical failure mode, so thresholds are tunable rather than magic numbers. It flags *where* on the part each problem is (by face), so you can visualize it in the viewport.
-
-You can also use the **Orient** tool (not yet implemented) to search across candidate bed orientations, reusing Analysis's detectors to find the best print direction automatically.
-
-**Architecture introduced:** Analysis tool, Orient tool.
-
-### Calibration drift
-
-**Problem:** Your printer's output doesn't match CAD dimensions. The part shrinks (uniform), and holes are offset (independent). These two error sources account for nearly all dimensional error in FDM printing.
-
-**Solution:** The **Calibrate** tool takes two simple measurements (a calipers reading on any flat span, and another on a hole) and computes the shrinkage and hole-offset corrections. The future **Tolerance** tool will tag faces as press-fit or smooth-motion-fit, letting you apply different corrections to different surfaces.
-
-**Architecture introduced:** Calibrate tool, Tolerance tool.
-
-### Optimize for weight and print time
-
-**Problem:** You want to reduce filament usage, print time, and weight without weakening the part. The interior material of solid panels (the center, farthest from the edges) carries very little load — it's dead weight.
-
-**Solution:** The **Structure** tool removes interior material and replaces it with diagonal struts. This redirects load from bending (where solid material is inefficient) into axial tension/compression (where material works efficiently), like a truss. Corners stay solid because they brace the structure, and the new geometry is filleted to reduce stress concentration.
-
-**Architecture introduced:** Structure tool.
-
-### Getting the model out
-
-**Problem:** Once every problem Analysis and Structure can catch is fixed, the geometry still has to leave the app in a form a slicer can actually read.
-
-**Solution:** The **Export** tool (not yet implemented) writes the final geometry back out, mirroring Import's supported formats. Since it's the last checkpoint before the file leaves the app, it triggers an Analysis run first — reusing the same diagnostic pass rather than inventing a separate check — so you don't export straight into a problem Analysis already knows how to catch. Whether an unresolved Issue blocks the export or is only an advisory warning isn't settled yet.
-
-**Architecture introduced:** Export tool.
 
 ---
 
 ## Architecture at a glance
 
+- **[Event Flow](#event-flow)** — Main thread sleeps at vsync or a wake-up from a completed job. Handles whichever woke it, checks if state changed, renders if so. No polling, no busy loops.
+- **[Data](#data)** — Defines what each layer owns. A Part owns only its shape (`current`) and undo history; derived state (Issues, picking index, preview slot) is owned by whoever computes it.
 - **[Logic](#logic)** — Tools compute here. Each tool (Import, Analysis, Structure, Calibrate, plus Orient/Split/Tolerance/Export/Cut once built — not yet implemented) has its own isolated worker queue, and can parallelize internally (e.g., Analysis slices across layer ranges in parallel). One tool hanging doesn't freeze others or the UI.
 - **[Scene](#scene)** — Orchestrates all work: submits jobs to tool queues, gates commits behind validation, and is the only layer that writes a Part's canonical state.
 - **[Validation](#validation)** — Every tool's result is checked once at commit. OCCT supplies repair primitives; Validation dispatches the right one. Invalid results don't commit.
 - **[UI](#ui)** — The only layer that listens for input events. Displays results, handles camera/selection, shows progress bars. Read-only except for its own local state (camera, panel layout).
 - **[Rendering](#rendering)** — Purely reactive. Reads the Part's current shape, triangulates if needed (cached), and draws. Vsync gates timing; state-change check gates whether it actually renders.
-- **[Event Flow](#event-flow)** — Main thread sleeps at vsync or a wake-up from a completed job. Handles whichever woke it, checks if state changed, renders if so. No polling, no busy loops.
-- **[Data](#data)** — Defines what each layer owns. A Part owns only its shape (`current`) and undo history; derived state (Issues, picking index, preview slot) is owned by whoever computes it.
 
 ---
 
 ## Event Flow
+
+The diagrams below use several names — Part, Operation, Issue, `current` — as if already defined; [Data](#data) defines each formally right after this section. Treat them as placeholders for now: a Part is the user's model, `current` is its live geometry, an Operation is a modification to it.
 
 Most interactive apps run a continuous loop — read input, update, render, repeat, dozens of times a second, whether or not anything actually changed. This app instead sleeps the main thread until something worth reacting to happens, handles it, and goes back to sleep. Two distinct things can wake it:
 
@@ -300,7 +235,7 @@ The thing the user wants to print. Owns only what defines it:
 **Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
 
 ### Issue
-An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer) — a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool (Build Volume links to Split) — clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues — not Part (see [Invariants](#invariants) for why). Concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
+An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer): a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool — Build Volume links to Split — and clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues, not Part (see [Invariants](#invariants) for why); concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
 
 - On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
 - **Pending** drives the UI progress bar while an Analysis job runs.
@@ -321,7 +256,11 @@ Import is not an Operation — it has no prior `current`/`history` to act on. It
 **Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
 
 ### Settings
-Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope. The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store — everything else about a Part (Issues, in-progress tool state, the rest of `history`) still doesn't survive a restart. Settings' own store, same underlying mechanism either way, is surfaced in two places:
+Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope.
+
+The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store. Everything else about a Part — Issues, in-progress tool state, the rest of `history` — still doesn't survive a restart.
+
+Settings' own store (same underlying mechanism either way) is surfaced in two places:
 - **Global** — most settings, on a general settings surface.
 - **Tool-specific** (Structure's `insetMm`, `wallThicknessMm`, Analysis's `buildVolumeXY`) — on that tool's own panel instead, for better discoverability.
 
@@ -402,12 +341,12 @@ Owns triangulation — reads cached triangulation from OCCT's faces, running `BR
 
 Between a commit and the user re-running Analysis, the Issues cache is empty and marked stale (see [Data → Issue](#issue)) rather than holding entries computed against the previous shape — those entries could reference face values the new shape no longer has, and there's no reliable way to tell which surviving ones are still meaningful. An empty stale cache and a genuinely clean result both show zero Issues, so the UI must surface the distinction (*not yet analyzed* vs. *verified clean*) rather than let one be mistaken for the other.
 
-**Buffer updates.** GPU geometry lives in two global VBOs (one for triangle meshes, one for wireframe lines), each mapped once at startup with `GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT` and double-buffered (two VBOs, or one split in half). Each Part occupies a tracked chunk (vertex and index offsets) within them.
+**Buffer updates.** GPU geometry lives in two global VBOs (Vertex Buffer Objects — GPU-resident geometry buffers; one for triangle meshes, one for wireframe lines), each mapped once at startup with `GL_MAP_PERSISTENT_BIT | GL_MAP_WRITE_BIT | GL_MAP_COHERENT_BIT` and double-buffered (two VBOs, or one split in half). Each Part occupies a tracked chunk (vertex and index offsets) within them.
 
 Packing splits into two phases, the same isolation principle Intra-tool parallelism uses for read-only OCCT work: do the slow part on a private copy nobody else can see, and only touch shared state for the fast, bounded part.
 
 - **Pack** — the background thread builds the new chunk's vertex/index data into its own private staging buffer, plain CPU memory the GPU and render thread never touch. No synchronization needed here at all, for the same reason a read-only OCCT job is safe on a copied handle: nothing else can observe a private copy mid-write.
-- **Publish** — once packing is complete, the background thread copies the staged data into the actual persistent-mapped VBO (Vertex Buffer Object — a GPU-resident geometry buffer) chunk in one bounded bulk copy. This is the only step that needs the fence: `glFenceSync` after draw calls marks when the GPU started reading a half; the main thread checks the fence and signals the background thread (via a condition variable) when that half is safe to overwrite. Because publish is a straight memory copy — no packing logic, no variable-cost work — its duration scales with data size alone, so it isn't the part of the pipeline that risks running long.
+- **Publish** — once packing is complete, the background thread copies the staged data into the actual persistent-mapped VBO chunk in one bounded bulk copy. This is the only step that needs the fence: `glFenceSync` after draw calls marks when the GPU started reading a half; the main thread checks the fence and signals the background thread (via a condition variable) when that half is safe to overwrite. Because publish is a straight memory copy — no packing logic, no variable-cost work — its duration scales with data size alone, so it isn't the part of the pipeline that risks running long.
 - Dirty-tracking: a per-Part dirty set (`geometryDirtySolids`) drives targeted partial updates (only the affected chunk is rewritten); a `geometryDirtyAll` flag triggers a full repack and is set only when the chunk layout changes (a Part added, removed, or its mesh size crosses a boundary).
 
 **Z-fighting.** The actual symptom is chaotic flicker: when two faces are this close in depth, which one wins the depth test can resolve inconsistently per-pixel or per-frame as the camera moves, reading as visual noise rather than a clean edge — not a clean, consistent "one face disappears." This app hits the precondition often: small faces nested inside or coplanar with a larger host face (a classified sub-face, a Structure preview overlay).
@@ -436,8 +375,8 @@ Each tool owns its own queue and worker(s), not only because OCCT can hang (rare
 5. Cancellation is cooperative only: requesting cancellation flips a flag; the running task must check it itself to actually stop early — there's no preemption.
    - On the UI side, the user explicitly collapsing or dismissing a tool panel is the natural cancel trigger. A panel that collapses only because focus moved to a newly-opened tool (see UI → Multiple open panels) is not dismissed — it's still open, just visually shrunk — so it doesn't cancel anything.
    - Cancellation isn't guaranteed instant either way, so the UI must reflect that honestly: show the cancellation as pending until the worker actually stops, rather than assuming immediate success.
-6. Teardown never blocks the main thread: destroying a handle whose result isn't ready yet gets a bounded grace wait (about one frame), then any further wait is deferred to a detached thread instead of blocking — some calls can hang indefinitely, and blocking on cleanup would freeze the UI.
-   - True OCCT hangs are rare (normal slow cases exit at the next cooperative cancellation check); per-tool isolation already limits the blast radius to one queue. Not worth process isolation or `pthread_cancel` unless this becomes a real user-reported issue.
+6. Teardown never blocks the main thread. Destroying a handle whose result isn't ready yet gets a bounded grace wait (about one frame); any wait beyond that is deferred to a detached thread instead. This matters because some calls can hang indefinitely, and blocking on cleanup would freeze the UI.
+   - True OCCT hangs are rare — a normal slow case exits at its next cooperative cancellation check — and per-tool isolation already limits the blast radius to one queue. Not worth process isolation or `pthread_cancel` unless this becomes a real user-reported issue.
 
 **Intra-tool parallelism:**
 
@@ -468,7 +407,7 @@ Not an Operation — it has no prior Part to act on. Constructs a brand-new Part
    - One planar face per triangle (`BRepBuilderAPI_MakeFace`).
    - Sewn into a shell (`BRepBuilderAPI_Sewing`).
    - `ShapeUpgrade_UnifySameDomain` merges adjacent *coplanar* triangles into larger flat faces.
-3. That only recovers flat faces — a tessellated cylinder stays a faceted prism. Reconstructing curved faces (fitting NURBS curves/surfaces to the tessellation) would recover that precision, but no surface-fitting step exists yet — an unimplemented future enhancement, not a current capability (see Background → Future & deferred for why it's still open).
+3. That only recovers flat faces — a tessellated cylinder stays a faceted prism. Reconstructing curved faces (fitting NURBS — Non-Uniform Rational B-Splines, the math behind smooth curved surfaces — curves/surfaces to the tessellation) would recover that precision, but no surface-fitting step exists yet — an unimplemented future enhancement, not a current capability (see Background → Future & deferred for why it's still open).
 
 **Hand-off to Analysis.** A freshly imported Part has no prior Issues cache, so on a successful commit Scene opens the Analysis panel and immediately submits a run for the new Part — a deliberate exception to Analysis's user-triggered rule (see [Analysis](#analysis)). This is safe specifically because Analysis is read-only and diagnostic: there's no Accept gate to skip, unlike a Modifying tool. It doesn't generalize to Structure or Split, which still require an explicit Accept no matter how their panel was opened.
 
@@ -477,7 +416,7 @@ Not an Operation — it has no prior Part to act on. Constructs a brand-new Part
 ### Analysis
 Diagnostic. Runs when the user triggers it — except immediately after Import, which triggers a run automatically as part of handing the new Part off for review (see [Import](#import)) — computing its per-Part Issues cache (see [Data → Issue](#issue)). Full derivation and uncalibrated constants: [analysis-redesign.md](todo/analysis-redesign.md).
 
-**Why:** each detector ties to a specific physical cause in the FDM process. New detectors should be justified the same way, not bolted on ad hoc:
+**Why:** each detector ties to a specific physical cause in the FDM (Fused Deposition Modeling) process — the layer-by-layer melted-filament printing this app targets. New detectors should be justified the same way, not bolted on ad hoc:
 
 - **Overhang** (extrusion) — nozzle pressure/momentum pushes unsupported material sideways. Not gravity-driven — happens upside-down too.
 - **Not Enough Space** (reheat + cornering motion lag) — two independent, compounding mechanisms:
@@ -581,7 +520,7 @@ The carve is always **vertical** — never angled — so it never introduces an 
 2. Offset by `insetMm`: outer boundary inward, hole loops outward (untouched).
 3. Place an anchor at each inset-edge midpoint, carrying that edge's inward normal.
 4. Generate strut candidates between anchor pairs, dropping any that cross a ring boundary (outer or hole) or whose midpoint falls outside the outer ring or inside a hole's void.
-5. Clip each surviving candidate against its own walls' real geometry (an OCCT boolean, not a 2D approximation) — an end that doesn't land squarely on the wall it's connecting to **tapers** narrower than `insetMm/2` instead of being rejected outright, since a tapered strut is still buildable and may be the only option at that anchor. The taper starts as late as possible: find where the strut's centerline crosses the wall's real boundary — the point a zero-width strut would just reach — and only begin narrowing from there, so the strut holds full width for as much of its length as the wall geometry allows rather than tapering gradually over its whole span.
+5. Clip each surviving candidate against its own walls' real geometry (an OCCT boolean, not a 2D approximation). An end that doesn't land squarely on the wall it's connecting to **tapers** narrower than `insetMm/2` instead of being rejected outright — a tapered strut is still buildable, and may be the only option at that anchor. The taper starts as late as possible: find where the strut's centerline crosses the wall's real boundary (the point a zero-width strut would just reach), and only begin narrowing from there. That way the strut holds full width for as much of its length as the wall geometry allows, rather than tapering gradually over its whole span.
 6. Rank valid pairs on four terms:
    - Combined length.
    - Bisector alignment with the edge's inward normal.
@@ -601,7 +540,7 @@ Diagnostic-adjacent. Read-only — never mutates `current`, not an Operation, no
 
 1. User picks two faces: both perpendicular to the build axis (keeps the measurement in-plane, independent of Z calibration) and parallel to each other (a caliper reading only means something between parallel planes).
 2. Classify the pick as **Contour** or **Hole** by topology (does either face touch a hole-inner-edge). Can't mix Contour with Hole — that conflates two distinct, independently-tuned error sources.
-3. Compute the nominal CAD span: perpendicular distance between the two picked planes.
+3. Compute the nominal CAD (Computer-Aided Design) span: perpendicular distance between the two picked planes, as originally modeled.
 4. User measures the print with calipers, enters the value.
 5. Apply the matching correction:
    - **Contour**: `contourScale = nominal / measured` — a ratio, since shrinkage scales proportionally with the part.
@@ -680,6 +619,8 @@ Design decisions that didn't make it in, open work, and explicit non-goals. Not 
 
 Most realistic same-Part tool pairs aren't parallelism candidates anyway: Analysis needs a stable `current` to produce meaningful results so it can't run concurrently with an in-flight Operation, and Calibrate is synchronous/read-only already.
 
+**Explicit dependency/reference graph (Data):** considered maintaining a separate structure tracking relationships between sub-shapes, but `TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex, traversed via `TopExp_Explorer`) already *is* that graph — a parallel system would just be another thing to keep in sync for no added information (see [Data → Part](#part)).
+
 ### Future & deferred
 
 **Future tools** — not designed yet; it'll be a while before either is picked up:
@@ -693,12 +634,6 @@ Most realistic same-Part tool pairs aren't parallelism candidates anyway: Analys
 **Per-tool open items:**
 - **Analysis** — Not Enough Space's cooling threshold and corner-multiplier weight are uncalibrated, pending print experiments. OCCT boolean cost on continuously-changing cross-sections is an open perf risk — profile before picking a fix. See [analysis-redesign.md](todo/analysis-redesign.md).
 - **Import** — a scan-mesh format (PLY) is a candidate addition, not yet confirmed; drop it if it turns out complex, since it's a nice-to-have, not core. Separately, an optional "attempt curve reconstruction" toggle (off by default, recovering only flat faces; on, attempts to fit arcs/curved surfaces from the tessellation) depends on a mesh-to-BRep surface-fitting capability that doesn't exist yet — no confirmed turnkey OCCT solution for it.
-
-### Out of scope
-
-- Printer-specific configuration (would require building a slicer)
-- Suggesting fixes for arbitrary problems (too complex; only Cut addresses size)
-- Dependency reference graphs (replaced by OCCT traversal)
 
 ### Diagram maintenance
 
