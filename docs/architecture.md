@@ -53,7 +53,7 @@ You need something to actually act on the model — read a file in, run a diagno
 
 A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes a Part's canonical state, and the one that hands work to Logic in the first place.
 
-Not every result a tool computes is trustworthy, either — an OCCT boolean can produce a shape that's subtly broken. **[Validation](#validation)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
+Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Validation](#validation)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
 
 You also need to see the model and act on it — pick a face, read a flagged problem, tune a setting. **[UI](#ui)** is the only layer that listens for input, and the only one that decides whether a given input actually matters.
 
@@ -289,7 +289,8 @@ This is justified, not a shortcut — deferring to the next polled frame would s
 Every tool panel needs its required inputs selected before it can do anything — the diagram above calls this the Prerequisites + Selections gate: if something required is still missing, the panel just shows what's needed (required vs. optional) and waits. Once satisfied, what happens next depends on the tool's *shape* — four patterns, each suited to a different kind of tool:
 
 - **Write** — modifies a Part's `current` (its live geometry, see [Data → Part](#part)):
-  - **Modifying** (Structure, future Cut, and Import — which creates a Part instead of modifying one, but follows the same shape) — preview the result, then Cancel or Accept; only Accept actually commits. Accept is disabled while another Operation is already in-flight for that Part: the preview was computed against `current` as it stood at preview time, and if a different Operation commits first, that preview is now stale — accepting it would run the submitted job against the wrong shape and silently discard the in-flight result.
+  - **Modifying** (Structure, future Cut, and Import — which creates a Part instead of modifying one, but follows the same shape) — preview the result, then Cancel or Accept; only Accept actually commits.
+    - Accept is disabled while another Operation is already in-flight for that Part. The preview was computed against `current` as it stood at preview time; if a different Operation commits first, that preview is now stale. Accepting it anyway would run the submitted job against the wrong shape and silently discard the in-flight result.
 - **Read-only** — `current` stays untouched:
   - **Diagnostic** (Analysis) — submits a job to its worker queue, shows a progress bar, and commits its own Issues cache once done (see [Data → Issue](#issue)).
   - **Calculating** (Calibrate) — ends in copyable results instead of an accept step; there's nothing to commit.
@@ -312,7 +313,11 @@ While a long-running Operation (see [Data → Operation](#operation)) is still c
 ### Worker-completion handling
 When an Operation or Import job finishes, Scene checks **success and validity** before committing anything. Failure — whether the algorithm errored outright, or it ran clean but produced an invalid shape that Validation couldn't heal (see [Validation](#validation)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state behind.
 
-On success, Scene commits the new shape as the Part's `current`. If this was an Import, Scene also opens the Analysis panel and submits an Analysis run for the new Part immediately (see [Import](#import)) — the one case where Analysis runs without the user separately triggering it. Otherwise, Analysis exposes its own Issues cache directly rather than handing anything back to Scene (see [Architecture Layers → Logic](#logic) for why Analysis's result path differs from an Operation's), and runs only when the user triggers it. A live-preview-slot update from an in-progress preview job follows this same no-relevance-check path, since it's also Scene-initiated work completing, not user input.
+On success, Scene commits the new shape as the Part's `current`.
+
+- If this was an Import, Scene also opens the Analysis panel and submits an Analysis run for the new Part immediately (see [Import](#import)) — the one case where Analysis runs without the user separately triggering it.
+- Otherwise, Analysis exposes its own Issues cache directly rather than handing anything back to Scene (see [Architecture Layers → Logic](#logic) for why Analysis's result path differs from an Operation's), and runs only when the user triggers it.
+- A live-preview-slot update from an in-progress preview job follows this same no-relevance-check path, since it's also Scene-initiated work completing, not user input.
 
 ---
 
