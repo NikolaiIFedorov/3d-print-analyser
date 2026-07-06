@@ -2,10 +2,6 @@
 
 This document defines the domain model, the reasoning behind each decision, and the algorithms that follow from it. Coding conventions and practices (not domain algorithms) live in `practices/project_practices.md`. What Temper is, who it's for, and how its tools fit into an FDM workflow — the product-level context this doc assumes — lives in [product.md](product.md).
 
-**How to read this doc** — written as one continuous narrative, front to back, for a reader who already knows what Temper does (see [product.md](product.md)) but not this codebase: [Architecture at a glance](#architecture-at-a-glance) previews every piece in one screen, and [Event Flow](#event-flow) onward builds up the runtime mechanics, data model, and each layer's responsibilities.
-
-Already know this codebase? [Architecture at a glance](#architecture-at-a-glance) doubles as an index — its bullets link straight into the section that covers each piece, so you can jump in without re-reading the narrative build-up.
-
 ## Glossary
 
 - **FDM** — Fused Deposition Modeling, the 3D printing process this app targets: melted filament extruded layer by layer.
@@ -21,11 +17,6 @@ Already know this codebase? [Architecture at a glance](#architecture-at-a-glance
 ## Contents
 - [Glossary](#glossary)
 - [Architecture at a glance](#architecture-at-a-glance)
-- [Event Flow](#event-flow)
-  - [Resizing](#resizing)
-  - [Tool panel shapes](#tool-panel-shapes)
-  - [Live preview](#live-preview)
-  - [Worker-completion handling](#worker-completion-handling)
 - [Data](#data)
   - [Session](#session)
   - [Part](#part)
@@ -33,6 +24,11 @@ Already know this codebase? [Architecture at a glance](#architecture-at-a-glance
   - [Operation](#operation)
   - [Settings](#settings)
   - [Invariants](#invariants)
+- [Event Flow](#event-flow)
+  - [Resizing](#resizing)
+  - [Tool panel shapes](#tool-panel-shapes)
+  - [Live preview](#live-preview)
+  - [Worker-completion handling](#worker-completion-handling)
 - [Architecture Layers](#architecture-layers)
   - [Scene](#scene)
   - [Logic](#logic)
@@ -54,19 +50,110 @@ Already know this codebase? [Architecture at a glance](#architecture-at-a-glance
 
 ## Architecture at a glance
 
-- **[Event Flow](#event-flow)** — Main thread sleeps at vsync or a wake-up from a completed job. Handles whichever woke it, checks if state changed, renders if so. No polling, no busy loops.
-- **[Data](#data)** — Defines what each layer owns. A Part owns only its shape (`current`) and undo history; derived state (Issues, picking index, preview slot) is owned by whoever computes it.
-- **[Logic](#logic)** — Tools compute here. Each tool (Import, Analysis, Structure, Calibrate, plus Orient/Split/Tolerance/Export/Cut once built — not yet implemented) has its own isolated worker queue, and can parallelize internally (e.g., Analysis slices across layer ranges in parallel). One tool hanging doesn't freeze others or the UI.
-- **[Scene](#scene)** — Orchestrates all work: submits jobs to tool queues, gates commits behind validation, and is the only layer that writes a Part's canonical state.
-- **[Validation](#validation)** — Every tool's result is checked once at commit. OCCT supplies repair primitives; Validation dispatches the right one. Invalid results don't commit.
-- **[UI](#ui)** — The only layer that listens for input events. Displays results, handles camera/selection, shows progress bars. Read-only except for its own local state (camera, panel layout).
-- **[Rendering](#rendering)** — Purely reactive. Reads the Part's current shape, triangulates if needed (cached), and draws. Vsync gates timing; state-change check gates whether it actually renders.
+You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
+
+A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes a Part's canonical state, and the one that hands work to Logic in the first place.
+
+Not every result a tool computes is trustworthy, either — an OCCT boolean can produce a shape that's subtly broken. **[Validation](#validation)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
+
+You also need to see the model and act on it — pick a face, read a flagged problem, tune a setting. **[UI](#ui)** is the only layer that listens for input, and the only one that decides whether a given input actually matters.
+
+And you need to actually see the geometry. **[Rendering](#rendering)** draws whatever Scene and UI have already settled — it makes no decisions of its own.
+
+None of this can block the main thread while it runs, so each tool's computation happens on its own worker queue, isolated from the others — that's **[Shared](#shared)**.
+
+Finally, all of the above happens in response to something, not on a fixed tick: the main thread sleeps until a user action or a finished job wakes it, handles that one thing, and goes back to sleep. That's **[Event Flow](#event-flow)**.
+
+**[Data](#data)** comes first below, defining the nouns (Part, Operation, Issue) that Event Flow's mechanism runs on; Event Flow follows right after.
+
+The same seven pieces, wired by ownership and hand-off:
+
+```mermaid
+flowchart LR
+    Wake{{"Wake: input or<br/>job completion"}}
+    UI["UI"]
+    Scene["Scene<br/>(owns Part)"]
+    Logic["Logic<br/>(Tools)"]
+    Shared["Shared<br/>(worker queues)"]
+    Validation["Validation"]
+    Rendering["Rendering"]
+
+    Wake --> UI
+    Wake --> Scene
+    UI -- "submits work" --> Scene
+    Scene -- "dispatches to" --> Logic
+    Logic -- "runs on" --> Shared
+    Shared -- "result" --> Validation
+    Validation -- "valid → commits" --> Scene
+    Scene -- "current" --> Rendering
+    Scene -- "current" --> UI
+```
+
+---
+
+## Data
+
+Each entity below is defined by what it owns and nothing more; cross-cutting rules that span more than one entity are gathered in [Invariants](#invariants) at the end instead of being repeated per-entity. [Event Flow](#event-flow) and everything after uses these names — Part, Operation, Issue, `current` — freely.
+
+### Session
+The workspace. Owns one or more Parts, processed independently.
+
+**Why:** the app has to support more than one Part open at once without their state bleeding into each other — a multi-document workspace, not a single-Part assumption baked into Scene itself.
+
+### Part
+The thing the user wants to print. Owns only what defines it:
+- `TopoDS_Shape current` — the live geometry
+- `vector<TopoDS_Shape> history` — undo stack, per-Part (cheap: OCCT shapes share underlying data)
+
+`TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex — a solid decomposed into its constituent faces, edges, and vertices) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
+
+**Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
+
+### Issue
+An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer): a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool — Build Volume links to Split — and clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues, not Part (see [Invariants](#invariants) for why); concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
+
+- On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
+- **Pending** drives the UI progress bar while an Analysis job runs.
+- **Stale** is cleared only once a completed Analysis run repopulates the cache against the new `current`. While stale is true, an empty cache means *not yet analyzed*, not *no problems found* — the UI must show these as distinct states, not collapse them (see [Rendering](#rendering)).
+
+**Why:** a flat pass/fail signal can't drive the UI — Analysis needs to say *where* on the Part each problem is and *what kind*, so a user can click an Issue and have the viewport highlight where it is. Tying it to `TopoDS_Face` values, not pointers, is what makes that mapping survive a shape rebuild.
+
+### Operation
+A modification applied to an *existing* Part (e.g. Structure). Always produces a new `TopoDS_Shape`, never mutates in place. Pushes `current` onto `history` and replaces it with the result. Undo is a pop.
+
+On failure, an Operation reports one standard shape, not invented per-tool:
+- A short, copyable **error code**.
+- A short actionable **message** — what the user can do about it.
+- An optional longer **why**, shown if there's room.
+
+Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
+
+**Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
+
+### Settings
+Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope.
+
+The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store. Everything else about a Part — Issues, in-progress tool state, the rest of `history` — still doesn't survive a restart.
+
+Settings' own store (same underlying mechanism either way) is surfaced in two places:
+- **Global** — most settings, on a general settings surface.
+- **Tool-specific** (Structure's `insetMm`, `wallThicknessMm`, Analysis's `buildVolumeXY`) — on that tool's own panel instead, for better discoverability.
+
+**Why:** the tolerance constant and tool defaults need to survive a restart, but Sessions/Parts don't — there's nothing to "resume" for an in-progress print analysis the way there is for a tuned setting, so only Settings gets a persisted store.
+
+### Invariants
+
+- **Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work.** Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Shared). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
+- A Part's Issues are always defined in Analysis's cache — possibly empty, never unknown, and never a mix of previous-shape and current-shape entries: Scene discards the cache and sets stale on commit, so an empty cache with stale true means *not yet analyzed*, never *previous shape's results*. The stale flag is written only by Scene (on commit) and only cleared by Analysis (on a completed run); Rendering/UI only read it.
+- An Operation always produces a new shape; mutation in place is forbidden.
+- The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
+- Sub-shapes are referenced by value, never by raw pointer — a raw pointer would dangle the moment a shape is rebuilt (see [Part](#part)).
+- Scene is the only layer that writes a Part's canonical state (`current`, `history`) and Settings — not the same claim as "Scene owns all state," per the rule above. UI is the only consumer that's purely read-only everywhere.
+- A Part's `current` is always valid — validated once at commit (see Validation), never re-checked downstream. Anything reading `current` can trust it unconditionally.
 
 ---
 
 ## Event Flow
-
-The diagrams below use several names — Part, Operation, Issue, `current` — as if already defined; [Data](#data) defines each formally right after this section. Treat them as placeholders for now: a Part is the user's model, `current` is its live geometry, an Operation is a modification to it.
 
 Most interactive apps run a continuous loop — read input, update, render, repeat, dozens of times a second, whether or not anything actually changed. This app instead sleeps the main thread until something worth reacting to happens, handles it, and goes back to sleep. Two distinct things can wake it:
 
@@ -213,68 +300,6 @@ While a long-running Operation (see [Data → Operation](#operation)) is still c
 When an Operation or Import job finishes, Scene checks **success and validity** before committing anything. Failure — whether the algorithm errored outright, or it ran clean but produced an invalid shape that Validation couldn't heal (see [Validation](#validation)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state behind.
 
 On success, Scene commits the new shape as the Part's `current`. If this was an Import, Scene also opens the Analysis panel and submits an Analysis run for the new Part immediately (see [Import](#import)) — the one case where Analysis runs without the user separately triggering it. Otherwise, Analysis exposes its own Issues cache directly rather than handing anything back to Scene (see [Architecture Layers → Logic](#logic) for why Analysis's result path differs from an Operation's), and runs only when the user triggers it. A live-preview-slot update from an in-progress preview job follows this same no-relevance-check path, since it's also Scene-initiated work completing, not user input.
-
----
-
-## Data
-
-Event Flow used several names — Part, Operation, Issue, `current` — without fully defining them; here's what each actually is. Each entity below is defined by what it owns and nothing more; cross-cutting rules that span more than one entity are gathered in [Invariants](#invariants) at the end instead of being repeated per-entity.
-
-### Session
-The workspace. Owns one or more Parts, processed independently.
-
-**Why:** the app has to support more than one Part open at once without their state bleeding into each other — a multi-document workspace, not a single-Part assumption baked into Scene itself.
-
-### Part
-The thing the user wants to print. Owns only what defines it:
-- `TopoDS_Shape current` — the live geometry
-- `vector<TopoDS_Shape> history` — undo stack, per-Part (cheap: OCCT shapes share underlying data)
-
-`TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex — a solid decomposed into its constituent faces, edges, and vertices) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
-
-**Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
-
-### Issue
-An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer): a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool — Build Volume links to Split — and clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues, not Part (see [Invariants](#invariants) for why); concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
-
-- On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
-- **Pending** drives the UI progress bar while an Analysis job runs.
-- **Stale** is cleared only once a completed Analysis run repopulates the cache against the new `current`. While stale is true, an empty cache means *not yet analyzed*, not *no problems found* — the UI must show these as distinct states, not collapse them (see [Rendering](#rendering)).
-
-**Why:** a flat pass/fail signal can't drive the UI — Analysis needs to say *where* on the Part each problem is and *what kind*, so a user can click an Issue and have the viewport highlight where it is. Tying it to `TopoDS_Face` values, not pointers, is what makes that mapping survive a shape rebuild.
-
-### Operation
-A modification applied to an *existing* Part (e.g. Structure). Always produces a new `TopoDS_Shape`, never mutates in place. Pushes `current` onto `history` and replaces it with the result. Undo is a pop.
-
-On failure, an Operation reports one standard shape, not invented per-tool:
-- A short, copyable **error code**.
-- A short actionable **message** — what the user can do about it.
-- An optional longer **why**, shown if there's room.
-
-Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
-
-**Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
-
-### Settings
-Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope.
-
-The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store. Everything else about a Part — Issues, in-progress tool state, the rest of `history` — still doesn't survive a restart.
-
-Settings' own store (same underlying mechanism either way) is surfaced in two places:
-- **Global** — most settings, on a general settings surface.
-- **Tool-specific** (Structure's `insetMm`, `wallThicknessMm`, Analysis's `buildVolumeXY`) — on that tool's own panel instead, for better discoverability.
-
-**Why:** the tolerance constant and tool defaults need to survive a restart, but Sessions/Parts don't — there's nothing to "resume" for an in-progress print analysis the way there is for a tuned setting, so only Settings gets a persisted store.
-
-### Invariants
-
-- **Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work.** Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Shared). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
-- A Part's Issues are always defined in Analysis's cache — possibly empty, never unknown, and never a mix of previous-shape and current-shape entries: Scene discards the cache and sets stale on commit, so an empty cache with stale true means *not yet analyzed*, never *previous shape's results*. The stale flag is written only by Scene (on commit) and only cleared by Analysis (on a completed run); Rendering/UI only read it.
-- An Operation always produces a new shape; mutation in place is forbidden.
-- The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
-- Sub-shapes are referenced by value, never by raw pointer — a raw pointer would dangle the moment a shape is rebuilt (see [Part](#part)).
-- Scene is the only layer that writes a Part's canonical state (`current`, `history`) and Settings — not the same claim as "Scene owns all state," per the rule above. UI is the only consumer that's purely read-only everywhere.
-- A Part's `current` is always valid — validated once at commit (see Validation), never re-checked downstream. Anything reading `current` can trust it unconditionally.
 
 ---
 
