@@ -18,7 +18,6 @@ This document defines the domain model, the reasoning behind each decision, and 
 - [Glossary](#glossary)
 - [Architecture at a glance](#architecture-at-a-glance)
 - [Data](#data)
-  - [Session](#session)
   - [Part](#part)
   - [Issue](#issue)
   - [Operation](#operation)
@@ -93,63 +92,77 @@ flowchart LR
 
 ## Data
 
-Each entity below is defined by what it owns and nothing more; cross-cutting rules that span more than one entity are gathered in [Invariants](#invariants) at the end instead of being repeated per-entity. [Event Flow](#event-flow) and everything after uses these names — Part, Operation, Issue, `current` — freely.
+[Event Flow](#event-flow) and everything after uses these names — Part, Operation, Issue, `current` — freely. Each item below is defined by what it owns and nothing more; cross-cutting rules spanning more than one of them are gathered in Invariants at the end instead of being repeated per-item.
 
-### Session
-The workspace. Owns one or more Parts, processed independently.
+- **Session** — the workspace needs to hold more than one model open at once, each independent of the others.
+  - Owns one or more Parts, processed independently — no shared state between them.
+- <a id="part"></a>**Part** — the thing the user wants to print. Owns only what defines it, so there's exactly one place that answers "who owns this":
+  - `TopoDS_Shape current` — the live geometry
+  - `vector<TopoDS_Shape> history` — undo stack, per-Part (cheap: OCCT shapes share underlying data)
+  - `TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex — a solid decomposed into its constituent faces, edges, and vertices) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
+  - **Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
+  - ```mermaid
+    flowchart LR
+        Part --> current["current<br/>(TopoDS_Shape)"]
+        Part --> history["history<br/>(undo stack)"]
+        current --> Hierarchy["Solid → Shell → Face →<br/>Wire → Edge → Vertex"]
+    ```
+- <a id="issue"></a>**Issue** — a Part on its own can't say whether it's printable, so something needs to record where its specific problems are: Analysis's own record of a Part's problems, tied to real geometry (`TopoDS_Face` values) so it survives a rebuild.
+  - Located on a Part by `TopoDS_Face` value, never a raw pointer: a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one.
+  - Can carry a link to another tool — Build Volume links to Split — and clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport.
+  - Owned by Analysis, a Logic tool, not by Part (see Invariants for why); kept as a per-Part cache: a list of Issues, plus a pending flag and a stale flag.
+    - On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
+    - **Pending** drives the UI progress bar while an Analysis job runs.
+    - **Stale** is cleared only once a completed Analysis run repopulates the cache against the new `current`. While stale is true, an empty cache means *not yet analyzed*, not *no problems found* — the UI must show these as distinct states, not collapse them (see Rendering).
+  - ```mermaid
+    stateDiagram-v2
+        Stale --> Pending: Analysis run submitted
+        Pending --> Fresh: run completes, cache repopulated
+        Fresh --> Stale: Scene commits (cache discarded)
+    ```
+- <a id="operation"></a>**Operation** — a modification applied to an *existing* Part (e.g. Structure). Never mutates in place: pushes `current` onto `history` and replaces it with a new `TopoDS_Shape`, so undo is a pop.
+  - On failure, reports one standard shape, not invented per-tool: a short, copyable **error code**; a short actionable **message** — what the user can do about it; an optional longer **why**, shown if there's room.
+  - Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
+  - **Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
+  - ```mermaid
+    flowchart LR
+        subgraph Before
+        C1["current: A"]
+        H1["history: [...]"]
+        end
+        subgraph After
+        C2["current: B"]
+        H2["history: [..., A]"]
+        end
+        Before -- "Operation produces B" --> After
+    ```
+- <a id="settings"></a>**Settings** — persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store.
+  - Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope.
+  - Surfaced in two places: a general settings surface for global values, each tool's own panel for tool-specific ones (`insetMm`, `buildVolumeXY`, etc.) instead, for better discoverability.
+  - The one deliberate exception: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store. Everything else about a Part — Issues, in-progress tool state, the rest of `history` — still doesn't survive a restart.
+  - ```mermaid
+    flowchart LR
+        Global["General settings<br/>surface"] --> Store["Settings store<br/>(persisted)"]
+        ToolPanel["Tool's own panel"] --> Store
+        Export -. "embeds one history<br/>entry (bypasses store)" .-> File["Exported file"]
+    ```
+- <a id="invariants"></a>**Invariants** — cross-cutting rules spanning more than one item above, gathered here instead of being repeated per-item.
+  - Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work. Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Shared). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
+  - A Part's Issues are always defined in Analysis's cache — possibly empty, never unknown, and never a mix of previous-shape and current-shape entries: Scene discards the cache and sets stale on commit, so an empty cache with stale true means *not yet analyzed*, never *previous shape's results*. The stale flag is written only by Scene (on commit) and only cleared by Analysis (on a completed run); Rendering/UI only read it.
+  - An Operation always produces a new shape; mutation in place is forbidden.
+  - The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
+  - Sub-shapes are referenced by value, never by raw pointer — a raw pointer would dangle the moment a shape is rebuilt (see Part).
+  - Scene is the only layer that writes a Part's canonical state (`current`, `history`) and Settings — not the same claim as "Scene owns all state," per the rule above. UI is the only consumer that's purely read-only everywhere.
+  - A Part's `current` is always valid — validated once at commit (see Validation), never re-checked downstream. Anything reading `current` can trust it unconditionally.
 
-**Why:** the app has to support more than one Part open at once without their state bleeding into each other — a multi-document workspace, not a single-Part assumption baked into Scene itself.
+Wired by ownership:
 
-### Part
-The thing the user wants to print. Owns only what defines it:
-- `TopoDS_Shape current` — the live geometry
-- `vector<TopoDS_Shape> history` — undo stack, per-Part (cheap: OCCT shapes share underlying data)
-
-`TopoDS_Shape`'s own hierarchy (Solid → Shell → Face → Wire → Edge → Vertex — a solid decomposed into its constituent faces, edges, and vertices) *is* the dependency graph for what's inside `current` — there's no separate reference system to maintain. Sub-shape relationships are traversed via `TopExp_Explorer` on demand, and sub-shapes are identified by `TopoDS_Face` value comparison, never raw pointers — pointers go stale the moment a shape is rebuilt.
-
-**Why:** keeping Part this narrow is what makes a single, settled set of ownership rules possible — if Part also held Issues, the picking index, or any other derived state, "who owns this" would need re-deriving per consumer instead of being settled once (see Invariants).
-
-### Issue
-An Issue is a specific problem Analysis found, located on a Part by `TopoDS_Face` value (never a raw pointer): a single face for most detectors, a chain of faces for Layer Difference's vertical ribbon, or no face at all for Build Volume, which is a whole-Part problem rather than a local one. An Issue can also carry a link to another tool — Build Volume links to Split — and clicking it opens that tool's panel directly, instead of (or alongside) highlighting geometry in the viewport. Analysis, a Logic tool, owns Issues, not Part (see [Invariants](#invariants) for why); concretely, this is a per-Part cache: a list of Issues, plus a pending flag and a stale flag:
-
-- On commit, Scene discards the cache's entries for that Part and sets **stale** — never keeps entries computed against a shape that no longer exists, since some would already reference `TopoDS_Face` values that no longer resolve to anything.
-- **Pending** drives the UI progress bar while an Analysis job runs.
-- **Stale** is cleared only once a completed Analysis run repopulates the cache against the new `current`. While stale is true, an empty cache means *not yet analyzed*, not *no problems found* — the UI must show these as distinct states, not collapse them (see [Rendering](#rendering)).
-
-**Why:** a flat pass/fail signal can't drive the UI — Analysis needs to say *where* on the Part each problem is and *what kind*, so a user can click an Issue and have the viewport highlight where it is. Tying it to `TopoDS_Face` values, not pointers, is what makes that mapping survive a shape rebuild.
-
-### Operation
-A modification applied to an *existing* Part (e.g. Structure). Always produces a new `TopoDS_Shape`, never mutates in place. Pushes `current` onto `history` and replaces it with the result. Undo is a pop.
-
-On failure, an Operation reports one standard shape, not invented per-tool:
-- A short, copyable **error code**.
-- A short actionable **message** — what the user can do about it.
-- An optional longer **why**, shown if there's room.
-
-Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
-
-**Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
-
-### Settings
-Persisted constants the user can tune (the tolerance constant, default tool parameters, etc.) — the only thing in the app that persists across restarts through a dedicated store. Sessions/Parts still have no general project-file format, since there's no need for one yet at this app's current scope.
-
-The one deliberate exception is narrow: Export's embedded-original mechanism (see Background → Future & deferred) persists a single `history` entry inside the exported file itself, not through Settings' store. Everything else about a Part — Issues, in-progress tool state, the rest of `history` — still doesn't survive a restart.
-
-Settings' own store (same underlying mechanism either way) is surfaced in two places:
-- **Global** — most settings, on a general settings surface.
-- **Tool-specific** (Structure's `insetMm`, `wallThicknessMm`, Analysis's `buildVolumeXY`) — on that tool's own panel instead, for better discoverability.
-
-**Why:** the tolerance constant and tool defaults need to survive a restart, but Sessions/Parts don't — there's nothing to "resume" for an in-progress print analysis the way there is for a tuned setting, so only Settings gets a persisted store.
-
-### Invariants
-
-- **Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work.** Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Shared). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
-- A Part's Issues are always defined in Analysis's cache — possibly empty, never unknown, and never a mix of previous-shape and current-shape entries: Scene discards the cache and sets stale on commit, so an empty cache with stale true means *not yet analyzed*, never *previous shape's results*. The stale flag is written only by Scene (on commit) and only cleared by Analysis (on a completed run); Rendering/UI only read it.
-- An Operation always produces a new shape; mutation in place is forbidden.
-- The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
-- Sub-shapes are referenced by value, never by raw pointer — a raw pointer would dangle the moment a shape is rebuilt (see [Part](#part)).
-- Scene is the only layer that writes a Part's canonical state (`current`, `history`) and Settings — not the same claim as "Scene owns all state," per the rule above. UI is the only consumer that's purely read-only everywhere.
-- A Part's `current` is always valid — validated once at commit (see Validation), never re-checked downstream. Anything reading `current` can trust it unconditionally.
+```mermaid
+flowchart LR
+    Session["Session"] -- "owns" --> Part["Part<br/>(current, history)"]
+    Operation["Operation"] -- "replaces current on" --> Part
+    Part -. "located by<br/>TopoDS_Face" .-> Issue["Issue<br/>(owned by Analysis)"]
+```
 
 ---
 
@@ -182,7 +195,7 @@ flowchart LR
 
 Two wake sources, each handled, then one shared convergence check before render. Everything below is what "handle the user-input event" and "handle the completed worker job" actually dispatch to — the same loop, every branch:
 
-*This diagram (and four others in this doc) also renders as a static image, [architecture-event-flow.png](architecture-event-flow.png), for viewers without live Mermaid — see [Diagram maintenance](#diagram-maintenance) in Background for what that image is and how to regenerate it after an edit.*
+*This diagram (and five others in this doc) also renders as a static image, [architecture-event-flow.png](architecture-event-flow.png), for viewers without live Mermaid — see [Diagram maintenance](#diagram-maintenance) in Background for what that image is and how to regenerate it after an edit.*
 
 ```mermaid
 flowchart TD
@@ -662,14 +675,15 @@ Most realistic same-Part tool pairs aren't parallelism candidates anyway: Analys
 
 ### Diagram maintenance
 
-Each Mermaid block in this doc (Event Flow's overview, Event Flow's detailed loop, Architecture at a glance's overview, Analysis's algorithm, and Validation's) is its own source of truth, kept separately editable. [architecture-event-flow.png](architecture-event-flow.png) is one combined generated snapshot of all five, for viewers that don't render Mermaid live — not five separate files, so there's one image to find.
+Each Mermaid block in this doc (Event Flow's overview, Event Flow's detailed loop, Architecture at a glance's overview, Data's overview, Analysis's algorithm, and Validation's) is its own source of truth, kept separately editable. [architecture-event-flow.png](architecture-event-flow.png) is one combined generated snapshot of all six, for viewers that don't render Mermaid live — not six separate files, so there's one image to find.
 
-- The other four diagrams render off to the side of the main loop, each in its own labeled box — none graph-connected to each other.
+- The other five diagrams render off to the side of the main loop, each in its own labeled box — none graph-connected to each other.
 - Analysis's diagram includes its detectors' internal steps directly inside each detector's box — deliberately not split into a second diagram, since that split read as "missing" rather than "more detail available" to a reader without the surrounding context.
+- Data's four per-item diagrams (Part, Issue, Operation, Settings) are a deliberate exception, not part of this six: each is small, embedded inside its own list item rather than standalone, and stays Mermaid-only — folding four more boxes into the combined layout wouldn't scale the "beside the main loop" approach cleanly, and a reader without live Mermaid still gets the full fact in the prose right above each one.
 
-**Regenerate after editing any of the five:**
+**Regenerate after editing any of the six:**
 
-1. Extract each block, wrap the other four in labeled subgraphs nested inside one outer `Side` subgraph, link `Main ~~~ Side` (an invisible Mermaid edge — layout hint only, draws nothing) so the renderer places them beside the main loop instead of stacking everything vertically.
+1. Extract each block, wrap the other five in labeled subgraphs nested inside one outer `Side` subgraph, link `Main ~~~ Side` (an invisible Mermaid edge — layout hint only, draws nothing) so the renderer places them beside the main loop instead of stacking everything vertically.
 2. Render the combined source once: `npx -y @mermaid-js/mermaid-cli -i <combined .mmd> -o architecture-event-flow.png -b white -w 7000 -s 2`.
 3. High resolution so it stays readable when zoomed; if your viewer always shrinks images to a fixed thumbnail, open the file directly rather than relying on an inline preview.
 
