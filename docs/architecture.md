@@ -11,7 +11,7 @@ This document defines the domain model, the reasoning behind each decision, and 
 - **NURBS** — Non-Uniform Rational B-Splines, the math behind curved CAD surfaces (as opposed to flat, triangulated ones).
 - **STEP / STL / OBJ / 3MF** — the file formats Import reads and Export writes. STEP preserves curved BRep surfaces; STL/OBJ/3MF are triangle meshes with no curve information (see [Import](#import)).
 - **VBO** — Vertex Buffer Object, an OpenGL buffer holding geometry data on the GPU.
-- **TBB** — Threading Building Blocks, the threading library used for intra-tool parallelism (see [Shared](#shared)).
+- **TBB** — Threading Building Blocks, the threading library used for intra-tool parallelism (see [Concurrency](#concurrency)).
 - **HiDPI** — high pixel-density displays (e.g. Retina), where physical pixels and logical UI units diverge.
 
 ## Contents
@@ -33,7 +33,7 @@ This document defines the domain model, the reasoning behind each decision, and 
   - [Logic](#logic)
   - [UI](#ui)
   - [Rendering](#rendering)
-  - [Shared](#shared)
+  - [Concurrency](#concurrency)
 - [Tools](#tools)
   - [Import](#import)
   - [Analysis](#analysis)
@@ -49,6 +49,29 @@ This document defines the domain model, the reasoning behind each decision, and 
 
 ## Architecture at a glance
 
+Seven pieces, wired by ownership and hand-off:
+
+```mermaid
+flowchart LR
+    Wake{{"Wake: input or<br/>job completion"}}
+    UI["UI"]
+    Scene["Scene<br/>(owns Part)"]
+    Logic["Logic<br/>(Tools)"]
+    Concurrency["Concurrency<br/>(worker queues)"]
+    Validation["Validation"]
+    Rendering["Rendering"]
+
+    Wake --> UI
+    Wake --> Scene
+    UI -- "submits work" --> Scene
+    Scene -- "dispatches to" --> Logic
+    Logic -- "runs on" --> Concurrency
+    Concurrency -- "result" --> Validation
+    Validation -- "valid → commits" --> Scene
+    Scene -- "current" --> Rendering
+    Scene -- "current" --> UI
+```
+
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
 
 A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes a Part's canonical state, and the one that hands work to Logic in the first place.
@@ -59,34 +82,11 @@ You also need to see the model and act on it — pick a face, read a flagged pro
 
 And you need to actually see the geometry. **[Rendering](#rendering)** draws whatever Scene and UI have already settled — it makes no decisions of its own.
 
-None of this can block the main thread while it runs, so each tool's computation happens on its own worker queue, isolated from the others — that's **[Shared](#shared)**.
+None of this can block the main thread while it runs, so each tool's computation happens on its own worker queue, isolated from the others — that's **[Concurrency](#concurrency)**.
 
 Finally, all of the above happens in response to something, not on a fixed tick: the main thread sleeps until a user action or a finished job wakes it, handles that one thing, and goes back to sleep. That's **[Event Flow](#event-flow)**.
 
 **[Data](#data)** comes first below, defining the nouns (Part, Operation, Issue) that Event Flow's mechanism runs on; Event Flow follows right after.
-
-The same seven pieces, wired by ownership and hand-off:
-
-```mermaid
-flowchart LR
-    Wake{{"Wake: input or<br/>job completion"}}
-    UI["UI"]
-    Scene["Scene<br/>(owns Part)"]
-    Logic["Logic<br/>(Tools)"]
-    Shared["Shared<br/>(worker queues)"]
-    Validation["Validation"]
-    Rendering["Rendering"]
-
-    Wake --> UI
-    Wake --> Scene
-    UI -- "submits work" --> Scene
-    Scene -- "dispatches to" --> Logic
-    Logic -- "runs on" --> Shared
-    Shared -- "result" --> Validation
-    Validation -- "valid → commits" --> Scene
-    Scene -- "current" --> Rendering
-    Scene -- "current" --> UI
-```
 
 ---
 
@@ -147,7 +147,7 @@ flowchart LR
         Export -. "embeds one history<br/>entry (bypasses store)" .-> File["Exported file"]
     ```
 - <a id="invariants"></a>**Invariants** — cross-cutting rules spanning more than one item above, gathered here instead of being repeated per-item.
-  - Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work. Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Shared). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
+  - Derived state is owned by whoever computes it — not by Part, and not by Scene just because Scene triggered the work. Part owns only what defines it (`current`, `history`). This covers Issues (Analysis), the picking index (Rendering), and the live-preview slot (Concurrency). A lookup keyed by Part identity costs a negligible hash-map access regardless of which side of this rule it lives on, so this is purely an ownership rule, not a performance one.
   - A Part's Issues are always defined in Analysis's cache — possibly empty, never unknown, and never a mix of previous-shape and current-shape entries: Scene discards the cache and sets stale on commit, so an empty cache with stale true means *not yet analyzed*, never *previous shape's results*. The stale flag is written only by Scene (on commit) and only cleared by Analysis (on a completed run); Rendering/UI only read it.
   - An Operation always produces a new shape; mutation in place is forbidden.
   - The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
@@ -228,18 +228,18 @@ flowchart TD
     Missing --> Converge
     SatisfiedQ -- "yes" --> ToolShape{"Tool shape?"}
 
-    ToolShape -- "modifying (Import,<br/>Structure, Cut)" --> SubmitPreview["Submit/update preview job to<br/>Shared, debounced; shows last<br/>cached preview meanwhile"]
+    ToolShape -- "modifying (Import,<br/>Structure, Cut)" --> SubmitPreview["Submit/update preview job to<br/>Concurrency, debounced; shows last<br/>cached preview meanwhile"]
     SubmitPreview --> AcceptCancelQ{"Accept or Cancel?"}
     AcceptCancelQ -- "cancel" --> Discard["Discard preview"]
     Discard --> Converge
-    AcceptCancelQ -- "accept" --> SubmitOp["Scene submits Operation job to<br/>Shared, runs async; shows progress<br/>bar via checkpoint/phase callbacks"]
+    AcceptCancelQ -- "accept" --> SubmitOp["Scene submits Operation job to<br/>Concurrency, runs async; shows progress<br/>bar via checkpoint/phase callbacks"]
     SubmitOp --> Converge
 
     ToolShape -- "calculating (Calibrate)" --> ComputeSync["Compute synchronously —<br/>cheap geometry math,<br/>no worker thread needed"]
     ComputeSync --> ShowResults["Show copyable results"]
     ShowResults --> Converge
 
-    ToolShape -- "diagnostic (Analysis)" --> SubmitAnalysisJob["Submit Analysis job to Shared;<br/>shows progress bar while running"]
+    ToolShape -- "diagnostic (Analysis)" --> SubmitAnalysisJob["Submit Analysis job to Concurrency;<br/>shows progress bar while running"]
     SubmitAnalysisJob --> Converge
 
     ToolShape -- "hybrid (Orient)" --> SubmitSweep["Submit orientation-sweep job;<br/>reuses Analysis's detectors across<br/>candidate bed orientations"]
@@ -301,9 +301,9 @@ A settings change isn't part of this classification at all — it skips the gate
 ### Live preview
 While a long-running Operation (see [Data → Operation](#operation)) is still computing, what should the viewport show in the meantime? Two different answers were considered.
 
-**Phase-level snapshots** — showing the shape as of the last completed checkpoint while the next phase computes — work well: a checkpointed operation (one broken into stages with a real, valid shape at each stage boundary — Structure's carve is built this way) produces a genuine intermediate `TopoDS_Shape` at each phase boundary. OCCT shapes are cheap to copy (a handle increment, not a deep copy — see [Shared → Intra-tool parallelism](#shared)), so handing one back to the main thread mid-operation costs almost nothing.
+**Phase-level snapshots** — showing the shape as of the last completed checkpoint while the next phase computes — work well: a checkpointed operation (one broken into stages with a real, valid shape at each stage boundary — Structure's carve is built this way) produces a genuine intermediate `TopoDS_Shape` at each phase boundary. OCCT shapes are cheap to copy (a handle increment, not a deep copy — see [Concurrency → Intra-tool parallelism](#concurrency)), so handing one back to the main thread mid-operation costs almost nothing.
 
-- This needs one small addition to Shared: a future (the usual way a worker hands back a result) only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases instead. Shared owns that slot (see Invariants); Scene/Rendering only read it.
+- This needs one small addition to Concurrency: a future (the usual way a worker hands back a result) only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases instead. Concurrency owns that slot (see Invariants); Scene/Rendering only read it.
 - The slot is protected by a mutex — the worker holds it briefly to write a new shape handle at each phase boundary; the render thread holds it briefly to copy the handle once per frame. Contention is negligible since writes happen only at phase boundaries.
 
 **Continuous frame-by-frame animation** of a single OCCT call in progress isn't achievable on any graphics API: an OCCT boolean or fillet call is an atomic black box with no mid-call hook — there's no valid shape to expose until the call returns, because the shape doesn't exist in any partial form before then. This isn't a rendering limitation waiting to be solved; the data to render simply isn't there yet.
@@ -323,12 +323,12 @@ On success, Scene commits the new shape as the Part's `current`.
 
 ## Architecture Layers
 
-Event Flow described *when* things happen; this section describes *who* does each part of the work. The app splits into five layers, each with one clear job and one clear boundary on what it's allowed to touch — Scene orchestrates, Logic computes, UI listens and displays, Rendering draws, and Shared runs the actual worker threads underneath all of them.
+Event Flow described *when* things happen; this section describes *who* does each part of the work. The app splits into five layers, each with one clear job and one clear boundary on what it's allowed to touch — Scene orchestrates, Logic computes, UI listens and displays, Rendering draws, and Concurrency runs the actual worker threads underneath all of them.
 
 ### Scene
 Owns Session and the operation queue. The only layer that writes to a Part's canonical state (`current`/`history`) — Part itself holds that data (see [Data → Part](#part)), Scene is the sole gatekeeper for changing it.
 
-**Why:** orchestrates, doesn't compute — submits Logic tools' work to Shared's worker thread and commits what comes back onto a Part, without taking ownership of what a tool produces along the way (see Logic). Keeps "deciding what happens to a Part" separate from "computing it."
+**Why:** orchestrates, doesn't compute — submits Logic tools' work to Concurrency's worker thread and commits what comes back onto a Part, without taking ownership of what a tool produces along the way (see Logic). Keeps "deciding what happens to a Part" separate from "computing it."
 
 Also owns the **operation queue** — pending/in-progress Logic work on the worker thread. UI submits to it; rendering just reads a busy flag.
 
@@ -339,7 +339,7 @@ Uses the **tolerance constant** (owned/persisted by Settings, default grounded i
 ### Logic
 Owns each tool's own domain computation and any tool-specific derived cache — Analysis's Issues, Structure's carve algorithm, Calibrate's correction formulas, Import's facet/sew/unify pipeline. This is where `src/logic/` (Analysis, Structure, Calibrate, Import, GeometryOps) actually runs.
 
-**Why a separate layer:** distinct from Scene, which orchestrates but doesn't compute. Scene triggers Logic running and invokes it via Shared's worker thread, but that doesn't make them the same layer — what happens to a tool's result still depends on the tool:
+**Why a separate layer:** distinct from Scene, which orchestrates but doesn't compute. Scene triggers Logic running and invokes it via Concurrency's worker thread, but that doesn't make them the same layer — what happens to a tool's result still depends on the tool:
 - **Operations / Import** — hand a new shape back for Scene to commit.
 - **Analysis** — exposes its Issues cache directly; nothing handed back to Scene.
 - **Calibrate** — results are just read by UI; nothing committed at all.
@@ -372,7 +372,7 @@ Tool panels split into modifying/calculating/hybrid shapes, with settings change
 
 **Multiple open panels.** A tool can open another tool directly — Import opens Analysis on completion, a Build Volume Issue opens Split (see Tools → Analysis) — so more than one tool panel can be open at once. Rather than a second, parallel layout system for stacking panels in a column, this reuses the collapse mechanism Sizing already has: opening a tool this way focuses it (full space) and collapses whichever panel had focus before, to that panel's own defined collapse state — a breadcrumb trail back through the chain (Import → Analysis → Split), not a fixed two-panel limit.
 
-Losing focus this way is not the same as being dismissed: a panel collapsed only because a chain-link opened another tool is still open, just visually shrunk, so any in-flight work it's tracking keeps running undisturbed (see Shared's cancellation trigger).
+Losing focus this way is not the same as being dismissed: a panel collapsed only because a chain-link opened another tool is still open, just visually shrunk, so any in-flight work it's tracking keeps running undisturbed (see Concurrency's cancellation trigger).
 
 ### Rendering
 Purely reactive: no logic, no decisions, just reflects state Scene/UI already settled. Two separate gates, both required:
@@ -402,8 +402,8 @@ The fix: when two faces are within the tolerance constant's depth range of each 
 
 The tolerance grid is culled unless it's actually resolvable: below roughly one line per two screen pixels (the Nyquist limit for a line pattern), it reads as aliasing noise, not a scale reference. It only draws once the camera is zoomed in close enough to clear that threshold — in practice, far past the zoom level where the bed grid itself is still legible — so it needs no separate logic to track what the user's looking at; the visibility check alone puts it wherever they've zoomed in.
 
-### Shared
-Shared is what actually runs Logic's computations — every "submit a job" mentioned above ends up here. Logic work runs on worker threads, isolated **per tool** — not one shared pool. The main thread owns UI and rendering and never blocks.
+### Concurrency
+Concurrency is what actually runs Logic's computations — every "submit a job" mentioned above ends up here. Logic work runs on worker threads, isolated **per tool** — not one shared pool. The main thread owns UI and rendering and never blocks.
 
 Each tool owns its own queue and worker(s), not only because OCCT can hang (rare — effectively a bug on OCCT's own side when it happens), but because a tool's own algorithm can too — a bug or pathological case in one tool's code must not be able to starve another tool's queue. Structure's carve runs on its own isolated runner precisely for this reason: a stuck case there would otherwise starve Import/Analysis's shared queue, a real precedent, not a hypothetical one. This generalizes that pattern to every tool instead of leaving it a one-off special case.
 
@@ -655,7 +655,7 @@ Design decisions that didn't make it in, open work, and explicit non-goals. Not 
 
 **Elephant's foot correction (Calibrate):** a third correction, alongside Contour and Hole, was considered and dropped. It needs a genuinely different pick interaction (two *edges* on one cap, vs. two *faces* for Contour/Hole — a structurally separate interaction model, not a UI variation), and unlike Contour/Hole error it's fixable after the fact via post-processing, so it wasn't worth the added interaction complexity.
 
-**Concurrent per-tool runs on one Part (Shared):** considered running two tools concurrently on one Part's disjoint faces, if each can prove it never touches the other's faces. Doesn't hold up for two reasons:
+**Concurrent per-tool runs on one Part (Concurrency):** considered running two tools concurrently on one Part's disjoint faces, if each can prove it never touches the other's faces. Doesn't hold up for two reasons:
 
 - OCCT's coplanar-merge/topology-rebuild steps can touch neighboring faces even when a carve's intent is local, so disjointness is hard to prove in the first place.
 - Even if proven, two independently-computed results still need merging back into one `current` afterward, which OCCT has no general primitive for.

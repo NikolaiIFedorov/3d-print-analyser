@@ -1,19 +1,26 @@
 # Product
 
 ## Contents
+- [Overview](#overview)
 - [Printing without Temper](#printing-without-temper)
 - [Printing with Temper](#printing-with-temper)
-- [Summary](#summary)
+- [Out of scope](#out-of-scope)
 
 ---
+
+## Overview
+
+Temper is for FDM users who print functional parts and iterate often — where "looks right in CAD" isn't the same as "will print successfully." It diagnoses printability problems from their actual physical cause, locates them on the model, and provides tools to fix or optimize before slicing.
+
+It stays on the model side only: it isn't a slicer, and doesn't need to know about your specific printer.
 
 ## Printing without Temper
 
 You start with a CAD (Computer-Aided Design) model — a 3D design built from precise curved surfaces (NURBS — Non-Uniform Rational B-Splines, the math behind those curves), not flat approximations.
 
-To print it, you export the model to a format your slicer can read. The slicer is separate software that turns a 3D model into the layer-by-layer instructions an FDM (Fused Deposition Modeling) printer follows — melted filament extruded one layer at a time.
+To print it, you export the model to a format your slicer can read — software that turns a 3D model into the layer-by-layer instructions an FDM (Fused Deposition Modeling) printer follows, melted filament extruded one layer at a time.
 
-Common export formats are STL, OBJ, and 3MF, all of which store the model as flat triangles, discarding whatever curves the CAD model actually had. STEP is the exception: it preserves the real curved surfaces as BRep (Boundary Representation — a solid stored as its bounding faces/edges/vertices, not a mesh), though the slicer still triangulates it before slicing.
+Common export formats are STL, OBJ, and 3MF — these remain the most universally supported by slicers, even though all three store the model as flat triangles, discarding whatever curves the CAD model actually had. STEP is the exception: it preserves the real curved surfaces as BRep (Boundary Representation — a solid stored as its bounding faces/edges/vertices, not a mesh), though the slicer still triangulates it before slicing, and not every slicer handles it as reliably as the mesh formats.
 
 Then you print, and problems can show up that were never visible in the CAD viewport:
 
@@ -21,9 +28,10 @@ Then you print, and problems can show up that were never visible in the CAD view
 - **Small, tightly-looped sections** warp or blob, because the nozzle loops back before that plastic has had time to cool.
 - **Sharp corners** over-extrude slightly, because the nozzle decelerates into the corner faster than the extrusion rate compensates for.
 - **Tall, thin features** wobble during printing or snap under load later, the way a thin column buckles before a thick one.
-- **The part shrinks unevenly as it cools** and drifts off its CAD dimensions, and mating holes come out mis-sized independently of that shrinkage.
+- **The part shrinks unevenly as it cools** and drifts off its CAD dimensions.
+- **Mating holes come out mis-sized**, independently of that overall shrinkage.
 - **A part larger than the printer's bed** doesn't fit and needs to be split into pieces first.
-- Solid interior material burns extra filament and print time for little structural benefit.
+- **Solid interior material** burns extra filament and print time for little structural benefit.
 
 None of this shows up until the print finishes — or fails partway through — and fixing it usually means guessing at a parameter, reprinting, and checking again.
 
@@ -37,17 +45,17 @@ Whatever comes in gets healed — small gaps or orientation issues are repaired 
 
 **Catching problems before they print.** Once the model is in, Analysis runs a set of checks, each tied to one of the physical failure modes above:
 
-- **Overhang** flags unsupported regions.
-- **Not Enough Space** flags loops and corners that will reheat or over-extrude.
-- **Instability** flags tall, thin sections at risk of toppling.
-- **Layer Difference** flags where warping-driven shrinkage is large enough to matter.
-- **Build Volume** flags a part that's simply too big for the bed, and links directly to Split (a planned tool) to divide it into printable pieces.
+- The **Overhang** check flags unsupported regions.
+- The **Not Enough Space** check flags loops and corners that will reheat or over-extrude.
+- The **Instability** check flags tall, thin sections at risk of toppling.
+- The **Layer Difference** check flags where warping-driven shrinkage is large enough to matter.
+- The **Build Volume** check flags a part that's simply too big for the bed, and links directly to Split (a planned tool) to divide it into printable pieces.
 
 Every flagged problem points at *where* on the part it is, so you can see it directly instead of just being told something's wrong.
 
 A planned Orient tool will search across bed orientations and recommend whichever one minimizes these problems automatically.
 
-**Fixing dimensional drift.** Calibrate takes two caliper measurements from a test print — one on a flat span, one on a hole — and computes two independent corrections: a shrinkage scale factor and a hole-specific offset, since holes and flat spans drift differently.
+**Fixing dimensional drift.** Unlike Analysis's checks, dimensional drift can't be caught automatically — it depends on your printer, filament, and environment, not just the model's geometry, so it needs a measurement from an actual print. Calibrate takes two caliper measurements from a test print — one on a flat span, one on a hole — and computes two independent corrections: a shrinkage scale factor and a hole-specific offset, since holes and flat spans drift differently.
 
 A planned Tolerance tool will extend this further, letting you tag faces as press-fit or smooth-motion-fit and apply different corrections per surface.
 
@@ -55,13 +63,7 @@ A planned Tolerance tool will extend this further, letting you tag faces as pres
 
 **Getting the model out.** Export writes the finished geometry back out, mirroring Import's formats — and re-runs Analysis first, so you don't export straight into a problem it already knows how to catch.
 
-## Summary
+## Out of scope
 
-Temper is for FDM users who print functional parts and iterate often — where "looks right in CAD" isn't the same as "will print successfully." It diagnoses printability problems from their actual physical cause, locates them on the model, and provides tools to fix or optimize before slicing.
-
-It stays on the model side only: it isn't a slicer, and doesn't need to know about your specific printer.
-
-It's also deliberately not trying to be everything:
-
-- Printer-specific configuration is out of scope — that would mean building a slicer.
-- Suggesting fixes for arbitrary flagged problems is out of scope; only Split addresses the one problem (oversized parts) that has an unambiguous fix.
+- Printer-specific configuration — that would mean building a slicer.
+- Suggesting fixes for flagged problems in general. Split is the one exception, since an oversized part has an unambiguous fix.
