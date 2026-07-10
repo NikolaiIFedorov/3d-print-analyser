@@ -64,8 +64,8 @@ flowchart LR
     Healing["Healing"]
     end
 
-    UI -- "submits user work" --> Scene
-    Scene -- "submits tool job" --> Concurrency
+    UI -- "requests tool" --> Scene
+    Scene -- "submits requested tool" --> Concurrency
     Concurrency -- "runs tool" --> Logic
     Logic -- "sends tool result" --> Healing
     Healing -- "returns healed result" --> Concurrency
