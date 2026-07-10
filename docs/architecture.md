@@ -58,18 +58,22 @@ flowchart LR
     Scene["Scene<br/>(owns the model)"]
     Rendering["Rendering"]
     end
-    subgraph Worker["Worker thread"]
-    Logic["Logic<br/>(Tools)"]
+    subgraph Worker["Worker thread pool"]
     Concurrency["Concurrency<br/>(worker queues)"]
+    Logic["Logic<br/>(Tools)"]
     Healing["Healing"]
     end
 
     UI -- "submits work" --> Scene
-    Scene -- "calls tool on the model" --> Logic
-    Logic -- "write-tool result" --> Healing
-    Healing -- "healed result" --> Scene
-    Scene -- "current" --> Rendering
-    Scene -- "current" --> UI
+    Scene -- "submits job" --> Concurrency
+    Concurrency -- "runs tool" --> Logic
+    Logic -- "result" --> Healing
+    Healing -- "healed result" --> Concurrency
+    Concurrency -- "commits result" --> Scene
+    Concurrency -- "progress updates" --> UI
+    Concurrency -- "live-preview slot" --> Rendering
+    Scene -- "current model" --> Rendering
+    Scene -- "current model" --> UI
     UI -- "triggers UI render" --> Rendering
 ```
 
@@ -304,7 +308,7 @@ While a long-running Operation (see [Data → Operation](#operation)) is still c
 
 **Phase-level snapshots** — showing the shape as of the last completed checkpoint while the next phase computes — work well: a checkpointed operation (one broken into stages with a real, valid shape at each stage boundary — Structure's carve is built this way) produces a genuine intermediate `TopoDS_Shape` at each phase boundary. OCCT shapes are cheap to copy (a handle increment, not a deep copy — see [Concurrency → Intra-tool parallelism](#concurrency)), so handing one back to the main thread mid-operation costs almost nothing.
 
-- This needs one small addition to Concurrency: a future (the usual way a worker hands back a result) only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases instead. Concurrency owns that slot (see Invariants); Scene/Rendering only read it.
+- This needs one small addition to Concurrency: a future (the usual way a worker hands back a result) only resolves once, so delivering several intermediate shapes over one operation's lifetime needs a separate "latest intermediate result" slot the worker updates between phases instead. Concurrency owns that slot (see Invariants); Rendering only reads it.
 - The slot is protected by a mutex — the worker holds it briefly to write a new shape handle at each phase boundary; the render thread holds it briefly to copy the handle once per frame. Contention is negligible since writes happen only at phase boundaries.
 
 **Continuous frame-by-frame animation** of a single OCCT call in progress isn't achievable on any graphics API: an OCCT boolean or fillet call is an atomic black box with no mid-call hook — there's no valid shape to expose until the call returns, because the shape doesn't exist in any partial form before then. This isn't a rendering limitation waiting to be solved; the data to render simply isn't there yet.
