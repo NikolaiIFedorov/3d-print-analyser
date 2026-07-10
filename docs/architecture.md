@@ -39,7 +39,7 @@ This document defines the domain model, the reasoning behind each decision, and 
   - [Analysis](#analysis)
   - [Structure](#structure)
   - [Calibrate](#calibrate)
-- [Validation](#validation)
+- [Healing](#healing)
 - [Background](#background)
   - [Rejected approaches](#rejected-approaches)
   - [Future & deferred](#future--deferred)
@@ -57,23 +57,24 @@ flowchart LR
     Scene["Scene<br/>(owns Part)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
-    Validation{"Validation<br/>(gate)"}
+    Healing{"Healing<br/>(gate)"}
     Rendering["Rendering"]
 
     UI -- "submits work" --> Scene
     Scene -- "dispatches to" --> Logic
     Logic -. "computes via" .-> Concurrency
-    Logic -- "result" --> Validation
-    Validation -- "gates commit" --> Scene
+    Logic -- "result" --> Healing
+    Healing -- "gates commit" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
+    UI -- "triggers render" --> Rendering
 ```
 
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
 
 A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes a Part's canonical state, and the one that hands work to Logic in the first place.
 
-Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Validation](#validation)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
+Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Healing](#healing)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
 
 You also need to see the model and act on it — pick a face, read a flagged problem, tune a setting. **[UI](#ui)** is the only layer that listens for input, and the only one that decides whether a given input actually matters.
 
@@ -120,7 +121,7 @@ Finally, all of the above happens in response to something, not on a fixed tick:
 - <a id="operation"></a>**Operation** — a modification applied to an *existing* Part (e.g. Structure). Never mutates in place: pushes `current` onto `history` and replaces it with a new `TopoDS_Shape`, so undo is a pop.
   - On failure, reports one standard shape, not invented per-tool: a short, copyable **error code**; a short actionable **message** — what the user can do about it; an optional longer **why**, shown if there's room.
   - Import is not an Operation — it has no prior `current`/`history` to act on. It's a sibling concept that constructs a brand-new Part directly (`current` = the imported/healed shape, `history` empty, unless the source file itself carries a persisted original — see [Import](#import)).
-  - **Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Validation check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
+  - **Why:** "always produces a new shape" is what makes undo just a pop off `history` instead of needing a separate undo-log or a deep-copy-before-mutate step — and it's what lets Healing check a result once, at commit, instead of every tool re-verifying state it might have silently corrupted in place.
   - ```mermaid
     flowchart LR
         subgraph Before
@@ -150,7 +151,7 @@ Finally, all of the above happens in response to something, not on a fixed tick:
   - The live-preview slot is mutex-protected: writer (worker, at phase boundaries) and reader (render thread, once per frame) each hold the mutex only for the duration of a handle copy.
   - Sub-shapes are referenced by value, never by raw pointer — a raw pointer would dangle the moment a shape is rebuilt (see Part).
   - Scene is the only layer that writes a Part's canonical state (`current`, `history`) and Settings — not the same claim as "Scene owns all state," per the rule above. UI is the only consumer that's purely read-only everywhere.
-  - A Part's `current` is always valid — validated once at commit (see Validation), never re-checked downstream. Anything reading `current` can trust it unconditionally.
+  - A Part's `current` is always valid — validated once at commit (see Healing), never re-checked downstream. Anything reading `current` can trust it unconditionally.
 
 Wired by ownership:
 
@@ -308,7 +309,7 @@ While a long-running Operation (see [Data → Operation](#operation)) is still c
 - This isn't a reason to consider Vulkan either: the actual bottleneck here was never render-thread parallelism (this app draws a handful of Parts with cached triangulation — nowhere near the draw-call volume where Vulkan's multithreaded command recording pays off), and switching graphics APIs wouldn't expose OCCT's internal call state regardless.
 
 ### Worker-completion handling
-When an Operation or Import job finishes, Scene checks **success and validity** before committing anything. Failure — whether the algorithm errored outright, or it ran clean but produced an invalid shape that Validation couldn't heal (see [Validation](#validation)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state behind.
+When an Operation or Import job finishes, Scene checks **success and validity** before committing anything. Failure — whether the algorithm errored outright, or it ran clean but produced an invalid shape that Healing couldn't fix (see [Healing](#healing)) — shows the standardized error (code, message, optional why) in the same progress bar, rather than silently discarding the result or leaving stale state behind.
 
 On success, Scene commits the new shape as the Part's `current`.
 
@@ -341,7 +342,7 @@ Owns each tool's own domain computation and any tool-specific derived cache — 
 - **Analysis** — exposes its Issues cache directly; nothing handed back to Scene.
 - **Calibrate** — results are just read by UI; nothing committed at all.
 
-A tool's result isn't "successful" until it's valid — see [Validation](#validation), the shared mechanism every tool's commit path goes through.
+A tool's result isn't "successful" until it's valid — see [Healing](#healing), the shared mechanism every tool's commit path goes through.
 
 ### UI
 The only layer that listens for input events, and the only one that decides whether an event is relevant (see Event Flow). Drives imports, submits operations to Scene's queue, displays Issues and Part state. Never touches geometry directly. Owns the **camera** — it's what the user directly manipulates, so it's UI-local state, not a rendering decision, even though it feeds the render.
@@ -411,7 +412,7 @@ Each tool owns its own queue and worker(s), not only because OCCT can hang (rare
    - **Preview jobs cancel-supersede** — a new preview submission flips the in-flight preview's cancellation token and replaces it, because the new input always makes the old preview result irrelevant; queuing stale previews would leave the user waiting through results they'll never use.
 2. That tool's worker(s) pull queued jobs FIFO and run them off the main thread.
 3. On completion, the job wakes the main thread's blocked event wait — so the main thread discovers the result without polling every frame.
-4. The main thread polls the handle (non-blocking by default) to check if the result is ready, and if so commits it — e.g. Scene swaps in the new shape (once validated, see [Validation](#validation)).
+4. The main thread polls the handle (non-blocking by default) to check if the result is ready, and if so commits it — e.g. Scene swaps in the new shape (once validated, see [Healing](#healing)).
 5. Cancellation is cooperative only: requesting cancellation flips a flag; the running task must check it itself to actually stop early — there's no preemption.
    - On the UI side, the user explicitly collapsing or dismissing a tool panel is the natural cancel trigger. A panel that collapses only because focus moved to a newly-opened tool (see UI → Multiple open panels) is not dismissed — it's still open, just visually shrunk — so it doesn't cancel anything.
    - Cancellation isn't guaranteed instant either way, so the UI must reflect that honestly: show the cancellation as pending until the worker actually stops, rather than assuming immediate success.
@@ -588,11 +589,11 @@ Diagnostic-adjacent. Read-only — never mutates `current`, not an Operation, no
 
 ---
 
-## Validation
+## Healing
 
-A tool's result isn't "successful" until it's valid. Validation happens once, at the [commit](#operation) step — the moment a tool's finished result is about to replace a Part's `current`, not at any intermediate step inside a tool's own algorithm. It's never re-checked afterward, so anything reading a Part's `current` (Analysis, Rendering, future tools) can trust it unconditionally. Lives in `GeometryOps` as a shared utility every tool's commit path calls, not reinvented per-tool — the same pattern `GeometryOps` already follows for other generic OCCT primitives (offset, fillet, boolean, ring math).
+A tool's result isn't "successful" until it's valid. Healing happens once, at the [commit](#operation) step — the moment a tool's finished result is about to replace a Part's `current`, not at any intermediate step inside a tool's own algorithm. It's never re-checked afterward, so anything reading a Part's `current` (Analysis, Rendering, future tools) can trust it unconditionally. Lives in `GeometryOps` as a shared utility every tool's commit path calls, not reinvented per-tool — the same pattern `GeometryOps` already follows for other generic OCCT primitives (offset, fillet, boolean, ring math).
 
-**Why:** OCCT operations (booleans, fillets, mesh-to-BRep conversion) can produce shapes that are topologically well-formed by OCCT's own rules but geometrically broken in ways that corrupt slicing or printing if left uncaught. Validating in one shared place, rather than each tool inventing its own ad hoc check, is what makes the "trust `current` unconditionally" guarantee actually hold.
+**Why:** OCCT operations (booleans, fillets, mesh-to-BRep conversion) can produce shapes that are topologically well-formed by OCCT's own rules but geometrically broken in ways that corrupt slicing or printing if left uncaught. Healing in one shared place, rather than each tool inventing its own ad hoc check, is what makes the "trust `current` unconditionally" guarantee actually hold.
 
 OCCT's `ShapeFix` package supplies the actual repair *primitives* — closing a gap, fixing a curve-on-surface mismatch, correcting orientation. We don't reimplement geometric healing; that would be reinventing a CAD kernel. What's ours is the **dispatch**: deciding which specific fixer applies to which detected problem, what tolerance bounds it, and what happens if it still fails afterward. There's no one generic "fix it" call — each type below routes to a different tool, on purpose.
 
@@ -617,7 +618,7 @@ OCCT's `ShapeFix` package supplies the actual repair *primitives* — closing a 
 
 - `BRepCheck_Analyzer` doesn't flag it — it's checking BRep consistency, not manifold-ness for printability, and there'd be nothing for `ShapeFix` to fix since the data structure is correct.
 - Rejecting it would also contradict the self-intersection fix above: that fix's correct output *is* this shape.
-- If a near-zero-width pinch ever matters physically, that's an Analysis concern (Instability's `minWidth` already watches for vanishing cross-sections), not a Validation one.
+- If a near-zero-width pinch ever matters physically, that's an Analysis concern (Instability's `minWidth` already watches for vanishing cross-sections), not a Healing one.
 
 **Algorithm:** check → if clean, done → if not, dispatch to the matching fixer → re-check → still broken is the "no" branch of `Succeeded & valid?`, healed is "yes".
 
@@ -677,7 +678,7 @@ Most realistic same-Part tool pairs aren't parallelism candidates anyway: Analys
 
 ### Diagram maintenance
 
-Each Mermaid block in this doc (Event Flow's overview, Event Flow's detailed loop, Architecture at a glance's overview, Data's overview, Analysis's algorithm, and Validation's) is its own source of truth, kept separately editable. [architecture-event-flow.png](architecture-event-flow.png) is one combined generated snapshot of all six, for viewers that don't render Mermaid live — not six separate files, so there's one image to find.
+Each Mermaid block in this doc (Event Flow's overview, Event Flow's detailed loop, Architecture at a glance's overview, Data's overview, Analysis's algorithm, and Healing's) is its own source of truth, kept separately editable. [architecture-event-flow.png](architecture-event-flow.png) is one combined generated snapshot of all six, for viewers that don't render Mermaid live — not six separate files, so there's one image to find.
 
 - The other five diagrams render off to the side of the main loop, each in its own labeled box — none graph-connected to each other.
 - Analysis's diagram includes its detectors' internal steps directly inside each detector's box — deliberately not split into a second diagram, since that split read as "missing" rather than "more detail available" to a reader without the surrounding context.
