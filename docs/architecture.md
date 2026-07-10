@@ -54,7 +54,7 @@ Six pieces, wired by ownership:
 ```mermaid
 flowchart LR
     UI["UI"]
-    Scene["Scene<br/>(owns Part)"]
+    Scene["Scene<br/>(owns the model)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
     Healing["Healing"]
@@ -63,7 +63,7 @@ flowchart LR
     UI -- "submits work" --> Scene
     Scene -- "dispatches to" --> Logic
     Logic -. "computes via" .-> Concurrency
-    Logic -- "result" --> Healing
+    Logic -- "write-tool result" --> Healing
     Healing -- "healed result" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
@@ -72,9 +72,9 @@ flowchart LR
 
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
 
-A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes a Part's canonical state, and the one that hands work to Logic in the first place.
+A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes the model's canonical state — formally, a Part (see [Data](#data)) — and the one that hands work to Logic in the first place.
 
-Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Healing](#healing)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state.
+Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Healing](#healing)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state. Only tools that modify the model go through this — a read-only tool like Analysis never touches `current`, so there's nothing for Healing to check.
 
 You also need to see the model and act on it — pick a face, read a flagged problem, tune a setting. **[UI](#ui)** is the only layer that listens for input, and the only one that decides whether a given input actually matters.
 
