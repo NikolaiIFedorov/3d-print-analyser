@@ -58,7 +58,7 @@ flowchart LR
     Scene["Scene<br/>(owns Part)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
-    Validation["Validation"]
+    Validation{"Valid?"}
     Rendering["Rendering"]
 
     Wake --> UI
@@ -67,7 +67,8 @@ flowchart LR
     Scene -- "dispatches to" --> Logic
     Logic -- "runs on" --> Concurrency
     Concurrency -- "result" --> Validation
-    Validation -- "valid → commits" --> Scene
+    Validation -- "yes → commits" --> Scene
+    Validation -- "no → reports error" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
 ```
