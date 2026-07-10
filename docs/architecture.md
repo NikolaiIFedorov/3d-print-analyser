@@ -57,7 +57,7 @@ flowchart LR
     Scene["Scene<br/>(owns Part)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
-    Healing{"Healing<br/>(gate)"}
+    Healing["Healing<br/>(gate)"]
     Rendering["Rendering"]
 
     UI -- "submits work" --> Scene
@@ -67,7 +67,7 @@ flowchart LR
     Healing -- "gates commit" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
-    UI -- "triggers render" --> Rendering
+    UI -- "triggers UI render" --> Rendering
 ```
 
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
