@@ -49,26 +49,22 @@ This document defines the domain model, the reasoning behind each decision, and 
 
 ## Architecture at a glance
 
-Seven pieces, wired by ownership and hand-off:
+Six pieces, wired by ownership:
 
 ```mermaid
 flowchart LR
-    Wake{{"Wake: input or<br/>job completion"}}
     UI["UI"]
     Scene["Scene<br/>(owns Part)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
-    Validation{"Valid?"}
+    Validation{"Validation<br/>(gate)"}
     Rendering["Rendering"]
 
-    Wake --> UI
-    Wake --> Scene
     UI -- "submits work" --> Scene
     Scene -- "dispatches to" --> Logic
     Logic -- "runs on" --> Concurrency
     Concurrency -- "result" --> Validation
-    Validation -- "yes → commits" --> Scene
-    Validation -- "no → reports error" --> Scene
+    Validation -- "gates commit" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
 ```
