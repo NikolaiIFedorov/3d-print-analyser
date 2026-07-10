@@ -64,13 +64,13 @@ flowchart LR
     Healing["Healing"]
     end
 
-    UI -- "submits work" --> Scene
-    Scene -- "submits job" --> Concurrency
+    UI -- "submits user work" --> Scene
+    Scene -- "submits tool job" --> Concurrency
     Concurrency -- "runs tool" --> Logic
-    Logic -- "sends result" --> Healing
+    Logic -- "sends tool result" --> Healing
     Healing -- "returns healed result" --> Concurrency
-    Concurrency -- "delivers result" --> Scene
-    Concurrency -- "reports progress" --> UI
+    Concurrency -- "delivers healed result" --> Scene
+    Concurrency -- "reports tool progress" --> UI
     Concurrency -- "shares in-progress preview" --> Rendering
     Scene -- "shares current model" --> Rendering
     Scene -- "shares current model" --> UI
@@ -79,7 +79,7 @@ flowchart LR
 
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
 
-A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes the model's canonical state — formally, a Part (see [Data](#data)) — and the one that hands work to Logic in the first place.
+A tool's result shouldn't just overwrite the model outright — something has to decide when it's actually safe to keep. That's **[Scene](#scene)**: the only layer that writes the model's canonical state — formally, a Part (see [Data](#data)) — and the one that hands off to Logic in the first place, for whichever tool the user picked via UI. Scene never chooses the tool itself; it only decides when that tool's result is safe to commit.
 
 Not every result a tool computes is trustworthy, either — an OCCT (Open CASCADE Technology, the geometry kernel this app builds on) boolean can produce a shape that's subtly broken. **[Healing](#healing)** checks every result once, right before Scene commits it, so nothing invalid ever becomes the model's live state. Only tools that modify the model go through this — a read-only tool like Analysis never touches `current`, so there's nothing for Healing to check.
 
