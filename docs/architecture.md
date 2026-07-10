@@ -62,8 +62,8 @@ flowchart LR
 
     UI -- "submits work" --> Scene
     Scene -- "dispatches to" --> Logic
-    Logic -- "runs on" --> Concurrency
-    Concurrency -- "result" --> Validation
+    Logic -. "computes via" .-> Concurrency
+    Logic -- "result" --> Validation
     Validation -- "gates commit" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
