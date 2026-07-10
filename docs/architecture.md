@@ -53,16 +53,19 @@ Six pieces, wired by ownership:
 
 ```mermaid
 flowchart LR
+    subgraph Main["Main thread"]
     UI["UI"]
     Scene["Scene<br/>(owns the model)"]
+    Rendering["Rendering"]
+    end
+    subgraph Worker["Worker thread"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
     Healing["Healing"]
-    Rendering["Rendering"]
+    end
 
     UI -- "submits work" --> Scene
-    Scene -- "dispatches to" --> Logic
-    Logic -. "computes via" .-> Concurrency
+    Scene -- "calls tool on the model" --> Logic
     Logic -- "write-tool result" --> Healing
     Healing -- "healed result" --> Scene
     Scene -- "current" --> Rendering
