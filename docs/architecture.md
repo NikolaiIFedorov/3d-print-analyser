@@ -67,14 +67,14 @@ flowchart LR
     UI -- "submits work" --> Scene
     Scene -- "submits job" --> Concurrency
     Concurrency -- "runs tool" --> Logic
-    Logic -- "result" --> Healing
-    Healing -- "healed result" --> Concurrency
-    Concurrency -- "commits result" --> Scene
-    Concurrency -- "progress updates" --> UI
-    Concurrency -- "live-preview slot" --> Rendering
-    Scene -- "current model" --> Rendering
-    Scene -- "current model" --> UI
-    UI -- "triggers UI render" --> Rendering
+    Logic -- "sends result" --> Healing
+    Healing -- "returns healed result" --> Concurrency
+    Concurrency -- "delivers result" --> Scene
+    Concurrency -- "reports progress" --> UI
+    Concurrency -- "shares in-progress preview" --> Rendering
+    Scene -- "shares current model" --> Rendering
+    Scene -- "shares current model" --> UI
+    UI -- "triggers render" --> Rendering
 ```
 
 You need something to actually act on the model — read a file in, run a diagnostic, carve out material. That computation is **[Logic](#logic)**, split into isolated **[Tools](#tools)**: Import, Analysis, Structure, Calibrate, and more once built.
