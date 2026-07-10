@@ -57,14 +57,14 @@ flowchart LR
     Scene["Scene<br/>(owns Part)"]
     Logic["Logic<br/>(Tools)"]
     Concurrency["Concurrency<br/>(worker queues)"]
-    Healing["Healing<br/>(gate)"]
+    Healing["Healing"]
     Rendering["Rendering"]
 
     UI -- "submits work" --> Scene
     Scene -- "dispatches to" --> Logic
     Logic -. "computes via" .-> Concurrency
     Logic -- "result" --> Healing
-    Healing -- "gates commit" --> Scene
+    Healing -- "healed result" --> Scene
     Scene -- "current" --> Rendering
     Scene -- "current" --> UI
     UI -- "triggers UI render" --> Rendering
